@@ -199,11 +199,23 @@ footer {
       .replace(/"/g, "&quot;");
   }
 
+  // Split the Greek forms cell so each form lands on its own line.
+  // Separators in the data: " · " between sibling forms, " / " between
+  // grouped sub-paradigms (e.g. sg / pl), " // " between major blocks.
+  // Inline slashes without surrounding spaces (e.g. α/η, he/she/it) are
+  // intentionally left alone.
+  function formatForms(s) {
+    return escape(s)
+      .split(/\s\/\/\s/)
+      .map(group => group.split(/\s·\s|\s\/\s/).join("<br>"))
+      .join("<br><br>");
+  }
+
   const html = tables.map(part => {
     const rows = (part.rows || []).map(row => `
       <tr>
         <td>${escape(row.item)}</td>
-        <td class="greek">${escape(row.forms)}</td>
+        <td class="greek">${formatForms(row.forms)}</td>
         <td class="cue">${escape(row.cue)}</td>
       </tr>
     `).join("");
