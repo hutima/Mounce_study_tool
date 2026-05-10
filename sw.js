@@ -3,7 +3,7 @@
 // GitHub Pages note: all app-shell URLs are resolved relative to the
 // service worker registration scope so this works both at a domain root
 // and at a project path such as https://user.github.io/repository/.
-const CACHE_NAME = 'mounce-bbg-greek-pwa-v1';
+const CACHE_NAME = 'mounce-bbg-greek-pwa-v2';
 const BASE_URL = new URL('./', self.registration.scope);
 
 const APP_SHELL_PATHS = [
@@ -24,7 +24,7 @@ const APP_SHELL_PATHS = [
   'js/data/setMeta.js?v=1',
   'js/logic/pos_logic.js?v=1',
   'js/data/reader.js?v=1',
-  'js/data/reader_translations.js?v=1',
+  'js/data/reader_translations.js?v=2',
   'js/data/supplementals/mounce_paradigms.js?v=1',
   'js/app/main.js?v=1',
   'js/data/advanced/advanced_01.js?v=2',
