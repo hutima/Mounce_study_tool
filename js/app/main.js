@@ -707,21 +707,7 @@ function buildStudyDeck(cards, options = {}) {
     }
   }
 
-  let deferredCards = cards.filter(card => !isCardDue(card));
-
-  // 1/600 chance for each seen deferred card to be randomly promoted back to due
-  let hadRandomPromotion = false;
-  deferredCards.forEach(card => {
-    const progress = getWordProgress(card.id);
-    if (progress.seenCount > 0 && Math.random() < 1 / 600) {
-      progress.dueAt = Date.now();
-      hadRandomPromotion = true;
-    }
-  });
-  if (hadRandomPromotion) {
-    dueCards = cards.filter(isCardDue);
-    deferredCards = cards.filter(card => !isCardDue(card));
-  }
+  const deferredCards = cards.filter(card => !isCardDue(card));
 
   // Preserve existing order of due cards already in the current deck;
   // append newly-eligible cards (including "(x) return to deck" and
@@ -1011,6 +997,24 @@ function maybeReturnKnownCardToActivePile() {
 
   const card = knownCards[Math.floor(Math.random() * knownCards.length)];
   return moveCardToBackOfActivePile(card);
+}
+
+function maybeReturnConfirmedDeferredCard() {
+  if (!spacedRepetition || !shuffled || isMorphologyMode()) return false;
+  if (KNOWN_CARD_RANDOM_RETURN_FLIP_ODDS <= 0) return false;
+  if (Math.random() >= 1 / KNOWN_CARD_RANDOM_RETURN_FLIP_ODDS) return false;
+
+  const eligible = (originalDeck || []).filter(card => {
+    if (isCardDue(card)) return false;
+    const pct = getConfidencePct(getWordProgress(card.id));
+    return pct !== null && pct > 75;
+  });
+  if (!eligible.length) return false;
+
+  const pick = eligible[Math.floor(Math.random() * eligible.length)];
+  getWordProgress(pick.id).dueAt = Date.now();
+  deck = buildStudyDeck(originalDeck);
+  return true;
 }
 
 
@@ -2635,7 +2639,7 @@ function flipCard() {
   isFlipped = !isFlipped;
   wrapper.classList.toggle('flipped', isFlipped);
 
-  if (isFlipped && maybeReturnKnownCardToActivePile()) {
+  if (isFlipped && (maybeReturnKnownCardToActivePile() || maybeReturnConfirmedDeferredCard())) {
     renderProgress();
     renderReview();
     saveState();
