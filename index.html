@@ -1,0 +1,360 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="theme-color" content="#0e0f14">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Mounce Greek">
+<link rel="manifest" href="manifest.json?v=26">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png?v=26">
+<link rel="icon" type="image/svg+xml" href="favicon.svg?v=26">
+<title>Mounce BBG Greek — Flashcards</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700&family=EB+Garamond:ital,wght@0,400;0,500;1,400&family=Noto+Serif:ital,wght@0,400;1,400&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="styles.css?v=41">
+<script>
+(function(){
+  try {
+    var mode = localStorage.getItem("greekFlashcardsThemeMode") || "system";
+    var prefersDark = window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches;
+    var resolved = mode === "system" ? (prefersDark ? "dark" : "light") : mode;
+    document.documentElement.setAttribute("data-theme", resolved);
+  } catch (err) {
+    document.documentElement.setAttribute("data-theme", "dark");
+  }
+})();
+</script>
+</head>
+<body>
+<div class="app">
+
+  <header>
+    <div class="header-top">
+      <div></div>
+      <div class="theme-switcher" role="group" aria-label="Color theme">
+        <button class="theme-btn" id="themeSystemBtn" type="button" onclick="setThemeMode('system')">System</button>
+        <button class="theme-btn" id="themeDarkBtn" type="button" onclick="setThemeMode('dark')">Dark</button>
+        <button class="theme-btn" id="themeLightBtn" type="button" onclick="setThemeMode('light')">Light</button>
+      </div>
+    </div>
+    <div class="koine">ἡ κοινὴ διάλεκτος</div>
+    <h1>Mounce — Basics of Biblical Greek</h1>
+    <div class="subtitle" id="appSubtitle">BBG3 Vocabulary &amp; Paradigm Flashcards</div>
+    <div class="wycliffe">Koine Greek Study Tool</div>
+  </header>
+
+  <div class="quick-start">
+    <button class="quick-btn" type="button" onclick="openStudySelector()">Choose session</button>
+    <button class="quick-btn quick-primary" type="button" onclick="startStudying()">Start studying</button>
+    <div class="mode-group app-profile-group" role="group" aria-label="Study mode shortcut">
+      <button class="mode-btn active" id="modeShortcutVocabBtn" type="button" onclick="setStudyMode('vocab')">Vocab</button>
+      <button class="mode-btn" id="modeShortcutMorphBtn" type="button" onclick="setStudyMode('morph')">Grammar</button>
+      <button class="mode-btn" id="modeShortcutReaderBtn" type="button" onclick="openReaderTab()">Translate</button>
+      <a class="mode-btn" id="modeShortcutMemorizationBtn" href="pages/memorization.html">Memorization</a>
+    </div>
+    <button class="quick-btn" type="button" onclick="openAnalyticsOverlay()">Progress</button>
+    <button class="quick-btn" type="button" onclick="openShortcutsModal()">User guide</button>
+  </div>
+
+  <div class="notice-row">
+    <button class="ctrl-btn notice-btn" type="button" onclick="showDisclaimerModal()">Study aid notice</button>
+    <div class="app-notice" id="appNotice">Unofficial student-made AI study aid. Verify against course content and official materials.</div>
+  </div>
+
+  <details class="utility-section">
+    <summary>Progress tools</summary>
+    <button class="ctrl-btn" type="button" onclick="exportProgressJson()">Export progress</button>
+    <button class="ctrl-btn" type="button" onclick="triggerImportProgress()">Import progress</button>
+  </details>
+
+  <div class="ornament">✦ · · · ✦</div>
+
+  <details class="utility-section" id="advancedSettingsDetails">
+    <summary>Advanced review settings</summary>
+<div class="controls-bar" id="controlsBar">
+<button class="toggle-label" id="shuffleToggle" type="button" role="switch" aria-checked="false" onclick="toggleShuffle()">
+      <span class="toggle-text">Shuffle</span>
+      <span class="toggle-switch" id="shuffleBtn" aria-hidden="true"></span>
+    </button>
+    <button class="toggle-label" id="requiredToggle" type="button" role="switch" aria-checked="false" onclick="toggleRequiredOnly()">
+      <span class="toggle-text">Required only</span>
+      <span class="toggle-switch" id="requiredBtn" aria-hidden="true"></span>
+    </button>
+    <button class="toggle-label" id="directionToggle" type="button" role="switch" aria-checked="false" onclick="toggleDirection()">
+      <span class="toggle-text">Eng → Gk</span>
+      <span class="toggle-switch" id="directionBtn" aria-hidden="true"></span>
+    </button>
+    <button class="toggle-label" id="spacedToggle" type="button" role="switch" aria-checked="false" onclick="toggleSpacedRepetition()">
+      <span class="toggle-text">Spaced review</span>
+      <span class="toggle-switch" id="spacedBtn" aria-hidden="true"></span>
+    </button>
+    <button class="toggle-label" id="selfCheckToggle" type="button" role="switch" aria-checked="false" onclick="toggleMorphSelfCheck()" style="display:none">
+      <span class="toggle-text">Self-check</span>
+      <span class="toggle-switch" id="selfCheckBtn" aria-hidden="true"></span>
+    </button>
+    <button class="ctrl-btn" type="button" onclick="reshuffleEligible()">Reshuffle</button>
+    <button class="ctrl-btn" id="resetDeckBtn" type="button" onclick="resetCurrentDeck()">Reset deck</button>
+    <button class="ctrl-btn" type="button" onclick="resetAllStats()">Reset stats</button>
+  </div>
+  </details>
+
+  <div id="readerView" class="reader-view" style="display:none"></div>
+
+  <div class="card-area" id="cardArea">
+    <div class="empty-state">
+      <div class="big">αβγ</div>
+      Tap to choose a session and start studying.
+    </div>
+  </div>
+
+  <div class="nav-row" id="navRow" style="display:none">
+    <button class="nav-btn nav-prev" onclick="navigate(-1)">← Prev</button>
+    <button class="nav-btn nav-undo" id="spacedUndoBtn" onclick="restoreSpacedUndo()" style="display:none">↶ Undo</button>
+    <button class="nav-btn nav-next" onclick="navigate(1)">Next →</button>
+  </div>
+
+  <div class="mark-row" id="markRow" style="display:none">
+    <button class="mark-btn mark-again" onclick="markCard('again')">✗ Hard</button>
+    <button class="mark-btn mark-pass"  onclick="markCard('pass')">~ Uncertain</button>
+    <button class="mark-btn mark-easy"  onclick="markCard('easy')">✓ Easy</button>
+  </div>
+
+<section class="review-shell">
+    <div class="review-panel show" id="reviewPanel">
+    <div class="review-title">Progress</div>
+    <div class="review-stats" id="reviewStats"></div>
+    <div class="review-list" id="reviewList"></div>
+  </div>
+  </section>
+
+</div>
+
+<div class="consent-overlay transfer-overlay" id="transferOverlay" aria-hidden="true">
+  <div class="consent-modal transfer-modal" role="dialog" aria-modal="true" aria-labelledby="transferTitle">
+    <div class="consent-label" id="transferLabel">Progress tools</div>
+    <h2 id="transferTitle">Import or export progress</h2>
+    <div class="consent-copy">
+      <p id="transferCopy">Use these tools to move progress between devices.</p>
+    </div>
+    <textarea id="transferTextarea" class="transfer-textarea" spellcheck="false" autocapitalize="off" autocomplete="off" autocorrect="off"></textarea>
+    <div class="transfer-actions">
+      <button class="ctrl-btn" id="transferSecondaryBtn" type="button" onclick="handleTransferSecondaryAction()" style="display:none">Choose JSON file</button>
+    </div>
+    <div class="consent-actions transfer-footer-actions">
+      <button class="ctrl-btn" type="button" onclick="closeTransferModal()">Close</button>
+      <button class="ctrl-btn consent-primary" id="transferPrimaryBtn" type="button" onclick="handleTransferPrimaryAction()">Continue</button>
+    </div>
+  </div>
+</div>
+
+<div class="consent-overlay analytics-overlay" id="analyticsOverlay" aria-hidden="true">
+  <div class="consent-modal analytics-modal" role="dialog" aria-modal="true" aria-labelledby="analyticsTitle">
+    <div class="analytics-header-row">
+      <div>
+        <div class="consent-label">Study analytics</div>
+        <h2 id="analyticsTitle">Progress and study time</h2>
+      </div>
+      <button class="ctrl-btn" type="button" onclick="closeAnalyticsOverlay()">Close</button>
+    </div>
+
+    <div id="analyticsHero"></div>
+    <div id="analyticsTitles"></div>
+    <div id="analyticsCourseCompletion"></div>
+    <div id="analyticsHeatmap"></div>
+    <div id="analyticsAchievements"></div>
+
+    <div class="analytics-divider"></div>
+
+    <div class="analytics-section-head"><div><h3>Time ledger</h3><p>Cumulative active study time, session history, and foreground totals.</p></div></div>
+    <div class="analytics-metrics-grid" id="analyticsOverallMetrics"></div>
+    <div class="analytics-chart-card">
+      <div class="analytics-chart-title">Cumulative active study time</div>
+      <div id="analyticsTimeChart"></div>
+    </div>
+    <div class="analytics-session-summary" id="analyticsSessionSummary"></div>
+    <div id="analyticsVocabSection"></div>
+    <div id="analyticsGrammarSection"></div>
+    <div class="consent-actions transfer-footer-actions">
+      <button class="ctrl-btn" type="button" onclick="closeAnalyticsOverlay()">Close</button>
+    </div>
+  </div>
+</div>
+
+<div class="consent-overlay analytics-overlay study-selector-overlay" id="studySelectorOverlay" aria-hidden="true">
+  <div class="consent-modal analytics-modal study-selector-modal" role="dialog" aria-modal="true" aria-labelledby="studySelectorTitle">
+    <div class="analytics-header-row">
+      <div>
+        <div class="consent-label">Start studying</div>
+        <h2 id="studySelectorTitle">Choose session</h2>
+      </div>
+      <button class="ctrl-btn" type="button" onclick="closeStudySelector()">Close</button>
+    </div>
+    <div class="selector-section">
+      <span class="selector-label">Sessions</span>
+      <div class="sessions-grid" id="sessionsGrid"></div>
+    </div>
+    <div class="selector-section">
+      <span class="selector-label">Manual chapter selection</span>
+      <div class="sessions-grid" id="chaptersGrid"></div>
+    </div>
+    <div class="selector-section" id="supplementalSection">
+      <span class="selector-label">Supplemental</span>
+      <div id="supplementalGrid"></div>
+    </div>
+    <div class="selector-section" id="advancedSection">
+      <details class="advanced-section-shell" id="advancedSectionShell">
+        <summary class="advanced-section-summary">
+          <span class="selector-label" style="margin-bottom:0">Advanced vocabulary</span>
+          <span class="advanced-section-meta" id="advancedSectionMeta"></span>
+        </summary>
+        <p class="advanced-section-blurb">Rare New Testament Greek lemmas not covered in your course, ordered by descending NT frequency in buckets of 200 (sub‑groups of 25). These are not counted toward course‑wide progress, but they do appear in the analytics for whatever you have selected.</p>
+        <div id="advancedGrid"></div>
+      </details>
+    </div>
+    <div class="analytics-footer-row">
+      <button class="ctrl-btn" type="button" onclick="closeStudySelector()">Close</button>
+    </div>
+  </div>
+</div>
+
+<div class="consent-overlay user-guide-overlay" id="shortcutsOverlay" aria-hidden="true">
+  <div class="consent-modal user-guide-modal" role="dialog" aria-modal="true" aria-labelledby="shortcutsTitle">
+    <div class="consent-label">User guide</div>
+    <h2 id="shortcutsTitle">How to use this app</h2>
+    <div class="consent-copy user-guide-copy">
+      <p>An unofficial study aid for William D. Mounce, <em>Basics of Biblical Greek</em> (BBG3). Flip cards, mark how confident you felt, and the app schedules what comes back next. Vocabulary is sourced from Paul Denisowski's BBG3 chapter lists; grammar concepts and paradigm order follow Mounce's published overheads.</p>
+
+      <h3 class="user-guide-heading">Home screen tabs</h3>
+      <p><strong>Choose session.</strong> Pre-built sessions (the four BBG Parts plus cumulative-through-Ch milestones), manual chapter selection, supplemental paradigm decks, and an Advanced vocabulary section with rare NT lemmas grouped in buckets of 200.</p>
+      <p><strong>Start studying.</strong> Begins (or resumes) a session for whatever you have selected.</p>
+      <p><strong>Vocab / Grammar / Translate / Memorization.</strong> The mode strip switches what kind of card you study or jumps to a separate page:</p>
+      <ul class="user-guide-list">
+        <li><strong>Vocab</strong> — Greek headword on the front, English gloss on the back.</li>
+        <li><strong>Grammar</strong> — multiple‑choice parsing and concept drills aligned to Mounce's Noun Rules, Five Rules of Contraction, Five Rules of μι Verbs, and the Master Verb Chart.</li>
+        <li><strong>Translate</strong> — short author‑written Greek phrases per chapter, restricted to vocabulary and grammar introduced through that point. (The Mounce variant ships without NT‑verse curation.)</li>
+        <li><strong>Memorization</strong> — separate page with full paradigm reference tables (article, nouns, pronouns, adjectives, verbs by tense). Use the toolbar to hide Greek, English, or notes for self‑testing.</li>
+      </ul>
+      <p><strong>Progress.</strong> Opens an analytics overlay with your study streak, level/title, daily activity heatmap, course‑completion bars, achievements, cumulative active study time, session history, and per‑deck vocabulary and grammar progress.</p>
+      <p><strong>User guide.</strong> This screen.</p>
+
+      <h3 class="user-guide-heading">Advanced review settings</h3>
+      <p>Tucked under <em>Advanced review settings</em> on the home screen. All toggles persist across sessions.</p>
+      <ul class="user-guide-list">
+        <li><strong>Shuffle</strong> — randomize card order in the current deck.</li>
+        <li><strong>Required only</strong> — hide optional / supplemental words and study only course‑required vocabulary. On by default.</li>
+        <li><strong>Eng → Gk</strong> — flip the prompt direction (English shown first, you recall the Greek). Works in both vocab and grammar modes.</li>
+        <li><strong>Spaced review</strong> — turn spaced repetition on or off. On by default.</li>
+        <li><strong>Self‑check</strong> (grammar mode only) — hide the answer until you tap to reveal, then rate yourself.</li>
+        <li><strong>Reshuffle</strong> — re‑order whatever cards are currently due/eligible without changing your progress.</li>
+        <li><strong>Reset deck</strong> — clear marks and progress for the currently selected sets only.</li>
+        <li><strong>Reset stats</strong> — wipe all study statistics globally. There is no undo.</li>
+      </ul>
+
+      <h3 class="user-guide-heading">How spaced repetition works</h3>
+      <p>Each card has its own schedule. When you mark a card the app adjusts both <em>when</em> it returns and an <em>ease</em> factor that scales future intervals:</p>
+      <ul class="user-guide-list">
+        <li><strong>✗ Hard</strong> — comes back within minutes, drops ease and steps the card back one stage.</li>
+        <li><strong>~ Uncertain</strong> — comes back at roughly half its previous interval (capped between 1 hour and 1 week), small ease decrease.</li>
+        <li><strong>✓ Easy</strong> — advances to the next ramp step (~1 → 3 → 7 → 14 days, then growing), increases ease, and recent accuracy further multiplies the gap.</li>
+      </ul>
+      <p>With <strong>Spaced review off</strong>, the deck behaves as a straight cycle: cards you mark <em>Easy</em> fall out of rotation until the deck is recycled, and <em>Hard</em>/<em>Uncertain</em> cards keep coming back inside the same pass. Use the <strong>↶ Undo</strong> button under the card to reverse your last mark in spaced mode.</p>
+
+      <h3 class="user-guide-heading">Progress tools and notice</h3>
+      <p><strong>Progress tools</strong> (collapsible on the home screen) export your full progress as JSON or import a saved file — useful for moving between devices or backing up before a reset.</p>
+      <p><strong>Study aid notice</strong> re‑opens the AI / unofficial‑content disclaimer at any time.</p>
+
+      <h3 class="user-guide-heading">Keyboard shortcuts (while studying)</h3>
+      <p>Flip card: <strong>Space</strong> / <strong>Enter</strong></p>
+      <p>Navigate: <strong>←</strong> <strong>→</strong> (or <strong>↑</strong> <strong>↓</strong>)</p>
+      <p>Mark confidence: <strong>1</strong> Hard, <strong>2</strong> Uncertain, <strong>3</strong> Easy</p>
+      <p>Quick marks: <strong>R</strong> = Hard, <strong>K</strong> = Easy</p>
+      <p>Grammar options: <strong>1–4</strong> chooses an answer</p>
+
+      <h3 class="user-guide-heading">Tips</h3>
+      <ul class="user-guide-list">
+        <li>Be honest with <em>Hard</em> / <em>Uncertain</em> / <em>Easy</em> — the schedule only helps if it reflects what you actually knew.</li>
+        <li>Switch to the <strong>Memorization</strong> page when you want to study paradigm tables side‑by‑side rather than one card at a time.</li>
+        <li>The <strong>Translate</strong> drills are short author‑written sentences that use only vocab/grammar through that chapter — the easiest bridge from flashcards to real syntax.</li>
+        <li>Theme (System / Dark / Light) is in the top‑right of the header.</li>
+      </ul>
+    </div>
+    <div class="consent-actions">
+      <button class="ctrl-btn consent-primary" type="button" onclick="closeShortcutsModal()">Close</button>
+    </div>
+  </div>
+</div>
+
+<div class="consent-overlay" id="consentOverlay" aria-hidden="true">
+  <div class="consent-modal" role="dialog" aria-modal="true" aria-labelledby="consentTitle">
+    <div class="consent-label">Before you begin</div>
+    <h2 id="consentTitle">Please read before using this app</h2>
+    <div class="consent-copy">
+      <p>This study tool was made with AI by a student. It is unofficial and may contain mistakes, omissions, or misleading answers.</p>
+      <p>Always check vocabulary, parsing, grammar explanations, and quiz content against your course content, instructor guidance, and official materials.</p>
+      <p>This app is meant to help with review and memorization, not to replace assigned coursework or authoritative sources.</p>
+      <p>Quick start: flip a card, then mark <strong>Hard</strong>, <strong>Uncertain</strong>, or <strong>Easy</strong>.</p>
+    </div>
+    <label class="consent-check-row" id="consentCheckRow">
+      <input type="checkbox" id="consentCheckbox">
+      <span>I understand this is an unofficial AI-assisted student study aid, and I will verify content against course materials and official sources.</span>
+    </label>
+    <div class="consent-actions">
+      <button class="ctrl-btn consent-primary" id="consentContinueBtn" type="button" onclick="handleConsentAction()" disabled>Agree and continue</button>
+    </div>
+  </div>
+</div>
+
+<div class="consent-overlay" id="whatsNewV1_1Overlay" aria-hidden="true">
+  <div class="consent-modal" role="dialog" aria-modal="true" aria-labelledby="whatsNewV1_1Title">
+    <div class="consent-label">Mounce variant</div>
+    <h2 id="whatsNewV1_1Title">Mounce BBG3 build</h2>
+    <div class="consent-copy">
+      <p><strong>Vocabulary.</strong> Sourced verbatim from Paul Denisowski's BBG3 per-chapter lists (chapters 4 and 6–36; chapters 1–3, 5, 15, and 26 introduce no new lemmas).</p>
+      <p><strong>Grammar &amp; paradigm order.</strong> Aligned to Mounce's published overheads: Noun Rules 1–8, Five Rules of Contraction, Three Uses of αὐτός, Master Case-Ending Chart, Master Verb Chart, participle morphemes (ντ, μενο/η, οτ), Five Rules of μι Verbs, and the four classes of conditional sentences.</p>
+      <p><strong>Sessions.</strong> Replaced the lecture-week presets with Mounce's four Parts (Introduction · Noun System · Indicative Verb · Nonindicative &amp; μι) and three cumulative milestones (through Ch 14, through Ch 25, all 36 chapters).</p>
+      <p>You can re-open the study aid notice any time from the <strong>Study aid notice</strong> button on the home screen.</p>
+    </div>
+    <div class="consent-actions">
+      <button class="ctrl-btn consent-primary" id="whatsNewV1_1CloseBtn" type="button" onclick="closeWhatsNewV1_1Modal()">Got it</button>
+    </div>
+  </div>
+</div>
+
+<script defer src="js/data/words.js?v=1"></script>
+<script defer src="js/data/morphology.js?v=1"></script>
+<script defer src="js/data/supplemental.js?v=1"></script>
+<script defer src="js/data/grammar.js?v=1"></script>
+<script defer src="js/data/supplementals/mounce_paradigms.js?v=1"></script>
+<script defer src="js/data/advanced/advanced_01.js?v=2"></script>
+<script defer src="js/data/advanced/advanced_02.js?v=2"></script>
+<script defer src="js/data/advanced/advanced_03.js?v=2"></script>
+<script defer src="js/data/advanced/advanced_04.js?v=2"></script>
+<script defer src="js/data/advanced/advanced_05.js?v=2"></script>
+<script defer src="js/data/advanced/advanced_06.js?v=2"></script>
+<script defer src="js/data/advanced/advanced_07.js?v=2"></script>
+<script defer src="js/data/advanced/advanced_08.js?v=2"></script>
+<script defer src="js/data/advanced/advanced_09.js?v=2"></script>
+<script defer src="js/data/advanced/advanced_10.js?v=2"></script>
+<script defer src="js/data/advanced/advanced_11.js?v=2"></script>
+<script defer src="js/data/advanced/advanced_12.js?v=2"></script>
+<script defer src="js/data/advanced/advanced_13.js?v=2"></script>
+<script defer src="js/data/advanced/advanced_14.js?v=2"></script>
+<script defer src="js/data/advanced/advanced_15.js?v=2"></script>
+<script defer src="js/data/advanced/advanced_16.js?v=2"></script>
+<script defer src="js/data/advanced/advanced_17.js?v=2"></script>
+<script defer src="js/data/advanced/advanced_18.js?v=2"></script>
+<script defer src="js/data/advanced/advanced_19.js?v=2"></script>
+<script defer src="js/data/advanced/advanced_20.js?v=2"></script>
+<script defer src="js/data/advanced/advanced_21.js?v=2"></script>
+<script defer src="js/data/advanced/advanced_22.js?v=2"></script>
+<script defer src="js/data/advanced/advanced_23.js?v=2"></script>
+<script defer src="js/data/advanced/advanced_24.js?v=2"></script>
+<script defer src="js/data/advanced/advanced_25.js?v=2"></script>
+<script defer src="js/data/reader.js?v=1"></script>
+<script defer src="js/data/reader_translations.js?v=1"></script>
+<script defer src="js/logic/pos_logic.js?v=1"></script>
+<script type="module" src="js/app/main.js?v=1"></script>
+</body>
+</html>
