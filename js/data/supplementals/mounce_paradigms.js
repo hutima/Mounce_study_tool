@@ -45,14 +45,14 @@
     label: 'λόγος — 2nd decl. masculine (full)',
     week: 7,
     cards: [
-      { g: 'λόγος', e: 'nominative singular', required: true },
-      { g: 'λόγου', e: 'genitive singular', required: true },
-      { g: 'λόγῳ', e: 'dative singular', required: true },
-      { g: 'λόγον', e: 'accusative singular', required: true },
-      { g: 'λόγοι', e: 'nominative plural', required: true },
-      { g: 'λόγων', e: 'genitive plural', required: true },
-      { g: 'λόγοις', e: 'dative plural', required: true },
-      { g: 'λόγους', e: 'accusative plural', required: true }
+      { g: 'λόγος', e: 'nominative singular masculine', required: true },
+      { g: 'λόγου', e: 'genitive singular masculine', required: true },
+      { g: 'λόγῳ', e: 'dative singular masculine', required: true },
+      { g: 'λόγον', e: 'accusative singular masculine', required: true },
+      { g: 'λόγοι', e: 'nominative plural masculine', required: true },
+      { g: 'λόγων', e: 'genitive plural masculine', required: true },
+      { g: 'λόγοις', e: 'dative plural masculine', required: true },
+      { g: 'λόγους', e: 'accusative plural masculine', required: true }
     ]
   });
 
@@ -60,14 +60,14 @@
     label: 'γραφή — 1st decl. feminine (η-pattern)',
     week: 7,
     cards: [
-      { g: 'γραφή', e: 'nominative singular', required: true },
-      { g: 'γραφῆς', e: 'genitive singular', required: true },
-      { g: 'γραφῇ', e: 'dative singular', required: true },
-      { g: 'γραφήν', e: 'accusative singular', required: true },
-      { g: 'γραφαί', e: 'nominative plural', required: true },
-      { g: 'γραφῶν', e: 'genitive plural', required: true },
-      { g: 'γραφαῖς', e: 'dative plural', required: true },
-      { g: 'γραφάς', e: 'accusative plural', required: true }
+      { g: 'γραφή', e: 'nominative singular feminine', required: true },
+      { g: 'γραφῆς', e: 'genitive singular feminine', required: true },
+      { g: 'γραφῇ', e: 'dative singular feminine', required: true },
+      { g: 'γραφήν', e: 'accusative singular feminine', required: true },
+      { g: 'γραφαί', e: 'nominative plural feminine', required: true },
+      { g: 'γραφῶν', e: 'genitive plural feminine', required: true },
+      { g: 'γραφαῖς', e: 'dative plural feminine', required: true },
+      { g: 'γραφάς', e: 'accusative plural feminine', required: true }
     ]
   });
 
@@ -75,12 +75,12 @@
     label: 'ἔργον — 2nd decl. neuter',
     week: 7,
     cards: [
-      { g: 'ἔργον', e: 'nominative or accusative singular', required: true },
-      { g: 'ἔργου', e: 'genitive singular', required: true },
-      { g: 'ἔργῳ', e: 'dative singular', required: true },
-      { g: 'ἔργα', e: 'nominative or accusative plural', required: true },
-      { g: 'ἔργων', e: 'genitive plural', required: true },
-      { g: 'ἔργοις', e: 'dative plural', required: true }
+      { g: 'ἔργον', e: 'nominative or accusative singular neuter', required: true },
+      { g: 'ἔργου', e: 'genitive singular neuter', required: true },
+      { g: 'ἔργῳ', e: 'dative singular neuter', required: true },
+      { g: 'ἔργα', e: 'nominative or accusative plural neuter', required: true },
+      { g: 'ἔργων', e: 'genitive plural neuter', required: true },
+      { g: 'ἔργοις', e: 'dative plural neuter', required: true }
     ]
   });
 

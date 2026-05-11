@@ -902,6 +902,30 @@
     min-width: 150px;
   }
 
+  .morph-pass-row {
+    display: flex;
+    justify-content: center;
+    margin-bottom: 16px;
+  }
+
+  .choice-btn-dontknow {
+    min-width: 220px;
+    color: var(--muted);
+    border-style: dashed;
+    font-style: italic;
+  }
+
+  .choice-btn-dontknow:hover:not(:disabled) {
+    color: var(--gold-light);
+    border-color: var(--gold-dim);
+    background: rgba(201,168,76,0.08);
+  }
+
+  .morph-dontknow-btn {
+    min-width: 180px;
+    font-style: italic;
+  }
+
   .morph-result {
     border-radius: 10px;
     padding: 12px 14px;
@@ -923,6 +947,12 @@
     background: rgba(140,58,58,0.12);
     border: 1px solid #a55151;
     color: #f0c3c3;
+  }
+
+  .morph-result.skipped {
+    background: rgba(107,98,60,0.10);
+    border: 1px dashed var(--gold-dim);
+    color: var(--gold-light);
   }
 
   .morph-result-title {

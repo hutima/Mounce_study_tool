@@ -355,17 +355,17 @@
           questions: [
             { form: "λόγος",
               prompt: "Parse this form (2nd declension masculine).",
-              answer: "nominative singular",
-              choices: ["nominative singular", "accusative singular", "nominative plural", "genitive singular"] },
+              answer: "nominative singular masculine",
+              choices: ["nominative singular masculine", "accusative singular masculine", "nominative plural masculine", "genitive singular masculine"] },
             { form: "λόγον",
               prompt: "Parse this form.",
-              answer: "accusative singular",
-              choices: ["accusative singular", "nominative singular", "accusative plural", "genitive singular"] },
+              answer: "accusative singular masculine",
+              choices: ["accusative singular masculine", "nominative singular masculine", "accusative plural masculine", "genitive singular masculine"] },
             { form: "ἔργα",
               prompt: "Parse this form (neuter).",
-              answer: "nominative or accusative plural",
+              answer: "nominative or accusative plural neuter",
               choices: [
-                "nominative or accusative plural",
+                "nominative or accusative plural neuter",
                 "nominative singular feminine",
                 "genitive plural neuter",
                 "dative singular neuter"
