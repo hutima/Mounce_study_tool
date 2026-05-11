@@ -349,10 +349,19 @@ function syncLayoutVisibility() {
   if (modeGroup) modeGroup.style.display = canAccessGrammarUi() ? 'inline-flex' : 'none';
   if (!reviewDeckMode) return;
   if (prevBtn) {
-    prevBtn.style.display = spacedRepetition && !isMorphologyMode() ? 'none' : '';
-    prevBtn.disabled = currentIdx <= 0;
+    if (isMorphologyMode()) {
+      prevBtn.style.display = 'none';
+    } else {
+      prevBtn.style.display = spacedRepetition ? 'none' : '';
+      prevBtn.disabled = currentIdx <= 0;
+    }
   }
-  if (undoBtn) undoBtn.style.display = spacedRepetition && !isMorphologyMode() && !!spacedUndoSnapshot ? '' : 'none';
+  if (undoBtn) {
+    const showUndo = isMorphologyMode()
+      ? (morphAnswerState.answered && !!spacedUndoSnapshot)
+      : (spacedRepetition && !!spacedUndoSnapshot);
+    undoBtn.style.display = showUndo ? '' : 'none';
+  }
   if (nextBtn) {
     if (isMorphologyMode()) {
       nextBtn.textContent = 'Next →';
@@ -617,9 +626,15 @@ function clearSpacedUndoSnapshot() {
 }
 
 function captureSpacedUndoSnapshot() {
-  if (!spacedRepetition || !selectedKeys.length || isMorphologyMode() || currentIdx >= activeDeckCount || !deck[currentIdx]) {
+  if (!selectedKeys.length || !deck[currentIdx]) {
     clearSpacedUndoSnapshot();
     return;
+  }
+  if (!isMorphologyMode()) {
+    if (!spacedRepetition || currentIdx >= activeDeckCount) {
+      clearSpacedUndoSnapshot();
+      return;
+    }
   }
   spacedUndoSnapshot = {
     selectedKeys: cloneForUndo(selectedKeys),
@@ -643,8 +658,9 @@ function captureSpacedUndoSnapshot() {
 }
 
 function restoreSpacedUndo() {
-  if (!spacedUndoSnapshot || !spacedUndoSnapshot.spacedRepetition) return;
+  if (!spacedUndoSnapshot) return;
   if (studyMode !== spacedUndoSnapshot.studyMode) return;
+  if (!isMorphologyMode() && !spacedUndoSnapshot.spacedRepetition) return;
   if (directionToGreek !== spacedUndoSnapshot.directionToGreek) return;
   if (requiredOnly !== spacedUndoSnapshot.requiredOnly) return;
   if (shuffled !== spacedUndoSnapshot.shuffled) return;
@@ -850,6 +866,8 @@ function answerMorphologyChoice(choiceIndex) {
   const choices = reversed ? card.reverseChoices : card.choices;
   if (!Array.isArray(choices)) return;
 
+  captureSpacedUndoSnapshot();
+
   const selected = choices[choiceIndex];
   const correctAnswer = reversed ? card.form : card.answer;
   const isCorrect = selected === correctAnswer;
@@ -898,6 +916,8 @@ function rateMorphologySelfCheck(isCorrect) {
   const card = deck[currentIdx];
   if (!card || !morphAnswerState.revealed || morphAnswerState.answered) return;
 
+  captureSpacedUndoSnapshot();
+
   morphAnswerState = {
     answered: true,
     revealed: true,
@@ -930,6 +950,8 @@ function passMorphologyChoice() {
   noteStudyInteraction();
   const card = deck[currentIdx];
   if (!card || morphAnswerState.answered) return;
+
+  captureSpacedUndoSnapshot();
 
   morphAnswerState = {
     answered: true,
@@ -4632,7 +4654,9 @@ document.addEventListener('keydown', e => {
 
   if (isMorphologyMode()) {
     if (e.key === 'ArrowRight' || e.key === 'ArrowDown') navigate(1);
-    if (e.key === 'ArrowLeft'  || e.key === 'ArrowUp')   navigate(-1);
+    if (e.key === 'ArrowLeft'  || e.key === 'ArrowUp') {
+      if (morphAnswerState.answered && spacedUndoSnapshot) restoreSpacedUndo();
+    }
     if (/^[1-4]$/.test(e.key)) {
       const idx = Number(e.key) - 1;
       answerMorphologyChoice(idx);
