@@ -55,7 +55,8 @@
             { form: "ὥρα", answer: "nominative singular feminine" },
             { form: "ὥραν", answer: "accusative singular feminine" },
             { form: "ὧραι", answer: "nominative plural feminine" },
-            { form: "ὥρας", answer: "accusative plural feminine" }
+            { form: "ὥρας", answer: "accusative plural feminine or genitive singular feminine",
+              note: "α-pattern syncretism: -ας is gen sg AND acc pl." }
           ]
         },
         {
@@ -318,9 +319,14 @@
             { form: "ἐκείνῳ", answer: "dative singular masculine/neuter" },
             { form: "ἐκεῖνον", answer: "accusative singular masculine" },
             { form: "ἐκεῖνοι", answer: "nominative plural masculine" },
+            { form: "ἐκείνων", answer: "genitive plural (all genders)" },
+            { form: "ἐκείνοις", answer: "dative plural masculine/neuter" },
+            { form: "ἐκείνους", answer: "accusative plural masculine" },
             { form: "ἐκείνη", answer: "nominative singular feminine" },
-            { form: "ἐκείνη/ἐκεῖναι", answer: "(many forms; identify by ending) — see paradigm",
-              note: "Endings exactly mirror αὐτός apart from the stem ἐκεῖν-." },
+            { form: "ἐκείνης", answer: "genitive singular feminine" },
+            { form: "ἐκείνην", answer: "accusative singular feminine" },
+            { form: "ἐκεῖναι", answer: "nominative plural feminine" },
+            { form: "ἐκείνας", answer: "accusative plural feminine" },
             { form: "ἐκεῖνο", answer: "nominative or accusative singular neuter" },
             { form: "ἐκεῖνα", answer: "nominative or accusative plural neuter" }
           ]
@@ -692,7 +698,7 @@
             { form: "λύων", answer: "present active participle, nom. sg. masc." },
             { form: "λύοντος", answer: "present active participle, gen. sg. masc./neut." },
             { form: "λύοντι", answer: "present active participle, dat. sg. masc./neut." },
-            { form: "λύοντα", answer: "present active participle, acc. sg. masc." },
+            { form: "λύοντα", answer: "present active participle, acc. sg. masc. or nom./acc. pl. neut." },
             { form: "λύουσα", answer: "present active participle, nom. sg. fem." },
             { form: "λυούσης", answer: "present active participle, gen. sg. fem." },
             { form: "λῦον", answer: "present active participle, nom./acc. sg. neut." },

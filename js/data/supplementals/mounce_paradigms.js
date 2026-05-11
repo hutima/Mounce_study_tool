@@ -138,7 +138,7 @@
       { g: 'αὐτοί', e: 'nom. pl. masc.', required: true },
       { g: 'αὐταί', e: 'nom. pl. fem.', required: true },
       { g: 'αὐτά', e: 'nom./acc. pl. neut.', required: true },
-      { g: 'αὐτῶν', e: 'gen. pl.', required: true },
+      { g: 'αὐτῶν', e: 'gen. pl. (all genders)', required: true },
       { g: 'αὐτοῖς', e: 'dat. pl. masc./neut.', required: true },
       { g: 'αὐταῖς', e: 'dat. pl. fem.', required: true },
       { g: 'αὐτούς', e: 'acc. pl. masc.', required: true },
@@ -157,7 +157,7 @@
       { g: 'τούτου', e: 'gen. sg. masc./neut.', required: true },
       { g: 'ταύτης', e: 'gen. sg. fem.', required: true },
       { g: 'τούτῳ', e: 'dat. sg. masc./neut.', required: true },
-      { g: 'τούτων', e: 'gen. pl.', required: true },
+      { g: 'τούτων', e: 'gen. pl. (all genders)', required: true },
       { g: 'ταῦτα', e: 'nom./acc. pl. neut.', required: true }
     ]
   });
