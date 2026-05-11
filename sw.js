@@ -3,8 +3,24 @@
 // GitHub Pages note: all app-shell URLs are resolved relative to the
 // service worker registration scope so this works both at a domain root
 // and at a project path such as https://user.github.io/repository/.
-const CACHE_NAME = 'mounce-bbg-greek-pwa-v2';
+const CACHE_NAME = 'mounce-bbg-greek-pwa-v3';
 const BASE_URL = new URL('./', self.registration.scope);
+
+// Cross-origin hosts whose responses we want to keep in the runtime cache
+// so the app survives going offline after a single online load. Currently
+// just the Google Fonts CSS endpoint and the static font-file CDN it
+// references for @font-face URLs.
+const RUNTIME_CACHE_HOSTS = [
+  'https://fonts.googleapis.com/',
+  'https://fonts.gstatic.com/'
+];
+
+// CSS endpoint that the page's <link> tag requests. Adding it to the
+// install precache means even the very first offline navigation (after
+// the SW has installed online) can render with the intended typefaces;
+// the @font-face woff2 URLs inside it are then captured by the runtime
+// fetch handler the first time the browser resolves them.
+const FONT_STYLESHEET_URL = 'https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700&family=EB+Garamond:ital,wght@0,400;0,500;1,400&family=Noto+Serif:ital,wght@0,400;1,400&display=swap';
 
 const APP_SHELL_PATHS = [
   './',
@@ -77,7 +93,13 @@ const INDEX_URL = new URL('index.html', BASE_URL).toString();
 self.addEventListener('install', event => {
   event.waitUntil(
     caches.open(CACHE_NAME)
-      .then(cache => cache.addAll(APP_SHELL))
+      .then(cache => cache.addAll(APP_SHELL).then(() => {
+        // Best-effort: prime the Google Fonts CSS so offline navigation
+        // still has the @font-face declarations. A network failure here
+        // must not abort the SW install or the whole app shell never
+        // becomes available offline.
+        return cache.add(new Request(FONT_STYLESHEET_URL, { mode: 'cors' })).catch(() => {});
+      }))
       .then(() => self.skipWaiting())
   );
 });
@@ -112,7 +134,9 @@ self.addEventListener('fetch', event => {
       if (cached) return cached;
       return fetch(req).then(res => {
         const copy = res.clone();
-        if (req.url.startsWith(BASE_URL.origin)) {
+        const sameOrigin = req.url.startsWith(BASE_URL.origin);
+        const isCacheableCrossOrigin = RUNTIME_CACHE_HOSTS.some(host => req.url.startsWith(host));
+        if (sameOrigin || isCacheableCrossOrigin) {
           caches.open(CACHE_NAME).then(cache => cache.put(req, copy));
         }
         return res;
