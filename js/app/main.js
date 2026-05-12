@@ -329,6 +329,7 @@ function syncLayoutVisibility() {
   const controlsBar = document.getElementById('controlsBar');
   const navRow = document.getElementById('navRow');
   const markRow = document.getElementById('markRow');
+  const fastForwardRow = document.getElementById('fastForwardRow');
   const prevBtn = navRow ? navRow.querySelector('.nav-prev') : null;
   const nextBtn = navRow ? navRow.querySelector('.nav-next') : null;
   const undoBtn = document.getElementById('spacedUndoBtn');
@@ -346,6 +347,7 @@ function syncLayoutVisibility() {
   if (reviewShell) reviewShell.style.display = reviewDeckMode ? '' : 'none';
   if (navRow) navRow.style.display = reviewDeckMode && selectedKeys.length ? 'flex' : 'none';
   if (markRow) markRow.style.display = reviewDeckMode && selectedKeys.length && !isMorphologyMode() ? 'flex' : 'none';
+  if (fastForwardRow) fastForwardRow.style.display = reviewDeckMode && selectedKeys.length && spacedRepetition ? 'flex' : 'none';
   if (directionToggle) directionToggle.style.display = (studyMode === 'vocab' || studyMode === 'morph') ? 'flex' : 'none';
   if (requiredToggle) requiredToggle.style.display = studyMode === 'vocab' ? 'flex' : 'none';
   if (selfCheckToggle) selfCheckToggle.style.display = isMorphologyMode() && canAccessGrammarUi() ? 'flex' : 'none';
@@ -3111,6 +3113,28 @@ function resetCurrentDeck() {
   saveState();
 }
 
+function fastForwardSchedule(advanceMs) {
+  if (!spacedRepetition || !selectedKeys.length || !originalDeck.length) return;
+  clearSpacedUndoSnapshot();
+  advanceScheduledCards(originalDeck, advanceMs);
+  deck = buildStudyDeck(originalDeck);
+  currentIdx = 0;
+  isFlipped = false;
+  resetMorphAnswerState();
+  renderCard();
+  renderProgress();
+  renderReview();
+  saveState();
+}
+
+function fastForwardOneDay() {
+  fastForwardSchedule(SRS_DAY_MS);
+}
+
+function fastForwardOneWeek() {
+  fastForwardSchedule(7 * SRS_DAY_MS);
+}
+
 function resetAllStats() {
   clearSpacedUndoSnapshot();
   const confirmed = window.confirm('Reset all saved study stats, marks, and spaced-review scheduling for both directions?');
@@ -3203,12 +3227,16 @@ function renderReview() {
   const knownCount = getKnownCount();
   const unsureCount = originalDeck.filter(card => marks[card.id] === 'unsure').length;
   const remainingCount = Math.max(originalDeck.length - knownCount, 0);
+  const highConfidenceCount = originalDeck.filter(card => {
+    const pct = getConfidencePct(getWordProgress(card.id));
+    return pct !== null && pct > 75;
+  }).length;
   const aggregateStats = getDeckAggregateStats(originalDeck);
 
   if (spacedRepetition) {
     const dueCount = getDueCount(originalDeck);
     document.getElementById('reviewStats').innerHTML = `
-      <span class="stat-known">✓ Known: ${knownCount}</span>
+      <span class="stat-known">✓ Known: ${highConfidenceCount}</span>
       <span class="stat-unsure">○ Due now: ${dueCount}</span>
       <span class="stat-total">· Scheduled ahead: ${Math.max(originalDeck.length - dueCount, 0)}</span>
       <span class="stat-total">· Seen ×${aggregateStats.seenCount}</span>
@@ -4697,7 +4725,8 @@ const GLOBAL_CLICK_HANDLERS = {
   closeShortcutsModal, closeStudySelector,
   handleConsentAction, handleTransferPrimaryAction, handleTransferSecondaryAction,
   openShortcutsModal, openStudySelector,
-  openAnalyticsOverlay, resetAllStats, resetCurrentDeck, reshuffleEligible,
+  openAnalyticsOverlay, fastForwardOneDay, fastForwardOneWeek,
+  resetAllStats, resetCurrentDeck, reshuffleEligible,
   restoreSpacedUndo, setAppProfile, setStudyMode, setThemeMode,
   showDisclaimerModal, startStudying, toggleDirection, toggleMorphSelfCheck,
   toggleRequiredOnly, toggleShuffle, toggleSpacedRepetition, triggerImportProgress,
