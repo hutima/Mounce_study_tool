@@ -160,6 +160,9 @@ let spacedUndoSnapshot = null;
 // Fixed 1-in-N chance per flip (not scaled by pool size) to return one
 // random known card to the active pile. 100 → ~1 return per 100 flips.
 const KNOWN_CARD_RANDOM_RETURN_FLIP_ODDS = 100;
+// Same idea but for spaced-mode confirmed cards (>75% confidence): 1-in-50
+// pseudo-random chance per flip (~2%).
+const CONFIRMED_CARD_RANDOM_RETURN_FLIP_ODDS = 50;
 
 let marks = {};
 
@@ -1060,8 +1063,8 @@ function maybeReturnKnownCardToActivePile() {
 
 function maybeReturnConfirmedDeferredCard() {
   if (!spacedRepetition || !shuffled || isMorphologyMode()) return false;
-  if (KNOWN_CARD_RANDOM_RETURN_FLIP_ODDS <= 0) return false;
-  if (Math.random() >= 1 / KNOWN_CARD_RANDOM_RETURN_FLIP_ODDS) return false;
+  if (CONFIRMED_CARD_RANDOM_RETURN_FLIP_ODDS <= 0) return false;
+  if (Math.random() >= 1 / CONFIRMED_CARD_RANDOM_RETURN_FLIP_ODDS) return false;
 
   const eligible = (originalDeck || []).filter(card => {
     if (isCardDue(card)) return false;

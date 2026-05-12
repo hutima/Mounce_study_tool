@@ -1,5 +1,5 @@
 // SRS scheduling logic — pure functions, no state access
-import { SRS_DAY_MS, SRS_AGAIN_MS, SRS_UNCERTAIN_MIN_MS, SRS_UNCERTAIN_MAX_MS, SRS_UNSPACED_RECOVERY_MS, SRS_GUIDE_STEPS_DAYS, SRS_MAX_INTERVAL_DAYS } from './constants.js';
+import { SRS_DAY_MS, SRS_AGAIN_MS, SRS_UNCERTAIN_MIN_MS, SRS_UNSPACED_RECOVERY_MS, SRS_GUIDE_STEPS_DAYS, SRS_MAX_INTERVAL_DAYS } from './constants.js';
 import { clamp } from '../../utils/helpers.js';
 import { getConfidencePct } from './confidence.js';
 
@@ -57,7 +57,7 @@ export function getNextEasyIntervalDays(progress) {
 
   // Post-guide: derive multiplier from the last-10-flip confidence window.
   // Confidence pct → multiplier:
-  //   90–100% → 2.5  (fast track to 30-day cap, ~2 more reviews to cap from 14d)
+  //   90–100% → 2.5  (saturates at the SRS_MAX_INTERVAL_DAYS cap quickly)
   //   70–89%  → 1.5–2.0  (steady confirmed growth)
   //   50–69%  → 1.2–1.4  (shaky, grow slowly)
   //   <50%    → 1.1  (got "easy" this flip but history is rough — don't over-reward)
@@ -90,18 +90,25 @@ export function getEasyDelayMs(progress) {
 }
 
 export function getUncertainDelayMs(progress) {
-  // Delay for an 'uncertain/pass' outcome, tiered by recent confidence:
-  //   <70%  → 1h floor (keep review pressure up before weekly quizzes)
-  //   70–89% → ½ previous interval, capped at 1 week
-  //   ≥90%  → ½ previous interval, capped at 30 days (normal easy-interval ceiling)
+  // Delay for an 'uncertain/pass' outcome:
+  //   <70% certainty → 1h floor
+  //   Otherwise → ½ previous interval, capped at SRS_MAX_INTERVAL_DAYS.
+  // Whenever any of the last 3 flips were uncertain or unknown, tighten the
+  // cap to 7 days × certainty% (e.g. 50% certainty → 3.5d max).
   const pct = getConfidencePct(progress);
   if (pct === null || pct < 70) return SRS_UNCERTAIN_MIN_MS;
   const prevIntervalDays = Number(progress?.intervalDays) || 0;
   if (prevIntervalDays <= 0) return SRS_UNCERTAIN_MIN_MS;
   const halfMs = msFromDays(prevIntervalDays * 0.5);
-  const ceiling = pct >= 90
-    ? msFromDays(SRS_MAX_INTERVAL_DAYS)
-    : SRS_UNCERTAIN_MAX_MS;
+
+  const history = Array.isArray(progress?.confidenceHistory)
+    ? progress.confidenceHistory.filter(Number.isFinite)
+    : [];
+  const hasRecentUncertainty = history.slice(-3).some(value => value < 1);
+
+  const ceiling = hasRecentUncertainty
+    ? msFromDays(7 * (pct / 100))
+    : msFromDays(SRS_MAX_INTERVAL_DAYS);
   return clamp(halfMs, SRS_UNCERTAIN_MIN_MS, ceiling);
 }
 
