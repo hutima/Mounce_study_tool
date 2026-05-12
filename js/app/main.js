@@ -3111,6 +3111,32 @@ function resetCurrentDeck() {
   saveState();
 }
 
+function fastForwardSchedule(advanceMs) {
+  if (!spacedRepetition) {
+    window.alert('Fast-forward only affects spaced-review scheduling. Enable spaced review first.');
+    return;
+  }
+  if (!selectedKeys.length || !originalDeck.length) return;
+  clearSpacedUndoSnapshot();
+  advanceScheduledCards(originalDeck, advanceMs);
+  deck = buildStudyDeck(originalDeck);
+  currentIdx = 0;
+  isFlipped = false;
+  resetMorphAnswerState();
+  renderCard();
+  renderProgress();
+  renderReview();
+  saveState();
+}
+
+function fastForwardOneDay() {
+  fastForwardSchedule(SRS_DAY_MS);
+}
+
+function fastForwardOneWeek() {
+  fastForwardSchedule(7 * SRS_DAY_MS);
+}
+
 function resetAllStats() {
   clearSpacedUndoSnapshot();
   const confirmed = window.confirm('Reset all saved study stats, marks, and spaced-review scheduling for both directions?');
@@ -4697,7 +4723,8 @@ const GLOBAL_CLICK_HANDLERS = {
   closeShortcutsModal, closeStudySelector,
   handleConsentAction, handleTransferPrimaryAction, handleTransferSecondaryAction,
   openShortcutsModal, openStudySelector,
-  openAnalyticsOverlay, resetAllStats, resetCurrentDeck, reshuffleEligible,
+  openAnalyticsOverlay, fastForwardOneDay, fastForwardOneWeek,
+  resetAllStats, resetCurrentDeck, reshuffleEligible,
   restoreSpacedUndo, setAppProfile, setStudyMode, setThemeMode,
   showDisclaimerModal, startStudying, toggleDirection, toggleMorphSelfCheck,
   toggleRequiredOnly, toggleShuffle, toggleSpacedRepetition, triggerImportProgress,
