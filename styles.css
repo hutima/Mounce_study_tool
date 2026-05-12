@@ -1499,6 +1499,16 @@
     background: rgba(138, 143, 168, 0.35);
   }
 
+  /* 20%-wide confidence bands used by the vocab/grammar histogram. The
+     palette ramps from the red used for "Hard" through gold and into the
+     green used for "Easy" so each band reads as a step along the same
+     gradient. */
+  .stacked-seg-b0   { background: rgba(166,  88,  88, 0.85); }
+  .stacked-seg-b20  { background: rgba(192, 122,  76, 0.82); }
+  .stacked-seg-b40  { background: rgba(201, 168,  76, 0.78); }
+  .stacked-seg-b60  { background: rgba(160, 174,  90, 0.80); }
+  .stacked-seg-b80  { background: rgba(102, 164, 120, 0.85); }
+
   .stacked-legend {
     display: flex;
     flex-wrap: wrap;
@@ -1526,6 +1536,11 @@
   .stacked-legend-dot.stacked-seg-50  { background: rgba(201, 168, 76, 0.75); }
   .stacked-legend-dot.stacked-seg-0   { background: rgba(166, 88, 88, 0.8); }
   .stacked-legend-dot.stacked-seg-unseen { background: rgba(138, 143, 168, 0.35); }
+  .stacked-legend-dot.stacked-seg-b0   { background: rgba(166,  88,  88, 0.85); }
+  .stacked-legend-dot.stacked-seg-b20  { background: rgba(192, 122,  76, 0.82); }
+  .stacked-legend-dot.stacked-seg-b40  { background: rgba(201, 168,  76, 0.78); }
+  .stacked-legend-dot.stacked-seg-b60  { background: rgba(160, 174,  90, 0.80); }
+  .stacked-legend-dot.stacked-seg-b80  { background: rgba(102, 164, 120, 0.85); }
 
   .stacked-legend-pct {
     color: var(--muted);
@@ -2093,6 +2108,155 @@
 
   html[data-theme="light"] .heatmap-svg rect[fill="rgba(255,255,255,0.02)"] {
     fill: rgba(0,0,0,0.02);
+  }
+
+  /* ── Chapter mastery grid (course-wide) ── */
+  .chapter-grid-card { margin-top: 12px; }
+  .chapter-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(48px, 1fr));
+    gap: 6px;
+    margin: 8px 0 10px;
+  }
+  .chapter-tile {
+    aspect-ratio: 1;
+    border-radius: 8px;
+    border: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 1px;
+    font-family: 'Cinzel', serif;
+    transition: transform 0.12s ease, box-shadow 0.12s ease;
+    color: inherit;
+    cursor: pointer;
+    padding: 0;
+    font: inherit;
+    appearance: none;
+    -webkit-appearance: none;
+  }
+  .chapter-tile:hover {
+    transform: translateY(-1px);
+  }
+  .chapter-tile.chapter-tile-active {
+    box-shadow: 0 0 0 2px var(--gold, rgba(201, 168, 76, 0.85));
+    transform: translateY(-1px);
+  }
+  .chapter-tile-num {
+    font-size: 13px;
+    color: var(--cream);
+    letter-spacing: 0.5px;
+  }
+  .chapter-tile-pct {
+    font-size: 10px;
+    color: var(--muted);
+    letter-spacing: 0.5px;
+  }
+  .chapter-tile.tile-mastered  { background: rgba(102, 164, 120, 0.30); border-color: rgba(102, 164, 120, 0.55); }
+  .chapter-tile.tile-confirmed { background: rgba(201, 168, 76, 0.22); border-color: rgba(201, 168, 76, 0.55); }
+  .chapter-tile.tile-building  { background: rgba(166, 88, 88, 0.20); border-color: rgba(166, 88, 88, 0.50); }
+  .chapter-tile.tile-empty     { background: rgba(138, 143, 168, 0.10); }
+  .chapter-tile.tile-mastered .chapter-tile-pct,
+  .chapter-tile.tile-confirmed .chapter-tile-pct {
+    color: var(--cream);
+  }
+
+  /* ── Per-chapter word breakdown (revealed by tapping a tile) ── */
+  .chapter-detail-panel {
+    margin-top: 12px;
+    border-top: 1px solid var(--border);
+    padding-top: 12px;
+    display: none;
+  }
+  .chapter-detail-panel.open {
+    display: block;
+  }
+  .chapter-detail-head {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 8px;
+  }
+  .chapter-detail-title {
+    font-family: 'Cinzel', serif;
+    color: var(--gold-light);
+    font-size: 14px;
+    letter-spacing: 0.5px;
+  }
+  .chapter-detail-meta {
+    color: var(--muted);
+    font-size: 12px;
+    margin-left: 6px;
+    letter-spacing: 0;
+  }
+  .chapter-detail-close {
+    background: transparent;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    color: var(--cream);
+    width: 26px;
+    height: 26px;
+    cursor: pointer;
+    line-height: 1;
+    font-size: 16px;
+  }
+  .chapter-detail-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 4px;
+    max-height: 360px;
+    overflow-y: auto;
+  }
+  .chapter-detail-row {
+    display: grid;
+    grid-template-columns: 12px minmax(80px, 1fr) minmax(80px, 2fr) 48px;
+    align-items: center;
+    gap: 10px;
+    padding: 4px 6px;
+    border-radius: 6px;
+    background: rgba(255,255,255,0.02);
+  }
+  .chapter-detail-row:hover {
+    background: rgba(255,255,255,0.05);
+  }
+  .chapter-detail-dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 3px;
+    display: inline-block;
+  }
+  .chapter-detail-word {
+    font-family: 'Times New Roman', 'GFS Didot', serif;
+    color: var(--cream);
+    font-size: 15px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .chapter-detail-gloss {
+    color: var(--muted);
+    font-size: 12px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .chapter-detail-pct {
+    font-family: 'Cinzel', serif;
+    color: var(--gold-dim);
+    font-size: 11px;
+    text-align: right;
+    letter-spacing: 0.5px;
+  }
+  html[data-theme="light"] .chapter-detail-row {
+    background: rgba(0,0,0,0.02);
+  }
+  html[data-theme="light"] .chapter-detail-row:hover {
+    background: rgba(0,0,0,0.05);
   }
 
   /* ── Responsive ── */
