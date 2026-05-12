@@ -3227,12 +3227,16 @@ function renderReview() {
   const knownCount = getKnownCount();
   const unsureCount = originalDeck.filter(card => marks[card.id] === 'unsure').length;
   const remainingCount = Math.max(originalDeck.length - knownCount, 0);
+  const highConfidenceCount = originalDeck.filter(card => {
+    const pct = getConfidencePct(getWordProgress(card.id));
+    return pct !== null && pct > 75;
+  }).length;
   const aggregateStats = getDeckAggregateStats(originalDeck);
 
   if (spacedRepetition) {
     const dueCount = getDueCount(originalDeck);
     document.getElementById('reviewStats').innerHTML = `
-      <span class="stat-known">✓ Known: ${knownCount}</span>
+      <span class="stat-known">✓ Known: ${highConfidenceCount}</span>
       <span class="stat-unsure">○ Due now: ${dueCount}</span>
       <span class="stat-total">· Scheduled ahead: ${Math.max(originalDeck.length - dueCount, 0)}</span>
       <span class="stat-total">· Seen ×${aggregateStats.seenCount}</span>
