@@ -1,5 +1,5 @@
 // SRS scheduling logic — pure functions, no state access
-import { SRS_DAY_MS, SRS_AGAIN_MS, SRS_UNCERTAIN_MIN_MS, SRS_UNSPACED_RECOVERY_MS, SRS_GUIDE_STEPS_DAYS, SRS_MAX_INTERVAL_DAYS } from './constants.js';
+import { SRS_DAY_MS, SRS_AGAIN_MS, SRS_UNCERTAIN_MIN_MS, SRS_UNSPACED_RECOVERY_MS, SRS_MAX_INTERVAL_DAYS } from './constants.js';
 import { clamp } from '../../utils/helpers.js';
 import { getConfidencePct } from './confidence.js';
 
@@ -49,35 +49,31 @@ export function getLastEasyIntervalDays(progress) {
 }
 
 export function getNextEasyIntervalDays(progress) {
-  const stage = getSrsStage(progress);
-  const guideDays = SRS_GUIDE_STEPS_DAYS;
-
-  // Guide phase: fixed ramp regardless of confidence
-  if (stage < guideDays.length) return guideDays[stage];
-
-  // Post-guide: derive multiplier from the last-10-flip confidence window.
-  // Confidence pct → multiplier:
-  //   90–100% → 2.5  (saturates at the SRS_MAX_INTERVAL_DAYS cap quickly)
-  //   70–89%  → 1.5–2.0  (steady confirmed growth)
-  //   50–69%  → 1.2–1.4  (shaky, grow slowly)
-  //   <50%    → 1.1  (got "easy" this flip but history is rough — don't over-reward)
-  // Falls back to the stored ease factor when fewer than 5 flips are recorded.
+  // Stabilization rule: cap "easy" at 1 day until the card has 5+ recent flips
+  // AND ≥50% last-10-flip confidence. This prevents a fresh card from jumping
+  // straight to multi-day intervals after a few lucky guesses; intervals only
+  // grow once the learner has demonstrated real retention.
   const history = Array.isArray(progress?.confidenceHistory)
     ? progress.confidenceHistory.filter(Number.isFinite)
     : [];
+  const pct = history.length
+    ? (history.reduce((s, v) => s + v, 0) / history.length) * 100
+    : 0;
+
+  if (history.length < 5 || pct < 50) return 1;
+
+  // Post-stabilization: confidence-scaled multiplier resumes growth from the
+  // actual previous interval. Confidence pct → multiplier:
+  //   90–100% → 2.5  (reaches the cap quickly: 1 → 3 → 8 → 14)
+  //   70–89%  → 1.5–2.0  (steady confirmed growth)
+  //   50–69%  → 1.2–1.4  (shaky, grow slowly)
   let multiplier;
-  if (history.length >= 5) {
-    const pct = (history.reduce((s, v) => s + v, 0) / history.length) * 100;
-    if (pct >= 90)      multiplier = 2.5;
-    else if (pct >= 70) multiplier = 1.5 + (pct - 70) / 40;  // 1.5→2.0 across 70–90%
-    else if (pct >= 50) multiplier = 1.2 + (pct - 50) / 100; // 1.2→1.4 across 50–70%
-    else                multiplier = 1.1;
-  } else {
-    multiplier = getSrsEase(progress);
-  }
+  if (pct >= 90)      multiplier = 2.5;
+  else if (pct >= 70) multiplier = 1.5 + (pct - 70) / 40;  // 1.5→2.0 across 70–90%
+  else                multiplier = 1.2 + (pct - 50) / 100; // 1.2→1.4 across 50–70%
 
   const previousDays = Math.max(
-    guideDays[guideDays.length - 1],
+    1,
     getLastEasyIntervalDays(progress),
     Number.isFinite(Number(progress?.intervalDays)) ? Math.max(0, Number(progress.intervalDays)) : 0
   );
