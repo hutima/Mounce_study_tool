@@ -335,6 +335,8 @@ function syncLayoutVisibility() {
   const undoBtn = document.getElementById('spacedUndoBtn');
   const directionToggle = document.getElementById('directionToggle');
   const requiredToggle = document.getElementById('requiredToggle');
+  const shuffleToggle = document.getElementById('shuffleToggle');
+  const spacedToggle = document.getElementById('spacedToggle');
   const selfCheckToggle = document.getElementById('selfCheckToggle');
   const modeGroup = document.querySelector('.mode-group[aria-label="Study mode"]');
   const cardArea = document.getElementById('cardArea');
@@ -350,6 +352,8 @@ function syncLayoutVisibility() {
   if (fastForwardRow) fastForwardRow.style.display = reviewDeckMode && selectedKeys.length && spacedRepetition ? 'flex' : 'none';
   if (directionToggle) directionToggle.style.display = (studyMode === 'vocab' || studyMode === 'morph') ? 'flex' : 'none';
   if (requiredToggle) requiredToggle.style.display = studyMode === 'vocab' ? 'flex' : 'none';
+  if (shuffleToggle) shuffleToggle.style.display = reviewDeckMode ? 'flex' : 'none';
+  if (spacedToggle) spacedToggle.style.display = reviewDeckMode ? 'flex' : 'none';
   if (selfCheckToggle) selfCheckToggle.style.display = isMorphologyMode() && canAccessGrammarUi() ? 'flex' : 'none';
   if (modeGroup) modeGroup.style.display = canAccessGrammarUi() ? 'inline-flex' : 'none';
   if (!reviewDeckMode) return;
@@ -2961,6 +2965,7 @@ function toggleMorphSelfCheck() {
 }
 
 function toggleShuffle() {
+  if (isReaderMode()) return;
   shuffled = !shuffled;
   flipsSinceReshuffle = 0;
   syncToggleButtons();
@@ -3016,6 +3021,7 @@ function toggleDirection() {
 }
 
 function toggleSpacedRepetition() {
+  if (isReaderMode()) return;
   spacedRepetition = !spacedRepetition;
   clearSpacedUndoSnapshot();
   resetUnspacedCycleState();
