@@ -392,6 +392,8 @@ export function buildWordStatCardHtml(card, progressRaw, isKnownMark) {
     statusClass = 'word-stat-status-unseen';
   }
 
+  // Display the rolling last-10-flips confidence regardless of any "marked
+  // known" override — the user wants the real signal, not the manual toggle.
   const pctDisplay = rawPct === null ? '—' : `${rawPct}%`;
   const accuracyDisplay = responses ? `${Math.round((passCount / responses) * 100)}%` : '—';
   const dueDisplay = progress.dueAt

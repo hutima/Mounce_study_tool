@@ -2177,10 +2177,26 @@
   }
   .chapter-detail-head {
     display: flex;
-    align-items: baseline;
+    align-items: center;
     justify-content: space-between;
     gap: 12px;
     margin-bottom: 8px;
+    flex-wrap: wrap;
+  }
+  .chapter-detail-controls {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+  .chapter-detail-sort {
+    display: inline-flex;
+    gap: 4px;
+  }
+  .chapter-detail-sort-btn {
+    padding: 4px 10px;
+    font-size: 10px;
+    letter-spacing: 0.5px;
   }
   .chapter-detail-title {
     font-family: 'Cinzel', serif;

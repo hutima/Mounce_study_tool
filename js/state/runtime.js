@@ -30,6 +30,7 @@ export const runtime = {
   usageTickCounter: 0,
   analyticsExpandedChapter: null,
   analyticsExpandedWord: null,
+  analyticsChapterSort: 'confidence', // 'confidence' | 'alphabetical'
 
   // ── Modal / disclaimer / transfer / theme ───────────────────────────
   hasAcceptedDisclaimer: false,

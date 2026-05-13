@@ -263,7 +263,10 @@ function buildChapterDetailHtml(chapterKey) {
     ? window.formatGreekHeadword(card.g)
     : (card.g || '—');
 
-  // Each row gets a confidence band that mirrors the headline histogram.
+  // Each row reflects the rolling last-10-flips confidence (getConfidencePct),
+  // independent of any "marked known" override — the user wants real signal,
+  // not the manual toggle. The "isConfirmed" tally below still counts known
+  // marks because that headline is about course-completion, not recall.
   const rowFor = (card) => {
     const progress = store[card.id];
     const isKnownMark = marksMap[card.id] === 'known';
@@ -273,10 +276,10 @@ function buildChapterDetailHtml(chapterKey) {
     let bandLabel;
     let pctText;
     let sortPct;
-    if (!seen && rawPct === null && !isKnownMark) {
+    if (rawPct === null && !seen) {
       bandClass = 'stacked-seg-unseen'; bandLabel = 'Unseen'; pctText = '—'; sortPct = -1;
     } else {
-      const pct = isKnownMark ? Math.max(100, rawPct ?? 100) : (rawPct ?? 0);
+      const pct = rawPct ?? 0;
       sortPct = pct;
       pctText = `${pct}%`;
       if (pct >= 80)      bandClass = 'stacked-seg-b80';
@@ -291,10 +294,15 @@ function buildChapterDetailHtml(chapterKey) {
     };
   };
   const rows = cards.map(rowFor);
-  rows.sort((a, b) => {
-    if (a.sortPct !== b.sortPct) return a.sortPct - b.sortPct;
-    return (a.card.g || '').localeCompare(b.card.g || '');
-  });
+  const sortMode = runtime.analyticsChapterSort === 'alphabetical' ? 'alphabetical' : 'confidence';
+  if (sortMode === 'alphabetical') {
+    rows.sort((a, b) => (a.card.g || '').localeCompare(b.card.g || ''));
+  } else {
+    rows.sort((a, b) => {
+      if (a.sortPct !== b.sortPct) return a.sortPct - b.sortPct;
+      return (a.card.g || '').localeCompare(b.card.g || '');
+    });
+  }
   const confirmedCount = rows.filter(r => r.isConfirmed).length;
   const headlinePct = cards.length ? Math.round((confirmedCount / cards.length) * 100) : 0;
 
@@ -316,10 +324,20 @@ function buildChapterDetailHtml(chapterKey) {
     `;
   }).join('');
 
+  const sortBtn = (mode, label) => {
+    const active = sortMode === mode;
+    return `<button type="button" class="ctrl-btn chapter-detail-sort-btn${active ? ' active-toggle' : ''}" data-chapter-sort="${mode}" aria-pressed="${active ? 'true' : 'false'}">${escapeHtml(label)}</button>`;
+  };
   return `
     <div class="chapter-detail-head">
       <div class="chapter-detail-title">Ch. ${escapeHtml(String(chapterKey))} — ${confirmedCount} / ${cards.length} confirmed <span class="chapter-detail-meta">${headlinePct}%${required ? ` · ${required} required` : ''}</span></div>
-      <button type="button" class="chapter-detail-close" data-chapter-close="1" aria-label="Close chapter details">×</button>
+      <div class="chapter-detail-controls">
+        <div class="chapter-detail-sort" role="group" aria-label="Sort words">
+          ${sortBtn('confidence', 'Confidence')}
+          ${sortBtn('alphabetical', 'A–Ω')}
+        </div>
+        <button type="button" class="chapter-detail-close" data-chapter-close="1" aria-label="Close chapter details">×</button>
+      </div>
     </div>
     <ol class="chapter-detail-list">${rowHtml}</ol>
   `;
@@ -345,8 +363,24 @@ function setupChapterGridInteractivity(rootEl) {
   const handleWordRowToggle = (row) => {
     const wordId = row.dataset.wordId || '';
     if (!wordId) return;
+    // The panel innerHTML is fully replaced on re-render, which destroys the
+    // inner <ol> and resets its scrollTop. Capture the tapped row's position
+    // within the scrollable list, then after re-render, adjust scrollTop so
+    // the same row stays visually fixed — otherwise the list jumps back to
+    // the top each time a word is opened or closed.
+    const list = row.closest('.chapter-detail-list');
+    const prevScrollTop = list ? list.scrollTop : 0;
+    const prevRowTop = list ? row.offsetTop : 0;
+
     runtime.analyticsExpandedWord = runtime.analyticsExpandedWord === wordId ? null : wordId;
     renderChapterDetailPanel();
+
+    const newList = document.querySelector('#chapterDetailPanel .chapter-detail-list');
+    if (!newList) return;
+    const newRow = newList.querySelector(`.chapter-detail-row[data-word-id="${CSS.escape(wordId)}"]`);
+    newList.scrollTop = newRow
+      ? prevScrollTop + (newRow.offsetTop - prevRowTop)
+      : prevScrollTop;
   };
 
   rootEl.addEventListener('click', (event) => {
@@ -359,6 +393,15 @@ function setupChapterGridInteractivity(rootEl) {
         t.setAttribute('aria-expanded', 'false');
       });
       renderChapterDetailPanel();
+      return;
+    }
+    const sortToggle = event.target.closest('[data-chapter-sort]');
+    if (sortToggle && rootEl.contains(sortToggle)) {
+      const nextMode = sortToggle.dataset.chapterSort === 'alphabetical' ? 'alphabetical' : 'confidence';
+      if (runtime.analyticsChapterSort !== nextMode) {
+        runtime.analyticsChapterSort = nextMode;
+        renderChapterDetailPanel();
+      }
       return;
     }
     const wordRow = event.target.closest('.chapter-detail-row[data-word-id]');
