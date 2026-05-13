@@ -1,5 +1,9 @@
 // State migrations — applied in order during restoreState
 import { isPlainObject } from '../utils/helpers.js';
+import { SRS_DAY_MS, SRS_MAX_INTERVAL_DAYS } from '../domain/srs/constants.js';
+
+// Legacy SRS cap, used to rescale intervals from older saves/exports.
+const LEGACY_SRS_MAX_INTERVAL_DAYS = 30;
 
 function stableKey(greek) {
   return typeof window.stableCardKey === 'function' ? window.stableCardKey(greek) : String(greek || '');
@@ -180,6 +184,71 @@ export const STATE_MIGRATIONS = [
     migrate(saved) {
       saved.requiredOnly = true;
       saved.requiredOnlyDefaultedV1 = true;
+      return saved;
+    }
+  },
+
+  {
+    // Pre-V18 saves (and JSON exports made before May 2026) sized intervals
+    // against a 30-day cap. The active cap is now 14 days, so any unaligned
+    // save needs its per-card intervals — and the remaining wait until
+    // `dueAt` — scaled by 14/30 and clamped to the new cap. The marker
+    // `srsIntervalCapAlignedV1` is stamped on new saves so this only runs
+    // on legacy data.
+    name: 'srs-interval-cap-30-to-14-alignment',
+    match(saved) {
+      return !saved.srsIntervalCapAlignedV1;
+    },
+    migrate(saved) {
+      const factor = SRS_MAX_INTERVAL_DAYS / LEGACY_SRS_MAX_INTERVAL_DAYS;
+      const capDays = SRS_MAX_INTERVAL_DAYS;
+      const capMs = capDays * SRS_DAY_MS;
+
+      const scaleDays = value => {
+        const days = Number(value);
+        if (!Number.isFinite(days) || days <= 0) return value;
+        return Math.min(capDays, days * factor);
+      };
+
+      const scaleEntry = entry => {
+        if (!isPlainObject(entry)) return entry;
+        const next = { ...entry };
+        if ('intervalDays' in next) next.intervalDays = scaleDays(next.intervalDays);
+        if ('lastEasyIntervalDays' in next) next.lastEasyIntervalDays = scaleDays(next.lastEasyIntervalDays);
+
+        const lastReviewedAt = Number(next.lastReviewedAt) || 0;
+        const dueAt = Number(next.dueAt) || 0;
+        if (dueAt > 0) {
+          if (lastReviewedAt > 0 && dueAt > lastReviewedAt) {
+            const gap = dueAt - lastReviewedAt;
+            const scaledGap = Math.min(capMs, gap * factor);
+            next.dueAt = lastReviewedAt + scaledGap;
+          } else {
+            // No anchor to scale against — clamp the absolute remaining wait
+            // so cards can't sit beyond the new cap.
+            const now = Date.now();
+            if (dueAt > now + capMs) next.dueAt = now + capMs;
+          }
+        }
+        return next;
+      };
+
+      const scaleBucket = bucket => {
+        if (!isPlainObject(bucket)) return bucket;
+        const next = {};
+        Object.keys(bucket).forEach(id => { next[id] = scaleEntry(bucket[id]); });
+        return next;
+      };
+
+      if (isPlainObject(saved.globalWordProgress)) {
+        ['g2e', 'e2g', 'morph', 'morph_e2g'].forEach(dir => {
+          if (isPlainObject(saved.globalWordProgress[dir])) {
+            saved.globalWordProgress[dir] = scaleBucket(saved.globalWordProgress[dir]);
+          }
+        });
+      }
+
+      saved.srsIntervalCapAlignedV1 = true;
       return saved;
     }
   }

@@ -1096,6 +1096,7 @@ function buildPersistedStatePayload() {
     shuffled,
     requiredOnly,
     requiredOnlyDefaultedV1: true,
+    srsIntervalCapAlignedV1: true,
     directionToGreek,
     spacedRepetition,
     studyMode,
@@ -2134,6 +2135,24 @@ function deselectAllChapters() {
     return;
   }
   loadDeckFromKeys(selectedKeys, null);
+}
+
+function deselectAll() {
+  if (!selectedKeys.length && !currentSession) return;
+  saveCurrentDeckStateToBank();
+  currentSession = null;
+  selectedKeys = [];
+  setActiveSessionButton();
+  setActiveSetButtons();
+  deck = [];
+  originalDeck = [];
+  marks = {};
+  currentIdx = 0;
+  document.getElementById('cardArea').innerHTML = '<div class="empty-state"><div class="big">αβγ</div>Tap to choose a session and start studying.</div>';
+  clearSpacedUndoSnapshot();
+  syncToggleButtons();
+  renderReview();
+  saveState();
 }
 
 function toggleAdvancedSubGroup(setKey, subKey) {
@@ -3894,7 +3913,10 @@ function buildHistogramSvg(counts, options = {}) {
 function buildLineChartSvg(series, options = {}) {
   const width = options.width || 860;
   const height = options.height || 220;
-  const padLeft = 36; const padRight = 14; const padTop = 12; const padBottom = 24;
+  // padLeft must leave room for the widest y-axis label (e.g. "100%") at the
+  // 22px SVG font size used for mobile readability — otherwise text-anchor="end"
+  // labels extend past x=0 and get clipped by the viewBox.
+  const padLeft = 64; const padRight = 14; const padTop = 12; const padBottom = 24;
   const values = (series || []).map(point => Number(point.value) || 0);
   if (!values.length) return `<div class="analytics-empty">Not enough data yet.</div>`;
   const maxValue = Math.max(...values, options.maxValue || 0);
@@ -3904,7 +3926,11 @@ function buildLineChartSvg(series, options = {}) {
   const toY = value => (height - padBottom) - ((value / safeMax) * (height - padTop - padBottom));
   const path = series.map((point, idx) => `${idx ? 'L' : 'M'} ${toX(point.ts).toFixed(1)} ${toY(point.value).toFixed(1)}`).join(' ');
   const lastPoint = series[series.length - 1]; const midPoint = series[Math.max(0, Math.floor(series.length / 2) - 1)];
-  const axisLabels = [{ x: toX(series[0].ts), label: formatAnalyticsDate(series[0].ts) }, { x: toX(midPoint.ts), label: formatAnalyticsDate(midPoint.ts) }, { x: toX(lastPoint.ts), label: formatAnalyticsDate(lastPoint.ts) }];
+  const axisLabels = [
+    { x: toX(series[0].ts), label: formatAnalyticsDate(series[0].ts), anchor: 'start' },
+    { x: toX(midPoint.ts), label: formatAnalyticsDate(midPoint.ts), anchor: 'middle' },
+    { x: toX(lastPoint.ts), label: formatAnalyticsDate(lastPoint.ts), anchor: 'end' }
+  ];
   const yLabels = [0, safeMax / 2, safeMax];
   return `
     <svg class="analytics-chart-svg" viewBox="0 0 ${width} ${height}" preserveAspectRatio="xMidYMid meet" role="img" aria-label="${escapeHtml(options.title || 'Chart')}">
@@ -3916,7 +3942,7 @@ function buildLineChartSvg(series, options = {}) {
         `; }).join('')}
       <path d="${path}" class="analytics-line-path"></path>
       <circle cx="${toX(lastPoint.ts)}" cy="${toY(lastPoint.value)}" r="4" class="analytics-line-point"></circle>
-      ${axisLabels.map(item => `<text x="${item.x}" y="${height - 6}" text-anchor="middle" class="analytics-axis-text">${escapeHtml(item.label)}</text>`).join('')}
+      ${axisLabels.map(item => `<text x="${item.x}" y="${height - 6}" text-anchor="${item.anchor}" class="analytics-axis-text">${escapeHtml(item.label)}</text>`).join('')}
     </svg>
   `;
 }
@@ -4518,14 +4544,17 @@ function buildHeatmapSvg(activeDailyMs) {
   const totalDays = weeks * 7;
   const today = new Date(); today.setHours(0, 0, 0, 0);
   const dayOfWeek = today.getDay(); // 0=Sun
+  // Anchor startDate on the Sunday that begins the column `weeks - 1` columns
+  // before the current week. Today then lands in the last column, on the row
+  // that matches its day of week (`i % 7`).
   const startDate = new Date(today);
-  startDate.setDate(startDate.getDate() - (totalDays - 1) - dayOfWeek);
+  startDate.setDate(startDate.getDate() - ((weeks - 1) * 7) - dayOfWeek);
 
   // collect values
   const cells = [];
   let maxVal = 0;
   const cursor = new Date(startDate);
-  for (let i = 0; i < totalDays + dayOfWeek + 1; i++) {
+  for (let i = 0; i < totalDays; i++) {
     const key = getUsageDayKey(cursor.getTime());
     const val = (activeDailyMs || {})[key] || 0;
     const msVal = val / (60 * 1000); // minutes
@@ -4534,10 +4563,10 @@ function buildHeatmapSvg(activeDailyMs) {
     cursor.setDate(cursor.getDate() + 1);
   }
 
-  // Build grid: columns = weeks, rows = days of week (Mon-Sun reordered)
+  // Build grid: columns = weeks, rows = days of week (Sun-Sat)
   const dayLabels = ['', 'M', '', 'W', '', 'F', ''];
   const labelWidth = 20;
-  const gridWidth = (weeks + 1) * (cellSize + cellGap);
+  const gridWidth = weeks * (cellSize + cellGap);
   const gridHeight = 7 * (cellSize + cellGap);
   const svgW = labelWidth + gridWidth + 10;
   const svgH = gridHeight + 28;
@@ -4910,6 +4939,7 @@ const GLOBAL_CLICK_HANDLERS = {
   revealMorphologyAnswer, rateMorphologySelfCheck, returnSeenCardToDeck,
   closeAnalyticsOverlay, closeTransferModal, exportProgressJson,
   closeShortcutsModal, closeStudySelector,
+  deselectAllChapters, deselectAllSupplementals, deselectAllAdvanced, deselectAll,
   handleConsentAction, handleTransferPrimaryAction, handleTransferSecondaryAction,
   openShortcutsModal, openStudySelector,
   openAnalyticsOverlay, fastForwardOneDay, fastForwardOneWeek,
