@@ -2261,6 +2261,167 @@
   html[data-theme="light"] .chapter-detail-row:hover {
     background: rgba(0,0,0,0.05);
   }
+  .chapter-detail-row {
+    cursor: pointer;
+    user-select: none;
+  }
+  .chapter-detail-row:focus-visible {
+    outline: 2px solid var(--gold);
+    outline-offset: 1px;
+  }
+  .chapter-detail-row-active {
+    background: rgba(201,168,76,0.10);
+  }
+  html[data-theme="light"] .chapter-detail-row-active {
+    background: rgba(201,168,76,0.18);
+  }
+
+  /* ── Per-word stat card (revealed by tapping a word row) ── */
+  .chapter-detail-statcard-row {
+    display: block;
+    padding: 0;
+    background: transparent;
+    list-style: none;
+  }
+  .word-stat-card {
+    margin: 2px 0 8px;
+    padding: 12px;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: rgba(255,255,255,0.03);
+  }
+  html[data-theme="light"] .word-stat-card {
+    background: rgba(0,0,0,0.025);
+  }
+  .word-stat-head {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 10px;
+  }
+  .word-stat-headword {
+    font-family: 'Times New Roman', 'GFS Didot', serif;
+    color: var(--cream);
+    font-size: 18px;
+    line-height: 1.2;
+  }
+  .word-stat-gloss {
+    color: var(--muted);
+    font-size: 12px;
+    margin-top: 2px;
+  }
+  .word-stat-head-pct {
+    text-align: right;
+    flex-shrink: 0;
+  }
+  .word-stat-pct-value {
+    font-family: 'Cinzel', serif;
+    color: var(--gold-light);
+    font-size: 20px;
+    line-height: 1.1;
+    letter-spacing: 0.5px;
+  }
+  .word-stat-status {
+    display: inline-block;
+    margin-top: 4px;
+    padding: 2px 8px;
+    border-radius: 999px;
+    font-size: 10px;
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+    border: 1px solid var(--border);
+    color: var(--muted);
+  }
+  .word-stat-status-known {
+    border-color: rgba(120,200,140,0.5);
+    color: rgba(160,220,170,1);
+  }
+  .word-stat-status-confirmed {
+    border-color: rgba(201,168,76,0.5);
+    color: var(--gold-light);
+  }
+  .word-stat-status-learning {
+    border-color: rgba(210,170,90,0.5);
+    color: rgba(220,180,110,1);
+  }
+  .word-stat-status-unseen {
+    border-color: var(--border);
+    color: var(--muted);
+  }
+  .word-stat-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(100px, 1fr));
+    gap: 6px;
+  }
+  .word-stat-tile {
+    padding: 6px 8px;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    background: rgba(255,255,255,0.02);
+  }
+  html[data-theme="light"] .word-stat-tile {
+    background: rgba(0,0,0,0.02);
+  }
+  .word-stat-tile-label {
+    font-size: 10px;
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+    color: var(--muted);
+  }
+  .word-stat-tile-value {
+    font-family: 'Cinzel', serif;
+    color: var(--cream);
+    font-size: 13px;
+    margin-top: 2px;
+    word-break: break-word;
+  }
+  .word-stat-history-wrap {
+    margin-top: 10px;
+  }
+  .word-stat-history-label {
+    font-size: 10px;
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-bottom: 4px;
+  }
+  .word-stat-history {
+    display: flex;
+    align-items: flex-end;
+    gap: 3px;
+    height: 28px;
+    padding: 2px 4px;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    background: rgba(255,255,255,0.02);
+  }
+  html[data-theme="light"] .word-stat-history {
+    background: rgba(0,0,0,0.02);
+  }
+  .word-stat-history-bar {
+    flex: 1 1 0;
+    min-width: 6px;
+    border-radius: 2px;
+    align-self: flex-end;
+    opacity: 0.85;
+  }
+  .word-stat-history-bar-easy {
+    background: rgba(120,200,140,0.85);
+  }
+  .word-stat-history-bar-pass {
+    background: rgba(220,180,110,0.85);
+  }
+  .word-stat-history-bar-miss {
+    background: rgba(210,110,110,0.85);
+  }
+  .word-stat-history-empty {
+    font-size: 12px;
+    color: var(--muted);
+    padding: 4px 6px;
+    border: 1px dashed var(--border);
+    border-radius: 6px;
+  }
 
   /* ── Responsive ── */
   @media (max-width: 600px) {
