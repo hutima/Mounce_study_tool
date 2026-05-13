@@ -1,0 +1,568 @@
+// Selectors panel: builds the Sessions / Chapters / Supplementals / Advanced
+// buttons inside the Study Selector overlay, and owns the toggle/deselect/load
+// flow that drives runtime.selectedKeys → runtime.deck.
+//
+// The module reads/writes runtime state directly. Host callbacks cover the
+// deck-building primitives and rendering hooks that still live in main.js
+// (saveState, buildStudyDeck, getSelectedCards, etc.). Window globals
+// (window.SETS, MORPHOLOGY_SETS, GRAMMAR_SETS, getMorphologyCountForKey,
+// getGrammarCountForKey) come from legacy <script defer> data files and are
+// read defensively in case those files haven't finished loading yet.
+
+import { runtime } from '../state/runtime.js';
+import { shuffleArray } from '../utils/helpers.js';
+import {
+  isChapterKey,
+  isAdvancedKey,
+  sortSetKeys,
+  expandSessionSets
+} from '../domain/deck/ordering.js';
+import { renderCard } from './render.js';
+import { renderProgress, renderReview } from './progress.js';
+
+let host = {
+  getSessions: () => [],
+  getSelectedCards: () => [],
+  getDirectionalMarksStore: () => ({}),
+  resetMorphAnswerState: () => {},
+  getDeckStateKey: () => '',
+  reorderDeckFromIds: () => null,
+  buildStudyDeck: () => [],
+  getDueCount: () => 0,
+  resetUnspacedCycleState: () => {},
+  resetStudyState: () => {},
+  syncToggleButtons: () => {},
+  clearSpacedUndoSnapshot: () => {},
+  saveCurrentDeckStateToBank: () => {},
+  saveState: () => {},
+  canAccessGrammarUi: () => true
+};
+
+export function configureSelectors(deps) {
+  host = { ...host, ...deps };
+}
+
+export function isSessionFullySelected(session, keys = runtime.selectedKeys) {
+  const sessionKeys = expandSessionSets(session);
+  return sessionKeys.length > 0 && sessionKeys.every(key => keys.includes(String(key)));
+}
+
+export function findExactSessionMatch(keys = runtime.selectedKeys) {
+  const normalizedKeys = sortSetKeys((keys || []).map(String));
+  return host.getSessions().find(session => {
+    const sessionKeys = expandSessionSets(session);
+    return sessionKeys.length === normalizedKeys.length && sessionKeys.every((key, idx) => key === normalizedKeys[idx]);
+  }) || null;
+}
+
+export function setActiveSessionButton() {
+  document.querySelectorAll('.session-btn').forEach(btn => {
+    const session = host.getSessions().find(s => s.id === btn.dataset.sessionId);
+    btn.classList.toggle('active', !!session && isSessionFullySelected(session));
+  });
+}
+
+export function setActiveSetButtons() {
+  document.querySelectorAll('.chapter-btn').forEach(btn => {
+    const key = btn.dataset.key;
+    btn.classList.toggle('active', runtime.selectedKeys.includes(key));
+  });
+}
+
+export function buildSessions() {
+  const grid = document.getElementById('sessionsGrid');
+  if (!grid) return;
+  grid.innerHTML = '';
+  host.getSessions().forEach(s => {
+    const btn = document.createElement('button');
+    btn.className = 'session-btn' + (s.special ? ' special' : '');
+    btn.id = 'sess-' + s.id;
+    btn.dataset.sessionId = s.id;
+    const summaryHtml = host.canAccessGrammarUi()
+      ? `<br><span class="session-chapters">${s.summary}</span>`
+      : '';
+    btn.innerHTML = `<span class="session-tag">${s.tag}</span>${s.label}${summaryHtml}`;
+    btn.onclick = () => toggleSession(s);
+    grid.appendChild(btn);
+  });
+
+  const deselectBtn = document.createElement('button');
+  deselectBtn.type = 'button';
+  deselectBtn.className = 'chapter-btn supplemental-deselect-all';
+  deselectBtn.textContent = 'Deselect all sessions';
+  deselectBtn.onclick = () => deselectAllChapters();
+  grid.appendChild(deselectBtn);
+
+  setActiveSessionButton();
+}
+
+export function buildChapterSelector() {
+  const grid = document.getElementById('chaptersGrid');
+  if (!grid) return;
+  grid.innerHTML = '';
+  grid.classList.add('chapters-grid');
+
+  const sets = window.SETS && typeof window.SETS === 'object' ? window.SETS : {};
+  const chapterKeys = Object.keys(sets).filter(isChapterKey).sort((a, b) => Number(a) - Number(b));
+
+  const deselectBtn = document.createElement('button');
+  deselectBtn.type = 'button';
+  deselectBtn.className = 'chapter-btn supplemental-deselect-all';
+  deselectBtn.textContent = 'Deselect all chapters';
+  deselectBtn.onclick = () => deselectAllChapters();
+  grid.appendChild(deselectBtn);
+
+  chapterKeys.forEach(key => {
+    const set = sets[key];
+    if (!set) return;
+    const morphCount = window.getMorphologyCountForKey ? window.getMorphologyCountForKey(key) : 0;
+    const grammarCount = window.getGrammarCountForKey ? window.getGrammarCountForKey(key) : 0;
+    const studyCount = morphCount + grammarCount;
+    const vocabCount = Array.isArray(set.cards) ? set.cards.length : 0;
+    if (!vocabCount && !studyCount) return;
+    if (!host.canAccessGrammarUi() && !vocabCount) return;
+
+    const btn = document.createElement('button');
+    btn.className = 'chapter-btn';
+    btn.dataset.key = key;
+    const countLabel = host.canAccessGrammarUi()
+      ? `${vocabCount} vocab${studyCount ? ` · ${studyCount} grammar` : ''}`
+      : `${vocabCount} vocab`;
+    btn.innerHTML = `${set.label}<span class="chapter-count">${countLabel}</span>`;
+    btn.onclick = () => toggleSet(key);
+    grid.appendChild(btn);
+  });
+
+  setActiveSetButtons();
+}
+
+function getSupplementalParadigmsForKey(key) {
+  const raw = String(key);
+  const paradigms = [];
+  const morphSet = window.MORPHOLOGY_SETS?.[raw];
+  if (morphSet && Array.isArray(morphSet.items)) {
+    morphSet.items.forEach((item, idx) => {
+      paradigms.push({
+        key: `${raw}::morph::${idx}`,
+        type: 'Morphology',
+        label: item.family || item.lemma || `Morphology ${idx + 1}`,
+        count: Array.isArray(item.questions) ? item.questions.length : 0
+      });
+    });
+  }
+
+  const grammarSet = window.GRAMMAR_SETS?.[raw];
+  if (grammarSet && Array.isArray(grammarSet.items)) {
+    grammarSet.items.forEach((item, idx) => {
+      paradigms.push({
+        key: `${raw}::grammar::${idx}`,
+        type: 'Grammar',
+        label: item.family || item.lemma || `Grammar ${idx + 1}`,
+        count: Array.isArray(item.questions) ? item.questions.length : 0
+      });
+    });
+  }
+
+  return paradigms.filter(paradigm => paradigm.count > 0);
+}
+
+export function deselectAllSupplementals() {
+  const remaining = runtime.selectedKeys.filter(k => {
+    const base = getParadigmBaseKey(k) || k;
+    return isChapterKey(base) || isAdvancedKey(base);
+  });
+  if (remaining.length === runtime.selectedKeys.length) return;
+  host.saveCurrentDeckStateToBank();
+  runtime.currentSession = null;
+  runtime.selectedKeys = remaining;
+  if (!runtime.selectedKeys.length) {
+    clearAndRenderEmpty();
+    return;
+  }
+  loadDeckFromKeys(runtime.selectedKeys, null);
+}
+
+export function buildSupplementalSelector() {
+  const list = document.getElementById('supplementalGrid');
+  if (!list) return;
+  list.innerHTML = '';
+
+  const sets = window.SETS && typeof window.SETS === 'object' ? window.SETS : {};
+  const supplementalKeys = sortSetKeys(Object.keys(sets).filter(k => !isChapterKey(k) && !isAdvancedKey(k)));
+
+  const deselectBtn = document.createElement('button');
+  deselectBtn.type = 'button';
+  deselectBtn.className = 'chapter-btn supplemental-deselect-all';
+  deselectBtn.textContent = 'Deselect all supplementals';
+  deselectBtn.onclick = () => deselectAllSupplementals();
+  list.appendChild(deselectBtn);
+
+  const weekGroups = new Map();
+  supplementalKeys.forEach(key => {
+    const set = sets[key];
+    if (!set) return;
+    const vocabCount = Array.isArray(set.cards) ? set.cards.length : 0;
+    const morphCount = window.getMorphologyCountForKey ? window.getMorphologyCountForKey(key) : 0;
+    const grammarCount = window.getGrammarCountForKey ? window.getGrammarCountForKey(key) : 0;
+    const studyCount = morphCount + grammarCount;
+    if (!vocabCount && !studyCount) return;
+    if (!host.canAccessGrammarUi() && !vocabCount) return;
+
+    const weekNum = Number.isFinite(Number(set.week)) ? Number(set.week) : null;
+    if (!weekGroups.has(weekNum)) weekGroups.set(weekNum, []);
+    weekGroups.get(weekNum).push({ key, set, vocabCount, studyCount });
+  });
+
+  const orderedWeeks = [...weekGroups.keys()].sort((a, b) => {
+    if (a === null && b === null) return 0;
+    if (a === null) return 1;
+    if (b === null) return -1;
+    return a - b;
+  });
+
+  orderedWeeks.forEach(weekNum => {
+    const entries = weekGroups.get(weekNum);
+    if (!entries || !entries.length) return;
+    const weekDetails = document.createElement('details');
+    weekDetails.className = 'supplemental-week';
+    weekDetails.open = entries.some(({ key }) =>
+      runtime.selectedKeys.includes(String(key)) ||
+      getSupplementalParadigmsForKey(key).some(p => runtime.selectedKeys.includes(p.key))
+    );
+    const weekSummary = document.createElement('summary');
+    weekSummary.className = 'supplemental-week-summary';
+    const totalVocab = entries.reduce((s, e) => s + e.vocabCount, 0);
+    const totalStudy = entries.reduce((s, e) => s + e.studyCount, 0);
+    const weekLabel = weekNum == null ? 'Other supplements' : `Week ${weekNum}`;
+    const weekCount = host.canAccessGrammarUi()
+      ? `${entries.length} paradigm${entries.length === 1 ? '' : 's'} · ${totalVocab} vocab${totalStudy ? ` · ${totalStudy} grammar` : ''}`
+      : `${entries.length} paradigm${entries.length === 1 ? '' : 's'} · ${totalVocab} vocab`;
+    weekSummary.innerHTML = `<span>${weekLabel}</span><span class="chapter-count">${weekCount}</span>`;
+    weekDetails.appendChild(weekSummary);
+
+    const weekBody = document.createElement('div');
+    weekBody.className = 'supplemental-week-body';
+
+    entries.forEach(({ key, set, vocabCount, studyCount }) => {
+      const countLabel = host.canAccessGrammarUi()
+        ? `${vocabCount} vocab${studyCount ? ` · ${studyCount} grammar` : ''}`
+        : `${vocabCount} vocab`;
+      const paradigmList = host.canAccessGrammarUi() ? getSupplementalParadigmsForKey(key) : [];
+
+      if (paradigmList.length <= 1) {
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'chapter-btn supplemental-set-flat';
+        btn.dataset.key = key;
+        btn.innerHTML = `<span>${set.label}</span><span class="chapter-count">${countLabel}</span>`;
+        btn.onclick = () => toggleSet(key);
+        weekBody.appendChild(btn);
+        return;
+      }
+
+      const details = document.createElement('details');
+      details.className = 'supplemental-set';
+      details.open = runtime.selectedKeys.includes(String(key)) || paradigmList.some(paradigm => runtime.selectedKeys.includes(paradigm.key));
+
+      const summary = document.createElement('summary');
+      summary.className = 'supplemental-summary';
+      summary.innerHTML = `<span>${set.label}</span><span class="chapter-count">${countLabel}</span>`;
+      details.appendChild(summary);
+
+      const controls = document.createElement('div');
+      controls.className = 'supplemental-paradigm-list';
+
+      const allBtn = document.createElement('button');
+      allBtn.className = 'chapter-btn supplemental-all-btn';
+      allBtn.dataset.key = key;
+      allBtn.innerHTML = `All ${set.label}<span class="chapter-count">${countLabel}</span>`;
+      allBtn.onclick = () => toggleSet(key);
+      controls.appendChild(allBtn);
+
+      paradigmList.forEach(paradigm => {
+        const btn = document.createElement('button');
+        btn.className = 'chapter-btn supplemental-paradigm-btn';
+        btn.dataset.key = paradigm.key;
+        btn.innerHTML = `${paradigm.label}<span class="chapter-count">${paradigm.type} · ${paradigm.count} card${paradigm.count === 1 ? '' : 's'}</span>`;
+        btn.onclick = () => toggleSet(paradigm.key);
+        controls.appendChild(btn);
+      });
+
+      details.appendChild(controls);
+      weekBody.appendChild(details);
+    });
+
+    weekDetails.appendChild(weekBody);
+    list.appendChild(weekDetails);
+  });
+
+  setActiveSetButtons();
+}
+
+function getAdvancedSubGroups(set) {
+  const cards = Array.isArray(set?.cards) ? set.cards : [];
+  if (!cards.length) return [];
+  const groups = new Map();
+  cards.forEach((card, index) => {
+    const sub = card && card.sub ? String(card.sub) : 'group';
+    if (!groups.has(sub)) groups.set(sub, { sub, count: 0, firstIndex: index });
+    groups.get(sub).count += 1;
+  });
+  return [...groups.values()].sort((a, b) => a.firstIndex - b.firstIndex);
+}
+
+export function buildAdvancedSelector() {
+  const list = document.getElementById('advancedGrid');
+  if (!list) return;
+  list.innerHTML = '';
+
+  const sets = window.SETS && typeof window.SETS === 'object' ? window.SETS : {};
+  const advancedKeys = sortSetKeys(Object.keys(sets).filter(isAdvancedKey));
+
+  const meta = document.getElementById('advancedSectionMeta');
+  if (meta) {
+    if (!advancedKeys.length) {
+      meta.textContent = '';
+    } else {
+      const totalCards = advancedKeys.reduce((sum, key) => sum + (Array.isArray(sets[key]?.cards) ? sets[key].cards.length : 0), 0);
+      meta.textContent = `${advancedKeys.length} buckets · ${totalCards.toLocaleString()} lemmas`;
+    }
+  }
+
+  if (!advancedKeys.length) {
+    const empty = document.createElement('div');
+    empty.className = 'advanced-empty';
+    empty.textContent = 'Advanced vocabulary data has not loaded yet.';
+    list.appendChild(empty);
+    return;
+  }
+
+  const deselectBtn = document.createElement('button');
+  deselectBtn.type = 'button';
+  deselectBtn.className = 'chapter-btn supplemental-deselect-all';
+  deselectBtn.textContent = 'Deselect all advanced';
+  deselectBtn.onclick = () => deselectAllAdvanced();
+  list.appendChild(deselectBtn);
+
+  const body = document.createElement('div');
+  body.className = 'advanced-week-body';
+
+  advancedKeys.forEach(key => {
+    const set = sets[key];
+    if (!set) return;
+    const cardCount = Array.isArray(set.cards) ? set.cards.length : 0;
+    if (!cardCount) return;
+    const subGroups = getAdvancedSubGroups(set);
+    const countLabel = `${cardCount} lemmas${set.notes ? '' : ''}`;
+
+    const details = document.createElement('details');
+    details.className = 'supplemental-set advanced-set';
+    details.open = runtime.selectedKeys.includes(String(key));
+
+    const summary = document.createElement('summary');
+    summary.className = 'supplemental-summary advanced-summary';
+    summary.innerHTML = `<span>${set.label || key}</span><span class="chapter-count">${countLabel}</span>`;
+    details.appendChild(summary);
+
+    if (set.notes) {
+      const notes = document.createElement('div');
+      notes.className = 'advanced-notes';
+      notes.textContent = set.notes;
+      details.appendChild(notes);
+    }
+
+    const controls = document.createElement('div');
+    controls.className = 'supplemental-paradigm-list advanced-sub-list';
+
+    const allBtn = document.createElement('button');
+    allBtn.className = 'chapter-btn supplemental-all-btn';
+    allBtn.dataset.key = key;
+    allBtn.innerHTML = `All of ${set.label || key}<span class="chapter-count">${cardCount} lemmas</span>`;
+    allBtn.onclick = () => toggleSet(key);
+    controls.appendChild(allBtn);
+
+    subGroups.forEach(group => {
+      const btn = document.createElement('button');
+      btn.className = 'chapter-btn supplemental-paradigm-btn advanced-sub-btn';
+      btn.dataset.key = `${key}::sub::${group.sub}`;
+      btn.innerHTML = `Sub ${group.sub}<span class="chapter-count">${group.count} lemmas</span>`;
+      btn.onclick = () => toggleAdvancedSubGroup(key, group.sub);
+      controls.appendChild(btn);
+    });
+
+    details.appendChild(controls);
+    body.appendChild(details);
+  });
+
+  list.appendChild(body);
+  setActiveSetButtons();
+}
+
+// Shared empty-state path used when a deselect leaves no selected keys.
+function clearAndRenderEmpty() {
+  setActiveSessionButton();
+  setActiveSetButtons();
+  runtime.deck = [];
+  runtime.originalDeck = [];
+  runtime.marks = {};
+  runtime.currentIdx = 0;
+  document.getElementById('cardArea').innerHTML = '<div class="empty-state"><div class="big">αβγ</div>Tap to choose a session and start studying.</div>';
+  host.clearSpacedUndoSnapshot();
+  host.syncToggleButtons();
+  renderReview();
+  host.saveState();
+}
+
+export function deselectAllAdvanced() {
+  const remaining = runtime.selectedKeys.filter(k => {
+    const base = getParadigmBaseKey(k) || k;
+    return !isAdvancedKey(base);
+  });
+  if (remaining.length === runtime.selectedKeys.length) return;
+  host.saveCurrentDeckStateToBank();
+  runtime.currentSession = null;
+  runtime.selectedKeys = remaining;
+  if (!runtime.selectedKeys.length) {
+    clearAndRenderEmpty();
+    return;
+  }
+  loadDeckFromKeys(runtime.selectedKeys, null);
+}
+
+export function deselectAllChapters() {
+  const remaining = runtime.selectedKeys.filter(k => {
+    const base = getParadigmBaseKey(k) || k;
+    return !isChapterKey(base);
+  });
+  const sessionWasActive = !!runtime.currentSession;
+  if (remaining.length === runtime.selectedKeys.length && !sessionWasActive) return;
+  host.saveCurrentDeckStateToBank();
+  runtime.currentSession = null;
+  runtime.selectedKeys = remaining;
+  if (!runtime.selectedKeys.length) {
+    clearAndRenderEmpty();
+    return;
+  }
+  loadDeckFromKeys(runtime.selectedKeys, null);
+}
+
+export function deselectAll() {
+  if (!runtime.selectedKeys.length && !runtime.currentSession) return;
+  host.saveCurrentDeckStateToBank();
+  runtime.currentSession = null;
+  runtime.selectedKeys = [];
+  clearAndRenderEmpty();
+}
+
+export function toggleAdvancedSubGroup(setKey, subKey) {
+  // Sub-groups load only the cards in that sub-bucket. We model this as a
+  // pseudo-key that getAdvancedSubKeyCards expands at deck-build time.
+  const pseudoKey = `${setKey}::sub::${subKey}`;
+  toggleSet(pseudoKey);
+}
+
+export function loadDeckFromKeys(keys, sessionId = null) {
+  host.saveCurrentDeckStateToBank();
+  host.clearSpacedUndoSnapshot();
+
+  runtime.selectedKeys = sortSetKeys(keys.map(String));
+  runtime.currentSession = sessionId
+    ? host.getSessions().find(s => s.id === sessionId) || findExactSessionMatch(runtime.selectedKeys)
+    : findExactSessionMatch(runtime.selectedKeys);
+
+  const selectedCards = host.getSelectedCards(runtime.selectedKeys);
+  runtime.originalDeck = runtime.requiredOnly ? selectedCards.filter(card => card.required) : selectedCards;
+  host.resetMorphAnswerState();
+
+  const savedDeckState = runtime.deckStates[host.getDeckStateKey(runtime.selectedKeys, runtime.requiredOnly)] || null;
+  runtime.marks = host.getDirectionalMarksStore();
+  if (savedDeckState) {
+    const restoredDeck = host.reorderDeckFromIds(runtime.originalDeck, savedDeckState.deckIds);
+    if (runtime.spacedRepetition && restoredDeck) {
+      runtime.deck = restoredDeck;
+      runtime.activeDeckCount = restoredDeck.length;
+      runtime.deck = host.buildStudyDeck(runtime.originalDeck, { forceShuffle: runtime.shuffled });
+    } else if (restoredDeck) {
+      runtime.deck = runtime.shuffled ? shuffleArray([...restoredDeck]) : restoredDeck;
+    } else {
+      runtime.deck = host.buildStudyDeck(runtime.originalDeck);
+    }
+    runtime.activeDeckCount = runtime.spacedRepetition ? host.getDueCount(runtime.originalDeck) : runtime.originalDeck.filter(card => runtime.marks[card.id] !== 'known').length;
+    runtime.currentIdx = Number.isInteger(savedDeckState.currentIdx)
+      ? Math.min(Math.max(savedDeckState.currentIdx, 0), runtime.spacedRepetition ? runtime.activeDeckCount : runtime.deck.length)
+      : 0;
+    runtime.unspacedPendingRecycle = !runtime.spacedRepetition && !!savedDeckState.unspacedPendingRecycle;
+    host.resetUnspacedCycleState();
+    runtime.isFlipped = false;
+  } else {
+    host.resetStudyState();
+    runtime.deck = host.buildStudyDeck(runtime.originalDeck);
+  }
+
+  setActiveSessionButton();
+  setActiveSetButtons();
+
+  host.syncToggleButtons();
+
+  host.resetMorphAnswerState();
+  renderCard();
+  renderProgress();
+  renderReview();
+  host.saveState();
+}
+
+export function loadSession(session) {
+  runtime.currentSession = session;
+  loadDeckFromKeys(expandSessionSets(session), session.id);
+}
+
+export function toggleSession(session) {
+  host.saveCurrentDeckStateToBank();
+
+  const sessionKeys = expandSessionSets(session);
+  if (!sessionKeys.length) return;
+
+  const alreadySelected = isSessionFullySelected(session);
+  const nextKeys = alreadySelected
+    ? runtime.selectedKeys.filter(key => !sessionKeys.includes(key))
+    : sortSetKeys([...new Set([...runtime.selectedKeys, ...sessionKeys])]);
+
+  runtime.currentSession = null;
+
+  if (!nextKeys.length) {
+    runtime.selectedKeys = [];
+    runtime.marks = host.getDirectionalMarksStore();
+    clearAndRenderEmpty();
+    return;
+  }
+
+  loadDeckFromKeys(nextKeys, null);
+}
+
+export function getParadigmBaseKey(key) {
+  const match = String(key).match(/^(.+)::(grammar|morph)::\d+$/);
+  if (match) return match[1];
+  const subMatch = String(key).match(/^(.+)::sub::.+$/);
+  return subMatch ? subMatch[1] : null;
+}
+
+export function toggleSet(key) {
+  host.saveCurrentDeckStateToBank();
+  runtime.currentSession = null;
+  const raw = String(key);
+  const baseKey = getParadigmBaseKey(raw);
+  if (runtime.selectedKeys.includes(raw)) {
+    runtime.selectedKeys = runtime.selectedKeys.filter(k => k !== raw);
+  } else if (baseKey) {
+    runtime.selectedKeys = [...runtime.selectedKeys.filter(k => k !== baseKey), raw];
+  } else {
+    runtime.selectedKeys = [...runtime.selectedKeys.filter(k => getParadigmBaseKey(k) !== raw), raw];
+  }
+
+  if (!runtime.selectedKeys.length) {
+    clearAndRenderEmpty();
+    return;
+  }
+
+  loadDeckFromKeys(runtime.selectedKeys, null);
+}

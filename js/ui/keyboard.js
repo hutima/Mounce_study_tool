@@ -1,0 +1,64 @@
+// Keyboard shortcuts for the study UI.
+//
+// Reads modal/study state via the predicate functions passed in by main.js.
+// Mutations (navigate, markCard, flipCard, answerMorphologyChoice) and the
+// close* helpers come from the same host so this module stays a thin wire-up
+// over the existing event semantics — no behavior change vs. the original
+// inline listener.
+
+export function installKeyboardShortcuts(deps) {
+  const {
+    isAnalyticsModalOpen,
+    closeAnalyticsOverlay,
+    isStudySelectorOpen,
+    closeStudySelector,
+    isShortcutsModalOpen,
+    closeShortcutsModal,
+    isWhatsNewV1_1ModalOpen,
+    closeWhatsNewV1_1Modal,
+    isDisclaimerModalOpen,
+    isTransferModalOpen,
+    isReviewDeckMode,
+    getSelectedKeys,
+    isMorphologyMode,
+    navigate,
+    answerMorphologyChoice,
+    passMorphologyChoice,
+    flipCard,
+    markCard,
+    restoreSpacedUndo,
+    getMorphAnswerState,
+    getSpacedUndoSnapshot
+  } = deps;
+
+  document.addEventListener('keydown', e => {
+    if (e.key === 'Escape' && isAnalyticsModalOpen()) { closeAnalyticsOverlay(); return; }
+    if (e.key === 'Escape' && isStudySelectorOpen()) { closeStudySelector(); return; }
+    if (e.key === 'Escape' && isShortcutsModalOpen()) { closeShortcutsModal(); return; }
+    if (e.key === 'Escape' && isWhatsNewV1_1ModalOpen()) { closeWhatsNewV1_1Modal(); return; }
+    if (isDisclaimerModalOpen() || isTransferModalOpen() || isAnalyticsModalOpen() || isStudySelectorOpen() || isShortcutsModalOpen() || isWhatsNewV1_1ModalOpen()) return;
+    if (!isReviewDeckMode() || !getSelectedKeys().length) return;
+
+    if (isMorphologyMode()) {
+      if (e.key === 'ArrowRight' || e.key === 'ArrowDown') navigate(1);
+      if (e.key === 'ArrowLeft'  || e.key === 'ArrowUp') {
+        if (getMorphAnswerState().answered && getSpacedUndoSnapshot()) restoreSpacedUndo();
+      }
+      if (/^[1-4]$/.test(e.key)) {
+        const idx = Number(e.key) - 1;
+        answerMorphologyChoice(idx);
+      }
+      if (e.key === '0' || e.key === '5') passMorphologyChoice();
+      return;
+    }
+
+    if (e.key === ' ' || e.key === 'Enter') { e.preventDefault(); flipCard(); }
+    if (e.key === 'ArrowRight' || e.key === 'ArrowDown') navigate(1);
+    if (e.key === 'ArrowLeft'  || e.key === 'ArrowUp')   navigate(-1);
+    if (e.key === '1') markCard('again');
+    if (e.key === '2') markCard('pass');
+    if (e.key === '3') markCard('easy');
+    if (e.key === 'k' || e.key === 'K') markCard('easy');
+    if (e.key === 'r' || e.key === 'R') markCard('again');
+  });
+}
