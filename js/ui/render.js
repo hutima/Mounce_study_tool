@@ -24,7 +24,8 @@ let host = {
   // load order between this ES module and the legacy <script defer> data files.
   formatGreekHeadword: (g) => g || '—',
   transliterateGreek: (s) => s,
-  detectPartOfSpeech: () => ''
+  detectPartOfSpeech: () => '',
+  isMultiCasePreposition: () => false
 };
 
 export function configureRender(deps) {
@@ -195,19 +196,25 @@ export function renderCard() {
     : '';
   const sourceLabelDisplay = `${card.sourceLabel}${advancedCountSuffix}`;
 
+  // Prepositions that govern more than one case get a star on both faces as a
+  // reminder that the meaning depends on the case of the object.
+  const prepStar = host.isMultiCasePreposition(card) ? '★ ' : '';
+  const greekDisplay = `${prepStar}${host.formatGreekHeadword(card.g)}`;
+  const englishDisplay = `${prepStar}${card.e || '—'}`;
+
   let frontHTML, backHTML;
   if (!runtime.directionToGreek) {
     frontHTML = `
         <div class="card-face card-front">
           <span class="card-label">Greek</span>
-          <div class="card-greek">${host.formatGreekHeadword(card.g)}</div>
+          <div class="card-greek">${greekDisplay}</div>
           <div class="card-hint">${sourceLabelDisplay}</div>
           <div class="flip-hint">click to reveal →</div>
         </div>`;
     backHTML = `
         <div class="card-face card-back">
           <span class="card-label">English</span>
-          <div class="card-english">${card.e || '—'}</div>
+          <div class="card-english">${englishDisplay}</div>
           <div class="card-greek-small">${host.formatGreekHeadword(card.g)}</div>
           <div class="card-hint">${host.transliterateGreek(host.formatGreekHeadword(card.g))}${advancedCountSuffix}</div>
           <div class="card-pos">${host.detectPartOfSpeech(card)}</div>
@@ -216,14 +223,14 @@ export function renderCard() {
     frontHTML = `
         <div class="card-face card-front">
           <span class="card-label">English</span>
-          <div class="card-english">${card.e || '—'}</div>
+          <div class="card-english">${englishDisplay}</div>
           <div class="card-hint">${sourceLabelDisplay}</div>
           <div class="flip-hint">click to reveal →</div>
         </div>`;
     backHTML = `
         <div class="card-face card-back">
           <span class="card-label">Greek</span>
-          <div class="card-greek">${host.formatGreekHeadword(card.g)}</div>
+          <div class="card-greek">${greekDisplay}</div>
           <div class="card-hint">${host.transliterateGreek(host.formatGreekHeadword(card.g))}${advancedCountSuffix}</div>
           <div class="card-pos">${host.detectPartOfSpeech(card)}</div>
         </div>`;

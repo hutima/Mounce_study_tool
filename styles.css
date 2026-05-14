@@ -69,7 +69,10 @@
     pointer-events: none; z-index: 0;
   }
 
-  .app { position: relative; z-index: 1; max-width: 900px; margin: 0 auto; padding: 24px 20px 60px; }
+  .app {
+    position: relative; z-index: 1; max-width: 900px; margin: 0 auto;
+    padding: calc(24px + env(safe-area-inset-top, 0px)) 20px 60px;
+  }
 
   /* ── Header ── */
   header { text-align: center; padding: 20px 0 28px; border-bottom: 1px solid var(--border); margin-bottom: 32px; }
@@ -2299,6 +2302,106 @@
   }
   html[data-theme="light"] .chapter-detail-row-active {
     background: rgba(201,168,76,0.18);
+  }
+
+  /* ── Grammar concepts to review report ── */
+  .grammar-review-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    flex-wrap: wrap;
+    margin-bottom: 6px;
+  }
+  .grammar-review-controls {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex-wrap: wrap;
+  }
+  .grammar-review-summary {
+    color: var(--muted);
+    font-size: 12px;
+    margin-bottom: 12px;
+  }
+  .grammar-review-chapter {
+    margin-bottom: 12px;
+  }
+  .grammar-review-chapter:last-child {
+    margin-bottom: 0;
+  }
+  .grammar-review-chapter-head {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 4px;
+  }
+  .grammar-review-chapter-name {
+    font-family: 'Cinzel', serif;
+    font-size: 12px;
+    letter-spacing: 0.5px;
+    color: var(--gold-dim);
+  }
+  .grammar-review-chip {
+    font-size: 10px;
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+    padding: 1px 7px;
+    border-radius: 999px;
+    border: 1px solid var(--border);
+    color: var(--muted);
+  }
+  .grammar-review-chip-warn {
+    border-color: rgba(192,122,76,0.55);
+    color: rgba(214,150,102,1);
+  }
+  .grammar-review-chip-ok {
+    border-color: rgba(102,164,120,0.5);
+    color: rgba(150,200,160,1);
+  }
+  .grammar-review-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+  }
+  .grammar-review-row {
+    display: grid;
+    grid-template-columns: 12px minmax(90px, 1.4fr) minmax(110px, 1.6fr) 44px;
+    align-items: center;
+    gap: 10px;
+    padding: 4px 6px;
+    border-radius: 6px;
+    background: rgba(255,255,255,0.02);
+  }
+  html[data-theme="light"] .grammar-review-row {
+    background: rgba(0,0,0,0.02);
+  }
+  .grammar-review-concept {
+    color: var(--cream);
+    font-size: 13px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .grammar-review-detail {
+    color: var(--muted);
+    font-size: 11px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .grammar-review-pct {
+    font-family: 'Cinzel', serif;
+    color: var(--gold-dim);
+    font-size: 11px;
+    text-align: right;
+    letter-spacing: 0.5px;
+  }
+  .grammar-review-copy {
+    cursor: pointer;
   }
 
   /* ── Per-word stat card (revealed by tapping a word row) ── */

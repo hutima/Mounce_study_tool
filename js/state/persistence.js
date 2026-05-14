@@ -10,6 +10,7 @@ import { runtime } from './runtime.js';
 import { isPlainObject, shuffleArray } from '../utils/helpers.js';
 import { getStorage, isLikelyIOS } from '../utils/storage.js';
 import { sortSetKeys } from '../domain/deck/ordering.js';
+import { filterHardVocabCards } from '../domain/deck/filters.js';
 import { STATE_MIGRATIONS, summarizePersistedState, formatPersistedStateSummary } from './migrations.js';
 import {
   sanitizeGamificationState,
@@ -47,7 +48,8 @@ let host = {
   resetUnspacedCycleState: () => {},
   clearSpacedUndoSnapshot: () => {},
   syncToggleButtons: () => {},
-  syncLayoutVisibility: () => {}
+  syncLayoutVisibility: () => {},
+  getDirectionalProgressStore: () => ({})
 };
 
 export function configurePersistence(deps) {
@@ -58,16 +60,26 @@ export function configurePersistence(deps) {
 
 export function buildPersistedStatePayload() {
   saveCurrentDeckStateToBank();
+  // Keep the active mode's selection snapshot fresh before persisting.
+  if (runtime.splitSelection && (runtime.studyMode === 'vocab' || runtime.studyMode === 'morph')) {
+    runtime.modeSelections[runtime.studyMode] = {
+      selectedKeys: [...runtime.selectedKeys],
+      currentSessionId: runtime.currentSession ? runtime.currentSession.id : null
+    };
+  }
   const usage = host.ensureUsageStats();
   return {
     currentSessionId: runtime.currentSession ? runtime.currentSession.id : null,
     selectedKeys: [...runtime.selectedKeys],
+    splitSelection: runtime.splitSelection,
+    modeSelections: runtime.modeSelections,
     shuffled: runtime.shuffled,
     requiredOnly: runtime.requiredOnly,
     requiredOnlyDefaultedV1: true,
     srsIntervalCapAlignedV1: true,
     directionToGreek: runtime.directionToGreek,
     spacedRepetition: runtime.spacedRepetition,
+    hardVocabReviewMode: runtime.hardVocabReviewMode,
     studyMode: runtime.studyMode,
     appProfile: runtime.appProfile,
     morphSelfCheck: runtime.morphSelfCheck,
@@ -111,6 +123,9 @@ function sanitizeImportedState(candidate) {
   state.requiredOnly = candidate.requiredOnly !== false;
   state.directionToGreek = !!candidate.directionToGreek;
   state.spacedRepetition = candidate.spacedRepetition !== false;
+  state.hardVocabReviewMode = !!candidate.hardVocabReviewMode;
+  state.splitSelection = !!candidate.splitSelection;
+  state.modeSelections = isPlainObject(candidate.modeSelections) ? candidate.modeSelections : {};
   state.morphSelfCheck = !!candidate.morphSelfCheck;
 
   const usage = host.ensureUsageStats(candidate.appUsageStats);
@@ -497,6 +512,7 @@ export function getDeckStateKey(keys = runtime.selectedKeys, requiredFlag = runt
     keys: normalizedKeys,
     requiredOnly: !!requiredFlag,
     spacedRepetition: !!spacedFlag,
+    hardVocabReviewMode: !!runtime.hardVocabReviewMode,
     direction: host.getStudyStoreKey(),
     mode: runtime.studyMode
   });
@@ -592,6 +608,9 @@ export function restoreState() {
     runtime.requiredOnly = saved.requiredOnly !== false;
     runtime.directionToGreek = !!saved.directionToGreek;
     runtime.spacedRepetition = saved.spacedRepetition !== false;
+    runtime.hardVocabReviewMode = !!saved.hardVocabReviewMode;
+    runtime.splitSelection = !!saved.splitSelection;
+    runtime.modeSelections = saved.modeSelections && typeof saved.modeSelections === 'object' ? saved.modeSelections : {};
     runtime.appProfile = 'vocab_grammar';
     const hadSavedAchievementSnapshot = Array.isArray(saved?.gamification?.lastEarnedAchievementIds);
     runtime.appGamification = sanitizeGamificationState(saved.gamification);
@@ -624,7 +643,11 @@ export function restoreState() {
     runtime.currentSession = saved.currentSessionId ? host.getSessions().find(s => s.id === saved.currentSessionId) || null : null;
 
     const selectedCards = host.getSelectedCards(runtime.selectedKeys);
-    runtime.originalDeck = runtime.requiredOnly ? selectedCards.filter(card => card.required) : selectedCards;
+    let scopedCards = runtime.requiredOnly ? selectedCards.filter(card => card.required) : selectedCards;
+    if (runtime.hardVocabReviewMode && runtime.studyMode === 'vocab') {
+      scopedCards = filterHardVocabCards(scopedCards, host.getDirectionalProgressStore());
+    }
+    runtime.originalDeck = scopedCards;
     host.resetMorphAnswerState();
     const savedDeckState = runtime.deckStates[getDeckStateKey(runtime.selectedKeys, runtime.requiredOnly)] || null;
     runtime.marks = host.getDirectionalMarksStore();

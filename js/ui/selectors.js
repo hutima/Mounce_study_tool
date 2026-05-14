@@ -17,6 +17,7 @@ import {
   sortSetKeys,
   expandSessionSets
 } from '../domain/deck/ordering.js';
+import { filterHardVocabCards } from '../domain/deck/filters.js';
 import { renderCard } from './render.js';
 import { renderProgress, renderReview } from './progress.js';
 
@@ -24,6 +25,7 @@ let host = {
   getSessions: () => [],
   getSelectedCards: () => [],
   getDirectionalMarksStore: () => ({}),
+  getDirectionalProgressStore: () => ({}),
   resetMorphAnswerState: () => {},
   getDeckStateKey: () => '',
   reorderDeckFromIds: () => null,
@@ -471,7 +473,11 @@ export function loadDeckFromKeys(keys, sessionId = null) {
     : findExactSessionMatch(runtime.selectedKeys);
 
   const selectedCards = host.getSelectedCards(runtime.selectedKeys);
-  runtime.originalDeck = runtime.requiredOnly ? selectedCards.filter(card => card.required) : selectedCards;
+  let scopedCards = runtime.requiredOnly ? selectedCards.filter(card => card.required) : selectedCards;
+  if (runtime.hardVocabReviewMode && runtime.studyMode === 'vocab') {
+    scopedCards = filterHardVocabCards(scopedCards, host.getDirectionalProgressStore());
+  }
+  runtime.originalDeck = scopedCards;
   host.resetMorphAnswerState();
 
   const savedDeckState = runtime.deckStates[host.getDeckStateKey(runtime.selectedKeys, runtime.requiredOnly)] || null;

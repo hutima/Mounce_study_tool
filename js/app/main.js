@@ -240,8 +240,10 @@ import {
   toggleMorphSelfCheck,
   toggleShuffle,
   toggleRequiredOnly,
+  toggleHardVocabReview,
   toggleDirection,
   toggleSpacedRepetition,
+  toggleSplitSelection,
   reshuffleEligible,
   fastForwardOneDay,
   fastForwardOneWeek,
@@ -355,12 +357,14 @@ configureRender({
   maybeReturnKnownCardToActivePile: () => maybeReturnKnownCardToActivePile(),
   formatGreekHeadword: (g) => typeof window !== 'undefined' && typeof window.formatGreekHeadword === 'function' ? window.formatGreekHeadword(g) : (g || '—'),
   transliterateGreek: (s) => typeof window !== 'undefined' && typeof window.transliterateGreek === 'function' ? window.transliterateGreek(s) : s,
-  detectPartOfSpeech: (card) => typeof window !== 'undefined' && typeof window.detectPartOfSpeech === 'function' ? window.detectPartOfSpeech(card) : ''
+  detectPartOfSpeech: (card) => typeof window !== 'undefined' && typeof window.detectPartOfSpeech === 'function' ? window.detectPartOfSpeech(card) : '',
+  isMultiCasePreposition: (card) => typeof window !== 'undefined' && typeof window.isMultiCasePreposition === 'function' ? window.isMultiCasePreposition(card) : false
 });
 configureSelectors({
   getSessions: () => getSessions(),
   getSelectedCards: (keys) => getSelectedCards(keys),
   getDirectionalMarksStore: () => getDirectionalMarksStore(),
+  getDirectionalProgressStore: () => getDirectionalProgressStore(),
   resetMorphAnswerState: () => resetMorphAnswerState(),
   getDeckStateKey: (keys, req, spaced) => getDeckStateKey(keys, req, spaced),
   reorderDeckFromIds: (cards, ids) => reorderDeckFromIds(cards, ids),
@@ -401,7 +405,8 @@ configureNavigation({
   saveCurrentDeckStateToBank: () => saveCurrentDeckStateToBank(),
   saveState: () => saveState(),
   renderReaderModule: () => renderReaderModule(),
-  getDeckStateKey: (keys, req, spaced) => getDeckStateKey(keys, req, spaced)
+  getDeckStateKey: (keys, req, spaced) => getDeckStateKey(keys, req, spaced),
+  getSessions: () => getSessions()
 });
 configureAnalytics({
   ensureUsageStats: () => ensureUsageStats(),
@@ -424,7 +429,8 @@ configurePersistence({
   resetUnspacedCycleState: () => resetUnspacedCycleState(),
   clearSpacedUndoSnapshot: () => clearSpacedUndoSnapshot(),
   syncToggleButtons: () => syncToggleButtons(),
-  syncLayoutVisibility: () => syncLayoutVisibility()
+  syncLayoutVisibility: () => syncLayoutVisibility(),
+  getDirectionalProgressStore: () => getDirectionalProgressStore()
 });
 
 
@@ -597,11 +603,15 @@ function syncToggleButtons() {
   const shuffleSwitch   = document.getElementById('shuffleBtn');
   const directionSwitch = document.getElementById('directionBtn');
   const spacedSwitch    = document.getElementById('spacedBtn');
+  const hardReviewSwitch = document.getElementById('hardReviewBtn');
+  const splitSelectionSwitch = document.getElementById('splitSelectionBtn');
   const selfCheckBtn    = document.getElementById('selfCheckBtn');
   const shuffleToggle   = document.getElementById('shuffleToggle');
   const requiredToggle  = document.getElementById('requiredToggle');
   const directionToggle = document.getElementById('directionToggle');
   const spacedToggle    = document.getElementById('spacedToggle');
+  const hardReviewToggle = document.getElementById('hardReviewToggle');
+  const splitSelectionToggle = document.getElementById('splitSelectionToggle');
   const selfCheckToggle = document.getElementById('selfCheckToggle');
   const modeVocabBtn    = document.getElementById('modeVocabBtn');
   const modeMorphBtn    = document.getElementById('modeMorphBtn');
@@ -615,11 +625,15 @@ function syncToggleButtons() {
   if (requiredSwitch)  requiredSwitch.classList.toggle('on',  !!runtime.requiredOnly);
   if (directionSwitch) directionSwitch.classList.toggle('on', !!runtime.directionToGreek);
   if (spacedSwitch)    spacedSwitch.classList.toggle('on',    !!runtime.spacedRepetition);
+  if (hardReviewSwitch) hardReviewSwitch.classList.toggle('on', !!runtime.hardVocabReviewMode);
+  if (splitSelectionSwitch) splitSelectionSwitch.classList.toggle('on', !!runtime.splitSelection);
   if (selfCheckBtn)    selfCheckBtn.classList.toggle('on',    !!runtime.morphSelfCheck && isMorphologyMode());
   if (shuffleToggle)   shuffleToggle.setAttribute('aria-checked',   runtime.shuffled ? 'true' : 'false');
   if (requiredToggle)  requiredToggle.setAttribute('aria-checked',  runtime.requiredOnly ? 'true' : 'false');
   if (directionToggle) directionToggle.setAttribute('aria-checked', runtime.directionToGreek ? 'true' : 'false');
   if (spacedToggle)    spacedToggle.setAttribute('aria-checked',    runtime.spacedRepetition ? 'true' : 'false');
+  if (hardReviewToggle) hardReviewToggle.setAttribute('aria-checked', runtime.hardVocabReviewMode ? 'true' : 'false');
+  if (splitSelectionToggle) splitSelectionToggle.setAttribute('aria-checked', runtime.splitSelection ? 'true' : 'false');
   if (selfCheckToggle) selfCheckToggle.setAttribute('aria-checked', (runtime.morphSelfCheck && isMorphologyMode()) ? 'true' : 'false');
 
   if (directionToggle) {
@@ -660,6 +674,8 @@ function syncLayoutVisibility() {
   const undoBtn = document.getElementById('spacedUndoBtn');
   const directionToggle = document.getElementById('directionToggle');
   const requiredToggle = document.getElementById('requiredToggle');
+  const hardReviewToggle = document.getElementById('hardReviewToggle');
+  const splitSelectionToggle = document.getElementById('splitSelectionToggle');
   const selfCheckToggle = document.getElementById('selfCheckToggle');
   const shuffleToggle = document.getElementById('shuffleToggle');
   const spacedToggle = document.getElementById('spacedToggle');
@@ -677,6 +693,8 @@ function syncLayoutVisibility() {
   if (fastForwardRow) fastForwardRow.style.display = reviewDeckMode && runtime.selectedKeys.length && runtime.spacedRepetition ? 'flex' : 'none';
   if (directionToggle) directionToggle.style.display = (runtime.studyMode === 'vocab' || runtime.studyMode === 'morph') ? 'flex' : 'none';
   if (requiredToggle) requiredToggle.style.display = runtime.studyMode === 'vocab' ? 'flex' : 'none';
+  if (hardReviewToggle) hardReviewToggle.style.display = runtime.studyMode === 'vocab' ? 'flex' : 'none';
+  if (splitSelectionToggle) splitSelectionToggle.style.display = canAccessGrammarUi() ? 'flex' : 'none';
   if (selfCheckToggle) selfCheckToggle.style.display = isMorphologyMode() && canAccessGrammarUi() ? 'flex' : 'none';
   if (shuffleToggle) shuffleToggle.style.display = reviewDeckMode ? 'flex' : 'none';
   if (spacedToggle) spacedToggle.style.display = reviewDeckMode ? 'flex' : 'none';
@@ -1520,7 +1538,7 @@ const GLOBAL_CLICK_HANDLERS = {
   fastForwardOneDay, fastForwardOneWeek,
   restoreSpacedUndo, setAppProfile, setStudyMode, setThemeMode,
   showDisclaimerModal, startStudying, toggleDirection, toggleMorphSelfCheck,
-  toggleRequiredOnly, toggleShuffle, toggleSpacedRepetition, triggerImportProgress,
+  toggleRequiredOnly, toggleHardVocabReview, toggleShuffle, toggleSpacedRepetition, toggleSplitSelection, triggerImportProgress,
   openReaderTab, selectReaderDrillChoice, advanceReaderDrill,
   closeWhatsNewV1_1Modal
 };
@@ -1579,7 +1597,7 @@ function preventDoubleTapZoom(el) {
   }, false);
 }
 
-['shuffleToggle','requiredToggle','directionToggle','spacedToggle','selfCheckToggle','modeVocabBtn','modeMorphBtn','modeReaderBtn','modeShortcutVocabBtn','modeShortcutMorphBtn','modeShortcutReaderBtn','themeSystemBtn','themeDarkBtn','themeLightBtn'].forEach(id => {
+['shuffleToggle','requiredToggle','directionToggle','spacedToggle','splitSelectionToggle','selfCheckToggle','modeVocabBtn','modeMorphBtn','modeReaderBtn','modeShortcutVocabBtn','modeShortcutMorphBtn','modeShortcutReaderBtn','themeSystemBtn','themeDarkBtn','themeLightBtn'].forEach(id => {
   const el = document.getElementById(id);
   if (el) preventDoubleTapZoom(el);
 });

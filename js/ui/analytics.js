@@ -22,7 +22,8 @@ import {
   getAllChapterKeys,
   getAllVocabCards,
   getAllGrammarCards,
-  getChapterVocabCards
+  getChapterVocabCards,
+  getChapterGrammarCards
 } from '../domain/deck/filters.js';
 import {
   migrateLegacyXp as migrateLegacyXpPure,
@@ -433,6 +434,222 @@ function setupChapterGridInteractivity(rootEl) {
   });
 }
 
+// ── Grammar concepts to review (course-wide report) ──────────────────
+// Walks every chapter's grammar/morphology drills, groups them by the
+// card `family` (the grammar concept), and grades each concept off the
+// morph progress + marks stores. Concepts that have been studied but sit
+// below mastery surface as "to review"; untouched ones surface as "not
+// started" so the report doubles as a study plan. Weakest concepts come
+// first within each chapter.
+function computeGrammarConceptReview() {
+  const marksMap = runtime.globalWordMarks.morph || {};
+  const store = runtime.globalWordProgress.morph || {};
+  const statusRank = { weak: 0, shaky: 1, unseen: 2, strong: 3 };
+  const chapters = [];
+  let reviewConceptCount = 0;
+  let reviewChapterCount = 0;
+
+  getAllChapterKeys().forEach(chKey => {
+    const cards = getChapterGrammarCards(chKey);
+    if (!cards.length) return;
+
+    const byFamily = new Map();
+    cards.forEach(card => {
+      const family = card.family || 'Other';
+      if (!byFamily.has(family)) byFamily.set(family, []);
+      byFamily.get(family).push(card);
+    });
+
+    const concepts = [];
+    byFamily.forEach((familyCards, family) => {
+      let seen = 0;
+      let confirmed = 0;
+      let misses = 0;
+      let pctSum = 0;
+      let pctCount = 0;
+      familyCards.forEach(card => {
+        const p = store[card.id];
+        const pct = getConfidencePct(p);
+        const wasSeen = !!(p?.seenCount) || !!p?.lastReviewedAt;
+        if (wasSeen) seen++;
+        misses += Number(p?.failCount) || 0;
+        if (pct !== null) { pctSum += pct; pctCount++; }
+        if (marksMap[card.id] === 'known' || (pct !== null && pct >= 70)) confirmed++;
+      });
+      const total = familyCards.length;
+      const avgPct = pctCount ? Math.round(pctSum / pctCount) : null;
+      let status;
+      if (seen === 0) status = 'unseen';
+      else if (confirmed >= total) status = 'strong';
+      else if ((avgPct ?? 0) >= 50) status = 'shaky';
+      else status = 'weak';
+      concepts.push({ family, total, confirmed, seen, misses, avgPct, status });
+    });
+
+    concepts.sort((a, b) => {
+      if (statusRank[a.status] !== statusRank[b.status]) return statusRank[a.status] - statusRank[b.status];
+      const ap = a.avgPct ?? -1;
+      const bp = b.avgPct ?? -1;
+      if (ap !== bp) return ap - bp;
+      return a.family.localeCompare(b.family);
+    });
+
+    const reviewCount = concepts.filter(c => c.status === 'weak' || c.status === 'shaky').length;
+    if (reviewCount) { reviewConceptCount += reviewCount; reviewChapterCount++; }
+    chapters.push({ chapterKey: chKey, concepts, reviewCount });
+  });
+
+  return {
+    chapters,
+    reviewConceptCount,
+    reviewChapterCount,
+    hasAnyProgress: chapters.some(ch => ch.concepts.some(c => c.status !== 'unseen'))
+  };
+}
+
+const GRAMMAR_REVIEW_STATUS_META = {
+  weak:   { dot: 'stacked-seg-b0',     label: 'Needs work' },
+  shaky:  { dot: 'stacked-seg-b40',    label: 'Shaky' },
+  strong: { dot: 'stacked-seg-b80',    label: 'Solid' },
+  unseen: { dot: 'stacked-seg-unseen', label: 'Not started' }
+};
+
+function buildGrammarReviewHtml(report) {
+  if (!report.chapters.length) {
+    return `<div class="analytics-chart-card"><div class="analytics-chart-title">Grammar concepts to review</div><div class="analytics-empty">No grammar drills are available yet.</div></div>`;
+  }
+  const mode = runtime.analyticsGrammarReviewMode === 'all' ? 'all' : 'review';
+
+  const conceptRow = (c) => {
+    const meta = GRAMMAR_REVIEW_STATUS_META[c.status];
+    const pctText = c.avgPct === null ? '—' : `${c.avgPct}%`;
+    const detail = c.status === 'unseen'
+      ? `${c.total} card${c.total === 1 ? '' : 's'} · not started`
+      : `${c.confirmed}/${c.total} confirmed · ${c.misses} miss${c.misses === 1 ? '' : 'es'}`;
+    return `
+      <li class="grammar-review-row">
+        <span class="chapter-detail-dot ${meta.dot}" aria-hidden="true"></span>
+        <span class="grammar-review-concept">${escapeHtml(c.family)}</span>
+        <span class="grammar-review-detail">${escapeHtml(detail)}</span>
+        <span class="grammar-review-pct" title="${escapeHtml(meta.label)}">${escapeHtml(pctText)}</span>
+      </li>`;
+  };
+
+  const chapterBlocks = report.chapters.map(ch => {
+    const concepts = mode === 'all'
+      ? ch.concepts
+      : ch.concepts.filter(c => c.status === 'weak' || c.status === 'shaky');
+    if (!concepts.length) return '';
+    const chip = ch.reviewCount
+      ? `<span class="grammar-review-chip grammar-review-chip-warn">${ch.reviewCount} to review</span>`
+      : `<span class="grammar-review-chip grammar-review-chip-ok">All solid</span>`;
+    return `
+      <div class="grammar-review-chapter">
+        <div class="grammar-review-chapter-head">
+          <span class="grammar-review-chapter-name">Chapter ${escapeHtml(String(ch.chapterKey))}</span>
+          ${chip}
+        </div>
+        <ol class="grammar-review-list">${concepts.map(conceptRow).join('')}</ol>
+      </div>`;
+  }).filter(Boolean).join('');
+
+  let summaryText;
+  if (!report.hasAnyProgress) {
+    summaryText = 'Study some grammar drills and this report will rank the concepts that need another pass.';
+  } else if (!report.reviewConceptCount) {
+    summaryText = 'No grammar concepts are below mastery right now — every studied concept is holding at 70%+.';
+  } else {
+    summaryText = `${report.reviewConceptCount} concept${report.reviewConceptCount === 1 ? '' : 's'} across ${report.reviewChapterCount} chapter${report.reviewChapterCount === 1 ? '' : 's'} ${report.reviewConceptCount === 1 ? 'is' : 'are'} below mastery — listed weakest first.`;
+  }
+
+  const body = chapterBlocks || `<div class="analytics-empty">${mode === 'review' ? 'Nothing flagged for review — switch to “All concepts” to see the full breakdown.' : 'No grammar concepts found.'}</div>`;
+
+  const modeBtn = (m, label) => {
+    const active = mode === m;
+    return `<button type="button" class="ctrl-btn chapter-detail-sort-btn${active ? ' active-toggle' : ''}" data-grammar-review-mode="${m}" aria-pressed="${active ? 'true' : 'false'}">${escapeHtml(label)}</button>`;
+  };
+
+  return `
+    <div class="analytics-chart-card grammar-review-card">
+      <div class="grammar-review-head">
+        <div class="analytics-chart-title">Grammar concepts to review</div>
+        <div class="grammar-review-controls">
+          ${modeBtn('review', 'To review')}
+          ${modeBtn('all', 'All concepts')}
+          <button type="button" class="ctrl-btn grammar-review-copy" data-grammar-review-copy="1">Copy report</button>
+        </div>
+      </div>
+      <div class="grammar-review-summary">${escapeHtml(summaryText)}</div>
+      <div class="grammar-review-body">${body}</div>
+      <div class="stacked-legend">
+        <span class="stacked-legend-item"><span class="stacked-legend-dot stacked-seg-b0"></span>Needs work</span>
+        <span class="stacked-legend-item"><span class="stacked-legend-dot stacked-seg-b40"></span>Shaky</span>
+        <span class="stacked-legend-item"><span class="stacked-legend-dot stacked-seg-b80"></span>Solid</span>
+        <span class="stacked-legend-item"><span class="stacked-legend-dot stacked-seg-unseen"></span>Not started</span>
+      </div>
+    </div>
+  `;
+}
+
+function buildGrammarReviewText(report) {
+  const lines = ['GRAMMAR CONCEPTS TO REVIEW', `Generated ${formatAnalyticsDateTime(Date.now())}`, ''];
+  if (!report.reviewConceptCount) {
+    lines.push(report.hasAnyProgress
+      ? 'No grammar concepts are below mastery right now.'
+      : 'No grammar progress recorded yet.');
+    return lines.join('\n');
+  }
+  lines.push(`${report.reviewConceptCount} concept(s) across ${report.reviewChapterCount} chapter(s) below mastery, weakest first:`, '');
+  report.chapters.forEach(ch => {
+    const toReview = ch.concepts.filter(c => c.status === 'weak' || c.status === 'shaky');
+    if (!toReview.length) return;
+    lines.push(`Chapter ${ch.chapterKey}`);
+    toReview.forEach(c => {
+      const pct = c.avgPct === null ? 'no data' : `${c.avgPct}% avg`;
+      lines.push(`  - ${c.family}: ${c.confirmed}/${c.total} confirmed, ${c.misses} miss(es), ${pct}`);
+    });
+    lines.push('');
+  });
+  return lines.join('\n').trim();
+}
+
+function renderGrammarReviewSection() {
+  const el = document.getElementById('analyticsGrammarReview');
+  if (!el) return;
+  if (!host.canAccessGrammarUi()) { el.innerHTML = ''; return; }
+  el.innerHTML = buildGrammarReviewHtml(computeGrammarConceptReview());
+  setupGrammarReviewInteractivity(el);
+}
+
+function setupGrammarReviewInteractivity(rootEl) {
+  if (!rootEl || rootEl.dataset.grammarReviewBound === '1') return;
+  rootEl.dataset.grammarReviewBound = '1';
+  rootEl.addEventListener('click', (event) => {
+    const modeBtn = event.target.closest('[data-grammar-review-mode]');
+    if (modeBtn && rootEl.contains(modeBtn)) {
+      const next = modeBtn.dataset.grammarReviewMode === 'all' ? 'all' : 'review';
+      if (runtime.analyticsGrammarReviewMode !== next) {
+        runtime.analyticsGrammarReviewMode = next;
+        renderGrammarReviewSection();
+      }
+      return;
+    }
+    const copyBtn = event.target.closest('[data-grammar-review-copy]');
+    if (copyBtn && rootEl.contains(copyBtn)) {
+      const text = buildGrammarReviewText(computeGrammarConceptReview());
+      const flash = (label) => {
+        copyBtn.textContent = label;
+        setTimeout(() => { copyBtn.textContent = 'Copy report'; }, 1600);
+      };
+      if (navigator.clipboard?.writeText) {
+        navigator.clipboard.writeText(text).then(() => flash('Copied ✓')).catch(() => flash('Copy failed'));
+      } else {
+        flash('Copy failed');
+      }
+    }
+  });
+}
+
 function computePersonalRecords(usage, sessionHistory, streaks, courseData) {
   const longestSessionMs = sessionHistory.reduce((max, s) => Math.max(max, s.durationMs || 0), 0);
 
@@ -698,6 +915,9 @@ export function renderAnalyticsOverlay() {
       runtime.analyticsExpandedWord = null;
     }
   }
+
+  // ── Grammar concepts to review (course-wide report) ──
+  renderGrammarReviewSection();
 
   // ── Personal records (course-wide) ──
   const recordsEl = document.getElementById('analyticsRecords');

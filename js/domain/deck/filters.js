@@ -1,6 +1,25 @@
 // Card selection / filtering helpers
 import { isChapterKey, sourceHint, getChapterForKey, getWeekForKey } from './ordering.js';
 import { isMorphCard } from '../grammar/explanations.js';
+import { getConfidencePct } from '../srs/confidence.js';
+
+// "Hard review" scope: cards the learner has missed more than 10 times and
+// whose recent accuracy is still under 40%. Cards with no progress entry are
+// excluded — they can't have been missed yet.
+export const HARD_VOCAB_MIN_FAILS = 10;
+export const HARD_VOCAB_MAX_CONFIDENCE = 40;
+
+export function isHardVocabCard(card, progressStore) {
+  const progress = (progressStore || {})[card?.id];
+  if (!progress) return false;
+  if ((Number(progress.failCount) || 0) <= HARD_VOCAB_MIN_FAILS) return false;
+  const pct = getConfidencePct(progress);
+  return pct !== null && pct < HARD_VOCAB_MAX_CONFIDENCE;
+}
+
+export function filterHardVocabCards(cards, progressStore) {
+  return (cards || []).filter(card => isHardVocabCard(card, progressStore));
+}
 
 function getSets() {
   return window.SETS && typeof window.SETS === 'object' ? window.SETS : {};

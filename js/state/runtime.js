@@ -31,6 +31,7 @@ export const runtime = {
   analyticsExpandedChapter: null,
   analyticsExpandedWord: null,
   analyticsChapterSort: 'confidence', // 'confidence' | 'alphabetical'
+  analyticsGrammarReviewMode: 'review', // 'review' | 'all'
 
   // ── Modal / disclaimer / transfer / theme ───────────────────────────
   hasAcceptedDisclaimer: false,
@@ -54,6 +55,8 @@ export const runtime = {
   // ── Current study session + deck cursor ─────────────────────────────
   currentSession: null,
   selectedKeys: [],
+  splitSelection: false,    // separate chapter selections for vocab vs grammar
+  modeSelections: {},       // { vocab: {selectedKeys, currentSessionId}, morph: {...} }
   deck: [],
   originalDeck: [],
   currentIdx: 0,
@@ -62,6 +65,7 @@ export const runtime = {
   requiredOnly: true,
   directionToGreek: false,  // false = Greek→English, true = English→Greek
   spacedRepetition: true,
+  hardVocabReviewMode: false, // restrict vocab deck to cards missed >10× and still under 40% confidence
   activeDeckCount: 0,
   unspacedPendingRecycle: false,
   unspacedCycleState: {},
