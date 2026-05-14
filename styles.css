@@ -1269,6 +1269,15 @@
     margin-top: 18px;
   }
 
+  .reset-spaced-actions {
+    flex-wrap: wrap;
+    gap: 10px;
+  }
+
+  .reset-spaced-actions .ctrl-btn {
+    min-width: 140px;
+  }
+
   .consent-primary {
     min-width: 180px;
     color: var(--gold-light);

@@ -277,7 +277,11 @@ function detectPartOfSpeech(card) {
   if (exactConjunctions.has(greek)) return 'Conjunction';
   if (exactParticles.has(greek)) return greek === 'ἰδού' ? 'Interjection' : 'Particle';
   if (exactAdverbs.has(greek)) return 'Adverb';
-  if (exactPrepositions.has(greek)) return 'Preposition';
+  // Preposition headwords may carry a case tag like "διά+gen." so split
+  // multi-case prepositions can study one case per card. NFC-normalize so
+  // oxia-accented data still matches the tonos-accented lookup set.
+  const prepBare = greek.replace(/\s*\+\s*(?:gen|dat|acc)\.?\s*$/u, '').trim().normalize('NFC');
+  if (exactPrepositions.has(prepBare)) return 'Preposition';
 
   // 4. Nominal pattern → Noun. Rely on detectDeclension for '1st decl.' / '2nd decl.' / '3rd decl.' / 'indecl.'.
   const nominal = parseNominalPattern(greek);
