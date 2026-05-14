@@ -3,7 +3,7 @@
 // GitHub Pages note: all app-shell URLs are resolved relative to the
 // service worker registration scope so this works both at a domain root
 // and at a project path such as https://user.github.io/repository/.
-const CACHE_NAME = 'mounce-bbg-greek-pwa-v7';
+const CACHE_NAME = 'mounce-bbg-greek-pwa-v8';
 const BASE_URL = new URL('./', self.registration.scope);
 
 // Cross-origin hosts whose responses we want to keep in the runtime cache
@@ -26,7 +26,7 @@ const APP_SHELL_PATHS = [
   './',
   'index.html',
   'pages/memorization.html',
-  'styles.css?v=45',
+  'styles.css?v=46',
   'manifest.json?v=26',
   'favicon.svg?v=26',
   'js/data/words.js?v=2',
@@ -38,11 +38,11 @@ const APP_SHELL_PATHS = [
   'js/data/concept_examples.js?v=1',
   'js/data/grammar_examples.js?v=1',
   'js/data/setMeta.js?v=1',
-  'js/logic/pos_logic.js?v=2',
+  'js/logic/pos_logic.js?v=3',
   'js/data/reader.js?v=1',
   'js/data/reader_translations.js?v=2',
   'js/data/supplementals/mounce_paradigms.js?v=1',
-  'js/app/main.js?v=3',
+  'js/app/main.js?v=4',
   'js/data/advanced/advanced_01.js?v=2',
   'js/data/advanced/advanced_02.js?v=2',
   'js/data/advanced/advanced_03.js?v=2',
@@ -78,22 +78,22 @@ const APP_SHELL_PATHS = [
   'js/domain/gamification/levels.js?v=1',
   'js/domain/gamification/usageStats.js?v=1',
   'js/domain/deck/ordering.js?v=1',
-  'js/domain/deck/filters.js?v=1',
+  'js/domain/deck/filters.js?v=2',
   'js/domain/grammar/explanations.js?v=1',
   'js/state/migrations.js?v=1',
   'js/state/store.js?v=1',
-  'js/state/runtime.js?v=1',
-  'js/state/persistence.js?v=1',
+  'js/state/runtime.js?v=2',
+  'js/state/persistence.js?v=2',
   'js/domain/gamification/xp.js?v=1',
-  'js/ui/analytics.js?v=1',
+  'js/ui/analytics.js?v=2',
   'js/ui/charts.js?v=1',
   'js/ui/keyboard.js?v=1',
   'js/ui/modals.js?v=1',
-  'js/ui/navigation.js?v=2',
+  'js/ui/navigation.js?v=3',
   'js/ui/progress.js?v=1',
   'js/ui/reader.js?v=1',
-  'js/ui/render.js?v=1',
-  'js/ui/selectors.js?v=1',
+  'js/ui/render.js?v=2',
+  'js/ui/selectors.js?v=2',
   'js/ui/toast.js?v=1',
   'js/ui/touchTapBridge.js?v=1',
   'icons/icon-192.png',

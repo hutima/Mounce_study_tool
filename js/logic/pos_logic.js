@@ -219,6 +219,51 @@ const POS_OVERRIDES = {
   'οὐαί':                          'Interjection'
 };
 
+// Splits a preposition headword like "ἐπί+gen." into its bare form and case.
+// Returns null for entries without a case tag. The bare form is NFC-normalized
+// so oxia-accented data still matches the tonos-accented lookup set.
+function parsePrepositionCaseTag(greek) {
+  const text = normalizeSpacing(greek || '');
+  const m = text.match(/^(.+?)\s*\+\s*(gen|dat|acc)\.?$/u);
+  if (!m) return null;
+  return { bare: m[1].trim().normalize('NFC'), case: m[2] };
+}
+
+// Prepositions in the wordlist that govern more than one case (e.g. ἐπί with
+// gen./dat./acc.). Built once by scanning SETS for case-tagged headwords and
+// counting the distinct cases seen per bare preposition.
+let multiCasePrepositionSet = null;
+
+function getMultiCasePrepositions() {
+  if (multiCasePrepositionSet) return multiCasePrepositionSet;
+  const casesByPrep = new Map();
+  if (typeof SETS !== 'undefined' && SETS) {
+    Object.keys(SETS).forEach(rawKey => {
+      const set = SETS[rawKey];
+      if (!set || !Array.isArray(set.cards)) return;
+      set.cards.forEach(card => {
+        const parsed = parsePrepositionCaseTag(card && card.g);
+        if (!parsed) return;
+        if (!casesByPrep.has(parsed.bare)) casesByPrep.set(parsed.bare, new Set());
+        casesByPrep.get(parsed.bare).add(parsed.case);
+      });
+    });
+  }
+  multiCasePrepositionSet = new Set();
+  casesByPrep.forEach((cases, bare) => {
+    if (cases.size > 1) multiCasePrepositionSet.add(bare);
+  });
+  return multiCasePrepositionSet;
+}
+
+// True when a card is a preposition headword whose bare form governs more
+// than one case across the wordlist.
+function isMultiCasePreposition(card) {
+  const parsed = parsePrepositionCaseTag(card && card.g);
+  if (!parsed) return false;
+  return getMultiCasePrepositions().has(parsed.bare);
+}
+
 function detectPartOfSpeech(card) {
   const greek = normalizeSpacing(card.g || '');
   const english = normalizeSpacing(card.e || '');
@@ -323,5 +368,6 @@ Object.assign(window, {
   buildLegacyStableIdMap,
   formatGreekHeadword,
   transliterateGreek,
-  detectPartOfSpeech
+  detectPartOfSpeech,
+  isMultiCasePreposition
 });

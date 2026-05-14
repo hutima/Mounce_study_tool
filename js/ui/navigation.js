@@ -10,7 +10,7 @@
 import { runtime } from '../state/runtime.js';
 import { shuffleArray } from '../utils/helpers.js';
 import { SRS_DAY_MS, SRS_CYCLE_ADVANCE_MS } from '../domain/srs/constants.js';
-import { expandSessionSets } from '../domain/deck/ordering.js';
+import { expandSessionSets, sortSetKeys } from '../domain/deck/ordering.js';
 import { sanitizeGamificationState } from '../state/store.js';
 import { renderCard } from './render.js';
 import { renderProgress, renderReview } from './progress.js';
@@ -49,11 +49,33 @@ let host = {
   saveCurrentDeckStateToBank: () => {},
   saveState: () => {},
   renderReaderModule: () => {},
-  getDeckStateKey: () => ''
+  getDeckStateKey: () => '',
+  getSessions: () => []
 };
 
 export function configureNavigation(deps) {
   host = { ...host, ...deps };
+}
+
+// When split vocab/grammar selection is on, each mode keeps its own selected
+// chapters. These helpers stash/restore that selection as the study mode
+// changes. Only 'vocab' and 'morph' participate; 'reader' is left untouched.
+function saveModeSelection(mode) {
+  if (mode !== 'vocab' && mode !== 'morph') return;
+  runtime.modeSelections[mode] = {
+    selectedKeys: [...runtime.selectedKeys],
+    currentSessionId: runtime.currentSession ? runtime.currentSession.id : null
+  };
+}
+
+function restoreModeSelection(mode) {
+  if (mode !== 'vocab' && mode !== 'morph') return;
+  const saved = runtime.modeSelections[mode];
+  if (!saved) return;
+  runtime.selectedKeys = sortSetKeys((saved.selectedKeys || []).map(String));
+  runtime.currentSession = saved.currentSessionId
+    ? host.getSessions().find(s => s.id === saved.currentSessionId) || null
+    : null;
 }
 
 export function navigate(dir, options = {}) {
@@ -228,7 +250,12 @@ export function setStudyMode(mode) {
   const nextMode = host.normalizeStudyMode(mode);
   if (runtime.studyMode === nextMode) return;
 
+  const prevMode = runtime.studyMode;
   host.saveCurrentDeckStateToBank();
+  if (runtime.splitSelection) {
+    saveModeSelection(prevMode);
+    restoreModeSelection(nextMode);
+  }
   runtime.studyMode = nextMode;
   host.clearSpacedUndoSnapshot();
   host.resetMorphAnswerState();
@@ -329,6 +356,17 @@ export function toggleRequiredOnly() {
   loadDeckFromKeys(keysToLoad, runtime.currentSession ? runtime.currentSession.id : null);
 }
 
+export function toggleHardVocabReview() {
+  runtime.hardVocabReviewMode = !runtime.hardVocabReviewMode;
+  host.syncToggleButtons();
+  if (!runtime.selectedKeys.length) {
+    host.saveState();
+    return;
+  }
+  const keysToLoad = runtime.currentSession ? expandSessionSets(runtime.currentSession) : runtime.selectedKeys;
+  loadDeckFromKeys(keysToLoad, runtime.currentSession ? runtime.currentSession.id : null);
+}
+
 export function toggleDirection() {
   runtime.directionToGreek = !runtime.directionToGreek;
   host.clearSpacedUndoSnapshot();
@@ -365,6 +403,22 @@ export function toggleSpacedRepetition() {
   renderCard();
   renderProgress();
   renderReview();
+  host.saveState();
+}
+
+export function toggleSplitSelection() {
+  runtime.splitSelection = !runtime.splitSelection;
+  if (runtime.splitSelection) {
+    // Seed both modes with the current selection; they diverge from here.
+    const snapshot = () => ({
+      selectedKeys: [...runtime.selectedKeys],
+      currentSessionId: runtime.currentSession ? runtime.currentSession.id : null
+    });
+    runtime.modeSelections = { vocab: snapshot(), morph: snapshot() };
+  } else {
+    runtime.modeSelections = {};
+  }
+  host.syncToggleButtons();
   host.saveState();
 }
 
