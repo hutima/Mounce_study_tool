@@ -246,6 +246,9 @@ import {
   fastForwardOneDay,
   fastForwardOneWeek,
   resetCurrentDeck,
+  closeResetSpacedModal,
+  confirmResetSpacedTimingOnly,
+  confirmResetSpacedProgress,
   resetAllStats
 } from '../ui/navigation.js';
 import {
@@ -637,7 +640,7 @@ function syncToggleButtons() {
   if (resetDeckBtn) {
     resetDeckBtn.textContent = runtime.spacedRepetition ? 'Reset spaced' : 'Reset unspaced';
     resetDeckBtn.title = runtime.spacedRepetition
-      ? 'Reset spaced-review scheduling for this deck only'
+      ? 'Choose to set every card due now or fully reset SRS progress for this deck'
       : 'Reset unspaced marks for this deck only';
   }
 
@@ -1511,7 +1514,9 @@ const GLOBAL_CLICK_HANDLERS = {
   deselectAllChapters, deselectAllSupplementals, deselectAllAdvanced, deselectAll,
   handleConsentAction, handleTransferPrimaryAction, handleTransferSecondaryAction,
   openShortcutsModal, openStudySelector,
-  openAnalyticsOverlay, resetAllStats, resetCurrentDeck, reshuffleEligible,
+  openAnalyticsOverlay, resetAllStats, resetCurrentDeck,
+  closeResetSpacedModal, confirmResetSpacedTimingOnly, confirmResetSpacedProgress,
+  reshuffleEligible,
   fastForwardOneDay, fastForwardOneWeek,
   restoreSpacedUndo, setAppProfile, setStudyMode, setThemeMode,
   showDisclaimerModal, startStudying, toggleDirection, toggleMorphSelfCheck,

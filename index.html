@@ -13,7 +13,7 @@
 <title>Mounce BBG Greek — Flashcards</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700&family=EB+Garamond:ital,wght@0,400;0,500;1,400&family=Noto+Serif:ital,wght@0,400;1,400&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="styles.css?v=44">
+<link rel="stylesheet" href="styles.css?v=45">
 <script>
 (function(){
   try {
@@ -322,6 +322,22 @@
   </div>
 </div>
 
+<div class="consent-overlay" id="resetSpacedOverlay" aria-hidden="true">
+  <div class="consent-modal reset-spaced-modal" role="dialog" aria-modal="true" aria-labelledby="resetSpacedTitle">
+    <div class="consent-label">Reset spaced review</div>
+    <h2 id="resetSpacedTitle">What would you like to reset?</h2>
+    <div class="consent-copy">
+      <p><strong>Set all to now</strong> keeps your SRS progress (streaks, intervals, ease) but makes every card in this deck due immediately, so you can review them all right away.</p>
+      <p><strong>Reset progress</strong> clears all SRS scheduling and progress for this deck. Pass history and unspaced marks are kept.</p>
+    </div>
+    <div class="consent-actions reset-spaced-actions">
+      <button class="ctrl-btn" type="button" onclick="closeResetSpacedModal()">Cancel</button>
+      <button class="ctrl-btn" type="button" onclick="confirmResetSpacedTimingOnly()">Set all to now</button>
+      <button class="ctrl-btn consent-primary" type="button" onclick="confirmResetSpacedProgress()">Reset progress</button>
+    </div>
+  </div>
+</div>
+
 <div class="consent-overlay" id="whatsNewV1_1Overlay" aria-hidden="true">
   <div class="consent-modal" role="dialog" aria-modal="true" aria-labelledby="whatsNewV1_1Title">
     <div class="consent-label">Mounce variant</div>
@@ -338,7 +354,7 @@
   </div>
 </div>
 
-<script defer src="js/data/words.js?v=1"></script>
+<script defer src="js/data/words.js?v=2"></script>
 <script defer src="js/data/morphology.js?v=1"></script>
 <script defer src="js/data/supplemental.js?v=1"></script>
 <script defer src="js/data/grammar.js?v=1"></script>
@@ -370,7 +386,7 @@
 <script defer src="js/data/advanced/advanced_25.js?v=2"></script>
 <script defer src="js/data/reader.js?v=1"></script>
 <script defer src="js/data/reader_translations.js?v=2"></script>
-<script defer src="js/logic/pos_logic.js?v=1"></script>
-<script type="module" src="js/app/main.js?v=2"></script>
+<script defer src="js/logic/pos_logic.js?v=2"></script>
+<script type="module" src="js/app/main.js?v=3"></script>
 </body>
 </html>

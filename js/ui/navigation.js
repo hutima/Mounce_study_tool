@@ -414,45 +414,34 @@ export function fastForwardOneWeek() {
 }
 
 export function resetCurrentDeck() {
-  host.clearSpacedUndoSnapshot();
   if (!runtime.selectedKeys.length) {
+    host.clearSpacedUndoSnapshot();
     host.clearSavedState();
     return;
   }
 
+  if (runtime.spacedRepetition) {
+    openResetSpacedModal();
+    return;
+  }
+
   const confirmed = window.confirm(
-    runtime.spacedRepetition
-      ? 'Reset spaced-review scheduling for this deck only? This keeps your unspaced marks and pass history.'
-      : 'Reset unspaced marks for this deck only? This keeps your spaced-review scheduling and intervals.'
+    'Reset unspaced marks for this deck only? This keeps your spaced-review scheduling and intervals.'
   );
   if (!confirmed) return;
 
+  host.clearSpacedUndoSnapshot();
+  performUnspacedDeckReset();
+}
+
+function performUnspacedDeckReset() {
   const deckKey = host.getDeckStateKey(runtime.selectedKeys, runtime.requiredOnly, runtime.spacedRepetition);
   delete runtime.deckStates[deckKey];
   const directionalMarks = host.getDirectionalMarksStore();
-  const directionalProgress = host.getDirectionalProgressStore();
 
-  if (runtime.spacedRepetition) {
-    runtime.originalDeck.forEach(card => {
-      const p = directionalProgress[card.id];
-      if (p && typeof p === 'object') {
-        p.dueAt = 0;
-        p.intervalDays = 0;
-        p.streak = 0;
-        p.easyStreak = 0;
-        p.srsStage = 0;
-        p.ease = 2.3;
-        p.lastEasyIntervalDays = 0;
-        p.confidence = 0;
-        p.confidenceHistory = [];
-        // seenCount, passCount, failCount, lastReviewedAt intentionally kept
-      }
-    });
-  } else {
-    runtime.originalDeck.forEach(card => {
-      delete directionalMarks[card.id];
-    });
-  }
+  runtime.originalDeck.forEach(card => {
+    delete directionalMarks[card.id];
+  });
 
   runtime.marks = directionalMarks;
   host.resetUnspacedCycleState();
@@ -466,6 +455,104 @@ export function resetCurrentDeck() {
   renderProgress();
   renderReview();
   host.saveState();
+}
+
+function performSpacedProgressReset() {
+  const deckKey = host.getDeckStateKey(runtime.selectedKeys, runtime.requiredOnly, runtime.spacedRepetition);
+  delete runtime.deckStates[deckKey];
+  const directionalProgress = host.getDirectionalProgressStore();
+
+  runtime.originalDeck.forEach(card => {
+    const p = directionalProgress[card.id];
+    if (p && typeof p === 'object') {
+      p.dueAt = 0;
+      p.intervalDays = 0;
+      p.streak = 0;
+      p.easyStreak = 0;
+      p.srsStage = 0;
+      p.ease = 2.3;
+      p.lastEasyIntervalDays = 0;
+      p.confidence = 0;
+      p.confidenceHistory = [];
+      // seenCount, passCount, failCount, lastReviewedAt intentionally kept
+    }
+  });
+
+  runtime.marks = host.getDirectionalMarksStore();
+  host.resetUnspacedCycleState();
+  runtime.currentIdx = 0;
+  runtime.isFlipped = false;
+  host.resetMorphAnswerState();
+  runtime.deck = [];
+  runtime.activeDeckCount = 0;
+  runtime.deck = host.buildStudyDeck(runtime.originalDeck);
+  renderCard();
+  renderProgress();
+  renderReview();
+  host.saveState();
+}
+
+function performSpacedTimingReset() {
+  const directionalProgress = host.getDirectionalProgressStore();
+
+  runtime.originalDeck.forEach(card => {
+    const p = directionalProgress[card.id];
+    if (p && typeof p === 'object') {
+      p.dueAt = 0;
+      p.intervalDays = 0;
+      // streak, easyStreak, srsStage, ease, lastEasyIntervalDays,
+      // confidence, confidenceHistory intentionally kept
+    }
+  });
+
+  runtime.currentIdx = 0;
+  runtime.isFlipped = false;
+  host.resetMorphAnswerState();
+  runtime.deck = host.buildStudyDeck(runtime.originalDeck);
+  renderCard();
+  renderProgress();
+  renderReview();
+  host.saveState();
+}
+
+function openResetSpacedModal() {
+  const overlay = document.getElementById('resetSpacedOverlay');
+  if (!overlay) {
+    // Fall back to legacy confirm if the modal markup isn't present.
+    if (window.confirm('Reset spaced-review scheduling for this deck only? This keeps your unspaced marks and pass history.')) {
+      host.clearSpacedUndoSnapshot();
+      performSpacedProgressReset();
+    }
+    return;
+  }
+  overlay.classList.add('show');
+  overlay.setAttribute('aria-hidden', 'false');
+  document.body.classList.add('modal-open');
+}
+
+export function closeResetSpacedModal() {
+  const overlay = document.getElementById('resetSpacedOverlay');
+  if (!overlay) return;
+  overlay.classList.remove('show');
+  overlay.setAttribute('aria-hidden', 'true');
+  // Match the behavior of the other modal close handlers: only drop
+  // modal-open when no other overlay is currently visible.
+  const anyOtherOpen = document.querySelector('.consent-overlay.show');
+  if (!anyOtherOpen) document.body.classList.remove('modal-open');
+}
+
+export function confirmResetSpacedTimingOnly() {
+  closeResetSpacedModal();
+  if (!runtime.selectedKeys.length || !runtime.spacedRepetition) return;
+  host.clearSpacedUndoSnapshot();
+  performSpacedTimingReset();
+}
+
+export function confirmResetSpacedProgress() {
+  closeResetSpacedModal();
+  if (!runtime.selectedKeys.length || !runtime.spacedRepetition) return;
+  host.clearSpacedUndoSnapshot();
+  performSpacedProgressReset();
 }
 
 export function resetAllStats() {

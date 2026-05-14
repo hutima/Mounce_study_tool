@@ -201,7 +201,7 @@ const SETS = {
         "required": true
       },
       {
-        "g": "ἐν",
+        "g": "ἐν+dat.",
         "e": "in, on, among",
         "required": true
       },
@@ -267,7 +267,7 @@ const SETS = {
         "required": true
       },
       {
-        "g": "εἰς",
+        "g": "εἰς+acc.",
         "e": "in, into, among",
         "required": true
       },
@@ -333,17 +333,17 @@ const SETS = {
         "required": true
       },
       {
-        "g": "ἀπό",
-        "e": "(gen.) (away) from",
+        "g": "ἀπό+gen.",
+        "e": "(away) from",
         "required": true
       },
       {
-        "g": "διά (+ gen.)",
+        "g": "διά+gen.",
         "e": "through",
         "required": true
       },
       {
-        "g": "διά (+ acc.)",
+        "g": "διά+acc.",
         "e": "on account of",
         "required": true
       },
@@ -353,8 +353,8 @@ const SETS = {
         "required": true
       },
       {
-        "g": "ἐκ, ἐξ",
-        "e": "(gen.) from, out of",
+        "g": "ἐκ, ἐξ+gen.",
+        "e": "from, out of",
         "required": true
       },
       {
@@ -393,12 +393,12 @@ const SETS = {
         "required": true
       },
       {
-        "g": "μετά (+ gen.)",
+        "g": "μετά+gen.",
         "e": "with",
         "required": true
       },
       {
-        "g": "μετά (+ acc.)",
+        "g": "μετά+acc.",
         "e": "after",
         "required": true
       },
@@ -418,17 +418,17 @@ const SETS = {
         "required": true
       },
       {
-        "g": "(+ gen.)",
+        "g": "παρά+gen.",
         "e": "from",
         "required": true
       },
       {
-        "g": "(+ dat.)",
+        "g": "παρά+dat.",
         "e": "beside, in the presence of",
         "required": true
       },
       {
-        "g": "(+ acc.)",
+        "g": "παρά+acc.",
         "e": "alongside of",
         "required": true
       },
@@ -438,17 +438,17 @@ const SETS = {
         "required": true
       },
       {
-        "g": "πρός",
-        "e": "(acc.) to, towards, with",
+        "g": "πρός+acc.",
+        "e": "to, towards, with",
         "required": true
       },
       {
-        "g": "ὑπό (+ gen.)",
+        "g": "ὑπό+gen.",
         "e": "by",
         "required": true
       },
       {
-        "g": "ὑπό (+ acc.)",
+        "g": "ὑπό+acc.",
         "e": "under",
         "required": true
       }
@@ -590,12 +590,12 @@ const SETS = {
         "required": true
       },
       {
-        "g": "περί + (gen.)",
+        "g": "περί+gen.",
         "e": "concerning, about",
         "required": true
       },
       {
-        "g": "περί + (acc.)",
+        "g": "περί+acc.",
         "e": "around",
         "required": true
       },
@@ -605,8 +605,8 @@ const SETS = {
         "required": true
       },
       {
-        "g": "σύν",
-        "e": "(dat.) with",
+        "g": "σύν+dat.",
+        "e": "with",
         "required": true
       },
       {
@@ -666,22 +666,22 @@ const SETS = {
         "required": true
       },
       {
-        "g": "ἔξω (prep. + gen.)",
+        "g": "ἔξω+gen.",
         "e": "outside",
         "required": true
       },
       {
-        "g": "ἐπί + (gen.)",
+        "g": "ἐπί+gen.",
         "e": "on, over, when",
         "required": true
       },
       {
-        "g": "ἐπί + (dat.)",
+        "g": "ἐπί+dat.",
         "e": "on the basis of, at",
         "required": true
       },
       {
-        "g": "ἐπί + (acc.)",
+        "g": "ἐπί+acc.",
         "e": "on, to, against",
         "required": true
       },
@@ -782,7 +782,7 @@ const SETS = {
         "required": true
       },
       {
-        "g": "ἕως (prep. + gen.)",
+        "g": "ἕως+gen.",
         "e": "as far as",
         "required": true
       },
@@ -837,12 +837,12 @@ const SETS = {
         "required": true
       },
       {
-        "g": "ὑπέρ (prep. + gen.)",
+        "g": "ὑπέρ+gen.",
         "e": "in behalf of",
         "required": true
       },
       {
-        "g": "ὑπέρ (prep. + acc.)",
+        "g": "ὑπέρ+acc.",
         "e": "above",
         "required": true
       }
@@ -934,8 +934,8 @@ const SETS = {
         "required": true
       },
       {
-        "g": "ἐνώπιον",
-        "e": "(gen.) before",
+        "g": "ἐνώπιον+gen.",
+        "e": "before",
         "required": true
       },
       {
@@ -954,12 +954,12 @@ const SETS = {
         "required": true
       },
       {
-        "g": "κατά (κατ', καθ) (prep. + gen.)",
+        "g": "κατά (κατ', καθ)+gen.",
         "e": "down from, against",
         "required": true
       },
       {
-        "g": "κατά (κατ', καθ) (prep. + acc.)",
+        "g": "κατά (κατ', καθ)+acc.",
         "e": "according to, throughout, during",
         "required": true
       },
