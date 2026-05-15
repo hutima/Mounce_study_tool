@@ -56,18 +56,24 @@ function parseParadigmBaseKey(rawKey) {
 
 export function getSelectedVocabCards(keys, requiredFlag = false) {
   const cards = [];
-  // Several paradigm sub-keys of the same supplemental set must only
-  // contribute that set's vocab once.
-  const seenParadigmBases = new Set();
+  // A supplemental set's vocab pool is shared by its flat key and every one
+  // of its grammar/morph paradigm sub-keys, so any combination of them must
+  // only contribute that set's vocab once. (UI toggles enforce mutual
+  // exclusion; this dedup is the safety net for imported state or future
+  // call paths that don't.)
+  const seenVocabBases = new Set();
   (keys || []).forEach(key => {
     const rawKey = String(key);
     const sub = parseSubKey(rawKey);
     const paradigmBase = sub ? null : parseParadigmBaseKey(rawKey);
-    if (paradigmBase) {
-      if (seenParadigmBases.has(paradigmBase)) return;
-      seenParadigmBases.add(paradigmBase);
-    }
     const lookupKey = sub ? sub.baseKey : (paradigmBase || rawKey);
+    // ::sub:: keys deliberately filter cards by sub-bucket below, so each
+    // sub-key contributes a different slice of the same set's cards and must
+    // not dedup against each other.
+    if (!sub) {
+      if (seenVocabBases.has(lookupKey)) return;
+      seenVocabBases.add(lookupKey);
+    }
     const set = getSets()[lookupKey];
     const setCards = Array.isArray(set?.cards) ? set.cards : [];
     if (!setCards.length) return;
