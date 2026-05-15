@@ -145,7 +145,9 @@ function compactDeckStates(deckStates) {
   if (!isPlainObject(deckStates)) return {};
   const entries = Object.keys(deckStates)
     .map(key => ({ key, value: deckStates[key] }))
-    .filter(entry => isPlainObject(entry.value) && Array.isArray(entry.value.deckIds))
+    // Empty-deckIds entries record nothing useful (the deck would be rebuilt
+    // from scratch anyway) and are pure overhead in the persisted save.
+    .filter(entry => isPlainObject(entry.value) && Array.isArray(entry.value.deckIds) && entry.value.deckIds.length > 0)
     .filter(entry => !/"mode"\s*:\s*"reader"/.test(entry.key));
   // Newest selections first; legacy entries with no savedAt stamp sort last.
   entries.sort((a, b) => (Number(b.value.savedAt) || 0) - (Number(a.value.savedAt) || 0));
