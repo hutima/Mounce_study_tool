@@ -36,6 +36,7 @@ let host = {
   syncToggleButtons: () => {},
   clearSpacedUndoSnapshot: () => {},
   saveCurrentDeckStateToBank: () => {},
+  markActiveDeckRef: () => {},
   saveState: () => {},
   canAccessGrammarUi: () => true
 };
@@ -168,6 +169,25 @@ function getSupplementalParadigmsForKey(key) {
   return paradigms.filter(paradigm => paradigm.count > 0);
 }
 
+// Selecting the flat set key for every set in a week pulls in that set's
+// vocab plus all of its grammar/morph paradigms — including multi-paradigm
+// sets that are otherwise only reachable via split sub-keys.
+function selectAllWeekSupplementals(weekKeys) {
+  const keys = (weekKeys || []).map(String);
+  if (!keys.length) return;
+  host.saveCurrentDeckStateToBank();
+  runtime.currentSession = null;
+  const weekKeySet = new Set(keys);
+  // Drop any existing flat or split sub-key selections for these sets first,
+  // then re-add the flat keys so the whole set loads in every study mode.
+  const retained = runtime.selectedKeys.filter(k => {
+    const base = getParadigmBaseKey(k) || k;
+    return !weekKeySet.has(base);
+  });
+  const nextKeys = sortSetKeys([...new Set([...retained, ...keys])]);
+  loadDeckFromKeys(nextKeys, null);
+}
+
 export function deselectAllSupplementals() {
   const remaining = runtime.selectedKeys.filter(k => {
     const base = getParadigmBaseKey(k) || k;
@@ -244,6 +264,15 @@ export function buildSupplementalSelector() {
 
     const weekBody = document.createElement('div');
     weekBody.className = 'supplemental-week-body';
+
+    const selectAllBtn = document.createElement('button');
+    selectAllBtn.type = 'button';
+    selectAllBtn.className = 'chapter-btn supplemental-select-all-week';
+    selectAllBtn.textContent = weekNum == null
+      ? 'Select all other supplementals'
+      : `Select all Week ${weekNum} supplementals`;
+    selectAllBtn.onclick = () => selectAllWeekSupplementals(entries.map(e => e.key));
+    weekBody.appendChild(selectAllBtn);
 
     entries.forEach(({ key, set, vocabCount, studyCount }) => {
       const countLabel = host.canAccessGrammarUi()
@@ -406,6 +435,7 @@ function clearAndRenderEmpty() {
   setActiveSetButtons();
   runtime.deck = [];
   runtime.originalDeck = [];
+  runtime.activeDeckRef = null;
   runtime.marks = {};
   runtime.currentIdx = 0;
   document.getElementById('cardArea').innerHTML = '<div class="empty-state"><div class="big">αβγ</div>Tap to choose a session and start studying.</div>';
@@ -482,16 +512,16 @@ export function loadDeckFromKeys(keys, sessionId = null) {
 
   const savedDeckState = runtime.deckStates[host.getDeckStateKey(runtime.selectedKeys, runtime.requiredOnly)] || null;
   runtime.marks = host.getDirectionalMarksStore();
-  if (savedDeckState) {
-    const restoredDeck = host.reorderDeckFromIds(runtime.originalDeck, savedDeckState.deckIds);
-    if (runtime.spacedRepetition && restoredDeck) {
+  const restoredDeck = savedDeckState ? host.reorderDeckFromIds(runtime.originalDeck, savedDeckState.deckIds) : null;
+  // A bank entry whose ids don't line up with the current deck is a stale
+  // cross-mode save — ignore its cursor rather than clamp a meaningless index.
+  if (restoredDeck) {
+    if (runtime.spacedRepetition) {
       runtime.deck = restoredDeck;
       runtime.activeDeckCount = restoredDeck.length;
       runtime.deck = host.buildStudyDeck(runtime.originalDeck, { forceShuffle: runtime.shuffled });
-    } else if (restoredDeck) {
-      runtime.deck = runtime.shuffled ? shuffleArray([...restoredDeck]) : restoredDeck;
     } else {
-      runtime.deck = host.buildStudyDeck(runtime.originalDeck);
+      runtime.deck = runtime.shuffled ? shuffleArray([...restoredDeck]) : restoredDeck;
     }
     runtime.activeDeckCount = runtime.spacedRepetition ? host.getDueCount(runtime.originalDeck) : runtime.originalDeck.filter(card => runtime.marks[card.id] !== 'known').length;
     runtime.currentIdx = Number.isInteger(savedDeckState.currentIdx)
@@ -504,6 +534,7 @@ export function loadDeckFromKeys(keys, sessionId = null) {
     host.resetStudyState();
     runtime.deck = host.buildStudyDeck(runtime.originalDeck);
   }
+  host.markActiveDeckRef();
 
   setActiveSessionButton();
   setActiveSetButtons();

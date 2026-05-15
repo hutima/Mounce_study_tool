@@ -173,6 +173,14 @@
   .supplemental-all-btn { border-color: var(--gold-dim); }
   .supplemental-paradigm-btn { text-align: left; }
 
+  .supplemental-select-all-week {
+    border-color: var(--gold-dim);
+    color: var(--gold);
+    font-family: 'Cinzel', serif;
+    letter-spacing: 0.03em;
+  }
+  .supplemental-select-all-week:hover { background: rgba(201,168,76,0.1); }
+
   .supplemental-set-flat {
     display: flex;
     align-items: center;

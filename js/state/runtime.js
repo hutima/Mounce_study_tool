@@ -59,6 +59,12 @@ export const runtime = {
   modeSelections: {},       // { vocab: {selectedKeys, currentSessionId}, morph: {...} }
   deck: [],
   originalDeck: [],
+  // Identity of the deck currently in `deck` — which deck-state-bank entry it
+  // belongs to. Set whenever a deck is freshly built; consulted by
+  // saveCurrentDeckStateToBank so the in-flight deck is always filed under its
+  // own key even when callers have already mutated studyMode / direction /
+  // selectedKeys ahead of the rebuild.
+  activeDeckRef: null,      // { key, selectedKeys, currentSessionId }
   currentIdx: 0,
   isFlipped: false,
   shuffled: true,           // shuffle on by default

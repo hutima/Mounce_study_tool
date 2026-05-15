@@ -15,6 +15,11 @@ export const PROGRESS_EXPORT_VERSION = 1;
 export const STUDY_IDLE_MS = 90 * 1000;
 export const STUDY_SESSION_BREAK_MS = 30 * 60 * 1000;
 export const MAX_STUDY_SESSION_HISTORY = 500;
+// The deck-state bank stores a full card-id ordering per selection combo and
+// would otherwise grow without bound (every distinct chapter selection adds an
+// entry). It is only a resume convenience, so it is capped to the most
+// recently used selections to keep the persisted save small.
+export const MAX_DECK_STATE_ENTRIES = 16;
 
 // ── Mutable state ──
 // Exported as a single object so modules can read/write by reference.
