@@ -138,7 +138,8 @@ export function returnSeenCardToDeck(encodedId) {
 
   host.moveCardToBackOfActivePile(card);
 
-  const progress = host.getWordProgress(cardId);
+  // Writes scheduling fields, so the entry must be persisted into the store.
+  const progress = host.getWordProgress(cardId, { persist: true });
   progress.dueAt = Date.now();
   progress.intervalDays = 0;
   progress.streak = 0;

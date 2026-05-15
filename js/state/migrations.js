@@ -1,6 +1,7 @@
 // State migrations — applied in order during restoreState
 import { isPlainObject } from '../utils/helpers.js';
 import { SRS_DAY_MS, SRS_MAX_INTERVAL_DAYS } from '../domain/srs/constants.js';
+import { MAX_DECK_STATE_ENTRIES } from './store.js';
 
 // Legacy SRS cap, used to rescale intervals from older saves/exports.
 const LEGACY_SRS_MAX_INTERVAL_DAYS = 30;
@@ -72,6 +73,135 @@ export function formatPersistedStateSummary(summary) {
   const marks = isPlainObject(safe.marks) ? safe.marks : {};
   const progress = isPlainObject(safe.progress) ? safe.progress : {};
   return `Sets ${safe.selectedSets || 0} \u00B7 Marks G\u2192E ${marks.g2e || 0}, E\u2192G ${marks.e2g || 0}, Grammar ${marks.morph || 0} \u00B7 Progress G\u2192E ${progress.g2e || 0}, E\u2192G ${progress.e2g || 0}, Grammar ${progress.morph || 0}`;
+}
+
+// ── Save compaction ──────────────────────────────────────────────────────
+// localStorage on iOS is small (~5MB) and a bloated save throws
+// QuotaExceededError mid-render — saveState() runs at the top of renderCard(),
+// so a throw there aborts the re-render and freezes the current card.
+// compactPersistedState keeps every persisted payload (localStorage saves and
+// JSON exports alike) as small as possible without losing real progress:
+//
+//  - globalWordProgress accumulates a fresh all-zero entry for every card the
+//    app merely *looks at* — getWordProgress lazily seeds defaults during
+//    rendering and deck building. Those entries carry no information (an
+//    identical default is regenerated on demand), so they are dropped.
+//  - Only the three reachable direction buckets (g2e / e2g / morph) are ever
+//    read; a stray empty bucket from an older build (e.g. "morph_e2g") is
+//    dropped.
+//  - The deck-state bank grows one entry per distinct selection combo and is
+//    only a resume convenience, so it is capped to the most recently saved
+//    selections; reader-mode entries (reader never resumes a card deck) go.
+
+const KNOWN_DIRECTION_BUCKETS = ['g2e', 'e2g', 'morph'];
+const PROGRESS_DEFAULT_EASE = 2.3;
+const PROGRESS_MEANINGFUL_NUMERIC_FIELDS = [
+  'seenCount', 'passCount', 'failCount', 'streak', 'easyStreak', 'srsStage',
+  'intervalDays', 'lastEasyIntervalDays', 'dueAt', 'lastReviewedAt',
+  'firstSeenAt', 'firstConfirmedAt', 'confidence'
+];
+
+// True when a progress entry is indistinguishable from a freshly-seeded
+// default — it records no actual study history and getWordProgress will
+// regenerate an identical entry on demand, so it can be safely dropped.
+function isEmptyProgressEntry(entry) {
+  if (!isPlainObject(entry)) return true;
+  if (PROGRESS_MEANINGFUL_NUMERIC_FIELDS.some(field => Number(entry[field]) > 0)) return false;
+  if (Array.isArray(entry.confidenceHistory) && entry.confidenceHistory.length) return false;
+  if (entry.lastSpacedOutcome) return false;
+  if (Number.isFinite(entry.ease) && entry.ease !== PROGRESS_DEFAULT_EASE) return false;
+  return true;
+}
+
+function compactDirectionalStore(store, keepValue) {
+  if (!isPlainObject(store)) return store;
+  // A store with none of the real direction keys is the pre-split legacy flat
+  // shape ({ cardId: value, ... }); leave it untouched so ensureDirectionalStores
+  // can migrate it to the nested shape first.
+  const hasDirectionBuckets = KNOWN_DIRECTION_BUCKETS.some(dir => dir in store);
+  if (!hasDirectionBuckets) return store;
+
+  const next = {};
+  Object.keys(store).forEach(bucketKey => {
+    const bucket = store[bucketKey];
+    const isKnown = KNOWN_DIRECTION_BUCKETS.includes(bucketKey);
+    if (!isPlainObject(bucket)) {
+      if (isKnown) next[bucketKey] = {};
+      return;
+    }
+    // Non-standard buckets are unreachable by the app; drop them once empty,
+    // but never silently discard a bucket that still holds entries.
+    if (!isKnown && !Object.keys(bucket).length) return;
+    const trimmed = {};
+    Object.keys(bucket).forEach(id => {
+      if (keepValue(bucket[id])) trimmed[id] = bucket[id];
+    });
+    next[bucketKey] = trimmed;
+  });
+  return next;
+}
+
+function compactDeckStates(deckStates) {
+  if (!isPlainObject(deckStates)) return {};
+  const entries = Object.keys(deckStates)
+    .map(key => ({ key, value: deckStates[key] }))
+    .filter(entry => isPlainObject(entry.value) && Array.isArray(entry.value.deckIds))
+    .filter(entry => !/"mode"\s*:\s*"reader"/.test(entry.key));
+  // Newest selections first; legacy entries with no savedAt stamp sort last.
+  entries.sort((a, b) => (Number(b.value.savedAt) || 0) - (Number(a.value.savedAt) || 0));
+  const kept = {};
+  entries.slice(0, MAX_DECK_STATE_ENTRIES).forEach(entry => { kept[entry.key] = entry.value; });
+  return kept;
+}
+
+export function compactPersistedState(state) {
+  if (!isPlainObject(state)) return state;
+  const next = { ...state };
+  if ('globalWordProgress' in next) {
+    next.globalWordProgress = compactDirectionalStore(next.globalWordProgress, entry => !isEmptyProgressEntry(entry));
+  }
+  if ('globalWordMarks' in next) {
+    next.globalWordMarks = compactDirectionalStore(next.globalWordMarks, mark => mark === 'known' || mark === 'unsure');
+  }
+  if ('deckStates' in next) {
+    next.deckStates = compactDeckStates(next.deckStates);
+  }
+  return next;
+}
+
+// In-place variant for the live runtime stores. compactPersistedState only
+// trims the save payload, but getWordProgress re-seeds a default entry into
+// the runtime store for every card the app renders, so without this the
+// in-memory state regrows across a session even though each save stays small.
+// Mutates the bucket objects rather than reassigning them so existing
+// references (e.g. runtime.marks, which aliases a marks bucket) stay valid.
+// These runtime stores are always in the nested g2e/e2g/morph shape by the
+// time this runs (ensureDirectionalStores has migrated any legacy flat data).
+function trimRuntimeDirectionalStore(store, keepValue) {
+  if (!isPlainObject(store)) return;
+  Object.keys(store).forEach(bucketKey => {
+    const bucket = store[bucketKey];
+    if (!isPlainObject(bucket)) return;
+    if (!KNOWN_DIRECTION_BUCKETS.includes(bucketKey)) {
+      // Stray unreachable bucket (e.g. legacy "morph_e2g") — drop once empty.
+      if (!Object.keys(bucket).length) delete store[bucketKey];
+      return;
+    }
+    Object.keys(bucket).forEach(id => {
+      if (!keepValue(bucket[id])) delete bucket[id];
+    });
+  });
+}
+
+export function compactRuntimeStores({ globalWordProgress, globalWordMarks, deckStates } = {}) {
+  trimRuntimeDirectionalStore(globalWordProgress, entry => !isEmptyProgressEntry(entry));
+  trimRuntimeDirectionalStore(globalWordMarks, mark => mark === 'known' || mark === 'unsure');
+  if (isPlainObject(deckStates)) {
+    const survivors = compactDeckStates(deckStates);
+    Object.keys(deckStates).forEach(key => {
+      if (!(key in survivors)) delete deckStates[key];
+    });
+  }
 }
 
 export const STATE_MIGRATIONS = [

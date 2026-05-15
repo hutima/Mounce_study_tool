@@ -46,12 +46,28 @@ function parseSubKey(rawKey) {
   return match ? { baseKey: match[1], sub: match[2] } : null;
 }
 
+// Multi-paradigm supplemental sets are selectable as individual grammar/morph
+// sub-keys (base::grammar::N). Vocab can't be subdivided that way, so for vocab
+// purposes a paradigm sub-key resolves to its base set.
+function parseParadigmBaseKey(rawKey) {
+  const match = rawKey.match(/^(.+)::(grammar|morph)::\d+$/);
+  return match ? match[1] : null;
+}
+
 export function getSelectedVocabCards(keys, requiredFlag = false) {
   const cards = [];
+  // Several paradigm sub-keys of the same supplemental set must only
+  // contribute that set's vocab once.
+  const seenParadigmBases = new Set();
   (keys || []).forEach(key => {
     const rawKey = String(key);
     const sub = parseSubKey(rawKey);
-    const lookupKey = sub ? sub.baseKey : rawKey;
+    const paradigmBase = sub ? null : parseParadigmBaseKey(rawKey);
+    if (paradigmBase) {
+      if (seenParadigmBases.has(paradigmBase)) return;
+      seenParadigmBases.add(paradigmBase);
+    }
+    const lookupKey = sub ? sub.baseKey : (paradigmBase || rawKey);
     const set = getSets()[lookupKey];
     const setCards = Array.isArray(set?.cards) ? set.cards : [];
     if (!setCards.length) return;

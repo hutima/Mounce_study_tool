@@ -47,6 +47,7 @@ let host = {
   getRemainingCards: () => [],
   resetUnspacedCycleState: () => {},
   saveCurrentDeckStateToBank: () => {},
+  markActiveDeckRef: () => {},
   saveState: () => {},
   renderReaderModule: () => {},
   getDeckStateKey: () => '',
@@ -398,6 +399,9 @@ export function toggleSpacedRepetition() {
   }
   runtime.deck = host.buildStudyDeck(runtime.originalDeck);
   runtime.currentIdx = 0;
+  // spacedRepetition is part of the deck-state-bank key, so the deck now
+  // belongs to a different bank entry — refresh the ref before any save.
+  host.markActiveDeckRef();
   host.resetMorphAnswerState();
   runtime.isFlipped = false;
   renderCard();
