@@ -2184,9 +2184,28 @@
   .chapter-tile.tile-band-b20     { background: rgba(192, 122,  76, 0.24); border-color: rgba(192, 122,  76, 0.55); }
   .chapter-tile.tile-band-b0      { background: rgba(166,  88,  88, 0.22); border-color: rgba(166,  88,  88, 0.50); }
   .chapter-tile.tile-band-unseen  { background: rgba(138, 143, 168, 0.10); }
+  .chapter-tile.chapter-tile-empty {
+    cursor: default;
+    opacity: 0.45;
+  }
+  .chapter-tile.chapter-tile-empty:hover { transform: none; }
   .chapter-tile.tile-band-b80 .chapter-tile-pct,
   .chapter-tile.tile-band-b60 .chapter-tile-pct {
     color: var(--cream);
+  }
+  /* Per-concept rows inside the grammar chapter-detail panel: keep the
+     same row layout as vocab word rows, but the concept label needs more
+     room than a Greek headword and there's no English gloss column. */
+  .chapter-detail-row.grammar-concept-row {
+    grid-template-columns: 18px 1fr auto auto;
+    gap: 10px;
+  }
+  .chapter-detail-row.grammar-concept-row .grammar-review-concept {
+    font-weight: 600;
+  }
+  .chapter-detail-row.grammar-concept-row .grammar-review-detail {
+    color: var(--muted, #8a8a8a);
+    font-size: 0.85em;
   }
 
   /* ── Per-chapter word breakdown (revealed by tapping a tile) ── */
