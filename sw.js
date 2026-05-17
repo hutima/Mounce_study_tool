@@ -3,7 +3,7 @@
 // GitHub Pages note: all app-shell URLs are resolved relative to the
 // service worker registration scope so this works both at a domain root
 // and at a project path such as https://user.github.io/repository/.
-const CACHE_NAME = 'mounce-bbg-greek-pwa-v10';
+const CACHE_NAME = 'mounce-bbg-greek-pwa-v11';
 const BASE_URL = new URL('./', self.registration.scope);
 
 // Cross-origin hosts whose responses we want to keep in the runtime cache
@@ -26,7 +26,7 @@ const APP_SHELL_PATHS = [
   './',
   'index.html',
   'pages/memorization.html',
-  'styles.css?v=47',
+  'styles.css?v=48',
   'manifest.json?v=26',
   'favicon.svg?v=26',
   'js/data/words.js?v=2',
@@ -80,12 +80,12 @@ const APP_SHELL_PATHS = [
   'js/domain/deck/ordering.js?v=1',
   'js/domain/deck/filters.js?v=4',
   'js/domain/grammar/explanations.js?v=1',
-  'js/state/migrations.js?v=3',
-  'js/state/store.js?v=2',
+  'js/state/migrations.js?v=4',
+  'js/state/store.js?v=3',
   'js/state/runtime.js?v=3',
-  'js/state/persistence.js?v=3',
+  'js/state/persistence.js?v=4',
   'js/domain/gamification/xp.js?v=1',
-  'js/ui/analytics.js?v=2',
+  'js/ui/analytics.js?v=3',
   'js/ui/charts.js?v=1',
   'js/ui/keyboard.js?v=1',
   'js/ui/modals.js?v=1',

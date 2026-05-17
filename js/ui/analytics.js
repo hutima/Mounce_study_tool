@@ -223,14 +223,20 @@ function computeChapterMastery(progressStore, marksStore) {
 function buildChapterGridHtml(mastery) {
   if (!mastery.length) return '';
   const expandedKey = runtime.analyticsExpandedChapter || '';
+  // Five equal 20%-wide bands match the vocab/grammar histograms so the
+  // chapter-map gradient reads consistently across the analytics page.
+  const bandClassFor = (pct) => {
+    if (pct <= 0) return 'tile-band-unseen';
+    if (pct < 0.20) return 'tile-band-b0';
+    if (pct < 0.40) return 'tile-band-b20';
+    if (pct < 0.60) return 'tile-band-b40';
+    if (pct < 0.80) return 'tile-band-b60';
+    return 'tile-band-b80';
+  };
   const tile = (row) => {
     const pctRound = Math.round(row.pct * 100);
     const label = `Ch. ${row.chapterKey}: ${row.confirmed} / ${row.total} (${pctRound}%) — tap for word stats`;
-    let className = 'chapter-tile';
-    if (row.pct >= 0.9) className += ' tile-mastered';
-    else if (row.pct >= 0.7) className += ' tile-confirmed';
-    else if (row.pct > 0) className += ' tile-building';
-    else className += ' tile-empty';
+    let className = `chapter-tile ${bandClassFor(row.pct)}`;
     if (String(row.chapterKey) === expandedKey) className += ' chapter-tile-active';
     return `<button type="button" class="${className}" data-chapter="${escapeHtml(String(row.chapterKey))}" title="${escapeHtml(label)}" aria-expanded="${String(row.chapterKey) === expandedKey ? 'true' : 'false'}"><span class="chapter-tile-num">${escapeHtml(row.chapterKey)}</span><span class="chapter-tile-pct">${pctRound}%</span></button>`;
   };
@@ -239,9 +245,11 @@ function buildChapterGridHtml(mastery) {
       <div class="analytics-chart-title">Chapter map</div>
       <div class="chapter-grid">${mastery.map(tile).join('')}</div>
       <div class="stacked-legend">
-        <span class="stacked-legend-item"><span class="stacked-legend-dot stacked-seg-100"></span>≥ 90%</span>
-        <span class="stacked-legend-item"><span class="stacked-legend-dot stacked-seg-50"></span>70–89%</span>
-        <span class="stacked-legend-item"><span class="stacked-legend-dot stacked-seg-0"></span>1–69%</span>
+        <span class="stacked-legend-item"><span class="stacked-legend-dot stacked-seg-b80"></span>80–100%</span>
+        <span class="stacked-legend-item"><span class="stacked-legend-dot stacked-seg-b60"></span>60–79%</span>
+        <span class="stacked-legend-item"><span class="stacked-legend-dot stacked-seg-b40"></span>40–59%</span>
+        <span class="stacked-legend-item"><span class="stacked-legend-dot stacked-seg-b20"></span>20–39%</span>
+        <span class="stacked-legend-item"><span class="stacked-legend-dot stacked-seg-b0"></span>1–19%</span>
         <span class="stacked-legend-item"><span class="stacked-legend-dot stacked-seg-unseen"></span>Unstarted</span>
       </div>
       <div class="chapter-detail-panel${expandedKey ? ' open' : ''}" id="chapterDetailPanel">${expandedKey ? buildChapterDetailHtml(expandedKey) : ''}</div>
@@ -540,9 +548,17 @@ function buildGrammarReviewHtml(report) {
       ? ch.concepts
       : ch.concepts.filter(c => c.status === 'weak' || c.status === 'shaky');
     if (!concepts.length) return '';
-    const chip = ch.reviewCount
-      ? `<span class="grammar-review-chip grammar-review-chip-warn">${ch.reviewCount} to review</span>`
-      : `<span class="grammar-review-chip grammar-review-chip-ok">All solid</span>`;
+    let chip;
+    if (ch.reviewCount) {
+      chip = `<span class="grammar-review-chip grammar-review-chip-warn">${ch.reviewCount} to review</span>`;
+    } else if (ch.concepts.every(c => c.status === 'unseen')) {
+      // No weak/shaky concepts and no confirmed ones either — every concept is
+      // unseen. Calling that "All solid" would falsely imply the chapter is
+      // mastered.
+      chip = `<span class="grammar-review-chip grammar-review-chip-muted">Not started</span>`;
+    } else {
+      chip = `<span class="grammar-review-chip grammar-review-chip-ok">All solid</span>`;
+    }
     return `
       <div class="grammar-review-chapter">
         <div class="grammar-review-chapter-head">

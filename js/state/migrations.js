@@ -101,6 +101,30 @@ const PROGRESS_MEANINGFUL_NUMERIC_FIELDS = [
   'firstSeenAt', 'firstConfirmedAt', 'confidence'
 ];
 
+// Default values for each progress field — getWordProgress re-seeds these on
+// read, and every progress consumer (analytics, scheduler, charts) tolerates
+// missing fields via `Number(p.x) || 0` / `p?.x`. Fields equal to their
+// default carry no information, so they're stripped on serialize: with ~14
+// fields per active card and most defaulting to 0, this roughly halves the
+// per-card cost of `globalWordProgress` in the persisted save.
+const PROGRESS_FIELD_DEFAULTS = {
+  seenCount: 0,
+  passCount: 0,
+  failCount: 0,
+  streak: 0,
+  easyStreak: 0,
+  srsStage: 0,
+  ease: PROGRESS_DEFAULT_EASE,
+  intervalDays: 0,
+  lastEasyIntervalDays: 0,
+  dueAt: 0,
+  lastReviewedAt: 0,
+  firstSeenAt: 0,
+  firstConfirmedAt: 0,
+  confidence: 0
+};
+const PROGRESS_NUMERIC_FIELDS = Object.keys(PROGRESS_FIELD_DEFAULTS);
+
 // True when a progress entry is indistinguishable from a freshly-seeded
 // default — it records no actual study history and getWordProgress will
 // regenerate an identical entry on demand, so it can be safely dropped.
@@ -113,7 +137,31 @@ function isEmptyProgressEntry(entry) {
   return true;
 }
 
-function compactDirectionalStore(store, keepValue) {
+// Strip default-valued fields from a non-empty progress entry. Readers
+// (getWordProgress + analytics/scheduler) tolerate missing fields, so the
+// dropped fields are reconstructed lazily on first read without any data loss.
+function compactProgressEntry(entry) {
+  if (!isPlainObject(entry)) return entry;
+  const out = {};
+  PROGRESS_NUMERIC_FIELDS.forEach(field => {
+    const value = entry[field];
+    if (value === undefined || value === null) return;
+    if (!Number.isFinite(value)) return;
+    if (value === PROGRESS_FIELD_DEFAULTS[field]) return;
+    out[field] = value;
+  });
+  if (Array.isArray(entry.confidenceHistory) && entry.confidenceHistory.length) {
+    out.confidenceHistory = entry.confidenceHistory;
+  }
+  if (entry.lastSpacedOutcome) out.lastSpacedOutcome = entry.lastSpacedOutcome;
+  return out;
+}
+
+// `transform` returns the value to keep for each id, or undefined to drop it.
+// Passing through `bucket[id]` unchanged keeps the original entry; returning a
+// trimmed copy (e.g. from compactProgressEntry) replaces it with the smaller
+// version.
+function compactDirectionalStore(store, transform) {
   if (!isPlainObject(store)) return store;
   // A store with none of the real direction keys is the pre-split legacy flat
   // shape ({ cardId: value, ... }); leave it untouched so ensureDirectionalStores
@@ -134,14 +182,15 @@ function compactDirectionalStore(store, keepValue) {
     if (!isKnown && !Object.keys(bucket).length) return;
     const trimmed = {};
     Object.keys(bucket).forEach(id => {
-      if (keepValue(bucket[id])) trimmed[id] = bucket[id];
+      const result = transform(bucket[id]);
+      if (result !== undefined) trimmed[id] = result;
     });
     next[bucketKey] = trimmed;
   });
   return next;
 }
 
-function compactDeckStates(deckStates) {
+function compactDeckStates(deckStates, maxDeckStates = MAX_DECK_STATE_ENTRIES) {
   if (!isPlainObject(deckStates)) return {};
   const entries = Object.keys(deckStates)
     .map(key => ({ key, value: deckStates[key] }))
@@ -152,21 +201,23 @@ function compactDeckStates(deckStates) {
   // Newest selections first; legacy entries with no savedAt stamp sort last.
   entries.sort((a, b) => (Number(b.value.savedAt) || 0) - (Number(a.value.savedAt) || 0));
   const kept = {};
-  entries.slice(0, MAX_DECK_STATE_ENTRIES).forEach(entry => { kept[entry.key] = entry.value; });
+  entries.slice(0, maxDeckStates).forEach(entry => { kept[entry.key] = entry.value; });
   return kept;
 }
 
-export function compactPersistedState(state) {
+export function compactPersistedState(state, { maxDeckStates = MAX_DECK_STATE_ENTRIES } = {}) {
   if (!isPlainObject(state)) return state;
   const next = { ...state };
   if ('globalWordProgress' in next) {
-    next.globalWordProgress = compactDirectionalStore(next.globalWordProgress, entry => !isEmptyProgressEntry(entry));
+    next.globalWordProgress = compactDirectionalStore(next.globalWordProgress,
+      entry => (isEmptyProgressEntry(entry) ? undefined : compactProgressEntry(entry)));
   }
   if ('globalWordMarks' in next) {
-    next.globalWordMarks = compactDirectionalStore(next.globalWordMarks, mark => mark === 'known' || mark === 'unsure');
+    next.globalWordMarks = compactDirectionalStore(next.globalWordMarks,
+      mark => ((mark === 'known' || mark === 'unsure') ? mark : undefined));
   }
   if ('deckStates' in next) {
-    next.deckStates = compactDeckStates(next.deckStates);
+    next.deckStates = compactDeckStates(next.deckStates, maxDeckStates);
   }
   return next;
 }
