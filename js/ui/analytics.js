@@ -442,198 +442,198 @@ function setupChapterGridInteractivity(rootEl) {
   });
 }
 
-// ── Grammar concepts to review (course-wide report) ──────────────────
-// Walks every chapter's grammar/morphology drills, groups them by the
-// card `family` (the grammar concept), and grades each concept off the
-// morph progress + marks stores. Concepts that have been studied but sit
-// below mastery surface as "to review"; untouched ones surface as "not
-// started" so the report doubles as a study plan. Weakest concepts come
-// first within each chapter.
-function computeGrammarConceptReview() {
+// ── Grammar chapter mastery ──────────────────────────────────────────
+// Mirrors computeChapterMastery (used by the vocab chapter map) but reads
+// from the morph progress/marks stores. The result feeds a chapter-tile
+// grid; tapping a tile expands a panel that breaks the chapter down by
+// concept (card.family) — the same sub-topic data the old flat report
+// surfaced, now nested under its chapter.
+function computeGrammarChapterMastery() {
   const marksMap = runtime.globalWordMarks.morph || {};
   const store = runtime.globalWordProgress.morph || {};
-  const statusRank = { weak: 0, shaky: 1, unseen: 2, strong: 3 };
-  const chapters = [];
-  let reviewConceptCount = 0;
-  let reviewChapterCount = 0;
-
-  getAllChapterKeys().forEach(chKey => {
+  return getAllChapterKeys().map(chKey => {
     const cards = getChapterGrammarCards(chKey);
-    if (!cards.length) return;
-
-    const byFamily = new Map();
+    const total = cards.length;
+    let confirmed = 0;
     cards.forEach(card => {
-      const family = card.family || 'Other';
-      if (!byFamily.has(family)) byFamily.set(family, []);
-      byFamily.get(family).push(card);
+      if (marksMap[card.id] === 'known') { confirmed++; return; }
+      const pct = getConfidencePct(store[card.id]);
+      if (pct !== null && pct >= 70) confirmed++;
     });
-
-    const concepts = [];
-    byFamily.forEach((familyCards, family) => {
-      let seen = 0;
-      let confirmed = 0;
-      let misses = 0;
-      let pctSum = 0;
-      let pctCount = 0;
-      familyCards.forEach(card => {
-        const p = store[card.id];
-        const pct = getConfidencePct(p);
-        const wasSeen = !!(p?.seenCount) || !!p?.lastReviewedAt;
-        if (wasSeen) seen++;
-        misses += Number(p?.failCount) || 0;
-        if (pct !== null) { pctSum += pct; pctCount++; }
-        if (marksMap[card.id] === 'known' || (pct !== null && pct >= 70)) confirmed++;
-      });
-      const total = familyCards.length;
-      const avgPct = pctCount ? Math.round(pctSum / pctCount) : null;
-      let status;
-      if (seen === 0) status = 'unseen';
-      else if (confirmed >= total) status = 'strong';
-      else if ((avgPct ?? 0) >= 50) status = 'shaky';
-      else status = 'weak';
-      concepts.push({ family, total, confirmed, seen, misses, avgPct, status });
-    });
-
-    concepts.sort((a, b) => {
-      if (statusRank[a.status] !== statusRank[b.status]) return statusRank[a.status] - statusRank[b.status];
-      const ap = a.avgPct ?? -1;
-      const bp = b.avgPct ?? -1;
-      if (ap !== bp) return ap - bp;
-      return a.family.localeCompare(b.family);
-    });
-
-    const reviewCount = concepts.filter(c => c.status === 'weak' || c.status === 'shaky').length;
-    if (reviewCount) { reviewConceptCount += reviewCount; reviewChapterCount++; }
-    chapters.push({ chapterKey: chKey, concepts, reviewCount });
+    return { chapterKey: chKey, total, confirmed, pct: total ? confirmed / total : 0 };
   });
-
-  return {
-    chapters,
-    reviewConceptCount,
-    reviewChapterCount,
-    hasAnyProgress: chapters.some(ch => ch.concepts.some(c => c.status !== 'unseen'))
-  };
 }
 
-const GRAMMAR_REVIEW_STATUS_META = {
+function computeGrammarChapterConcepts(chapterKey) {
+  const marksMap = runtime.globalWordMarks.morph || {};
+  const store = runtime.globalWordProgress.morph || {};
+  const cards = getChapterGrammarCards(chapterKey);
+  if (!cards.length) return [];
+
+  const byFamily = new Map();
+  cards.forEach(card => {
+    const family = card.family || 'Other';
+    if (!byFamily.has(family)) byFamily.set(family, []);
+    byFamily.get(family).push(card);
+  });
+
+  const concepts = [];
+  byFamily.forEach((familyCards, family) => {
+    let seen = 0;
+    let confirmed = 0;
+    let misses = 0;
+    let pctSum = 0;
+    let pctCount = 0;
+    familyCards.forEach(card => {
+      const p = store[card.id];
+      const pct = getConfidencePct(p);
+      const wasSeen = !!(p?.seenCount) || !!p?.lastReviewedAt;
+      if (wasSeen) seen++;
+      misses += Number(p?.failCount) || 0;
+      if (pct !== null) { pctSum += pct; pctCount++; }
+      if (marksMap[card.id] === 'known' || (pct !== null && pct >= 70)) confirmed++;
+    });
+    const total = familyCards.length;
+    const avgPct = pctCount ? Math.round(pctSum / pctCount) : null;
+    let status;
+    if (seen === 0) status = 'unseen';
+    else if (confirmed >= total) status = 'strong';
+    else if ((avgPct ?? 0) >= 50) status = 'shaky';
+    else status = 'weak';
+    concepts.push({ family, total, confirmed, seen, misses, avgPct, status });
+  });
+  return concepts;
+}
+
+const GRAMMAR_CONCEPT_STATUS_META = {
   weak:   { dot: 'stacked-seg-b0',     label: 'Needs work' },
   shaky:  { dot: 'stacked-seg-b40',    label: 'Shaky' },
   strong: { dot: 'stacked-seg-b80',    label: 'Solid' },
   unseen: { dot: 'stacked-seg-unseen', label: 'Not started' }
 };
 
-function buildGrammarReviewHtml(report) {
-  if (!report.chapters.length) {
-    return `<div class="analytics-chart-card"><div class="analytics-chart-title">Grammar concepts to review</div><div class="analytics-empty">No grammar drills are available yet.</div></div>`;
+function buildGrammarChapterGridHtml(mastery) {
+  if (!mastery.length) {
+    return `<div class="analytics-chart-card"><div class="analytics-chart-title">Grammar mastery by chapter</div><div class="analytics-empty">No grammar drills are available yet.</div></div>`;
   }
-  const mode = runtime.analyticsGrammarReviewMode === 'all' ? 'all' : 'review';
+  const expandedKey = runtime.analyticsGrammarExpandedChapter || '';
+
+  const bandClassFor = (pct, hasCards) => {
+    if (!hasCards) return 'tile-band-unseen';
+    if (pct <= 0) return 'tile-band-unseen';
+    if (pct < 0.20) return 'tile-band-b0';
+    if (pct < 0.40) return 'tile-band-b20';
+    if (pct < 0.60) return 'tile-band-b40';
+    if (pct < 0.80) return 'tile-band-b60';
+    return 'tile-band-b80';
+  };
+
+  const tile = (row) => {
+    const pctRound = row.total ? Math.round(row.pct * 100) : 0;
+    const label = row.total
+      ? `Ch. ${row.chapterKey}: ${row.confirmed} / ${row.total} grammar cards (${pctRound}%) — tap for concept breakdown`
+      : `Ch. ${row.chapterKey}: no grammar drills yet`;
+    let className = `chapter-tile ${bandClassFor(row.pct, row.total > 0)}`;
+    if (!row.total) className += ' chapter-tile-empty';
+    if (String(row.chapterKey) === expandedKey) className += ' chapter-tile-active';
+    const pctText = row.total ? `${pctRound}%` : '—';
+    return `<button type="button" class="${className}" data-grammar-chapter="${escapeHtml(String(row.chapterKey))}" title="${escapeHtml(label)}" aria-expanded="${String(row.chapterKey) === expandedKey ? 'true' : 'false'}"${row.total ? '' : ' disabled'}><span class="chapter-tile-num">${escapeHtml(row.chapterKey)}</span><span class="chapter-tile-pct">${escapeHtml(pctText)}</span></button>`;
+  };
+
+  return `
+    <div class="analytics-chart-card chapter-grid-card">
+      <div class="analytics-chart-title">Grammar mastery by chapter</div>
+      <div class="chapter-grid">${mastery.map(tile).join('')}</div>
+      <div class="stacked-legend">
+        <span class="stacked-legend-item"><span class="stacked-legend-dot stacked-seg-b80"></span>80–100%</span>
+        <span class="stacked-legend-item"><span class="stacked-legend-dot stacked-seg-b60"></span>60–80%</span>
+        <span class="stacked-legend-item"><span class="stacked-legend-dot stacked-seg-b40"></span>40–60%</span>
+        <span class="stacked-legend-item"><span class="stacked-legend-dot stacked-seg-b20"></span>20–40%</span>
+        <span class="stacked-legend-item"><span class="stacked-legend-dot stacked-seg-b0"></span>0–20%</span>
+        <span class="stacked-legend-item"><span class="stacked-legend-dot stacked-seg-unseen"></span>Unstarted</span>
+      </div>
+      <div class="chapter-detail-panel${expandedKey ? ' open' : ''}" id="grammarChapterDetailPanel">${expandedKey ? buildGrammarChapterDetailHtml(expandedKey) : ''}</div>
+    </div>
+  `;
+}
+
+function buildGrammarChapterDetailHtml(chapterKey) {
+  if (!chapterKey) return '';
+  const concepts = computeGrammarChapterConcepts(chapterKey);
+  if (!concepts.length) {
+    return `<div class="analytics-empty">No grammar concepts for Ch. ${escapeHtml(String(chapterKey))} yet.</div>`;
+  }
+  const sortMode = runtime.analyticsGrammarConceptSort === 'alphabetical' ? 'alphabetical' : 'confidence';
+  const statusRank = { weak: 0, shaky: 1, unseen: 2, strong: 3 };
+  const sorted = concepts.slice();
+  if (sortMode === 'alphabetical') {
+    sorted.sort((a, b) => a.family.localeCompare(b.family));
+  } else {
+    sorted.sort((a, b) => {
+      if (statusRank[a.status] !== statusRank[b.status]) return statusRank[a.status] - statusRank[b.status];
+      const ap = a.avgPct ?? -1;
+      const bp = b.avgPct ?? -1;
+      if (ap !== bp) return ap - bp;
+      return a.family.localeCompare(b.family);
+    });
+  }
+
+  const totalCards = concepts.reduce((sum, c) => sum + c.total, 0);
+  const confirmedCards = concepts.reduce((sum, c) => sum + c.confirmed, 0);
+  const headlinePct = totalCards ? Math.round((confirmedCards / totalCards) * 100) : 0;
 
   const conceptRow = (c) => {
-    const meta = GRAMMAR_REVIEW_STATUS_META[c.status];
+    const meta = GRAMMAR_CONCEPT_STATUS_META[c.status];
     const pctText = c.avgPct === null ? '—' : `${c.avgPct}%`;
     const detail = c.status === 'unseen'
       ? `${c.total} card${c.total === 1 ? '' : 's'} · not started`
       : `${c.confirmed}/${c.total} confirmed · ${c.misses} miss${c.misses === 1 ? '' : 'es'}`;
     return `
-      <li class="grammar-review-row">
-        <span class="chapter-detail-dot ${meta.dot}" aria-hidden="true"></span>
+      <li class="chapter-detail-row grammar-concept-row">
+        <span class="chapter-detail-dot ${meta.dot}" aria-hidden="true" title="${escapeHtml(meta.label)}"></span>
         <span class="grammar-review-concept">${escapeHtml(c.family)}</span>
         <span class="grammar-review-detail">${escapeHtml(detail)}</span>
-        <span class="grammar-review-pct" title="${escapeHtml(meta.label)}">${escapeHtml(pctText)}</span>
+        <span class="chapter-detail-pct">${escapeHtml(pctText)}</span>
       </li>`;
   };
 
-  const chapterBlocks = report.chapters.map(ch => {
-    const concepts = mode === 'all'
-      ? ch.concepts
-      : ch.concepts.filter(c => c.status === 'weak' || c.status === 'shaky');
-    if (!concepts.length) return '';
-    let chip;
-    if (ch.reviewCount) {
-      chip = `<span class="grammar-review-chip grammar-review-chip-warn">${ch.reviewCount} to review</span>`;
-    } else if (ch.concepts.every(c => c.status === 'unseen')) {
-      // No weak/shaky concepts and no confirmed ones either — every concept is
-      // unseen. Calling that "All solid" would falsely imply the chapter is
-      // mastered.
-      chip = `<span class="grammar-review-chip grammar-review-chip-muted">Not started</span>`;
-    } else {
-      chip = `<span class="grammar-review-chip grammar-review-chip-ok">All solid</span>`;
-    }
-    return `
-      <div class="grammar-review-chapter">
-        <div class="grammar-review-chapter-head">
-          <span class="grammar-review-chapter-name">Chapter ${escapeHtml(String(ch.chapterKey))}</span>
-          ${chip}
-        </div>
-        <ol class="grammar-review-list">${concepts.map(conceptRow).join('')}</ol>
-      </div>`;
-  }).filter(Boolean).join('');
-
-  let summaryText;
-  if (!report.hasAnyProgress) {
-    summaryText = 'Study some grammar drills and this report will rank the concepts that need another pass.';
-  } else if (!report.reviewConceptCount) {
-    summaryText = 'No grammar concepts are below mastery right now — every studied concept is holding at 70%+.';
-  } else {
-    summaryText = `${report.reviewConceptCount} concept${report.reviewConceptCount === 1 ? '' : 's'} across ${report.reviewChapterCount} chapter${report.reviewChapterCount === 1 ? '' : 's'} ${report.reviewConceptCount === 1 ? 'is' : 'are'} below mastery — listed weakest first.`;
-  }
-
-  const body = chapterBlocks || `<div class="analytics-empty">${mode === 'review' ? 'Nothing flagged for review — switch to “All concepts” to see the full breakdown.' : 'No grammar concepts found.'}</div>`;
-
-  const modeBtn = (m, label) => {
-    const active = mode === m;
-    return `<button type="button" class="ctrl-btn chapter-detail-sort-btn${active ? ' active-toggle' : ''}" data-grammar-review-mode="${m}" aria-pressed="${active ? 'true' : 'false'}">${escapeHtml(label)}</button>`;
+  const sortBtn = (mode, label) => {
+    const active = sortMode === mode;
+    return `<button type="button" class="ctrl-btn chapter-detail-sort-btn${active ? ' active-toggle' : ''}" data-grammar-concept-sort="${mode}" aria-pressed="${active ? 'true' : 'false'}">${escapeHtml(label)}</button>`;
   };
 
   return `
-    <div class="analytics-chart-card grammar-review-card">
-      <div class="grammar-review-head">
-        <div class="analytics-chart-title">Grammar concepts to review</div>
-        <div class="grammar-review-controls">
-          ${modeBtn('review', 'To review')}
-          ${modeBtn('all', 'All concepts')}
-          <button type="button" class="ctrl-btn grammar-review-copy" data-grammar-review-copy="1">Copy report</button>
+    <div class="chapter-detail-head">
+      <div class="chapter-detail-title">Ch. ${escapeHtml(String(chapterKey))} — ${confirmedCards} / ${totalCards} confirmed <span class="chapter-detail-meta">${headlinePct}% · ${concepts.length} concept${concepts.length === 1 ? '' : 's'}</span></div>
+      <div class="chapter-detail-controls">
+        <div class="chapter-detail-sort" role="group" aria-label="Sort concepts">
+          ${sortBtn('confidence', 'Status')}
+          ${sortBtn('alphabetical', 'A–Z')}
         </div>
-      </div>
-      <div class="grammar-review-summary">${escapeHtml(summaryText)}</div>
-      <div class="grammar-review-body">${body}</div>
-      <div class="stacked-legend">
-        <span class="stacked-legend-item"><span class="stacked-legend-dot stacked-seg-b0"></span>Needs work</span>
-        <span class="stacked-legend-item"><span class="stacked-legend-dot stacked-seg-b40"></span>Shaky</span>
-        <span class="stacked-legend-item"><span class="stacked-legend-dot stacked-seg-b80"></span>Solid</span>
-        <span class="stacked-legend-item"><span class="stacked-legend-dot stacked-seg-unseen"></span>Not started</span>
+        <button type="button" class="chapter-detail-close" data-grammar-chapter-close="1" aria-label="Close chapter details">×</button>
       </div>
     </div>
+    <ol class="chapter-detail-list">${sorted.map(conceptRow).join('')}</ol>
   `;
 }
 
-function buildGrammarReviewText(report) {
-  const lines = ['GRAMMAR CONCEPTS TO REVIEW', `Generated ${formatAnalyticsDateTime(Date.now())}`, ''];
-  if (!report.reviewConceptCount) {
-    lines.push(report.hasAnyProgress
-      ? 'No grammar concepts are below mastery right now.'
-      : 'No grammar progress recorded yet.');
-    return lines.join('\n');
+function renderGrammarChapterDetailPanel() {
+  const panel = document.getElementById('grammarChapterDetailPanel');
+  if (!panel) return;
+  if (!runtime.analyticsGrammarExpandedChapter) {
+    panel.innerHTML = '';
+    panel.classList.remove('open');
+    return;
   }
-  lines.push(`${report.reviewConceptCount} concept(s) across ${report.reviewChapterCount} chapter(s) below mastery, weakest first:`, '');
-  report.chapters.forEach(ch => {
-    const toReview = ch.concepts.filter(c => c.status === 'weak' || c.status === 'shaky');
-    if (!toReview.length) return;
-    lines.push(`Chapter ${ch.chapterKey}`);
-    toReview.forEach(c => {
-      const pct = c.avgPct === null ? 'no data' : `${c.avgPct}% avg`;
-      lines.push(`  - ${c.family}: ${c.confirmed}/${c.total} confirmed, ${c.misses} miss(es), ${pct}`);
-    });
-    lines.push('');
-  });
-  return lines.join('\n').trim();
+  panel.innerHTML = buildGrammarChapterDetailHtml(runtime.analyticsGrammarExpandedChapter);
+  panel.classList.add('open');
 }
 
 function renderGrammarReviewSection() {
   const el = document.getElementById('analyticsGrammarReview');
   if (!el) return;
   if (!host.canAccessGrammarUi()) { el.innerHTML = ''; return; }
-  el.innerHTML = buildGrammarReviewHtml(computeGrammarConceptReview());
+  el.innerHTML = buildGrammarChapterGridHtml(computeGrammarChapterMastery());
   setupGrammarReviewInteractivity(el);
 }
 
@@ -641,28 +641,37 @@ function setupGrammarReviewInteractivity(rootEl) {
   if (!rootEl || rootEl.dataset.grammarReviewBound === '1') return;
   rootEl.dataset.grammarReviewBound = '1';
   rootEl.addEventListener('click', (event) => {
-    const modeBtn = event.target.closest('[data-grammar-review-mode]');
-    if (modeBtn && rootEl.contains(modeBtn)) {
-      const next = modeBtn.dataset.grammarReviewMode === 'all' ? 'all' : 'review';
-      if (runtime.analyticsGrammarReviewMode !== next) {
-        runtime.analyticsGrammarReviewMode = next;
-        renderGrammarReviewSection();
+    const closeBtn = event.target.closest('[data-grammar-chapter-close]');
+    if (closeBtn && rootEl.contains(closeBtn)) {
+      runtime.analyticsGrammarExpandedChapter = null;
+      rootEl.querySelectorAll('.chapter-tile').forEach(t => {
+        t.classList.remove('chapter-tile-active');
+        t.setAttribute('aria-expanded', 'false');
+      });
+      renderGrammarChapterDetailPanel();
+      return;
+    }
+    const sortToggle = event.target.closest('[data-grammar-concept-sort]');
+    if (sortToggle && rootEl.contains(sortToggle)) {
+      const nextMode = sortToggle.dataset.grammarConceptSort === 'alphabetical' ? 'alphabetical' : 'confidence';
+      if (runtime.analyticsGrammarConceptSort !== nextMode) {
+        runtime.analyticsGrammarConceptSort = nextMode;
+        renderGrammarChapterDetailPanel();
       }
       return;
     }
-    const copyBtn = event.target.closest('[data-grammar-review-copy]');
-    if (copyBtn && rootEl.contains(copyBtn)) {
-      const text = buildGrammarReviewText(computeGrammarConceptReview());
-      const flash = (label) => {
-        copyBtn.textContent = label;
-        setTimeout(() => { copyBtn.textContent = 'Copy report'; }, 1600);
-      };
-      if (navigator.clipboard?.writeText) {
-        navigator.clipboard.writeText(text).then(() => flash('Copied ✓')).catch(() => flash('Copy failed'));
-      } else {
-        flash('Copy failed');
-      }
-    }
+    const tile = event.target.closest('[data-grammar-chapter]');
+    if (!tile || !rootEl.contains(tile)) return;
+    const key = tile.dataset.grammarChapter || '';
+    if (!key) return;
+    const nextKey = runtime.analyticsGrammarExpandedChapter === key ? null : key;
+    runtime.analyticsGrammarExpandedChapter = nextKey;
+    rootEl.querySelectorAll('.chapter-tile').forEach(t => {
+      const active = t.dataset.grammarChapter === runtime.analyticsGrammarExpandedChapter;
+      t.classList.toggle('chapter-tile-active', active);
+      t.setAttribute('aria-expanded', active ? 'true' : 'false');
+    });
+    renderGrammarChapterDetailPanel();
   });
 }
 

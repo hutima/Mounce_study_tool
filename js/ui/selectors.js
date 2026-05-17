@@ -171,19 +171,29 @@ function getSupplementalParadigmsForKey(key) {
 
 // Selecting the flat set key for every set in a week pulls in that set's
 // vocab plus all of its grammar/morph paradigms — including multi-paradigm
-// sets that are otherwise only reachable via split sub-keys.
-function selectAllWeekSupplementals(weekKeys) {
+// sets that are otherwise only reachable via split sub-keys. Pressing the
+// button a second time (when every set in the week is already flat-selected)
+// clears all selections for the week, including any sub-key remnants.
+function toggleAllWeekSupplementals(weekKeys) {
   const keys = (weekKeys || []).map(String);
   if (!keys.length) return;
+  const allAlreadySelected = keys.every(k => runtime.selectedKeys.includes(k));
+  const weekKeySet = new Set(keys);
   host.saveCurrentDeckStateToBank();
   runtime.currentSession = null;
-  const weekKeySet = new Set(keys);
-  // Drop any existing flat or split sub-key selections for these sets first,
-  // then re-add the flat keys so the whole set loads in every study mode.
   const retained = runtime.selectedKeys.filter(k => {
     const base = getParadigmBaseKey(k) || k;
     return !weekKeySet.has(base);
   });
+  if (allAlreadySelected) {
+    runtime.selectedKeys = retained;
+    if (!runtime.selectedKeys.length) {
+      clearAndRenderEmpty();
+      return;
+    }
+    loadDeckFromKeys(runtime.selectedKeys, null);
+    return;
+  }
   const nextKeys = sortSetKeys([...new Set([...retained, ...keys])]);
   loadDeckFromKeys(nextKeys, null);
 }
@@ -265,13 +275,24 @@ export function buildSupplementalSelector() {
     const weekBody = document.createElement('div');
     weekBody.className = 'supplemental-week-body';
 
+    const weekEntryKeys = entries.map(e => String(e.key));
+    const allWeekSelected = weekEntryKeys.length > 0
+      && weekEntryKeys.every(k => runtime.selectedKeys.includes(k));
     const selectAllBtn = document.createElement('button');
     selectAllBtn.type = 'button';
     selectAllBtn.className = 'chapter-btn supplemental-select-all-week';
-    selectAllBtn.textContent = weekNum == null
-      ? 'Select all other supplementals'
-      : `Select all Week ${weekNum} supplementals`;
-    selectAllBtn.onclick = () => selectAllWeekSupplementals(entries.map(e => e.key));
+    if (allWeekSelected) selectAllBtn.classList.add('active');
+    selectAllBtn.setAttribute('aria-pressed', allWeekSelected ? 'true' : 'false');
+    if (allWeekSelected) {
+      selectAllBtn.textContent = weekNum == null
+        ? 'Deselect all other supplementals'
+        : `Deselect all Week ${weekNum} supplementals`;
+    } else {
+      selectAllBtn.textContent = weekNum == null
+        ? 'Select all other supplementals'
+        : `Select all Week ${weekNum} supplementals`;
+    }
+    selectAllBtn.onclick = () => toggleAllWeekSupplementals(weekEntryKeys);
     weekBody.appendChild(selectAllBtn);
 
     entries.forEach(({ key, set, vocabCount, studyCount }) => {

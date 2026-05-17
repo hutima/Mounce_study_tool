@@ -3,7 +3,7 @@
 // GitHub Pages note: all app-shell URLs are resolved relative to the
 // service worker registration scope so this works both at a domain root
 // and at a project path such as https://user.github.io/repository/.
-const CACHE_NAME = 'mounce-bbg-greek-pwa-v11';
+const CACHE_NAME = 'mounce-bbg-greek-pwa-v13';
 const BASE_URL = new URL('./', self.registration.scope);
 
 // Cross-origin hosts whose responses we want to keep in the runtime cache
@@ -26,7 +26,7 @@ const APP_SHELL_PATHS = [
   './',
   'index.html',
   'pages/memorization.html',
-  'styles.css?v=48',
+  'styles.css?v=50',
   'manifest.json?v=26',
   'favicon.svg?v=26',
   'js/data/words.js?v=2',
@@ -82,10 +82,10 @@ const APP_SHELL_PATHS = [
   'js/domain/grammar/explanations.js?v=1',
   'js/state/migrations.js?v=4',
   'js/state/store.js?v=3',
-  'js/state/runtime.js?v=3',
+  'js/state/runtime.js?v=4',
   'js/state/persistence.js?v=4',
   'js/domain/gamification/xp.js?v=1',
-  'js/ui/analytics.js?v=3',
+  'js/ui/analytics.js?v=4',
   'js/ui/charts.js?v=1',
   'js/ui/keyboard.js?v=1',
   'js/ui/modals.js?v=1',
@@ -93,7 +93,7 @@ const APP_SHELL_PATHS = [
   'js/ui/progress.js?v=2',
   'js/ui/reader.js?v=1',
   'js/ui/render.js?v=2',
-  'js/ui/selectors.js?v=3',
+  'js/ui/selectors.js?v=4',
   'js/ui/toast.js?v=1',
   'js/ui/touchTapBridge.js?v=1',
   'icons/icon-192.png',

@@ -31,7 +31,8 @@ export const runtime = {
   analyticsExpandedChapter: null,
   analyticsExpandedWord: null,
   analyticsChapterSort: 'confidence', // 'confidence' | 'alphabetical'
-  analyticsGrammarReviewMode: 'review', // 'review' | 'all'
+  analyticsGrammarExpandedChapter: null,
+  analyticsGrammarConceptSort: 'confidence', // 'confidence' | 'alphabetical'
 
   // ── Modal / disclaimer / transfer / theme ───────────────────────────
   hasAcceptedDisclaimer: false,
