@@ -17,7 +17,8 @@ import {
   STORAGE_KEY,
   CONSENT_STORAGE_KEY,
   PROGRESS_EXPORT_FORMAT,
-  PROGRESS_EXPORT_VERSION
+  PROGRESS_EXPORT_VERSION,
+  EXPORT_MAX_DECK_STATE_ENTRIES
 } from './store.js';
 import { isAnalyticsModalOpen, isDisclaimerModalOpen } from '../ui/modals.js';
 import {
@@ -58,7 +59,7 @@ export function configurePersistence(deps) {
 
 // ── Persisted-state payload + sanitization for import ────────────────────
 
-export function buildPersistedStatePayload() {
+export function buildPersistedStatePayload(compactOptions) {
   saveCurrentDeckStateToBank();
   // Keep the active mode's selection snapshot fresh before persisting.
   if (runtime.splitSelection && (runtime.studyMode === 'vocab' || runtime.studyMode === 'morph')) {
@@ -106,7 +107,7 @@ export function buildPersistedStatePayload() {
       lastStudyCountedAt: 0,
       currentStudySession: null
     }
-  });
+  }, compactOptions);
 }
 
 function sanitizeImportedState(candidate) {
@@ -213,7 +214,10 @@ function buildProgressExportPayload() {
   host.accumulateUsageTime();
   host.accumulateActiveStudyTime();
 
-  const appState = buildPersistedStatePayload();
+  // Card-shuffle resume cursors aren't worth their weight (~30 KB per entry)
+  // in a JSON backup — trim the deck-state bank to a much smaller cap for
+  // exports than the live localStorage cap.
+  const appState = buildPersistedStatePayload({ maxDeckStates: EXPORT_MAX_DECK_STATE_ENTRIES });
 
   // The persisted payload zeros currentStudySession. If there was an
   // in-progress session, push a snapshot into the exported history so

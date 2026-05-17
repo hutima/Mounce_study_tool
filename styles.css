@@ -2176,12 +2176,16 @@
     color: var(--muted);
     letter-spacing: 0.5px;
   }
-  .chapter-tile.tile-mastered  { background: rgba(102, 164, 120, 0.30); border-color: rgba(102, 164, 120, 0.55); }
-  .chapter-tile.tile-confirmed { background: rgba(201, 168, 76, 0.22); border-color: rgba(201, 168, 76, 0.55); }
-  .chapter-tile.tile-building  { background: rgba(166, 88, 88, 0.20); border-color: rgba(166, 88, 88, 0.50); }
-  .chapter-tile.tile-empty     { background: rgba(138, 143, 168, 0.10); }
-  .chapter-tile.tile-mastered .chapter-tile-pct,
-  .chapter-tile.tile-confirmed .chapter-tile-pct {
+  /* Five equal 20%-wide completion bands — matches the vocab/grammar
+     histograms so the chapter-map gradient reads consistently. */
+  .chapter-tile.tile-band-b80     { background: rgba(102, 164, 120, 0.30); border-color: rgba(102, 164, 120, 0.55); }
+  .chapter-tile.tile-band-b60     { background: rgba(160, 174,  90, 0.28); border-color: rgba(160, 174,  90, 0.55); }
+  .chapter-tile.tile-band-b40     { background: rgba(201, 168,  76, 0.24); border-color: rgba(201, 168,  76, 0.55); }
+  .chapter-tile.tile-band-b20     { background: rgba(192, 122,  76, 0.24); border-color: rgba(192, 122,  76, 0.55); }
+  .chapter-tile.tile-band-b0      { background: rgba(166,  88,  88, 0.22); border-color: rgba(166,  88,  88, 0.50); }
+  .chapter-tile.tile-band-unseen  { background: rgba(138, 143, 168, 0.10); }
+  .chapter-tile.tile-band-b80 .chapter-tile-pct,
+  .chapter-tile.tile-band-b60 .chapter-tile-pct {
     color: var(--cream);
   }
 
@@ -2367,6 +2371,10 @@
     border-color: rgba(102,164,120,0.5);
     color: rgba(150,200,160,1);
   }
+  .grammar-review-chip-muted {
+    border-color: var(--border);
+    color: var(--muted);
+  }
   .grammar-review-list {
     list-style: none;
     margin: 0;
@@ -2410,6 +2418,31 @@
   }
   .grammar-review-copy {
     cursor: pointer;
+  }
+  /* On narrow phones, long concept names (e.g. "Diphthongs and iota subscript")
+     no longer get truncated next to the card-count column — the row stacks
+     into two lines so concept + detail share the available width. */
+  @media (max-width: 480px) {
+    .grammar-review-row {
+      grid-template-columns: 12px 1fr auto;
+      grid-template-areas:
+        "dot concept pct"
+        "dot detail  pct";
+    }
+    .grammar-review-row > .chapter-detail-dot { grid-area: dot; }
+    .grammar-review-row > .grammar-review-concept {
+      grid-area: concept;
+      white-space: normal;
+      overflow: visible;
+      text-overflow: clip;
+    }
+    .grammar-review-row > .grammar-review-detail {
+      grid-area: detail;
+      white-space: normal;
+      overflow: visible;
+      text-overflow: clip;
+    }
+    .grammar-review-row > .grammar-review-pct { grid-area: pct; }
   }
 
   /* ── Per-word stat card (revealed by tapping a word row) ── */

@@ -20,6 +20,10 @@ export const MAX_STUDY_SESSION_HISTORY = 500;
 // entry). It is only a resume convenience, so it is capped to the most
 // recently used selections to keep the persisted save small.
 export const MAX_DECK_STATE_ENTRIES = 16;
+// JSON exports are for transferring stats/history between devices; card-shuffle
+// resume position isn't worth its weight (~30 KB per entry) in a backup, so
+// trim to a much smaller set than the live localStorage cap.
+export const EXPORT_MAX_DECK_STATE_ENTRIES = 4;
 
 // ── Mutable state ──
 // Exported as a single object so modules can read/write by reference.
