@@ -2394,32 +2394,13 @@
     border-color: var(--border);
     color: var(--muted);
   }
-  .grammar-review-list {
-    list-style: none;
-    margin: 0;
-    padding: 0;
-    display: flex;
-    flex-direction: column;
-    gap: 3px;
-  }
-  .grammar-review-row {
-    display: grid;
-    grid-template-columns: 12px minmax(90px, 1.4fr) minmax(110px, 1.6fr) 44px;
-    align-items: center;
-    gap: 10px;
-    padding: 4px 6px;
-    border-radius: 6px;
-    background: rgba(255,255,255,0.02);
-  }
-  html[data-theme="light"] .grammar-review-row {
-    background: rgba(0,0,0,0.02);
-  }
   .grammar-review-concept {
     color: var(--cream);
     font-size: 13px;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
+    min-width: 0;
   }
   .grammar-review-detail {
     color: var(--muted);
@@ -2427,41 +2408,32 @@
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
-  }
-  .grammar-review-pct {
-    font-family: 'Cinzel', serif;
-    color: var(--gold-dim);
-    font-size: 11px;
-    text-align: right;
-    letter-spacing: 0.5px;
-  }
-  .grammar-review-copy {
-    cursor: pointer;
+    min-width: 0;
   }
   /* On narrow phones, long concept names (e.g. "Diphthongs and iota subscript")
      no longer get truncated next to the card-count column — the row stacks
      into two lines so concept + detail share the available width. */
   @media (max-width: 480px) {
-    .grammar-review-row {
+    .chapter-detail-row.grammar-concept-row {
       grid-template-columns: 12px 1fr auto;
       grid-template-areas:
         "dot concept pct"
         "dot detail  pct";
     }
-    .grammar-review-row > .chapter-detail-dot { grid-area: dot; }
-    .grammar-review-row > .grammar-review-concept {
+    .chapter-detail-row.grammar-concept-row > .chapter-detail-dot { grid-area: dot; }
+    .chapter-detail-row.grammar-concept-row > .grammar-review-concept {
       grid-area: concept;
       white-space: normal;
       overflow: visible;
       text-overflow: clip;
     }
-    .grammar-review-row > .grammar-review-detail {
+    .chapter-detail-row.grammar-concept-row > .grammar-review-detail {
       grid-area: detail;
       white-space: normal;
       overflow: visible;
       text-overflow: clip;
     }
-    .grammar-review-row > .grammar-review-pct { grid-area: pct; }
+    .chapter-detail-row.grammar-concept-row > .chapter-detail-pct { grid-area: pct; }
   }
 
   /* ── Per-word stat card (revealed by tapping a word row) ── */
