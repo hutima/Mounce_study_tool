@@ -78,6 +78,7 @@ export const runtime = {
   unspacedCycleState: {},
   unspacedDeferredIds: new Set(), // 'pass' cards excluded from current pass
   flipsSinceReshuffle: 0,         // forward navigations since last periodic reshuffle
+  lastPeriodicReshuffleAt: 0,     // wall-clock ms timestamp anchor for the hourly reshuffle throttle
   spacedUndoSnapshot: null,
 
   // ── Per-direction mark store for the active study mode ──────────────

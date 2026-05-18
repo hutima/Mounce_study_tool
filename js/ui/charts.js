@@ -257,10 +257,14 @@ export function buildHeatmapSvg(activeDailyMs) {
   // Build grid: columns = weeks, rows = days of week (Sun-Sat)
   const dayLabels = ['', 'M', '', 'W', '', 'F', ''];
   const labelWidth = 20;
+  // Top pad needs to clear the month label cap height. .analytics-axis-text is
+  // 22 user units, so a baseline of `topPad - 6` keeps the ascender inside the
+  // viewBox.
+  const topPad = 28;
   const gridWidth = weeks * (cellSize + cellGap);
   const gridHeight = 7 * (cellSize + cellGap);
   const svgW = labelWidth + gridWidth + 10;
-  const svgH = gridHeight + 28;
+  const svgH = gridHeight + topPad + 10;
 
   // month labels
   const monthLabels = [];
@@ -279,7 +283,7 @@ export function buildHeatmapSvg(activeDailyMs) {
     const week = Math.floor(i / 7);
     const dow = i % 7;
     const x = labelWidth + week * (cellSize + cellGap);
-    const y = 18 + dow * (cellSize + cellGap);
+    const y = topPad + dow * (cellSize + cellGap);
     const isFuture = cell.date > today;
     let fill;
     if (isFuture) {
@@ -297,11 +301,11 @@ export function buildHeatmapSvg(activeDailyMs) {
 
   const dayLabelsSvg = dayLabels.map((label, i) => {
     if (!label) return '';
-    const y = 18 + i * (cellSize + cellGap) + cellSize - 2;
+    const y = topPad + i * (cellSize + cellGap) + cellSize - 2;
     return `<text x="0" y="${y}" class="analytics-axis-text heatmap-day-label">${label}</text>`;
   }).join('');
 
-  const monthLabelsSvg = monthLabels.map(m => `<text x="${m.x}" y="12" class="analytics-axis-text">${escapeHtml(m.label)}</text>`).join('');
+  const monthLabelsSvg = monthLabels.map(m => `<text x="${m.x}" y="${topPad - 6}" class="analytics-axis-text">${escapeHtml(m.label)}</text>`).join('');
 
   return `<svg class="heatmap-svg" viewBox="0 0 ${svgW} ${svgH}" preserveAspectRatio="xMinYMin meet" role="img" aria-label="Study activity heatmap">${monthLabelsSvg}${dayLabelsSvg}${rects}</svg>`;
 }
