@@ -340,6 +340,14 @@
   .ctrl-btn:hover { border-color: var(--gold-dim); color: var(--gold); }
   .ctrl-btn.active-toggle { border-color: var(--gold); color: var(--gold-light); background: rgba(201,168,76,0.07); }
 
+  .reset-actions-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+    width: 100%;
+  }
+  .reset-actions-grid .ctrl-btn { width: 100%; text-align: center; }
+
   /* ── Card Area ── */
   .card-area {
     perspective: 1200px;
@@ -1287,6 +1295,27 @@
 
   .reset-spaced-actions .ctrl-btn {
     min-width: 140px;
+  }
+
+  .reset-scope-row {
+    margin-top: 4px;
+    padding: 10px 12px;
+    border-radius: 6px;
+    border: 1px solid var(--border);
+    background: rgba(255, 255, 255, 0.02);
+  }
+
+  .reset-scope-row label {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    cursor: pointer;
+    font-weight: 400;
+  }
+
+  .reset-scope-row input[type="checkbox"] {
+    margin-top: 3px;
+    flex-shrink: 0;
   }
 
   .consent-primary {
