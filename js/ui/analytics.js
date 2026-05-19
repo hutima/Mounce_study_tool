@@ -962,6 +962,10 @@ function computeStubbornCards(cards, progressStore) {
       const smoothed = (passes + 1) / (total + 1);
       if (smoothed > 0.5) return null;
       const confidence = getConfidencePct(p);
+      // Rolling last-10-flips confidence: once a card climbs above 50% the
+      // user is no longer stuck on it, so it doesn't belong on a "stubborn"
+      // list even if its lifetime smoothed score is still low.
+      if (confidence !== null && confidence > 50) return null;
       const seen = Number(p.seenCount) || 0;
       const failRate = fails / total;
       return { card, fails, passes, seen, failRate, confidence, smoothed };
