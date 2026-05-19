@@ -34,7 +34,14 @@ export const runtime = {
   analyticsExpandedWord: null,
   analyticsChapterSort: 'confidence', // 'confidence' | 'alphabetical'
   analyticsGrammarExpandedChapter: null,
+  analyticsGrammarExpandedConcept: null,
+  analyticsGrammarExpandedCard: null,
   analyticsGrammarConceptSort: 'confidence', // 'confidence' | 'alphabetical'
+  // Word IDs currently expanded inside the stubborn / improved / slipping
+  // lists. Keyed by the list's collapseKey so each list tracks its own
+  // expansion independently — opening a row in "Most stubborn" doesn't
+  // close one in "Slipping list".
+  analyticsExpandedListWords: {},
   // Analytics-page-local vocab view (separate from the study deck's
   // directionToGreek / requiredOnly so analyzing one direction doesn't force
   // a deck rebuild).

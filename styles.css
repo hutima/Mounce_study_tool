@@ -2647,6 +2647,79 @@
     background: transparent;
     list-style: none;
   }
+  /* Concept expansion inside the grammar chapter map: each concept row,
+     when tapped, reveals a card list with the same row layout as the
+     vocab chapter detail. The expansion row itself collapses its grid
+     so the inner <ol> can span full width without inheriting the
+     concept row's column template. */
+  .chapter-detail-statcard-row.grammar-concept-expansion-row {
+    padding: 0 4px 6px;
+  }
+  .grammar-concept-card-list {
+    list-style: none;
+    margin: 4px 0 0;
+    padding: 6px;
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 4px;
+    border-radius: 8px;
+    background: rgba(255,255,255,0.025);
+    max-height: 320px;
+    overflow-y: auto;
+  }
+  html[data-theme="light"] .grammar-concept-card-list {
+    background: rgba(0,0,0,0.025);
+  }
+  .grammar-card-row {
+    /* Same column template as vocab chapter-detail row, but the second
+       column shows the parsed answer (often longer) so we keep it
+       flexible while the form/percent columns stay compact. */
+    grid-template-columns: 12px minmax(60px, 1fr) minmax(80px, 2fr) 48px;
+  }
+  .grammar-card-form {
+    font-family: 'Times New Roman', 'GFS Didot', serif;
+    color: var(--cream);
+    font-size: 15px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .grammar-card-answer {
+    color: var(--muted);
+    font-size: 12px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  /* Tappable rows inside the stubborn / improved / slipping word lists.
+     Mirrors the chapter-detail row treatment so the interaction model is
+     consistent across the analytics page. */
+  .analytics-word-list-row-tappable {
+    cursor: pointer;
+    user-select: none;
+  }
+  .analytics-word-list-row-tappable:hover {
+    background: rgba(255,255,255,0.05);
+  }
+  html[data-theme="light"] .analytics-word-list-row-tappable:hover {
+    background: rgba(0,0,0,0.04);
+  }
+  .analytics-word-list-row-tappable:focus-visible {
+    outline: 2px solid var(--gold);
+    outline-offset: 1px;
+  }
+  .analytics-word-list-row-active {
+    background: rgba(201,168,76,0.10);
+  }
+  html[data-theme="light"] .analytics-word-list-row-active {
+    background: rgba(201,168,76,0.18);
+  }
+  .analytics-word-list-statcard-row {
+    list-style: none;
+    padding: 0;
+    background: transparent;
+    border: none;
+  }
   .word-stat-card {
     margin: 2px 0 8px;
     padding: 12px;

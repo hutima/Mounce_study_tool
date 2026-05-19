@@ -224,19 +224,27 @@ function computeCourseWideData() {
   };
 }
 
+// Chapter map percentage = average rolling confidence across the chapter's
+// cards. Unseen cards count as 0% so an untouched chapter reads as 0%
+// instead of disappearing into "no data". The manual "marked known" override
+// is intentionally ignored — the % is purely the recall signal so it can't
+// be inflated by a toggle. `confirmed` still surfaces marks for the
+// tooltip / chapter-detail headline alongside the average.
 function computeChapterMastery(progressStore, marksStore, requiredOnly = false) {
   const marksMap = marksStore || runtime.globalWordMarks.g2e || {};
   const store = progressStore || runtime.globalWordProgress.g2e || {};
-  const isConfirmed = (card) => {
-    if (marksMap[card.id] === 'known') return true;
-    const pct = getConfidencePct(store?.[card.id]);
-    return pct !== null && pct >= 70;
-  };
   return getAllChapterKeys().map(chKey => {
     const cards = getChapterVocabCards(chKey, !!requiredOnly);
     const total = cards.length;
-    const confirmed = cards.filter(isConfirmed).length;
-    return { chapterKey: chKey, total, confirmed, pct: total ? confirmed / total : 0 };
+    let sum = 0;
+    let confirmed = 0;
+    cards.forEach(card => {
+      const pct = getConfidencePct(store?.[card.id]);
+      sum += (pct !== null) ? pct : 0;
+      if (marksMap[card.id] === 'known' || (pct !== null && pct >= 70)) confirmed++;
+    });
+    const avgPct = total ? sum / total : 0;
+    return { chapterKey: chKey, total, confirmed, pct: avgPct / 100, avgPct };
   });
 }
 
@@ -255,7 +263,7 @@ function buildChapterGridHtml(mastery) {
   };
   const tile = (row) => {
     const pctRound = Math.round(row.pct * 100);
-    const label = `Ch. ${row.chapterKey}: ${row.confirmed} / ${row.total} (${pctRound}%) — tap for word stats`;
+    const label = `Ch. ${row.chapterKey}: ${pctRound}% avg confidence · ${row.confirmed} / ${row.total} confirmed — tap for word stats`;
     let className = `chapter-tile ${bandClassFor(row.pct)}`;
     if (String(row.chapterKey) === expandedKey) className += ' chapter-tile-active';
     return `<button type="button" class="${className}" data-chapter="${escapeHtml(String(row.chapterKey))}" title="${escapeHtml(label)}" aria-expanded="${String(row.chapterKey) === expandedKey ? 'true' : 'false'}"><span class="chapter-tile-num">${escapeHtml(row.chapterKey)}</span><span class="chapter-tile-pct">${pctRound}%</span></button>`;
@@ -334,7 +342,14 @@ function buildChapterDetailHtml(chapterKey) {
     });
   }
   const confirmedCount = rows.filter(r => r.isConfirmed).length;
-  const headlinePct = cards.length ? Math.round((confirmedCount / cards.length) * 100) : 0;
+  // Headline matches the chapter tile: average rolling confidence across the
+  // chapter, with unseen cards at 0%. The marked-known toggle is intentionally
+  // not counted here — % is purely the recall signal.
+  let sumPct = 0;
+  rows.forEach(r => {
+    sumPct += r.sortPct === -1 ? 0 : r.sortPct;
+  });
+  const headlinePct = cards.length ? Math.round(sumPct / cards.length) : 0;
 
   const rowHtml = rows.map(r => {
     const expanded = runtime.analyticsExpandedWord === r.card.id;
@@ -360,7 +375,7 @@ function buildChapterDetailHtml(chapterKey) {
   };
   return `
     <div class="chapter-detail-head">
-      <div class="chapter-detail-title">Ch. ${escapeHtml(String(chapterKey))} — ${confirmedCount} / ${cards.length} confirmed <span class="chapter-detail-meta">${headlinePct}%${required ? ` · ${required} required` : ''}</span></div>
+      <div class="chapter-detail-title">Ch. ${escapeHtml(String(chapterKey))} — ${headlinePct}% avg confidence <span class="chapter-detail-meta">${confirmedCount} / ${cards.length} confirmed${required ? ` · ${required} required` : ''}</span></div>
       <div class="chapter-detail-controls">
         <div class="chapter-detail-sort" role="group" aria-label="Sort words">
           ${sortBtn('confidence', 'Confidence')}
@@ -467,21 +482,42 @@ function setupChapterGridInteractivity(rootEl) {
 // Mirrors computeChapterMastery (used by the vocab chapter map) but reads
 // from the morph progress/marks stores. The result feeds a chapter-tile
 // grid; tapping a tile expands a panel that breaks the chapter down by
-// concept (card.family) — the same sub-topic data the old flat report
-// surfaced, now nested under its chapter.
+// concept (card.family). Chapter % = average of concept averages, where
+// each concept's average is the mean rolling confidence across its cards
+// (unseen = 0%, marked-known ignored). The "average of averages" structure
+// prevents a concept with many cards from drowning out smaller concepts.
 function computeGrammarChapterMastery() {
   const marksMap = runtime.globalWordMarks.morph || {};
   const store = runtime.globalWordProgress.morph || {};
   return getAllChapterKeys().map(chKey => {
     const cards = getChapterGrammarCards(chKey);
     const total = cards.length;
+
+    const byFamily = new Map();
     let confirmed = 0;
     cards.forEach(card => {
-      if (marksMap[card.id] === 'known') { confirmed++; return; }
+      const family = card.family || 'Other';
+      if (!byFamily.has(family)) byFamily.set(family, []);
+      byFamily.get(family).push(card);
       const pct = getConfidencePct(store[card.id]);
-      if (pct !== null && pct >= 70) confirmed++;
+      if (marksMap[card.id] === 'known' || (pct !== null && pct >= 70)) confirmed++;
     });
-    return { chapterKey: chKey, total, confirmed, pct: total ? confirmed / total : 0 };
+
+    const conceptAvgs = [];
+    byFamily.forEach(familyCards => {
+      let sum = 0;
+      familyCards.forEach(card => {
+        const pct = getConfidencePct(store[card.id]);
+        sum += (pct !== null) ? pct : 0;
+      });
+      conceptAvgs.push(sum / familyCards.length);
+    });
+
+    const chapterAvg = conceptAvgs.length
+      ? conceptAvgs.reduce((s, v) => s + v, 0) / conceptAvgs.length
+      : 0;
+
+    return { chapterKey: chKey, total, confirmed, pct: chapterAvg / 100, avgPct: chapterAvg, conceptCount: conceptAvgs.length };
   });
 }
 
@@ -505,6 +541,10 @@ function computeGrammarChapterConcepts(chapterKey) {
     let misses = 0;
     let pctSum = 0;
     let pctCount = 0;
+    // Concept avg confidence (matches chapter avg's per-concept term):
+    // unseen = 0%, otherwise rolling last-10-flips. Marked-known is
+    // ignored — the % is purely the recall signal.
+    let confidenceSum = 0;
     familyCards.forEach(card => {
       const p = store[card.id];
       const pct = getConfidencePct(p);
@@ -513,15 +553,20 @@ function computeGrammarChapterConcepts(chapterKey) {
       misses += Number(p?.failCount) || 0;
       if (pct !== null) { pctSum += pct; pctCount++; }
       if (marksMap[card.id] === 'known' || (pct !== null && pct >= 70)) confirmed++;
+      confidenceSum += (pct !== null) ? pct : 0;
     });
     const total = familyCards.length;
     const avgPct = pctCount ? Math.round(pctSum / pctCount) : null;
+    // Keep unrounded so the chapter detail's "average of concept averages"
+    // matches the chapter tile's avg-of-avgs to the nearest percent; the
+    // row display rounds at the last moment.
+    const conceptAvg = total ? confidenceSum / total : 0;
     let status;
     if (seen === 0) status = 'unseen';
     else if (confirmed >= total) status = 'strong';
     else if ((avgPct ?? 0) >= 50) status = 'shaky';
     else status = 'weak';
-    concepts.push({ family, total, confirmed, seen, misses, avgPct, status });
+    concepts.push({ family, total, confirmed, seen, misses, avgPct, conceptAvg, status, cards: familyCards });
   });
   return concepts;
 }
@@ -552,7 +597,7 @@ function buildGrammarChapterGridHtml(mastery) {
   const tile = (row) => {
     const pctRound = row.total ? Math.round(row.pct * 100) : 0;
     const label = row.total
-      ? `Ch. ${row.chapterKey}: ${row.confirmed} / ${row.total} grammar cards (${pctRound}%) — tap for concept breakdown`
+      ? `Ch. ${row.chapterKey}: ${pctRound}% avg confidence · ${row.confirmed} / ${row.total} confirmed — tap for concept breakdown`
       : `Ch. ${row.chapterKey}: no grammar drills yet`;
     let className = `chapter-tile ${bandClassFor(row.pct, row.total > 0)}`;
     if (!row.total) className += ' chapter-tile-empty';
@@ -601,21 +646,35 @@ function buildGrammarChapterDetailHtml(chapterKey) {
 
   const totalCards = concepts.reduce((sum, c) => sum + c.total, 0);
   const confirmedCards = concepts.reduce((sum, c) => sum + c.confirmed, 0);
-  const headlinePct = totalCards ? Math.round((confirmedCards / totalCards) * 100) : 0;
+  // Headline matches the tile: average of concept averages.
+  const conceptAvgSum = concepts.reduce((sum, c) => sum + (c.conceptAvg || 0), 0);
+  const headlinePct = concepts.length ? Math.round(conceptAvgSum / concepts.length) : 0;
+
+  const expandedFamily = runtime.analyticsGrammarExpandedConcept || '';
 
   const conceptRow = (c) => {
     const meta = GRAMMAR_CONCEPT_STATUS_META[c.status];
-    const pctText = c.avgPct === null ? '—' : `${c.avgPct}%`;
+    // Display the concept-wide average (marked-known = 100, unseen = 0) so the
+    // row's % is the same number that contributes to the chapter avg headline.
+    // `c.avgPct` (average of seen cards only) feeds status + sort ordering.
+    const pctText = c.status === 'unseen' ? '—' : `${Math.round(c.conceptAvg)}%`;
     const detail = c.status === 'unseen'
       ? `${c.total} card${c.total === 1 ? '' : 's'} · not started`
       : `${c.confirmed}/${c.total} confirmed · ${c.misses} miss${c.misses === 1 ? '' : 'es'}`;
+    const expanded = c.family === expandedFamily;
+    const cardsHtml = expanded ? buildGrammarConceptCardsHtml(c.cards) : '';
     return `
-      <li class="chapter-detail-row grammar-concept-row">
+      <li class="chapter-detail-row grammar-concept-row${expanded ? ' chapter-detail-row-active' : ''}"
+          role="button"
+          tabindex="0"
+          aria-expanded="${expanded ? 'true' : 'false'}"
+          data-grammar-concept="${escapeHtml(c.family)}">
         <span class="chapter-detail-dot ${meta.dot}" aria-hidden="true" title="${escapeHtml(meta.label)}"></span>
         <span class="grammar-review-concept">${escapeHtml(c.family)}</span>
         <span class="grammar-review-detail">${escapeHtml(detail)}</span>
         <span class="chapter-detail-pct">${escapeHtml(pctText)}</span>
-      </li>`;
+      </li>
+      ${expanded ? `<li class="chapter-detail-statcard-row grammar-concept-expansion-row" aria-hidden="false">${cardsHtml}</li>` : ''}`;
   };
 
   const sortBtn = (mode, label) => {
@@ -625,7 +684,7 @@ function buildGrammarChapterDetailHtml(chapterKey) {
 
   return `
     <div class="chapter-detail-head">
-      <div class="chapter-detail-title">Ch. ${escapeHtml(String(chapterKey))} — ${confirmedCards} / ${totalCards} confirmed <span class="chapter-detail-meta">${headlinePct}% · ${concepts.length} concept${concepts.length === 1 ? '' : 's'}</span></div>
+      <div class="chapter-detail-title">Ch. ${escapeHtml(String(chapterKey))} — ${headlinePct}% avg confidence <span class="chapter-detail-meta">${confirmedCards} / ${totalCards} confirmed · ${concepts.length} concept${concepts.length === 1 ? '' : 's'}</span></div>
       <div class="chapter-detail-controls">
         <div class="chapter-detail-sort" role="group" aria-label="Sort concepts">
           ${sortBtn('confidence', 'Status')}
@@ -635,6 +694,69 @@ function buildGrammarChapterDetailHtml(chapterKey) {
       </div>
     </div>
     <ol class="chapter-detail-list">${sorted.map(conceptRow).join('')}</ol>
+  `;
+}
+
+// ── Per-concept card breakdown (shown when a concept row is tapped) ──
+// Mirrors the vocab chapter-detail row format: each card row shows the
+// form + parsed answer + rolling confidence and can be tapped to reveal
+// the full card stat card (pass/fail counts, SRS stage, etc.).
+function buildGrammarConceptCardsHtml(cards) {
+  if (!cards || !cards.length) return '<div class="analytics-empty">No cards in this concept.</div>';
+  const marksMap = runtime.globalWordMarks.morph || {};
+  const store = runtime.globalWordProgress.morph || {};
+  const expandedCardId = runtime.analyticsGrammarExpandedCard || '';
+
+  const rowFor = (card) => {
+    const progress = store[card.id];
+    const isKnownMark = marksMap[card.id] === 'known';
+    const rawPct = getConfidencePct(progress);
+    const seen = !!(progress?.seenCount) || !!progress?.lastReviewedAt;
+    let bandClass;
+    let pctText;
+    let sortPct;
+    if (rawPct === null && !seen) {
+      bandClass = 'stacked-seg-unseen'; pctText = '—'; sortPct = -1;
+    } else {
+      const pct = rawPct ?? 0;
+      sortPct = pct;
+      pctText = `${pct}%`;
+      if (pct >= 80)      bandClass = 'stacked-seg-b80';
+      else if (pct >= 60) bandClass = 'stacked-seg-b60';
+      else if (pct >= 40) bandClass = 'stacked-seg-b40';
+      else if (pct >= 20) bandClass = 'stacked-seg-b20';
+      else                bandClass = 'stacked-seg-b0';
+    }
+    return { card, bandClass, pctText, sortPct, isKnownMark };
+  };
+  const rows = cards.map(rowFor);
+  rows.sort((a, b) => {
+    if (a.sortPct !== b.sortPct) return a.sortPct - b.sortPct;
+    return (a.card.form || '').localeCompare(b.card.form || '');
+  });
+
+  return `
+    <ol class="grammar-concept-card-list">
+      ${rows.map(r => {
+        const expanded = String(r.card.id) === expandedCardId;
+        const cardHtml = expanded
+          ? buildWordStatCardHtml(r.card, store[r.card.id], r.isKnownMark)
+          : '';
+        return `
+          <li class="chapter-detail-row grammar-card-row${expanded ? ' chapter-detail-row-active' : ''}"
+              role="button"
+              tabindex="0"
+              aria-expanded="${expanded ? 'true' : 'false'}"
+              data-grammar-card-id="${escapeHtml(String(r.card.id))}">
+            <span class="chapter-detail-dot ${r.bandClass}" aria-hidden="true"></span>
+            <span class="grammar-card-form">${escapeHtml(r.card.form || r.card.lemma || '—')}</span>
+            <span class="grammar-card-answer">${escapeHtml(r.card.answer || r.card.gloss || '')}</span>
+            <span class="chapter-detail-pct">${escapeHtml(r.pctText)}</span>
+          </li>
+          ${expanded ? `<li class="chapter-detail-statcard-row" aria-hidden="false">${cardHtml}</li>` : ''}
+        `;
+      }).join('')}
+    </ol>
   `;
 }
 
@@ -661,10 +783,54 @@ function renderGrammarReviewSection() {
 function setupGrammarReviewInteractivity(rootEl) {
   if (!rootEl || rootEl.dataset.grammarReviewBound === '1') return;
   rootEl.dataset.grammarReviewBound = '1';
+
+  // Tap a concept row → expand its card list. Mirrors the chapter-detail
+  // word-row scroll preservation: the panel re-renders in place, so we
+  // capture scroll offset against the tapped row's position before the
+  // re-render and restore it afterwards.
+  const handleConceptToggle = (row) => {
+    const family = row.dataset.grammarConcept || '';
+    if (!family) return;
+    const list = row.closest('.chapter-detail-list');
+    const prevScrollTop = list ? list.scrollTop : 0;
+    const prevRowTop = list ? row.offsetTop : 0;
+
+    runtime.analyticsGrammarExpandedConcept = runtime.analyticsGrammarExpandedConcept === family ? null : family;
+    runtime.analyticsGrammarExpandedCard = null;
+    renderGrammarChapterDetailPanel();
+
+    const newList = document.querySelector('#grammarChapterDetailPanel .chapter-detail-list');
+    if (!newList) return;
+    const newRow = newList.querySelector(`[data-grammar-concept="${CSS.escape(family)}"]`);
+    newList.scrollTop = newRow
+      ? prevScrollTop + (newRow.offsetTop - prevRowTop)
+      : prevScrollTop;
+  };
+
+  const handleCardToggle = (row) => {
+    const cardId = row.dataset.grammarCardId || '';
+    if (!cardId) return;
+    const list = row.closest('.grammar-concept-card-list');
+    const prevScrollTop = list ? list.scrollTop : 0;
+    const prevRowTop = list ? row.offsetTop : 0;
+
+    runtime.analyticsGrammarExpandedCard = runtime.analyticsGrammarExpandedCard === cardId ? null : cardId;
+    renderGrammarChapterDetailPanel();
+
+    const newList = document.querySelector('#grammarChapterDetailPanel .grammar-concept-card-list');
+    if (!newList) return;
+    const newRow = newList.querySelector(`[data-grammar-card-id="${CSS.escape(cardId)}"]`);
+    newList.scrollTop = newRow
+      ? prevScrollTop + (newRow.offsetTop - prevRowTop)
+      : prevScrollTop;
+  };
+
   rootEl.addEventListener('click', (event) => {
     const closeBtn = event.target.closest('[data-grammar-chapter-close]');
     if (closeBtn && rootEl.contains(closeBtn)) {
       runtime.analyticsGrammarExpandedChapter = null;
+      runtime.analyticsGrammarExpandedConcept = null;
+      runtime.analyticsGrammarExpandedCard = null;
       rootEl.querySelectorAll('.chapter-tile').forEach(t => {
         t.classList.remove('chapter-tile-active');
         t.setAttribute('aria-expanded', 'false');
@@ -681,11 +847,25 @@ function setupGrammarReviewInteractivity(rootEl) {
       }
       return;
     }
+    const cardRow = event.target.closest('.grammar-card-row[data-grammar-card-id]');
+    if (cardRow && rootEl.contains(cardRow)) {
+      handleCardToggle(cardRow);
+      return;
+    }
+    const conceptRow = event.target.closest('.grammar-concept-row[data-grammar-concept]');
+    if (conceptRow && rootEl.contains(conceptRow)) {
+      handleConceptToggle(conceptRow);
+      return;
+    }
     const tile = event.target.closest('[data-grammar-chapter]');
     if (!tile || !rootEl.contains(tile)) return;
     const key = tile.dataset.grammarChapter || '';
     if (!key) return;
     const nextKey = runtime.analyticsGrammarExpandedChapter === key ? null : key;
+    if (nextKey !== runtime.analyticsGrammarExpandedChapter) {
+      runtime.analyticsGrammarExpandedConcept = null;
+      runtime.analyticsGrammarExpandedCard = null;
+    }
     runtime.analyticsGrammarExpandedChapter = nextKey;
     rootEl.querySelectorAll('.chapter-tile').forEach(t => {
       const active = t.dataset.grammarChapter === runtime.analyticsGrammarExpandedChapter;
@@ -693,6 +873,21 @@ function setupGrammarReviewInteractivity(rootEl) {
       t.setAttribute('aria-expanded', active ? 'true' : 'false');
     });
     renderGrammarChapterDetailPanel();
+  });
+
+  rootEl.addEventListener('keydown', (event) => {
+    if (event.key !== 'Enter' && event.key !== ' ') return;
+    const cardRow = event.target.closest('.grammar-card-row[data-grammar-card-id]');
+    if (cardRow && rootEl.contains(cardRow)) {
+      event.preventDefault();
+      handleCardToggle(cardRow);
+      return;
+    }
+    const conceptRow = event.target.closest('.grammar-concept-row[data-grammar-concept]');
+    if (conceptRow && rootEl.contains(conceptRow)) {
+      event.preventDefault();
+      handleConceptToggle(conceptRow);
+    }
   });
 }
 
@@ -834,8 +1029,10 @@ function computeSlippingCards(cards, progressStore, limit = 8) {
 // "Most improved": rolling confidence buffer (capped at last 10 samples by
 // recordConfidenceSample) split into the last 5 vs the prior 5. Requires
 // 10 samples so we always compare apples-to-apples; cards with shorter
-// histories don't qualify.
-function computeMostImprovedCards(cards, progressStore, limit = 5) {
+// histories don't qualify. Filtered to cards whose *prior* 5-flip average
+// was below the 70% "confirmed" threshold — a card that's been sitting at
+// 90% confidence isn't "improving", it was already strong.
+function computeMostImprovedCards(cards, progressStore, limit = 50) {
   if (!cards?.length) return [];
   const improved = [];
   cards.forEach(card => {
@@ -851,6 +1048,7 @@ function computeMostImprovedCards(cards, progressStore, limit = 5) {
     const recentAvg = recent.reduce((s, v) => s + v, 0) / recent.length;
     const delta = recentAvg - olderAvg;
     if (delta < 0.15) return; // at least ~15% bump to surface
+    if (olderAvg >= 0.7) return; // prior period was already strong; not "improving"
     const passes = Number(p.passCount) || 0;
     const fails = Number(p.failCount) || 0;
     improved.push({ card, delta, recentAvg, olderAvg, passes, fails, total: passes + fails });
@@ -858,11 +1056,93 @@ function computeMostImprovedCards(cards, progressStore, limit = 5) {
   return improved.sort((a, b) => b.delta - a.delta).slice(0, limit);
 }
 
+// ── Grammar concept aggregates for stubborn / improved lists ──────────
+// Per the analytics structure: vocab lists drill down to individual words,
+// but grammar lists pivot to concept (card.family) totals. A learner who
+// keeps missing four cards of "Future indicative active" cares more about
+// "review that concept" than four near-identical rows.
+function computeStubbornGrammarConcepts(cards, progressStore) {
+  const byFamily = new Map();
+  (cards || []).forEach(card => {
+    const family = card.family || 'Other';
+    if (!byFamily.has(family)) byFamily.set(family, []);
+    byFamily.get(family).push(card);
+  });
+  const rows = [];
+  byFamily.forEach((familyCards, family) => {
+    let fails = 0;
+    let passes = 0;
+    let seen = 0;
+    familyCards.forEach(card => {
+      const p = progressStore?.[card.id];
+      if (!p) return;
+      fails += Number(p.failCount) || 0;
+      passes += Number(p.passCount) || 0;
+      seen += Number(p.seenCount) || 0;
+    });
+    const total = passes + fails;
+    if (total < 3) return;
+    // Same 1-pseudopass smoothing the per-card list uses, applied to the
+    // aggregate counts so a concept with one bad card and many good ones
+    // doesn't sort above a uniformly weak concept.
+    const smoothed = (passes + 1) / (total + 1);
+    if (smoothed > 0.5) return;
+    const failRate = fails / total;
+    rows.push({ family, fails, passes, seen, total, failRate, smoothed, totalCards: familyCards.length });
+  });
+  return rows.sort((a, b) => (a.smoothed - b.smoothed) || (b.fails - a.fails));
+}
+
+function computeMostImprovedGrammarConcepts(cards, progressStore, limit = 50) {
+  const byFamily = new Map();
+  (cards || []).forEach(card => {
+    const family = card.family || 'Other';
+    if (!byFamily.has(family)) byFamily.set(family, []);
+    byFamily.get(family).push(card);
+  });
+  const rows = [];
+  byFamily.forEach((familyCards, family) => {
+    let totalDelta = 0;
+    let totalOlder = 0;
+    let totalRecent = 0;
+    let qualifying = 0;
+    familyCards.forEach(card => {
+      const p = progressStore?.[card.id];
+      if (!p) return;
+      const hist = Array.isArray(p.confidenceHistory)
+        ? p.confidenceHistory.filter(v => Number.isFinite(v))
+        : [];
+      if (hist.length < 10) return;
+      const older = hist.slice(-10, -5);
+      const recent = hist.slice(-5);
+      const olderAvg = older.reduce((s, v) => s + v, 0) / older.length;
+      const recentAvg = recent.reduce((s, v) => s + v, 0) / recent.length;
+      totalDelta += (recentAvg - olderAvg);
+      totalOlder += olderAvg;
+      totalRecent += recentAvg;
+      qualifying++;
+    });
+    if (!qualifying) return;
+    const avgDelta = totalDelta / qualifying;
+    const avgOlder = totalOlder / qualifying;
+    const avgRecent = totalRecent / qualifying;
+    if (avgDelta < 0.15) return;
+    if (avgOlder >= 0.7) return;
+    rows.push({ family, avgDelta, avgOlder, avgRecent, qualifying, totalCards: familyCards.length });
+  });
+  return rows.sort((a, b) => b.avgDelta - a.avgDelta).slice(0, limit);
+}
+
 // ── Word-list row + collapsible builders ──────────────────────────────
 // Shared by slipping / stubborn / most-improved lists inside the Total &
 // Selected progress collapses. `primaryDisplay` is the right-most stat
-// (a percent, a delta, a fails-count …).
-function renderCardListRow(item, kind, primaryDisplay) {
+// (a percent, a delta, a fails-count …). For vocab, rows are tappable —
+// tapping expands a per-word stat card below the row, matching the chapter
+// map interaction model. Grammar lists pivot to concept aggregates
+// elsewhere; the grammar branch here only feeds the slipping list, which
+// stays per-card and isn't tappable.
+function renderCardListRow(item, kind, primaryDisplay, opts = {}) {
+  const { progressStore, marksStore, listKey } = opts;
   const card = item.card;
   const headword = kind === 'grammar'
     ? `${escapeHtml(card.form || card.lemma || '—')}${card.lemma && card.form && card.form !== card.lemma ? ` <span class="stubborn-lemma">(${escapeHtml(card.lemma)})</span>` : ''}`
@@ -870,16 +1150,39 @@ function renderCardListRow(item, kind, primaryDisplay) {
         ? window.formatGreekHeadword(card.g)
         : escapeHtml(card.g || '—'));
   const gloss = kind === 'grammar' ? (card.answer || card.gloss || '') : (card.e || '');
+
+  const tappable = kind === 'vocab' && listKey && progressStore;
+  if (!tappable) {
+    return `
+      <li class="analytics-word-list-row">
+        <span class="analytics-word-list-headword">${headword}</span>
+        <span class="analytics-word-list-gloss">${escapeHtml(gloss)}</span>
+        <span class="analytics-word-list-pct">${escapeHtml(primaryDisplay)}</span>
+      </li>
+    `;
+  }
+
+  const expandedId = (runtime.analyticsExpandedListWords || {})[listKey] || '';
+  const isExpanded = expandedId === card.id;
+  const statCardHtml = isExpanded
+    ? `<li class="analytics-word-list-statcard-row" aria-hidden="false">${buildWordStatCardHtml(card, progressStore?.[card.id], marksStore?.[card.id] === 'known')}</li>`
+    : '';
   return `
-    <li class="analytics-word-list-row">
+    <li class="analytics-word-list-row analytics-word-list-row-tappable${isExpanded ? ' analytics-word-list-row-active' : ''}"
+        role="button"
+        tabindex="0"
+        aria-expanded="${isExpanded ? 'true' : 'false'}"
+        data-list-word-id="${escapeHtml(String(card.id))}"
+        data-list-key="${escapeHtml(listKey)}">
       <span class="analytics-word-list-headword">${headword}</span>
       <span class="analytics-word-list-gloss">${escapeHtml(gloss)}</span>
       <span class="analytics-word-list-pct">${escapeHtml(primaryDisplay)}</span>
     </li>
+    ${statCardHtml}
   `;
 }
 
-function buildSlippingCollapseHtml(slipping, kind, collapseKey) {
+function buildSlippingCollapseHtml(slipping, kind, collapseKey, opts = {}) {
   if (!slipping.length) return '';
   return `
     <details class="analytics-collapse analytics-sub-collapse" data-collapse-key="${escapeHtml(collapseKey)}">
@@ -890,17 +1193,17 @@ function buildSlippingCollapseHtml(slipping, kind, collapseKey) {
         </div>
       </summary>
       <div class="analytics-collapse-body">
-        <ol class="analytics-word-list">
-          ${slipping.map(s => renderCardListRow(s, kind, s.confidence != null ? `${s.confidence}%` : '—')).join('')}
+        <ol class="analytics-word-list analytics-word-list-scrollable">
+          ${slipping.map(s => renderCardListRow(s, kind, s.confidence != null ? `${s.confidence}%` : '—', { ...opts, listKey: collapseKey })).join('')}
         </ol>
       </div>
     </details>
   `;
 }
 
-function buildStubbornCollapseHtml(rows, kind, collapseKey) {
+function buildStubbornCollapseHtml(rows, kind, collapseKey, opts = {}) {
   if (!rows.length) return '';
-  const heading = kind === 'grammar' ? 'Most stubborn grammar' : 'Most stubborn vocabulary';
+  const heading = 'Most stubborn vocabulary';
   const statFor = (r) => {
     const missesPart = `${r.fails} miss${r.fails === 1 ? '' : 'es'}`;
     const confPart = r.confidence != null ? `${r.confidence}% conf` : '— conf';
@@ -916,16 +1219,16 @@ function buildStubbornCollapseHtml(rows, kind, collapseKey) {
       </summary>
       <div class="analytics-collapse-body">
         <ol class="analytics-word-list analytics-word-list-scrollable">
-          ${rows.map(r => renderCardListRow(r, kind, statFor(r))).join('')}
+          ${rows.map(r => renderCardListRow(r, kind, statFor(r), { ...opts, listKey: collapseKey })).join('')}
         </ol>
       </div>
     </details>
   `;
 }
 
-function buildImprovedCollapseHtml(improved, kind, collapseKey) {
+function buildImprovedCollapseHtml(improved, kind, collapseKey, opts = {}) {
   if (!improved.length) return '';
-  const title = kind === 'grammar' ? 'Most improved drills' : 'Most improved words';
+  const title = 'Most improved words';
   const statFor = (i) => `+${Math.round(i.delta * 100)}% · ${i.total} guess${i.total === 1 ? '' : 'es'}`;
   return `
     <details class="analytics-collapse analytics-sub-collapse" data-collapse-key="${escapeHtml(collapseKey)}">
@@ -936,8 +1239,72 @@ function buildImprovedCollapseHtml(improved, kind, collapseKey) {
         </div>
       </summary>
       <div class="analytics-collapse-body">
-        <ol class="analytics-word-list">
-          ${improved.map(i => renderCardListRow(i, kind, statFor(i))).join('')}
+        <ol class="analytics-word-list analytics-word-list-scrollable">
+          ${improved.map(i => renderCardListRow(i, kind, statFor(i), { ...opts, listKey: collapseKey })).join('')}
+        </ol>
+      </div>
+    </details>
+  `;
+}
+
+// Grammar variants: stubborn / improved aggregate per-concept (card.family).
+// Each row reports concept-level totals — no individual card drilldown here;
+// the chapter-mastery grid handles per-card detail.
+function buildStubbornConceptCollapseHtml(concepts, collapseKey) {
+  if (!concepts.length) return '';
+  const renderRow = (c) => {
+    const failRate = c.total ? Math.round(c.failRate * 100) : 0;
+    const stat = `${c.fails} miss${c.fails === 1 ? '' : 'es'} · ${failRate}% miss rate`;
+    const sub = `${c.totalCards} card${c.totalCards === 1 ? '' : 's'} · ${c.passes + c.fails} flip${c.passes + c.fails === 1 ? '' : 's'}`;
+    return `
+      <li class="analytics-word-list-row">
+        <span class="analytics-word-list-headword">${escapeHtml(c.family)}</span>
+        <span class="analytics-word-list-gloss">${escapeHtml(sub)}</span>
+        <span class="analytics-word-list-pct">${escapeHtml(stat)}</span>
+      </li>
+    `;
+  };
+  return `
+    <details class="analytics-collapse analytics-sub-collapse" data-collapse-key="${escapeHtml(collapseKey)}">
+      <summary class="analytics-collapse-summary">
+        <span class="analytics-collapse-caret" aria-hidden="true">▾</span>
+        <div class="analytics-collapse-title-wrap">
+          <h4>Most stubborn grammar concepts <span class="analytics-collapse-meta">${concepts.length}</span></h4>
+        </div>
+      </summary>
+      <div class="analytics-collapse-body">
+        <ol class="analytics-word-list analytics-word-list-scrollable">
+          ${concepts.map(renderRow).join('')}
+        </ol>
+      </div>
+    </details>
+  `;
+}
+
+function buildImprovedConceptCollapseHtml(concepts, collapseKey) {
+  if (!concepts.length) return '';
+  const renderRow = (c) => {
+    const stat = `+${Math.round(c.avgDelta * 100)}% · ${c.qualifying} card${c.qualifying === 1 ? '' : 's'}`;
+    const sub = `${c.totalCards} card${c.totalCards === 1 ? '' : 's'} · prior ${Math.round(c.avgOlder * 100)}%`;
+    return `
+      <li class="analytics-word-list-row">
+        <span class="analytics-word-list-headword">${escapeHtml(c.family)}</span>
+        <span class="analytics-word-list-gloss">${escapeHtml(sub)}</span>
+        <span class="analytics-word-list-pct">${escapeHtml(stat)}</span>
+      </li>
+    `;
+  };
+  return `
+    <details class="analytics-collapse analytics-sub-collapse" data-collapse-key="${escapeHtml(collapseKey)}">
+      <summary class="analytics-collapse-summary">
+        <span class="analytics-collapse-caret" aria-hidden="true">▾</span>
+        <div class="analytics-collapse-title-wrap">
+          <h4>Most improved grammar concepts <span class="analytics-collapse-meta">${concepts.length}</span></h4>
+        </div>
+      </summary>
+      <div class="analytics-collapse-body">
+        <ol class="analytics-word-list analytics-word-list-scrollable">
+          ${concepts.map(renderRow).join('')}
         </ol>
       </div>
     </details>
@@ -946,9 +1313,12 @@ function buildImprovedCollapseHtml(improved, kind, collapseKey) {
 
 // Builds the inner content of a "Vocabulary/Grammar progress" collapse:
 // slipping count + collapsible list, cumulative line chart, projected
-// finish, stubborn collapsible, and a most-improved collapsible. The
-// per-band histogram is intentionally NOT repeated here — it already lives
-// at the top of each Total/Selected section.
+// finish, stubborn collapsible, and a most-improved collapsible. Vocab
+// stubborn / improved are per-card (each row tappable for word stats);
+// grammar stubborn / improved pivot to concept (card.family) aggregates
+// so the user sees "Future indicative active" once instead of four
+// near-identical rows. The per-band histogram is intentionally NOT repeated
+// here — it already lives at the top of each Total/Selected section.
 function buildProgressInnerHtml(opts) {
   const { cards, progressStore, marksStore, kind, scopeKey, emptyMessage } = opts;
   if (!cards || !cards.length) {
@@ -957,8 +1327,6 @@ function buildProgressInnerHtml(opts) {
   const series = buildCumulativeConfirmationSeries(cards, marksStore, progressStore);
   const projection = getRegressionProjection(series.series, series.currentConfirmed, series.total);
   const slipping = computeSlippingCards(cards, progressStore);
-  const stubborn = computeStubbornCards(cards, progressStore);
-  const improved = computeMostImprovedCards(cards, progressStore);
 
   const projectedValue = series.currentConfirmed >= series.total && series.total
     ? 'Complete'
@@ -967,13 +1335,28 @@ function buildProgressInnerHtml(opts) {
     ? `${projection.cardsPerDay.toFixed(2)} ${kind === 'grammar' ? 'items' : 'words'}/day regression`
     : 'Needs more recent progress data';
 
+  const rowOpts = { progressStore, marksStore };
+  let stubbornHtml;
+  let improvedHtml;
+  if (kind === 'grammar') {
+    const stubbornConcepts = computeStubbornGrammarConcepts(cards, progressStore);
+    const improvedConcepts = computeMostImprovedGrammarConcepts(cards, progressStore);
+    stubbornHtml = buildStubbornConceptCollapseHtml(stubbornConcepts, `${scopeKey}Stubborn`);
+    improvedHtml = buildImprovedConceptCollapseHtml(improvedConcepts, `${scopeKey}Improved`);
+  } else {
+    const stubborn = computeStubbornCards(cards, progressStore);
+    const improved = computeMostImprovedCards(cards, progressStore);
+    stubbornHtml = buildStubbornCollapseHtml(stubborn, kind, `${scopeKey}Stubborn`, rowOpts);
+    improvedHtml = buildImprovedCollapseHtml(improved, kind, `${scopeKey}Improved`, rowOpts);
+  }
+
   return `
     <div class="analytics-metric-card analytics-progress-metric">
       <div class="analytics-metric-label">Slipping now</div>
       <div class="analytics-metric-value">${slipping.length}</div>
       <div class="analytics-metric-note">Confirmed 4+ times but rolling accuracy now &lt; 70%</div>
     </div>
-    ${buildSlippingCollapseHtml(slipping, kind, `${scopeKey}SlippingList`)}
+    ${buildSlippingCollapseHtml(slipping, kind, `${scopeKey}SlippingList`, rowOpts)}
     <div class="analytics-chart-card">
       <div class="analytics-chart-title">Cumulative confirmed fraction</div>
       ${series.series.length
@@ -985,8 +1368,8 @@ function buildProgressInnerHtml(opts) {
       <div class="analytics-metric-value">${escapeHtml(projectedValue)}</div>
       <div class="analytics-metric-note">${escapeHtml(projectedNote)}</div>
     </div>
-    ${buildStubbornCollapseHtml(stubborn, kind, `${scopeKey}Stubborn`)}
-    ${buildImprovedCollapseHtml(improved, kind, `${scopeKey}Improved`)}
+    ${stubbornHtml}
+    ${improvedHtml}
   `;
 }
 
@@ -1373,6 +1756,57 @@ export function renderAnalyticsOverlay() {
   // ── Apply persisted collapse state to every <details> and wire handlers ──
   applyAnalyticsCollapsedState(overlay);
   setupAnalyticsCollapseHandlers(overlay);
+  setupAnalyticsListRowInteractivity(overlay);
+}
+
+// Single delegated handler for the tappable rows inside the stubborn /
+// improved / slipping lists. Toggles the per-list expanded word ID, then
+// rerenders the overlay while preserving overlay + inner-list scroll
+// positions so the user doesn't lose their place when opening a stat card.
+function setupAnalyticsListRowInteractivity(rootEl) {
+  if (!rootEl || rootEl.dataset.listRowBound === '1') return;
+  rootEl.dataset.listRowBound = '1';
+
+  const toggle = (row) => {
+    const wordId = row.dataset.listWordId || '';
+    const listKey = row.dataset.listKey || '';
+    if (!wordId || !listKey) return;
+
+    const list = row.closest('.analytics-word-list');
+    const prevListScroll = list ? list.scrollTop : 0;
+    const prevRowTop = list ? row.offsetTop : 0;
+    const overlayScroll = rootEl.scrollTop;
+
+    if (!runtime.analyticsExpandedListWords || typeof runtime.analyticsExpandedListWords !== 'object') {
+      runtime.analyticsExpandedListWords = {};
+    }
+    const current = runtime.analyticsExpandedListWords[listKey] || '';
+    runtime.analyticsExpandedListWords[listKey] = current === wordId ? '' : wordId;
+
+    renderAnalyticsOverlay();
+
+    rootEl.scrollTop = overlayScroll;
+    // Find the freshly-rendered list with the same listKey and align scroll.
+    const newRow = rootEl.querySelector(`.analytics-word-list-row-tappable[data-list-key="${CSS.escape(listKey)}"][data-list-word-id="${CSS.escape(wordId)}"]`);
+    const newList = newRow ? newRow.closest('.analytics-word-list') : null;
+    if (newList) {
+      newList.scrollTop = newRow
+        ? prevListScroll + (newRow.offsetTop - prevRowTop)
+        : prevListScroll;
+    }
+  };
+
+  rootEl.addEventListener('click', (event) => {
+    const row = event.target.closest('.analytics-word-list-row-tappable');
+    if (row && rootEl.contains(row)) toggle(row);
+  });
+  rootEl.addEventListener('keydown', (event) => {
+    if (event.key !== 'Enter' && event.key !== ' ') return;
+    const row = event.target.closest('.analytics-word-list-row-tappable');
+    if (!row || !rootEl.contains(row)) return;
+    event.preventDefault();
+    toggle(row);
+  });
 }
 
 // ── Vocab view toggle bar (direction + scope) ──────────────────────────
