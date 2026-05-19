@@ -7,13 +7,13 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="Mounce Greek">
-<link rel="manifest" href="manifest.json?v=51">
-<link rel="apple-touch-icon" href="icons/apple-touch-icon.png?v=51">
-<link rel="icon" type="image/svg+xml" href="favicon.svg?v=51">
+<link rel="manifest" href="manifest.json?v=52">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png?v=52">
+<link rel="icon" type="image/svg+xml" href="favicon.svg?v=52">
 <title>Mounce BBG Greek — Flashcards</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700&family=EB+Garamond:ital,wght@0,400;0,500;1,400&family=Noto+Serif:ital,wght@0,400;1,400&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="styles.css?v=51">
+<link rel="stylesheet" href="styles.css?v=52">
 <script>
 (function(){
   try {
@@ -176,24 +176,187 @@
     </div>
 
     <div id="analyticsHero"></div>
-    <div id="analyticsTitles"></div>
-    <div id="analyticsCourseCompletion"></div>
-    <div id="analyticsChapterGrid"></div>
-    <div id="analyticsGrammarReview"></div>
-    <div id="analyticsHeatmap"></div>
-    <div id="analyticsAchievements"></div>
 
-    <div class="analytics-divider"></div>
+    <details class="analytics-collapse" data-collapse-key="achievements">
+      <summary class="analytics-collapse-summary">
+        <span class="analytics-collapse-caret" aria-hidden="true">▾</span>
+        <div class="analytics-collapse-title-wrap">
+          <h3>Achievements</h3>
+          <p class="analytics-collapse-summary-status" id="analyticsAchievementsSummaryStatus">Badges earned across the whole course.</p>
+        </div>
+      </summary>
+      <div class="analytics-collapse-body">
+        <div id="analyticsAchievements"></div>
+      </div>
+    </details>
 
-    <div class="analytics-section-head"><div><h3>Time ledger</h3><p>Cumulative active study time, session history, and foreground totals.</p></div></div>
-    <div class="analytics-metrics-grid" id="analyticsOverallMetrics"></div>
-    <div class="analytics-chart-card">
-      <div class="analytics-chart-title">Cumulative active study time</div>
-      <div id="analyticsTimeChart"></div>
-    </div>
-    <div class="analytics-session-summary" id="analyticsSessionSummary"></div>
-    <div id="analyticsVocabSection"></div>
-    <div id="analyticsGrammarSection"></div>
+    <details class="analytics-collapse" data-collapse-key="totalVocab">
+      <summary class="analytics-collapse-summary">
+        <span class="analytics-collapse-caret" aria-hidden="true">▾</span>
+        <div class="analytics-collapse-title-wrap">
+          <h3>Total Vocabulary</h3>
+          <p class="analytics-collapse-summary-status" id="analyticsTotalVocabSummaryStatus">Course-wide vocabulary progress.</p>
+        </div>
+      </summary>
+      <div class="analytics-collapse-body">
+        <div class="analytics-vocab-view-bar" id="analyticsVocabViewBar"></div>
+        <div id="analyticsTotalVocabBar"></div>
+        <details class="analytics-collapse analytics-sub-collapse" data-collapse-key="totalVocabChapterMap">
+          <summary class="analytics-collapse-summary">
+            <span class="analytics-collapse-caret" aria-hidden="true">▾</span>
+            <div class="analytics-collapse-title-wrap"><h4>Chapter map</h4></div>
+          </summary>
+          <div class="analytics-collapse-body">
+            <div id="analyticsChapterGrid"></div>
+          </div>
+        </details>
+        <details class="analytics-collapse analytics-sub-collapse" data-collapse-key="totalVocabProgress">
+          <summary class="analytics-collapse-summary">
+            <span class="analytics-collapse-caret" aria-hidden="true">▾</span>
+            <div class="analytics-collapse-title-wrap">
+              <h4>Vocabulary progress</h4>
+              <p class="analytics-collapse-summary-status" id="analyticsTotalVocabProgressStatus"></p>
+            </div>
+          </summary>
+          <div class="analytics-collapse-body">
+            <div id="analyticsTotalVocabProgressBody"></div>
+          </div>
+        </details>
+      </div>
+    </details>
+
+    <details class="analytics-collapse" data-collapse-key="selectedVocab">
+      <summary class="analytics-collapse-summary">
+        <span class="analytics-collapse-caret" aria-hidden="true">▾</span>
+        <div class="analytics-collapse-title-wrap">
+          <h3>Selected Vocabulary</h3>
+          <p class="analytics-collapse-summary-status" id="analyticsSelectedVocabSummaryStatus">Progress for the sets currently chosen for study.</p>
+        </div>
+      </summary>
+      <div class="analytics-collapse-body">
+        <details class="analytics-collapse analytics-sub-collapse" data-collapse-key="selectedVocabBar">
+          <summary class="analytics-collapse-summary">
+            <span class="analytics-collapse-caret" aria-hidden="true">▾</span>
+            <div class="analytics-collapse-title-wrap"><h4>Selected sets — confirmation overview</h4></div>
+          </summary>
+          <div class="analytics-collapse-body">
+            <div id="analyticsSelectedVocabBar"></div>
+          </div>
+        </details>
+        <details class="analytics-collapse analytics-sub-collapse" data-collapse-key="selectedVocabProgress">
+          <summary class="analytics-collapse-summary">
+            <span class="analytics-collapse-caret" aria-hidden="true">▾</span>
+            <div class="analytics-collapse-title-wrap">
+              <h4>Vocabulary progress</h4>
+              <p class="analytics-collapse-summary-status" id="analyticsSelectedVocabProgressStatus"></p>
+            </div>
+          </summary>
+          <div class="analytics-collapse-body">
+            <div id="analyticsSelectedVocabProgressBody"></div>
+          </div>
+        </details>
+      </div>
+    </details>
+
+    <details class="analytics-collapse" data-collapse-key="totalGrammar">
+      <summary class="analytics-collapse-summary">
+        <span class="analytics-collapse-caret" aria-hidden="true">▾</span>
+        <div class="analytics-collapse-title-wrap">
+          <h3>Grammar</h3>
+          <p class="analytics-collapse-summary-status" id="analyticsTotalGrammarSummaryStatus">Course-wide grammar progress.</p>
+        </div>
+      </summary>
+      <div class="analytics-collapse-body">
+        <div id="analyticsTotalGrammarBar"></div>
+        <details class="analytics-collapse analytics-sub-collapse" data-collapse-key="totalGrammarChapterMap">
+          <summary class="analytics-collapse-summary">
+            <span class="analytics-collapse-caret" aria-hidden="true">▾</span>
+            <div class="analytics-collapse-title-wrap"><h4>Chapter mastery</h4></div>
+          </summary>
+          <div class="analytics-collapse-body">
+            <div id="analyticsGrammarReview"></div>
+          </div>
+        </details>
+        <details class="analytics-collapse analytics-sub-collapse" data-collapse-key="totalGrammarProgress">
+          <summary class="analytics-collapse-summary">
+            <span class="analytics-collapse-caret" aria-hidden="true">▾</span>
+            <div class="analytics-collapse-title-wrap">
+              <h4>Grammar progress</h4>
+              <p class="analytics-collapse-summary-status" id="analyticsTotalGrammarProgressStatus"></p>
+            </div>
+          </summary>
+          <div class="analytics-collapse-body">
+            <div id="analyticsTotalGrammarProgressBody"></div>
+          </div>
+        </details>
+      </div>
+    </details>
+
+    <details class="analytics-collapse" data-collapse-key="selectedGrammar">
+      <summary class="analytics-collapse-summary">
+        <span class="analytics-collapse-caret" aria-hidden="true">▾</span>
+        <div class="analytics-collapse-title-wrap">
+          <h3>Selected Grammar</h3>
+          <p class="analytics-collapse-summary-status" id="analyticsSelectedGrammarSummaryStatus">Grammar drills for the sets currently chosen for study.</p>
+        </div>
+      </summary>
+      <div class="analytics-collapse-body">
+        <details class="analytics-collapse analytics-sub-collapse" data-collapse-key="selectedGrammarBar">
+          <summary class="analytics-collapse-summary">
+            <span class="analytics-collapse-caret" aria-hidden="true">▾</span>
+            <div class="analytics-collapse-title-wrap"><h4>Selected sets — confirmation overview</h4></div>
+          </summary>
+          <div class="analytics-collapse-body">
+            <div id="analyticsSelectedGrammarBar"></div>
+          </div>
+        </details>
+        <details class="analytics-collapse analytics-sub-collapse" data-collapse-key="selectedGrammarProgress">
+          <summary class="analytics-collapse-summary">
+            <span class="analytics-collapse-caret" aria-hidden="true">▾</span>
+            <div class="analytics-collapse-title-wrap">
+              <h4>Grammar progress</h4>
+              <p class="analytics-collapse-summary-status" id="analyticsSelectedGrammarProgressStatus"></p>
+            </div>
+          </summary>
+          <div class="analytics-collapse-body">
+            <div id="analyticsSelectedGrammarProgressBody"></div>
+          </div>
+        </details>
+      </div>
+    </details>
+
+    <details class="analytics-collapse" data-collapse-key="studyActivity">
+      <summary class="analytics-collapse-summary">
+        <span class="analytics-collapse-caret" aria-hidden="true">▾</span>
+        <div class="analytics-collapse-title-wrap">
+          <h3>Study activity</h3>
+          <p class="analytics-collapse-summary-status" id="analyticsStudyActivitySummaryStatus">Records, heatmap, and cumulative study time.</p>
+        </div>
+      </summary>
+      <div class="analytics-collapse-body">
+        <div id="analyticsRecords"></div>
+        <div id="analyticsHeatmap"></div>
+        <div class="analytics-metrics-grid" id="analyticsOverallMetrics"></div>
+        <div class="analytics-chart-card">
+          <div class="analytics-chart-title">Cumulative active study time</div>
+          <div id="analyticsTimeChart"></div>
+        </div>
+        <div class="analytics-session-summary" id="analyticsSessionSummary"></div>
+      </div>
+    </details>
+
+    <details class="analytics-collapse" data-collapse-key="titles">
+      <summary class="analytics-collapse-summary">
+        <span class="analytics-collapse-caret" aria-hidden="true">▾</span>
+        <div class="analytics-collapse-title-wrap">
+          <h3>Titles</h3>
+          <p class="analytics-collapse-summary-status" id="analyticsTitlesSummaryStatus">Rank ladder unlocked by accumulated XP.</p>
+        </div>
+      </summary>
+      <div class="analytics-collapse-body">
+        <div id="analyticsTitles"></div>
+      </div>
+    </details>
     <div class="consent-actions transfer-footer-actions">
       <button class="ctrl-btn" type="button" onclick="closeAnalyticsOverlay()">Close</button>
     </div>
@@ -392,39 +555,39 @@
   </div>
 </div>
 
-<script defer src="js/data/words.js?v=51"></script>
-<script defer src="js/data/morphology.js?v=51"></script>
-<script defer src="js/data/supplemental.js?v=51"></script>
-<script defer src="js/data/grammar.js?v=51"></script>
-<script defer src="js/data/supplementals/mounce_paradigms.js?v=51"></script>
-<script defer src="js/data/advanced/advanced_01.js?v=51"></script>
-<script defer src="js/data/advanced/advanced_02.js?v=51"></script>
-<script defer src="js/data/advanced/advanced_03.js?v=51"></script>
-<script defer src="js/data/advanced/advanced_04.js?v=51"></script>
-<script defer src="js/data/advanced/advanced_05.js?v=51"></script>
-<script defer src="js/data/advanced/advanced_06.js?v=51"></script>
-<script defer src="js/data/advanced/advanced_07.js?v=51"></script>
-<script defer src="js/data/advanced/advanced_08.js?v=51"></script>
-<script defer src="js/data/advanced/advanced_09.js?v=51"></script>
-<script defer src="js/data/advanced/advanced_10.js?v=51"></script>
-<script defer src="js/data/advanced/advanced_11.js?v=51"></script>
-<script defer src="js/data/advanced/advanced_12.js?v=51"></script>
-<script defer src="js/data/advanced/advanced_13.js?v=51"></script>
-<script defer src="js/data/advanced/advanced_14.js?v=51"></script>
-<script defer src="js/data/advanced/advanced_15.js?v=51"></script>
-<script defer src="js/data/advanced/advanced_16.js?v=51"></script>
-<script defer src="js/data/advanced/advanced_17.js?v=51"></script>
-<script defer src="js/data/advanced/advanced_18.js?v=51"></script>
-<script defer src="js/data/advanced/advanced_19.js?v=51"></script>
-<script defer src="js/data/advanced/advanced_20.js?v=51"></script>
-<script defer src="js/data/advanced/advanced_21.js?v=51"></script>
-<script defer src="js/data/advanced/advanced_22.js?v=51"></script>
-<script defer src="js/data/advanced/advanced_23.js?v=51"></script>
-<script defer src="js/data/advanced/advanced_24.js?v=51"></script>
-<script defer src="js/data/advanced/advanced_25.js?v=51"></script>
-<script defer src="js/data/reader.js?v=51"></script>
-<script defer src="js/data/reader_translations.js?v=51"></script>
-<script defer src="js/logic/pos_logic.js?v=51"></script>
-<script type="module" src="js/app/main.js?v=51"></script>
+<script defer src="js/data/words.js?v=52"></script>
+<script defer src="js/data/morphology.js?v=52"></script>
+<script defer src="js/data/supplemental.js?v=52"></script>
+<script defer src="js/data/grammar.js?v=52"></script>
+<script defer src="js/data/supplementals/mounce_paradigms.js?v=52"></script>
+<script defer src="js/data/advanced/advanced_01.js?v=52"></script>
+<script defer src="js/data/advanced/advanced_02.js?v=52"></script>
+<script defer src="js/data/advanced/advanced_03.js?v=52"></script>
+<script defer src="js/data/advanced/advanced_04.js?v=52"></script>
+<script defer src="js/data/advanced/advanced_05.js?v=52"></script>
+<script defer src="js/data/advanced/advanced_06.js?v=52"></script>
+<script defer src="js/data/advanced/advanced_07.js?v=52"></script>
+<script defer src="js/data/advanced/advanced_08.js?v=52"></script>
+<script defer src="js/data/advanced/advanced_09.js?v=52"></script>
+<script defer src="js/data/advanced/advanced_10.js?v=52"></script>
+<script defer src="js/data/advanced/advanced_11.js?v=52"></script>
+<script defer src="js/data/advanced/advanced_12.js?v=52"></script>
+<script defer src="js/data/advanced/advanced_13.js?v=52"></script>
+<script defer src="js/data/advanced/advanced_14.js?v=52"></script>
+<script defer src="js/data/advanced/advanced_15.js?v=52"></script>
+<script defer src="js/data/advanced/advanced_16.js?v=52"></script>
+<script defer src="js/data/advanced/advanced_17.js?v=52"></script>
+<script defer src="js/data/advanced/advanced_18.js?v=52"></script>
+<script defer src="js/data/advanced/advanced_19.js?v=52"></script>
+<script defer src="js/data/advanced/advanced_20.js?v=52"></script>
+<script defer src="js/data/advanced/advanced_21.js?v=52"></script>
+<script defer src="js/data/advanced/advanced_22.js?v=52"></script>
+<script defer src="js/data/advanced/advanced_23.js?v=52"></script>
+<script defer src="js/data/advanced/advanced_24.js?v=52"></script>
+<script defer src="js/data/advanced/advanced_25.js?v=52"></script>
+<script defer src="js/data/reader.js?v=52"></script>
+<script defer src="js/data/reader_translations.js?v=52"></script>
+<script defer src="js/logic/pos_logic.js?v=52"></script>
+<script type="module" src="js/app/main.js?v=52"></script>
 </body>
 </html>

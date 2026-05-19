@@ -25,6 +25,48 @@ export const MAX_DECK_STATE_ENTRIES = 16;
 // trim to a much smaller set than the live localStorage cap.
 export const EXPORT_MAX_DECK_STATE_ENTRIES = 4;
 
+// ── Analytics overlay collapse defaults ───────────────────────────────
+// Canonical set of collapse keys, with their default-closed (true) or
+// default-open (false) value. Renames + compaction in migrations.js
+// reference this list so the saved JSON never carries defunct keys, and
+// runtime.js seeds its analyticsCollapsed from a clone of these defaults.
+export const ANALYTICS_COLLAPSED_DEFAULTS = {
+  // Top-level
+  totalVocab: false,
+  selectedVocab: true,
+  totalGrammar: false,
+  selectedGrammar: true,
+  studyActivity: true,
+  achievements: true,
+  titles: true,
+  // Total Vocabulary sub-sections
+  totalVocabChapterMap: true,
+  totalVocabProgress: true,
+  totalVocabSlippingList: true,
+  totalVocabStubborn: true,
+  totalVocabImproved: true,
+  // Selected Vocabulary sub-sections
+  selectedVocabBar: false,
+  selectedVocabProgress: true,
+  selectedVocabSlippingList: true,
+  selectedVocabStubborn: true,
+  selectedVocabImproved: true,
+  // Total Grammar sub-sections
+  totalGrammarChapterMap: true,
+  totalGrammarProgress: true,
+  totalGrammarStubborn: true,
+  totalGrammarImproved: true,
+  // Selected Grammar sub-sections
+  selectedGrammarBar: false,
+  selectedGrammarProgress: true,
+  selectedGrammarStubborn: true,
+  selectedGrammarImproved: true,
+  // Achievements sub-collapsibles
+  achievementsDaily: true,
+  achievementsMilestones: true,
+  achievementsChapters: true
+};
+
 // ── Mutable state ──
 // Exported as a single object so modules can read/write by reference.
 export const S = {

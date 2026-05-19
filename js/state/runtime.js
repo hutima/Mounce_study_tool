@@ -9,6 +9,8 @@
 // be reset later (resetAllStats, restoreState) reassigns runtime.foo just
 // like main.js used to reassign the bare `foo`.
 
+import { ANALYTICS_COLLAPSED_DEFAULTS } from './store.js';
+
 export const runtime = {
   // ── Usage / gamification ────────────────────────────────────────────
   appUsageStats: {
@@ -33,6 +35,15 @@ export const runtime = {
   analyticsChapterSort: 'confidence', // 'confidence' | 'alphabetical'
   analyticsGrammarExpandedChapter: null,
   analyticsGrammarConceptSort: 'confidence', // 'confidence' | 'alphabetical'
+  // Analytics-page-local vocab view (separate from the study deck's
+  // directionToGreek / requiredOnly so analyzing one direction doesn't force
+  // a deck rebuild).
+  analyticsVocabDirection: 'g2e',     // 'g2e' | 'e2g'
+  analyticsVocabScope: 'required',    // 'required' | 'all'
+  // Per-section open/closed state for the analytics overlay's collapsibles.
+  // Defaults live in ANALYTICS_COLLAPSED_DEFAULTS (store.js) so migrations
+  // and compaction can share the canonical key list.
+  analyticsCollapsed: { ...ANALYTICS_COLLAPSED_DEFAULTS },
 
   // ── Modal / disclaimer / transfer / theme ───────────────────────────
   hasAcceptedDisclaimer: false,
