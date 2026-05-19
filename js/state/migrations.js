@@ -1,7 +1,17 @@
 // State migrations — applied in order during restoreState
 import { isPlainObject } from '../utils/helpers.js';
 import { SRS_DAY_MS, SRS_MAX_INTERVAL_DAYS } from '../domain/srs/constants.js';
-import { MAX_DECK_STATE_ENTRIES } from './store.js';
+import { MAX_DECK_STATE_ENTRIES, ANALYTICS_COLLAPSED_DEFAULTS } from './store.js';
+
+// Old → new analyticsCollapsed keys (introduced when the analytics overlay
+// was split into Total/Selected Vocabulary/Grammar sub-sections). A saved
+// `vocab: true` should preserve its closed state under `totalVocab`, etc.
+const ANALYTICS_COLLAPSED_RENAMES = {
+  vocab: 'totalVocab',
+  grammar: 'totalGrammar',
+  vocabChapterMap: 'totalVocabChapterMap',
+  grammarChapterMap: 'totalGrammarChapterMap'
+};
 
 // Legacy SRS cap, used to rescale intervals from older saves/exports.
 const LEGACY_SRS_MAX_INTERVAL_DAYS = 30;
@@ -205,6 +215,17 @@ function compactDeckStates(deckStates, maxDeckStates = MAX_DECK_STATE_ENTRIES) {
   return kept;
 }
 
+function compactAnalyticsCollapsed(collapsed) {
+  if (!isPlainObject(collapsed)) return undefined;
+  const next = {};
+  Object.keys(ANALYTICS_COLLAPSED_DEFAULTS).forEach(key => {
+    if (typeof collapsed[key] === 'boolean') next[key] = collapsed[key];
+  });
+  // Returning undefined when no recognised keys survive lets the caller drop
+  // the field entirely — the runtime defaults will rehydrate it.
+  return Object.keys(next).length ? next : undefined;
+}
+
 export function compactPersistedState(state, { maxDeckStates = MAX_DECK_STATE_ENTRIES } = {}) {
   if (!isPlainObject(state)) return state;
   const next = { ...state };
@@ -218,6 +239,11 @@ export function compactPersistedState(state, { maxDeckStates = MAX_DECK_STATE_EN
   }
   if ('deckStates' in next) {
     next.deckStates = compactDeckStates(next.deckStates, maxDeckStates);
+  }
+  if ('analyticsCollapsed' in next) {
+    const compacted = compactAnalyticsCollapsed(next.analyticsCollapsed);
+    if (compacted) next.analyticsCollapsed = compacted;
+    else delete next.analyticsCollapsed;
   }
   return next;
 }
@@ -432,6 +458,35 @@ export const STATE_MIGRATIONS = [
       }
 
       saved.srsIntervalCapAlignedV1 = true;
+      return saved;
+    }
+  },
+
+  {
+    name: 'analytics-collapsed-rename-total-selected',
+    match(saved) {
+      if (!isPlainObject(saved.analyticsCollapsed)) return false;
+      return Object.keys(ANALYTICS_COLLAPSED_RENAMES).some(k => k in saved.analyticsCollapsed)
+        || 'vocabProgress' in saved.analyticsCollapsed;
+    },
+    migrate(saved) {
+      const next = { ...saved.analyticsCollapsed };
+      Object.entries(ANALYTICS_COLLAPSED_RENAMES).forEach(([oldKey, newKey]) => {
+        if (oldKey in next) {
+          // Don't clobber a value the user already set explicitly under the new key.
+          if (!(newKey in next) && typeof next[oldKey] === 'boolean') {
+            next[newKey] = next[oldKey];
+          }
+          delete next[oldKey];
+        }
+      });
+      // `vocabProgress` was a single key for the selection-scoped vocab
+      // progress collapse. The new layout has totalVocabProgress and
+      // selectedVocabProgress, both closed by default, which is exactly what
+      // a user setting `vocabProgress: true` already wanted — so drop it
+      // rather than try to fan it out.
+      if ('vocabProgress' in next) delete next.vocabProgress;
+      saved.analyticsCollapsed = next;
       return saved;
     }
   }

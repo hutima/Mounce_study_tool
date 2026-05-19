@@ -1769,6 +1769,174 @@
     margin: 24px 0 8px;
   }
 
+  /* ── Analytics collapsibles ───────────────────────────────
+     Native <details>/<summary> with a custom summary row so the
+     header still looks like an analytics-section-head. The default
+     caret marker is hidden in favor of the rotating ▾ span we
+     control from JS-free CSS. ── */
+  .analytics-collapse {
+    border-top: 1px solid var(--border);
+    margin: 24px 0 8px;
+    padding-top: 16px;
+  }
+  .analytics-collapse.analytics-sub-collapse {
+    border-top: none;
+    margin: 12px 0;
+    padding-top: 0;
+    padding-left: 6px;
+    border-left: 2px solid rgba(201, 168, 76, 0.18);
+  }
+  .analytics-collapse > summary {
+    list-style: none;
+    cursor: pointer;
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    padding: 4px 0;
+  }
+  .analytics-collapse > summary::-webkit-details-marker { display: none; }
+  .analytics-collapse > summary::marker { content: ''; }
+  .analytics-collapse-caret {
+    color: var(--gold);
+    font-size: 14px;
+    line-height: 1.6;
+    transition: transform 0.15s ease;
+    transform: rotate(-90deg);
+    width: 12px;
+    flex-shrink: 0;
+  }
+  .analytics-collapse[open] > summary > .analytics-collapse-caret {
+    transform: rotate(0deg);
+  }
+  .analytics-collapse-title-wrap { flex: 1; min-width: 0; }
+  .analytics-collapse-title-wrap h3 {
+    font-family: 'Cinzel', serif;
+    color: var(--gold);
+    font-size: 18px;
+    margin: 0 0 2px;
+  }
+  .analytics-collapse-title-wrap h4 {
+    font-family: 'Cinzel', serif;
+    color: var(--gold-light);
+    font-size: 14px;
+    letter-spacing: 0.5px;
+    margin: 0;
+  }
+  .analytics-collapse-title-wrap p {
+    color: var(--muted);
+    font-size: 12px;
+    margin: 0;
+  }
+  .analytics-collapse-summary-status {
+    color: var(--gold-light);
+    font-size: 12px;
+    letter-spacing: 0.3px;
+  }
+  .analytics-collapse-body {
+    margin-top: 8px;
+  }
+
+  /* ── Analytics vocab-view toggle bar (Direction + Scope) ── */
+  .analytics-vocab-view-bar {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 14px 24px;
+    align-items: center;
+    margin: 4px 0 12px;
+    padding: 10px 12px;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    background: rgba(255,255,255,0.02);
+  }
+  .analytics-view-toggle {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+  .analytics-view-toggle-label {
+    color: var(--muted);
+    font-family: 'Cinzel', serif;
+    text-transform: uppercase;
+    font-size: 10px;
+    letter-spacing: 1px;
+  }
+  .analytics-view-toggle-group {
+    display: inline-flex;
+    gap: 4px;
+  }
+  .analytics-selection-subtitle {
+    color: var(--muted);
+    font-size: 12px;
+    margin: 12px 0 0;
+  }
+
+  /* ── Word/drill list rows (slipping, stubborn, most improved) ── */
+  .analytics-word-list {
+    list-style: none;
+    margin: 6px 0 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+  /* Stubborn lists can now be uncapped — keep them inside a fixed-height
+     scrollable box so they don't push the rest of the progress collapse
+     off-screen. scrollbar-gutter reserves room so toggling between short
+     and long lists doesn't reflow the surrounding rows. */
+  .analytics-word-list-scrollable {
+    max-height: 320px;
+    overflow-y: auto;
+    padding-right: 4px;
+    scrollbar-gutter: stable;
+  }
+  .analytics-word-list-row {
+    display: grid;
+    grid-template-columns: minmax(0, 1.2fr) minmax(0, 2fr) auto;
+    gap: 8px;
+    align-items: baseline;
+    padding: 6px 10px;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    background: rgba(255,255,255,0.02);
+  }
+  .analytics-word-list-headword {
+    color: var(--cream);
+    font-weight: 500;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .analytics-word-list-gloss {
+    color: var(--muted);
+    font-size: 12px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .analytics-word-list-pct {
+    color: var(--gold-light);
+    font-family: 'Cinzel', serif;
+    font-size: 11px;
+    letter-spacing: 0.5px;
+    white-space: nowrap;
+  }
+  .analytics-collapse-meta {
+    color: var(--muted);
+    font-size: 11px;
+    font-weight: normal;
+    letter-spacing: 0;
+    margin-left: 6px;
+  }
+  .analytics-metrics-grid-compact .analytics-metric-card {
+    padding: 10px 12px;
+  }
+  /* Standalone metric cards inside a progress collapse (no grid wrapper)
+     need explicit top/bottom spacing to match the grid-mediated rhythm. */
+  .analytics-progress-metric {
+    margin: 12px 0;
+  }
+
   /* ── Hero grid ── */
   .hero-grid {
     display: grid;
@@ -1916,8 +2084,15 @@
     margin: 8px 0 6px;
   }
 
+  /* Heatmap viewBox is ~270 units wide, so the global 22px axis label
+     becomes oversized when scaled into a ~400px column. Scope the axis
+     text inside the heatmap to a unit size that reads cleanly at every
+     screen width. */
+  .heatmap-svg .analytics-axis-text {
+    font-size: 10px;
+  }
   .heatmap-day-label {
-    font-size: 11px !important;
+    font-size: 9px !important;
   }
 
   .heatmap-legend {
@@ -2471,6 +2646,79 @@
     padding: 0;
     background: transparent;
     list-style: none;
+  }
+  /* Concept expansion inside the grammar chapter map: each concept row,
+     when tapped, reveals a card list with the same row layout as the
+     vocab chapter detail. The expansion row itself collapses its grid
+     so the inner <ol> can span full width without inheriting the
+     concept row's column template. */
+  .chapter-detail-statcard-row.grammar-concept-expansion-row {
+    padding: 0 4px 6px;
+  }
+  .grammar-concept-card-list {
+    list-style: none;
+    margin: 4px 0 0;
+    padding: 6px;
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 4px;
+    border-radius: 8px;
+    background: rgba(255,255,255,0.025);
+    max-height: 320px;
+    overflow-y: auto;
+  }
+  html[data-theme="light"] .grammar-concept-card-list {
+    background: rgba(0,0,0,0.025);
+  }
+  .grammar-card-row {
+    /* Same column template as vocab chapter-detail row, but the second
+       column shows the parsed answer (often longer) so we keep it
+       flexible while the form/percent columns stay compact. */
+    grid-template-columns: 12px minmax(60px, 1fr) minmax(80px, 2fr) 48px;
+  }
+  .grammar-card-form {
+    font-family: 'Times New Roman', 'GFS Didot', serif;
+    color: var(--cream);
+    font-size: 15px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .grammar-card-answer {
+    color: var(--muted);
+    font-size: 12px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  /* Tappable rows inside the stubborn / improved / slipping word lists.
+     Mirrors the chapter-detail row treatment so the interaction model is
+     consistent across the analytics page. */
+  .analytics-word-list-row-tappable {
+    cursor: pointer;
+    user-select: none;
+  }
+  .analytics-word-list-row-tappable:hover {
+    background: rgba(255,255,255,0.05);
+  }
+  html[data-theme="light"] .analytics-word-list-row-tappable:hover {
+    background: rgba(0,0,0,0.04);
+  }
+  .analytics-word-list-row-tappable:focus-visible {
+    outline: 2px solid var(--gold);
+    outline-offset: 1px;
+  }
+  .analytics-word-list-row-active {
+    background: rgba(201,168,76,0.10);
+  }
+  html[data-theme="light"] .analytics-word-list-row-active {
+    background: rgba(201,168,76,0.18);
+  }
+  .analytics-word-list-statcard-row {
+    list-style: none;
+    padding: 0;
+    background: transparent;
+    border: none;
   }
   .word-stat-card {
     margin: 2px 0 8px;

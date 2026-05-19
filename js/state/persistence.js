@@ -90,6 +90,9 @@ export function buildPersistedStatePayload(compactOptions) {
     studyMode: runtime.studyMode,
     appProfile: runtime.appProfile,
     morphSelfCheck: runtime.morphSelfCheck,
+    analyticsVocabDirection: runtime.analyticsVocabDirection,
+    analyticsVocabScope: runtime.analyticsVocabScope,
+    analyticsCollapsed: runtime.analyticsCollapsed,
     gamification: sanitizeGamificationState(runtime.appGamification),
     deckStates: runtime.deckStates,
     globalWordMarks: runtime.globalWordMarks,
@@ -723,6 +726,15 @@ export function restoreState() {
     runtime.appGamification = sanitizeGamificationState(saved.gamification);
     runtime.studyMode = host.normalizeStudyMode(saved.studyMode);
     runtime.morphSelfCheck = !!saved.morphSelfCheck;
+    runtime.analyticsVocabDirection = saved.analyticsVocabDirection === 'e2g' ? 'e2g' : 'g2e';
+    runtime.analyticsVocabScope = saved.analyticsVocabScope === 'all' ? 'all' : 'required';
+    if (saved.analyticsCollapsed && typeof saved.analyticsCollapsed === 'object') {
+      Object.keys(runtime.analyticsCollapsed).forEach(key => {
+        if (typeof saved.analyticsCollapsed[key] === 'boolean') {
+          runtime.analyticsCollapsed[key] = saved.analyticsCollapsed[key];
+        }
+      });
+    }
     runtime.shuffled = saved.shuffled !== false;
     runtime.deckStates = saved.deckStates && typeof saved.deckStates === 'object' ? saved.deckStates : {};
     runtime.globalWordMarks = saved.globalWordMarks && typeof saved.globalWordMarks === 'object' ? saved.globalWordMarks : {};

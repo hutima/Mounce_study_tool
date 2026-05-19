@@ -417,7 +417,8 @@ configureNavigation({
 configureAnalytics({
   ensureUsageStats: () => ensureUsageStats(),
   accumulateActiveStudyTime: () => accumulateActiveStudyTime(),
-  canAccessGrammarUi: () => canAccessGrammarUi()
+  canAccessGrammarUi: () => canAccessGrammarUi(),
+  saveState: () => saveState()
 });
 configurePersistence({
   ensureUsageStats: (stats) => ensureUsageStats(stats),

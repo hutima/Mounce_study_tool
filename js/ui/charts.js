@@ -421,10 +421,17 @@ export function buildWordStatCardHtml(card, progressRaw, isKnownMark) {
       }).join('')}</div>`
     : '<div class="word-stat-history-empty">No reviews yet</div>';
 
-  const headword = typeof window !== 'undefined' && typeof window.formatGreekHeadword === 'function'
-    ? window.formatGreekHeadword(card.g)
-    : (card.g || '—');
-  const gloss = escapeHtml(card.e || '');
+  // Grammar/morph cards use form/answer; vocab cards use Greek headword + English gloss.
+  // The morph cards always have `kind: 'morph'` so we can distinguish without a
+  // separate parameter — the rest of the stat card layout is identical because
+  // the per-card progress fields are the same for both directions.
+  const isMorph = card?.kind === 'morph' || !!card?.form;
+  const headword = isMorph
+    ? escapeHtml(card.form || card.lemma || '—')
+    : (typeof window !== 'undefined' && typeof window.formatGreekHeadword === 'function'
+        ? window.formatGreekHeadword(card.g)
+        : (card.g || '—'));
+  const gloss = isMorph ? escapeHtml(card.answer || card.gloss || '') : escapeHtml(card.e || '');
 
   const tile = (label, value) => `
     <div class="word-stat-tile">
