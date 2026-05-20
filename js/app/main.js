@@ -439,7 +439,9 @@ configurePersistence({
   clearSpacedUndoSnapshot: () => clearSpacedUndoSnapshot(),
   syncToggleButtons: () => syncToggleButtons(),
   syncLayoutVisibility: () => syncLayoutVisibility(),
-  getDirectionalProgressStore: () => getDirectionalProgressStore()
+  getDirectionalProgressStore: () => getDirectionalProgressStore(),
+  isReaderMode: () => isReaderMode(),
+  renderReaderModule: () => renderReaderModule()
 });
 
 

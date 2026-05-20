@@ -50,7 +50,9 @@ let host = {
   clearSpacedUndoSnapshot: () => {},
   syncToggleButtons: () => {},
   syncLayoutVisibility: () => {},
-  getDirectionalProgressStore: () => ({})
+  getDirectionalProgressStore: () => ({}),
+  isReaderMode: () => false,
+  renderReaderModule: () => {}
 };
 
 export function configurePersistence(deps) {
@@ -199,6 +201,7 @@ function applyImportedState(state, options = {}) {
     renderCard();
     renderProgress();
     renderReview();
+    if (host.isReaderMode()) host.renderReaderModule();
   } else {
     host.syncLayoutVisibility();
   }
@@ -800,6 +803,10 @@ export function restoreState() {
     renderCard();
     renderProgress();
     renderReview();
+    // Reader mode owns the cardArea; renderCard above drew a vocab card into
+    // it, so re-render the reader UI on top, otherwise an imported/restored
+    // reader-mode save shows a stale vocab card with the nav/mark rows hidden.
+    if (host.isReaderMode()) host.renderReaderModule();
     return true;
   } catch (err) {
     clearSavedState();
