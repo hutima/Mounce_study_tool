@@ -410,6 +410,8 @@ configureNavigation({
   applySpacedReview: (card, outcome) => applySpacedReview(card, outcome),
   clearSpacedUndoSnapshot: () => clearSpacedUndoSnapshot(),
   restoreSpacedUndo: () => restoreSpacedUndo(),
+  pushUnspacedHistory: (type) => pushUnspacedHistory(type),
+  restoreUnspacedHistoryStep: () => restoreUnspacedHistoryStep(),
   clearSavedState: () => clearSavedState(),
   maybeReturnConfirmedDeferredCard: () => maybeReturnConfirmedDeferredCard(),
   maybePeriodicReshuffle: () => maybePeriodicReshuffle(),
@@ -789,23 +791,24 @@ function syncLayoutVisibility() {
   if (modeGroup) modeGroup.style.display = canAccessGrammarUi() ? 'inline-flex' : 'none';
   if (!reviewDeckMode) return;
   const unspacedVocab = !runtime.spacedRepetition && !isMorphologyMode();
-  const unspacedHasUndo = unspacedVocab && !!runtime.spacedUndoSnapshot;
+  const unspacedHistoryTop = unspacedVocab ? getUnspacedHistoryTopType() : null;
+  const unspacedHasHistory = !!unspacedHistoryTop;
   if (prevBtn) {
-    // Spaced/morph keep their dedicated Undo button. In unspaced vocab,
-    // Prev does double duty: it's the undo whenever a Hard/Uncertain/
-    // Easy mark just landed (snapshot present), and a plain cursor-back
-    // otherwise. Hide it entirely only when neither action is available
-    // — at the start of a deck with no snapshot.
+    // Spaced/morph keep their dedicated Undo button. In unspaced vocab
+    // Prev walks the history stack: each Next/Mark/Reshuffle pushed an
+    // entry, and Prev pops one at a time. Label flips to "↶ Undo" when
+    // the next pop will roll back a confidence-impacting mark, so the
+    // user sees the warning at exactly that step.
     const atStart = !runtime.deck.length || runtime.currentIdx <= 0;
     const hidePrev = isMorphologyMode()
       || (runtime.spacedRepetition && !isMorphologyMode())
-      || (unspacedVocab && atStart && !unspacedHasUndo);
+      || (unspacedVocab && atStart && !unspacedHasHistory);
     prevBtn.style.display = hidePrev ? 'none' : '';
-    const prevDisabled = unspacedVocab ? (!unspacedHasUndo && atStart) : atStart;
+    const prevDisabled = unspacedVocab ? (!unspacedHasHistory && atStart) : atStart;
     prevBtn.disabled = prevDisabled;
     prevBtn.classList.toggle('nav-disabled', prevDisabled);
     if (unspacedVocab) {
-      prevBtn.textContent = unspacedHasUndo ? '↶ Undo' : '← Prev';
+      prevBtn.textContent = unspacedHistoryTop === 'mark' ? '↶ Undo' : '← Prev';
     } else {
       prevBtn.textContent = '← Prev';
     }
@@ -1145,19 +1148,20 @@ function sortCardsByDue(cards) {
 }
 
 function clearSpacedUndoSnapshot() {
+  // Clears both the single-level spaced/morph snapshot and the unspaced
+  // history stack. The two share the same "the deck context just
+  // changed, drop any pending undo" invalidation points (mode toggles,
+  // deck rebuilds, resets, selection changes), so collapsing them into
+  // one clear keeps every call site honest.
   runtime.spacedUndoSnapshot = null;
+  runtime.unspacedHistory = [];
 }
 
-function captureSpacedUndoSnapshot() {
-  if (!runtime.selectedKeys.length || !runtime.deck[runtime.currentIdx]) {
-    clearSpacedUndoSnapshot();
-    return;
-  }
-  if (runtime.spacedRepetition && runtime.currentIdx >= runtime.activeDeckCount) {
-    clearSpacedUndoSnapshot();
-    return;
-  }
-  runtime.spacedUndoSnapshot = {
+// Snapshot of everything markCard / applyUnspacedMark / a reshuffle can
+// mutate. Used by both the single-shot spaced/morph undo and the
+// multi-step unspaced history stack.
+function buildUndoSnapshot(extra = {}) {
+  return {
     selectedKeys: cloneForUndo(runtime.selectedKeys),
     currentSessionId: runtime.currentSession ? runtime.currentSession.id : null,
     studyMode: runtime.studyMode,
@@ -1180,59 +1184,123 @@ function captureSpacedUndoSnapshot() {
     marksStore: cloneForUndo(getDirectionalMarksStore()),
     progressStore: cloneForUndo(getDirectionalProgressStore()),
     appUsageStats: cloneForUndo(runtime.appUsageStats),
-    appGamification: cloneForUndo(runtime.appGamification)
+    appGamification: cloneForUndo(runtime.appGamification),
+    ...extra
   };
 }
 
-function restoreSpacedUndo() {
-  if (!runtime.spacedUndoSnapshot) return;
-  if (runtime.studyMode !== runtime.spacedUndoSnapshot.studyMode) return;
-  if (!isMorphologyMode() && runtime.spacedRepetition !== runtime.spacedUndoSnapshot.spacedRepetition) return;
-  if (runtime.directionToGreek !== runtime.spacedUndoSnapshot.directionToGreek) return;
-  if (runtime.requiredOnly !== runtime.spacedUndoSnapshot.requiredOnly) return;
-  if (runtime.shuffled !== runtime.spacedUndoSnapshot.shuffled) return;
-  if (JSON.stringify(runtime.selectedKeys) !== JSON.stringify(runtime.spacedUndoSnapshot.selectedKeys || [])) return;
-  if ((runtime.currentSession ? runtime.currentSession.id : null) !== (runtime.spacedUndoSnapshot.currentSessionId || null)) return;
+// Restore runtime.* from a previously built snapshot. Returns false if
+// the snapshot is incompatible with the current selection/mode (in
+// which case the caller should discard it rather than apply).
+function applyUndoSnapshot(snapshot) {
+  if (!snapshot) return false;
+  if (runtime.studyMode !== snapshot.studyMode) return false;
+  if (runtime.directionToGreek !== snapshot.directionToGreek) return false;
+  if (runtime.requiredOnly !== snapshot.requiredOnly) return false;
+  if (runtime.shuffled !== snapshot.shuffled) return false;
+  if (runtime.spacedRepetition !== snapshot.spacedRepetition) return false;
+  if (JSON.stringify(runtime.selectedKeys) !== JSON.stringify(snapshot.selectedKeys || [])) return false;
+  if ((runtime.currentSession ? runtime.currentSession.id : null) !== (snapshot.currentSessionId || null)) return false;
 
   const marksStore = getDirectionalMarksStore();
   Object.keys(marksStore).forEach(key => delete marksStore[key]);
-  Object.assign(marksStore, cloneForUndo(runtime.spacedUndoSnapshot.marksStore) || {});
+  Object.assign(marksStore, cloneForUndo(snapshot.marksStore) || {});
 
   const progressStore = getDirectionalProgressStore();
   Object.keys(progressStore).forEach(key => delete progressStore[key]);
-  Object.assign(progressStore, cloneForUndo(runtime.spacedUndoSnapshot.progressStore) || {});
+  Object.assign(progressStore, cloneForUndo(snapshot.progressStore) || {});
 
   runtime.marks = marksStore;
-  runtime.originalDeck = cloneForUndo(runtime.spacedUndoSnapshot.originalDeck) || [];
-  runtime.deck = cloneForUndo(runtime.spacedUndoSnapshot.deck) || [];
-  runtime.appUsageStats = ensureUsageStats(cloneForUndo(runtime.spacedUndoSnapshot.appUsageStats));
-  runtime.appGamification = sanitizeGamificationState(cloneForUndo(runtime.spacedUndoSnapshot.appGamification));
+  runtime.originalDeck = cloneForUndo(snapshot.originalDeck) || [];
+  runtime.deck = cloneForUndo(snapshot.deck) || [];
+  runtime.appUsageStats = ensureUsageStats(cloneForUndo(snapshot.appUsageStats));
+  runtime.appGamification = sanitizeGamificationState(cloneForUndo(snapshot.appGamification));
   const restoredLevel = computeXpAndLevel(runtime.appUsageStats).currentLevel.level;
   if (!Number.isFinite(runtime.appGamification.lastCelebratedLevel) || runtime.appGamification.lastCelebratedLevel < 1 || runtime.appGamification.lastCelebratedLevel > restoredLevel) {
     runtime.appGamification.lastCelebratedLevel = restoredLevel;
   }
-  runtime.currentIdx = Math.max(0, Math.min(runtime.spacedUndoSnapshot.currentIdx || 0, runtime.deck.length ? runtime.deck.length - 1 : 0));
-  runtime.activeDeckCount = Math.max(0, runtime.spacedUndoSnapshot.activeDeckCount || 0);
-  runtime.isFlipped = !!runtime.spacedUndoSnapshot.isFlipped;
-  runtime.unspacedPendingRecycle = !!runtime.spacedUndoSnapshot.unspacedPendingRecycle;
-  if (Number.isFinite(runtime.spacedUndoSnapshot.unspacedRoundSize)) {
-    runtime.unspacedRoundSize = runtime.spacedUndoSnapshot.unspacedRoundSize;
-  }
-  if (Number.isFinite(runtime.spacedUndoSnapshot.unspacedRoundMarks)) {
-    runtime.unspacedRoundMarks = runtime.spacedUndoSnapshot.unspacedRoundMarks;
-  }
-  if (runtime.spacedUndoSnapshot.unspacedCycleState) {
-    runtime.unspacedCycleState = cloneForUndo(runtime.spacedUndoSnapshot.unspacedCycleState);
-  }
-  if (typeof runtime.spacedUndoSnapshot.lastUnspacedArchiveDayKey === 'string') {
-    runtime.lastUnspacedArchiveDayKey = runtime.spacedUndoSnapshot.lastUnspacedArchiveDayKey;
-  }
-  if (isMorphologyMode() && runtime.spacedUndoSnapshot.morphAnswerState) {
-    runtime.morphAnswerState = cloneForUndo(runtime.spacedUndoSnapshot.morphAnswerState);
-    runtime.morphPendingAdvance = !!runtime.spacedUndoSnapshot.morphPendingAdvance;
+  // Reshuffle entries park the cursor at deck.length, so clamp to deck.length
+  // (inclusive) rather than deck.length - 1.
+  const maxIdx = runtime.deck.length;
+  runtime.currentIdx = Math.max(0, Math.min(snapshot.currentIdx || 0, maxIdx));
+  runtime.activeDeckCount = Math.max(0, snapshot.activeDeckCount || 0);
+  runtime.isFlipped = !!snapshot.isFlipped;
+  runtime.unspacedPendingRecycle = !!snapshot.unspacedPendingRecycle;
+  if (Number.isFinite(snapshot.unspacedRoundSize)) runtime.unspacedRoundSize = snapshot.unspacedRoundSize;
+  if (Number.isFinite(snapshot.unspacedRoundMarks)) runtime.unspacedRoundMarks = snapshot.unspacedRoundMarks;
+  if (snapshot.unspacedCycleState) runtime.unspacedCycleState = cloneForUndo(snapshot.unspacedCycleState);
+  if (typeof snapshot.lastUnspacedArchiveDayKey === 'string') runtime.lastUnspacedArchiveDayKey = snapshot.lastUnspacedArchiveDayKey;
+  if (isMorphologyMode() && snapshot.morphAnswerState) {
+    runtime.morphAnswerState = cloneForUndo(snapshot.morphAnswerState);
+    runtime.morphPendingAdvance = !!snapshot.morphPendingAdvance;
   } else {
     resetMorphAnswerState();
   }
+  return true;
+}
+
+function captureSpacedUndoSnapshot() {
+  if (!runtime.selectedKeys.length || !runtime.deck[runtime.currentIdx]) {
+    runtime.spacedUndoSnapshot = null;
+    return;
+  }
+  if (runtime.spacedRepetition && runtime.currentIdx >= runtime.activeDeckCount) {
+    runtime.spacedUndoSnapshot = null;
+    return;
+  }
+  runtime.spacedUndoSnapshot = buildUndoSnapshot();
+}
+
+// Capacity cap on the unspaced history stack — full snapshots aren't
+// tiny, and the user gets multi-step Prev without keeping every
+// breadcrumb from a long session in memory.
+const UNSPACED_HISTORY_MAX = 30;
+
+// Push a snapshot tagged with the kind of action it's the inverse of.
+// 'mark' entries roll back a confidence-impacting Hard/Uncertain/Easy
+// (Prev label shows "↶ Undo"); 'next' entries roll back the neutral
+// pass; 'reshuffle' entries roll back the end-of-deck shuffle.
+function pushUnspacedHistory(entryType) {
+  if (!Array.isArray(runtime.unspacedHistory)) runtime.unspacedHistory = [];
+  if (!runtime.selectedKeys.length) return;
+  // Reshuffles capture from the end-of-deck parked state, where
+  // deck[currentIdx] is undefined; everything else needs a real card.
+  if (entryType !== 'reshuffle' && (runtime.currentIdx >= runtime.deck.length || !runtime.deck[runtime.currentIdx])) return;
+
+  const snapshot = buildUndoSnapshot({ entryType });
+  runtime.unspacedHistory.push(snapshot);
+  if (runtime.unspacedHistory.length > UNSPACED_HISTORY_MAX) {
+    runtime.unspacedHistory.splice(0, runtime.unspacedHistory.length - UNSPACED_HISTORY_MAX);
+  }
+}
+
+function restoreUnspacedHistoryStep() {
+  if (!Array.isArray(runtime.unspacedHistory) || !runtime.unspacedHistory.length) return false;
+  const snapshot = runtime.unspacedHistory.pop();
+  const restored = applyUndoSnapshot(snapshot);
+  if (!restored) {
+    // Snapshot from a different mode/selection — discard the whole stack
+    // rather than leaving incompatible entries to surface later.
+    runtime.unspacedHistory = [];
+    return false;
+  }
+  renderCard();
+  renderReview();
+  renderProgress();
+  syncLayoutVisibility();
+  saveState();
+  return true;
+}
+
+function getUnspacedHistoryTopType() {
+  if (!Array.isArray(runtime.unspacedHistory) || !runtime.unspacedHistory.length) return null;
+  return runtime.unspacedHistory[runtime.unspacedHistory.length - 1].entryType || null;
+}
+
+function restoreSpacedUndo() {
+  if (!runtime.spacedUndoSnapshot) return;
+  const restored = applyUndoSnapshot(runtime.spacedUndoSnapshot);
+  if (!restored) return;
   clearSpacedUndoSnapshot();
   renderCard();
   renderReview();

@@ -51,6 +51,8 @@ let host = {
   applySpacedReview: () => {},
   clearSpacedUndoSnapshot: () => {},
   restoreSpacedUndo: () => {},
+  pushUnspacedHistory: () => {},
+  restoreUnspacedHistoryStep: () => false,
   clearSavedState: () => {},
   maybeReturnConfirmedDeferredCard: () => {},
   maybePeriodicReshuffle: () => {},
@@ -97,14 +99,14 @@ export function navigate(dir, options = {}) {
   host.noteStudyInteraction();
 
   if (dir < 0) {
-    // Vocab unspaced: Prev is a single-level undo. Each mark/next captures
-    // a snapshot before mutating, and Prev rolls back to it. Stepping the
-    // cursor backwards no longer makes sense now that marks impact
-    // confidence — replaying the same card off-the-record would silently
-    // duplicate the previous mark's stat updates on the next forward press.
-    if (!runtime.spacedRepetition && !host.isMorphologyMode() && runtime.spacedUndoSnapshot) {
-      host.restoreSpacedUndo();
-      return;
+    // Vocab unspaced: Prev walks back through the history stack. Each
+    // Next, mark, and reshuffle pushed a snapshot before mutating, so a
+    // Prev press just pops and restores. The label flips between
+    // "← Prev" and "↶ Undo" so the user knows when the next pop will
+    // roll back a confidence-impacting mark.
+    if (!runtime.spacedRepetition && !host.isMorphologyMode()) {
+      if (host.restoreUnspacedHistoryStep()) return;
+      // No history to walk: fall through to plain cursor-back.
     }
     runtime.currentIdx = Math.max(0, runtime.currentIdx - 1);
     host.resetMorphAnswerState();
@@ -129,8 +131,10 @@ export function navigate(dir, options = {}) {
       host.saveState();
     } else if (runtime.activeDeckCount > 0) {
       // Vocab unspaced + end-of-round confirmation card: Next shuffles the
-      // still-active cards and starts a fresh round. (All-archived state
-      // requires the explicit Reset control — Next is a no-op there.)
+      // still-active cards and starts a fresh round. Push history so Prev
+      // can put the deck back in its pre-shuffle order. (All-archived
+      // state requires the explicit Reset control — Next is a no-op there.)
+      host.pushUnspacedHistory('reshuffle');
       reshuffleUnspacedRound(host.getDirectionalMarksStore());
       runtime.isFlipped = false;
       host.resetMorphAnswerState();
@@ -205,16 +209,14 @@ export function navigate(dir, options = {}) {
     return;
   }
 
-  // Vocab unspaced: Next acts as a neutral pass — moves the current card to
-  // the back of the active queue and ticks the round counter, but does not
-  // record a confidence sample or touch pass/fail/XP. The end-of-round
-  // confirmation card lives one Next press further on, where the actual
-  // reshuffle finally fires. Next is a forward navigation — it never owns
-  // an undo, so any snapshot left over from a prior Hard/Medium/Easy mark
-  // is dropped here so Prev falls back to plain cursor navigation.
+  // Vocab unspaced: Next acts as a neutral pass — moves the current card
+  // to the back of the active queue and ticks the round counter, but
+  // does not record a confidence sample or touch pass/fail/XP. The
+  // pre-action state is pushed onto the unspaced history stack so a
+  // subsequent Prev can step back through each Next press one by one.
   if (runtime.currentIdx < runtime.activeDeckCount) {
     const currentCard = runtime.deck[runtime.currentIdx];
-    host.clearSpacedUndoSnapshot();
+    host.pushUnspacedHistory('next');
     applyUnspacedMark(currentCard, 'pass', { skipRecording: true });
     host.maybePeriodicReshuffle();
     host.resetMorphAnswerState();
@@ -252,7 +254,7 @@ export function markCard(outcome) {
       navigate(1, { skipAutoReview: true });
     }
   } else {
-    host.captureSpacedUndoSnapshot();
+    host.pushUnspacedHistory('mark');
     applyUnspacedMark(currentCard, outcome);
     renderCard();
   }

@@ -120,6 +120,13 @@ export const runtime = {
   flipsSinceReshuffle: 0,         // forward navigations since last periodic reshuffle
   lastPeriodicReshuffleAt: 0,     // wall-clock ms timestamp anchor for the hourly reshuffle throttle
   spacedUndoSnapshot: null,
+  // History stack of pre-action snapshots for vocab unspaced. Each Next
+  // press, Hard/Uncertain/Easy mark, and end-of-deck reshuffle pushes one
+  // entry; Prev pops the top and restores it. Entries are tagged 'next',
+  // 'mark', or 'reshuffle' so the Prev button label can switch to "Undo"
+  // when the next pop would roll back a confidence-impacting mark.
+  // Capped at runtime; not persisted (session-only).
+  unspacedHistory: [],
 
   // ── Per-direction mark store for the active study mode ──────────────
   marks: {}
