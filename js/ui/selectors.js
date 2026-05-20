@@ -191,11 +191,11 @@ function toggleAllWeekSupplementals(weekKeys) {
       clearAndRenderEmpty();
       return;
     }
-    loadDeckFromKeys(runtime.selectedKeys, null);
+    loadDeckFromKeys(runtime.selectedKeys, null, { clearUnspacedMarks: true });
     return;
   }
   const nextKeys = sortSetKeys([...new Set([...retained, ...keys])]);
-  loadDeckFromKeys(nextKeys, null);
+  loadDeckFromKeys(nextKeys, null, { clearUnspacedMarks: true });
 }
 
 export function deselectAllSupplementals() {
@@ -211,7 +211,7 @@ export function deselectAllSupplementals() {
     clearAndRenderEmpty();
     return;
   }
-  loadDeckFromKeys(runtime.selectedKeys, null);
+  loadDeckFromKeys(runtime.selectedKeys, null, { clearUnspacedMarks: true });
 }
 
 export function buildSupplementalSelector() {
@@ -452,6 +452,15 @@ export function buildAdvancedSelector() {
 
 // Shared empty-state path used when a deselect leaves no selected keys.
 function clearAndRenderEmpty() {
+  // Deselecting everything is a "new session" event for the unspaced flow:
+  // wipe the archive marks for the cards we were just studying so the next
+  // selection starts fresh.
+  if (!runtime.spacedRepetition) {
+    const directionalMarks = host.getDirectionalMarksStore();
+    (runtime.originalDeck || []).forEach(card => {
+      if (card && card.id) delete directionalMarks[card.id];
+    });
+  }
   setActiveSessionButton();
   setActiveSetButtons();
   runtime.deck = [];
@@ -459,6 +468,8 @@ function clearAndRenderEmpty() {
   runtime.activeDeckRef = null;
   runtime.marks = {};
   runtime.currentIdx = 0;
+  runtime.unspacedRoundSize = 0;
+  runtime.unspacedRoundMarks = 0;
   document.getElementById('cardArea').innerHTML = '<div class="empty-state"><div class="big">αβγ</div>Tap to choose a session and start studying.</div>';
   host.clearSpacedUndoSnapshot();
   host.syncToggleButtons();
@@ -479,7 +490,7 @@ export function deselectAllAdvanced() {
     clearAndRenderEmpty();
     return;
   }
-  loadDeckFromKeys(runtime.selectedKeys, null);
+  loadDeckFromKeys(runtime.selectedKeys, null, { clearUnspacedMarks: true });
 }
 
 export function deselectAllChapters() {
@@ -496,7 +507,7 @@ export function deselectAllChapters() {
     clearAndRenderEmpty();
     return;
   }
-  loadDeckFromKeys(runtime.selectedKeys, null);
+  loadDeckFromKeys(runtime.selectedKeys, null, { clearUnspacedMarks: true });
 }
 
 export function deselectAll() {
@@ -514,9 +525,23 @@ export function toggleAdvancedSubGroup(setKey, subKey) {
   toggleSet(pseudoKey);
 }
 
-export function loadDeckFromKeys(keys, sessionId = null) {
+export function loadDeckFromKeys(keys, sessionId = null, options = {}) {
   host.saveCurrentDeckStateToBank();
   host.clearSpacedUndoSnapshot();
+
+  // "New session selected" path: clear unspaced archive marks for the cards
+  // we were just studying so the next deck starts fresh. The first request
+  // explicitly asked for marks to persist until reset or a new session, and
+  // session-selection callers pass clearUnspacedMarks: true for that. Spaced
+  // mode is intentionally exempt; it derives behaviour from SRS progress, not
+  // these marks.
+  if (options.clearUnspacedMarks && !runtime.spacedRepetition) {
+    const directionalMarks = host.getDirectionalMarksStore();
+    (runtime.originalDeck || []).forEach(card => {
+      if (card && card.id) delete directionalMarks[card.id];
+    });
+    runtime.marks = directionalMarks;
+  }
 
   runtime.selectedKeys = sortSetKeys(keys.map(String));
   runtime.currentSession = sessionId
@@ -542,7 +567,14 @@ export function loadDeckFromKeys(keys, sessionId = null) {
       runtime.activeDeckCount = restoredDeck.length;
       runtime.deck = host.buildStudyDeck(runtime.originalDeck, { forceShuffle: runtime.shuffled });
     } else {
-      runtime.deck = runtime.shuffled ? shuffleArray([...restoredDeck]) : restoredDeck;
+      // Partition into [active, archived] so the unspaced mark/navigation
+      // logic can rely on that layout. The saved order from the bank is
+      // honoured for the active cards (or reshuffled if the shuffle toggle
+      // is on); archived cards always sit at the tail.
+      const restoredActive = restoredDeck.filter(card => runtime.marks[card.id] !== 'known');
+      const restoredKnown = restoredDeck.filter(card => runtime.marks[card.id] === 'known');
+      const orderedActive = runtime.shuffled ? shuffleArray([...restoredActive]) : [...restoredActive];
+      runtime.deck = [...orderedActive, ...restoredKnown];
     }
     runtime.activeDeckCount = runtime.spacedRepetition ? host.getDueCount(runtime.originalDeck) : runtime.originalDeck.filter(card => runtime.marks[card.id] !== 'known').length;
     runtime.currentIdx = Number.isInteger(savedDeckState.currentIdx)
@@ -571,7 +603,7 @@ export function loadDeckFromKeys(keys, sessionId = null) {
 
 export function loadSession(session) {
   runtime.currentSession = session;
-  loadDeckFromKeys(expandSessionSets(session), session.id);
+  loadDeckFromKeys(expandSessionSets(session), session.id, { clearUnspacedMarks: true });
 }
 
 export function toggleSession(session) {
@@ -594,7 +626,7 @@ export function toggleSession(session) {
     return;
   }
 
-  loadDeckFromKeys(nextKeys, null);
+  loadDeckFromKeys(nextKeys, null, { clearUnspacedMarks: true });
 }
 
 export function getParadigmBaseKey(key) {
@@ -622,5 +654,5 @@ export function toggleSet(key) {
     return;
   }
 
-  loadDeckFromKeys(runtime.selectedKeys, null);
+  loadDeckFromKeys(runtime.selectedKeys, null, { clearUnspacedMarks: true });
 }

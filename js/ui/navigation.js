@@ -42,6 +42,7 @@ let host = {
   getDirectionalMarksStore: () => ({}),
   getDirectionalProgressStore: () => ({}),
   syncToggleButtons: () => {},
+  syncLayoutVisibility: () => {},
   startNextCycle: () => {},
   getKnownCount: () => 0,
   advanceScheduledCards: () => {},
@@ -101,21 +102,29 @@ export function navigate(dir, options = {}) {
   }
 
   if (!runtime.spacedRepetition && runtime.currentIdx >= runtime.deck.length) {
-    if (runtime.unspacedPendingRecycle) {
-      host.startNextCycle('remaining');
+    if (host.isMorphologyMode()) {
+      // Morph still auto-cycles on Next when everything is known.
+      if (runtime.unspacedPendingRecycle) {
+        host.startNextCycle('remaining');
+      } else if (host.getKnownCount() === runtime.originalDeck.length) {
+        host.startNextCycle('full');
+      } else {
+        return;
+      }
       host.resetMorphAnswerState();
       renderCard();
       renderReview();
       renderProgress();
       host.saveState();
-    } else if (host.getKnownCount() === runtime.originalDeck.length) {
-      host.startNextCycle('full');
-      host.resetMorphAnswerState();
-      renderCard();
-      renderReview();
-      renderProgress();
-      host.saveState();
+    } else if (runtime.activeDeckCount === 0
+      && runtime.originalDeck.length > 0
+      && runtime.selectedKeys.length > 0) {
+      // Vocab unspaced + every card archived: the Next button visually
+      // morphs into "↻ Reset", and the keyboard equivalent does the same.
+      resetUnspacedDeckNoConfirm();
     }
+    // Otherwise: no auto-cycle. Vocab unspaced restart goes through the
+    // explicit "↻ Reset" button.
     return;
   }
 
@@ -182,8 +191,11 @@ export function navigate(dir, options = {}) {
     return;
   }
 
+  // Vocab unspaced: advance to the next still-active (non-archived) card.
+  // Hard / Uncertain marks rearrange the deck in place (handled by markCard);
+  // Next without marking just steps the cursor forward.
   for (let i = runtime.currentIdx + 1; i < runtime.deck.length; i++) {
-    if (runtime.marks[runtime.deck[i].id] !== 'known' && !runtime.unspacedDeferredIds.has(runtime.deck[i].id)) {
+    if (runtime.marks[runtime.deck[i].id] !== 'known') {
       runtime.currentIdx = i;
       host.maybePeriodicReshuffle();
       renderCard();
@@ -191,14 +203,10 @@ export function navigate(dir, options = {}) {
     }
   }
 
-  if (host.getKnownCount() === runtime.originalDeck.length && runtime.unspacedDeferredIds.size === 0) {
-    runtime.currentIdx = runtime.deck.length;
-    runtime.unspacedPendingRecycle = false;
-  } else {
-    runtime.currentIdx = runtime.deck.length;
-    runtime.unspacedPendingRecycle = true;
-  }
-
+  // No active card past the cursor. Park at the end so renderCard shows the
+  // done state; the user clicks "↻ Reset" (the morphed Next button) to restart.
+  runtime.currentIdx = runtime.deck.length;
+  runtime.unspacedPendingRecycle = false;
   host.resetMorphAnswerState();
   renderCard();
 }
@@ -221,39 +229,129 @@ export function markCard(outcome) {
       navigate(1, { skipAutoReview: true });
     }
   } else {
-    // Non-SRS cards still write to the same shared schedule used by spaced review.
-    // Deck behaviour:
-    // - 'again' (wrong)    → immediately moved to back of active pile for same-pass retry.
-    // - 'pass' (uncertain) → deferred until the end of the pile; reappears next cycle.
-    // - 'easy' (known)     → pushed out of active pile as usual.
-    const mark = outcome === 'easy' ? 'known' : 'unsure';
-    const recordedOutcome = outcome === 'easy' ? 'known' : outcome === 'pass' ? 'pass' : 'review';
-    const reviewedAt = Date.now();
-    host.recordStudyOutcome(currentCard.id, recordedOutcome, reviewedAt);
-    host.applyUnspacedSharedSchedule(currentCard, outcome, reviewedAt);
-    host.getDirectionalMarksStore()[currentCard.id] = mark;
-    runtime.marks = host.getDirectionalMarksStore();
-
-    if (outcome === 'again') {
-      // Remove from current position; remaining cards shift down by 1,
-      // so currentIdx now points to what was the next card.
-      const cardToReturn = currentCard;
-      runtime.deck.splice(runtime.currentIdx, 1);
-      // Find the last non-known, non-deferred card that comes after currentIdx.
-      let lastActiveIdx = -1;
-      for (let i = runtime.currentIdx; i < runtime.deck.length; i++) {
-        if (runtime.marks[runtime.deck[i].id] !== 'known' && !runtime.unspacedDeferredIds.has(runtime.deck[i].id)) lastActiveIdx = i;
-      }
-      runtime.deck.splice(lastActiveIdx >= 0 ? lastActiveIdx + 1 : runtime.deck.length, 0, cardToReturn);
-      // currentIdx already points to the correct next card (or loops if it was the last).
-      renderCard();
-    } else {
-      if (outcome === 'pass') runtime.unspacedDeferredIds.add(currentCard.id);
-      navigate(1);
-    }
+    applyUnspacedMark(currentCard, outcome);
+    renderCard();
   }
   renderReview();
   renderProgress();
+  host.saveState();
+}
+
+// Unspaced flip-deck marking.
+// - Hard ('again') / Uncertain ('pass') → move card to the back of the active
+//   queue. It will reappear later in the same round.
+// - Easy ('easy') → archive the card (mark 'known'); it stays out until the
+//   user clicks Reset or picks a new session.
+// All three outcomes still feed recordStudyOutcome so confidence/analytics
+// reflect the response. applyUnspacedSharedSchedule keeps the legacy cycle
+// bookkeeping in sync for any reader that still consults it.
+function applyUnspacedMark(card, outcome) {
+  if (!card) return;
+  const normalizedOutcome = outcome === 'easy' ? 'easy' : outcome === 'pass' ? 'pass' : 'again';
+  const recordedOutcome = normalizedOutcome === 'easy' ? 'known' : normalizedOutcome === 'pass' ? 'pass' : 'review';
+  const reviewedAt = Date.now();
+  host.recordStudyOutcome(card.id, recordedOutcome, reviewedAt);
+  host.applyUnspacedSharedSchedule(card, normalizedOutcome, reviewedAt);
+
+  const directionalMarks = host.getDirectionalMarksStore();
+  const fromIdx = runtime.deck.findIndex(c => c && c.id === card.id);
+
+  if (normalizedOutcome === 'easy') {
+    directionalMarks[card.id] = 'known';
+    if (fromIdx >= 0) {
+      runtime.deck.splice(fromIdx, 1);
+      runtime.deck.push(card);
+    }
+  } else {
+    // Hard / Uncertain: move to the end of the active section (just before
+    // the first 'known' card, or the deck tail if none are archived).
+    delete directionalMarks[card.id];
+    if (fromIdx >= 0) {
+      runtime.deck.splice(fromIdx, 1);
+      const splitAt = runtime.deck.findIndex(c => c && directionalMarks[c.id] === 'known');
+      const insertAt = splitAt === -1 ? runtime.deck.length : splitAt;
+      // Avoid putting the card right back at currentIdx when it's the lone
+      // active card; we just want it at the back of whatever's active.
+      runtime.deck.splice(insertAt, 0, card);
+    }
+  }
+
+  runtime.marks = directionalMarks;
+  runtime.activeDeckCount = runtime.deck.filter(c => directionalMarks[c.id] !== 'known').length;
+  runtime.unspacedRoundMarks = (Number(runtime.unspacedRoundMarks) || 0) + 1;
+
+  // Round complete: reshuffle the still-active cards and start a new round.
+  const roundSize = Number(runtime.unspacedRoundSize) || 0;
+  if (roundSize > 0 && runtime.unspacedRoundMarks >= roundSize && runtime.activeDeckCount > 0) {
+    reshuffleUnspacedRound(directionalMarks);
+  } else if (runtime.activeDeckCount === 0) {
+    // Everything is archived; freeze the cursor at the end so renderCard()
+    // shows the done state instead of looping back to a known card.
+    runtime.currentIdx = runtime.deck.length;
+    runtime.unspacedRoundSize = 0;
+    runtime.unspacedRoundMarks = 0;
+  } else {
+    // Mid-round: the splice shifted later cards into our slot, so currentIdx
+    // already points at the next card. Clamp to the new active count.
+    runtime.currentIdx = Math.min(runtime.currentIdx, Math.max(0, runtime.activeDeckCount - 1));
+    // Edge case: marking Hard/Uncertain on the very last active position
+    // moves the card back to the same slot. Wrap so the learner doesn't see
+    // the same card twice in a row.
+    const cursorCard = runtime.deck[runtime.currentIdx];
+    if (normalizedOutcome !== 'easy' && cursorCard && cursorCard.id === card.id) {
+      runtime.currentIdx = 0;
+    }
+  }
+
+  runtime.unspacedPendingRecycle = false;
+  runtime.isFlipped = false;
+}
+
+function reshuffleUnspacedRound(directionalMarks) {
+  const marks = directionalMarks || host.getDirectionalMarksStore();
+  const active = runtime.deck.filter(c => c && marks[c.id] !== 'known');
+  const known = runtime.deck.filter(c => c && marks[c.id] === 'known');
+  runtime.deck = [...shuffleArray(active), ...known];
+  runtime.activeDeckCount = active.length;
+  runtime.currentIdx = 0;
+  runtime.unspacedRoundSize = active.length;
+  runtime.unspacedRoundMarks = 0;
+}
+
+// Seed the round counters whenever we (re)build an unspaced deck, so the very
+// first mark doesn't trigger a phantom "round complete" against a stale size.
+export function resetUnspacedRoundForActiveDeck() {
+  if (runtime.spacedRepetition) {
+    runtime.unspacedRoundSize = 0;
+    runtime.unspacedRoundMarks = 0;
+    return;
+  }
+  const directionalMarks = host.getDirectionalMarksStore();
+  runtime.unspacedRoundSize = runtime.deck.filter(c => c && directionalMarks[c.id] !== 'known').length;
+  runtime.unspacedRoundMarks = 0;
+}
+
+// Empty-deck "Reset" path: archived all cards, user pressed the Next button
+// (which now reads "↻ Reset"). Clears archives + reshuffles, no modal.
+export function resetUnspacedDeckNoConfirm() {
+  if (runtime.spacedRepetition) return;
+  if (!runtime.selectedKeys.length) return;
+  host.clearSpacedUndoSnapshot();
+  const directionalMarks = host.getDirectionalMarksStore();
+  (runtime.originalDeck || []).forEach(card => {
+    delete directionalMarks[card.id];
+  });
+  runtime.marks = directionalMarks;
+  host.resetUnspacedCycleState();
+  runtime.unspacedPendingRecycle = false;
+  runtime.currentIdx = 0;
+  runtime.isFlipped = false;
+  host.resetMorphAnswerState();
+  runtime.deck = host.buildStudyDeck(runtime.originalDeck);
+  resetUnspacedRoundForActiveDeck();
+  renderCard();
+  renderProgress();
+  renderReview();
   host.saveState();
 }
 
@@ -535,12 +633,14 @@ function performUnspacedDeckReset(requiredOnly) {
 
   runtime.marks = directionalMarks;
   host.resetUnspacedCycleState();
+  runtime.unspacedPendingRecycle = false;
   runtime.currentIdx = 0;
   runtime.isFlipped = false;
   host.resetMorphAnswerState();
   runtime.deck = [];
   runtime.activeDeckCount = 0;
   runtime.deck = host.buildStudyDeck(runtime.originalDeck);
+  resetUnspacedRoundForActiveDeck();
   renderCard();
   renderProgress();
   renderReview();

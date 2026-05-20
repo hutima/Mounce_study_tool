@@ -400,6 +400,7 @@ configureNavigation({
   getDirectionalMarksStore: () => getDirectionalMarksStore(),
   getDirectionalProgressStore: () => getDirectionalProgressStore(),
   syncToggleButtons: () => syncToggleButtons(),
+  syncLayoutVisibility: () => syncLayoutVisibility(),
   startNextCycle: (mode) => startNextCycle(mode),
   getKnownCount: () => getKnownCount(),
   advanceScheduledCards: (cards, ms) => advanceScheduledCards(cards, ms),
@@ -748,6 +749,7 @@ function syncLayoutVisibility() {
   const prevBtn = navRow ? navRow.querySelector('.nav-prev') : null;
   const nextBtn = navRow ? navRow.querySelector('.nav-next') : null;
   const undoBtn = document.getElementById('spacedUndoBtn');
+  const navResetBtn = document.getElementById('navResetBtn');
   const directionToggle = document.getElementById('directionToggle');
   const requiredToggle = document.getElementById('requiredToggle');
   const hardReviewToggle = document.getElementById('hardReviewToggle');
@@ -788,13 +790,30 @@ function syncLayoutVisibility() {
     const vocabUndoActive = runtime.spacedRepetition && !isMorphologyMode() && !!runtime.spacedUndoSnapshot;
     undoBtn.style.display = (morphUndoActive || vocabUndoActive) ? '' : 'none';
   }
+  const unspacedVocab = !runtime.spacedRepetition && !isMorphologyMode();
+  const unspacedDeckEmpty = unspacedVocab
+    && runtime.selectedKeys.length > 0
+    && runtime.originalDeck.length > 0
+    && runtime.activeDeckCount === 0;
+  if (navResetBtn) {
+    navResetBtn.style.display = (unspacedVocab && !unspacedDeckEmpty) ? '' : 'none';
+  }
   if (nextBtn) {
     if (isMorphologyMode()) {
       nextBtn.textContent = 'Next →';
+      nextBtn.classList.remove('spaced-again', 'nav-next-as-reset');
+    } else if (runtime.spacedRepetition) {
+      nextBtn.textContent = 'Again →';
+      nextBtn.classList.toggle('spaced-again', true);
+      nextBtn.classList.remove('nav-next-as-reset');
+    } else if (unspacedDeckEmpty) {
+      // Every card archived: Next morphs into a no-confirm Reset.
+      nextBtn.textContent = '↻ Reset';
       nextBtn.classList.remove('spaced-again');
+      nextBtn.classList.add('nav-next-as-reset');
     } else {
-      nextBtn.textContent = runtime.spacedRepetition ? 'Again →' : 'Next →';
-      nextBtn.classList.toggle('spaced-again', !!runtime.spacedRepetition);
+      nextBtn.textContent = 'Next →';
+      nextBtn.classList.remove('spaced-again', 'nav-next-as-reset');
     }
   }
 
@@ -1133,8 +1152,21 @@ function restoreSpacedUndo() {
 
 function buildStudyDeck(cards, options = {}) {
   if (!runtime.spacedRepetition) {
-    runtime.activeDeckCount = cards.filter(card => runtime.marks[card.id] !== 'known').length;
-    return runtime.shuffled ? shuffleArray([...cards]) : [...cards];
+    // Unspaced flip deck: keep the deck partitioned as [active..., archived...].
+    // markCard's "move to end of active section" logic assumes that layout, and
+    // it makes "Next" navigation a straight forward scan past archived cards.
+    const active = cards.filter(card => runtime.marks[card.id] !== 'known');
+    const known = cards.filter(card => runtime.marks[card.id] === 'known');
+    runtime.activeDeckCount = active.length;
+    const orderedActive = runtime.shuffled ? shuffleArray([...active]) : [...active];
+    // Default: every fresh build starts a new round so the round counter
+    // matches the deck we're about to show. Callers (notably restoreState)
+    // that need to preserve mid-round bookkeeping pass preserveUnspacedRound.
+    if (options.preserveUnspacedRound !== true) {
+      runtime.unspacedRoundSize = orderedActive.length;
+      runtime.unspacedRoundMarks = 0;
+    }
+    return [...orderedActive, ...known];
   }
 
   const forceShuffle = !!options.forceShuffle;
@@ -1564,6 +1596,14 @@ function startNextCycle(mode = 'remaining') {
   saveState();
 }
 
+// Onclick target for the Next button. Defers to navigate(1), which detects
+// the "deck fully archived" case in unspaced vocab mode and re-routes the
+// press to a no-confirm reset (the button's label morphs to "↻ Reset" via
+// syncLayoutVisibility so the affordance matches the behaviour).
+function handleNavNext() {
+  navigate(1);
+}
+
 function resetStudyState() {
   runtime.marks = getDirectionalMarksStore();
   runtime.currentIdx = 0;
@@ -1621,7 +1661,7 @@ installKeyboardShortcuts({
 //  leave the page rendered-but-unclickable.
 // ═══════════════════════════════════════════════════════
 const GLOBAL_CLICK_HANDLERS = {
-  flipCard, navigate, markCard, answerMorphologyChoice,
+  flipCard, navigate, markCard, handleNavNext, answerMorphologyChoice,
   revealMorphologyAnswer, rateMorphologySelfCheck, passMorphologyChoice, returnSeenCardToDeck,
   closeAnalyticsOverlay, closeTransferModal, exportProgressJson,
   closeShortcutsModal, closeStudySelector,

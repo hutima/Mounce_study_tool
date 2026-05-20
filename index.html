@@ -14,13 +14,13 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="Mounce Greek">
-<link rel="manifest" href="manifest.json?v=62">
-<link rel="apple-touch-icon" href="icons/apple-touch-icon.png?v=62">
-<link rel="icon" type="image/svg+xml" href="favicon.svg?v=62">
+<link rel="manifest" href="manifest.json?v=63">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png?v=63">
+<link rel="icon" type="image/svg+xml" href="favicon.svg?v=63">
 <title>Mounce BBG Greek — Flashcards</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700&family=EB+Garamond:ital,wght@0,400;0,500;1,400&family=Noto+Serif:ital,wght@0,400;1,400&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="styles.css?v=62">
+<link rel="stylesheet" href="styles.css?v=63">
 <script>
 (function(){
   try {
@@ -158,7 +158,8 @@
   <div class="nav-row" id="navRow" style="display:none">
     <button class="nav-btn nav-prev" onclick="navigate(-1)">← Prev</button>
     <button class="nav-btn nav-undo" id="spacedUndoBtn" onclick="restoreSpacedUndo()" style="display:none">↶ Undo</button>
-    <button class="nav-btn nav-next" onclick="navigate(1)">Next →</button>
+    <button class="nav-btn nav-reset" id="navResetBtn" onclick="resetCurrentDeck()" style="display:none">↻ Reset</button>
+    <button class="nav-btn nav-next" id="navNextBtn" onclick="handleNavNext()">Next →</button>
   </div>
 
   <div class="mark-row" id="markRow" style="display:none">
@@ -489,7 +490,7 @@
         <li><strong>~ Uncertain</strong> — comes back at roughly half its previous interval (capped between 1 hour and 1 week), small ease decrease.</li>
         <li><strong>✓ Easy</strong> — advances to the next ramp step (~1 → 3 → 7 → 14 days, then growing), increases ease, and recent accuracy further multiplies the gap.</li>
       </ul>
-      <p>With <strong>Spaced review off</strong>, the deck behaves as a straight cycle: cards you mark <em>Easy</em> fall out of rotation until the deck is recycled, and <em>Hard</em>/<em>Uncertain</em> cards keep coming back inside the same pass. Use the <strong>↶ Undo</strong> button under the card to reverse your last mark in spaced mode.</p>
+      <p>With <strong>Spaced review off</strong>, the deck behaves as a simple flip deck: <em>Hard</em> and <em>Uncertain</em> shuffle the card to the back of the active pile (it'll reappear later in the same pass), and <em>Easy</em> archives the card. When every card in the current pass has been marked, the still-active cards reshuffle into a fresh pass. Archived cards stay archived until you press <strong>↻ Reset</strong> (mid-deck the button asks for confirmation; at the end of a deck the <strong>Next</strong> arrow itself becomes a one-tap Reset) or pick a new session. All three marks still contribute to your confidence/analytics. Use the <strong>↶ Undo</strong> button under the card to reverse your last mark in spaced mode.</p>
 
       <h3 class="user-guide-heading">Progress tools and notice</h3>
       <p><strong>Progress tools</strong> (collapsible on the home screen) export your full progress as JSON or import a saved file — useful for moving between devices or backing up before a reset.</p>
@@ -578,10 +579,10 @@
 
 <div class="consent-overlay" id="resetUnspacedOverlay" aria-hidden="true">
   <div class="consent-modal reset-spaced-modal" role="dialog" aria-modal="true" aria-labelledby="resetUnspacedTitle">
-    <div class="consent-label">Reset unspaced marks</div>
-    <h2 id="resetUnspacedTitle">Reset unspaced marks for this deck?</h2>
+    <div class="consent-label">Reset deck</div>
+    <h2 id="resetUnspacedTitle">Reset this flip deck?</h2>
     <div class="consent-copy">
-      <p>This clears the <strong>known / unsure</strong> marks for the cards in this deck. Spaced-review scheduling, intervals, and pass history are kept.</p>
+      <p>Brings every archived card back into rotation and reshuffles the deck. Your spaced-review scheduling, intervals, confidence history, and pass history are kept.</p>
       <p class="reset-scope-row">
         <label>
           <input type="checkbox" data-reset-required-only id="resetUnspacedRequiredOnly">
@@ -612,40 +613,40 @@
   </div>
 </div>
 
-<script defer src="js/data/words.js?v=62"></script>
-<script defer src="js/data/morphology.js?v=62"></script>
-<script defer src="js/data/supplemental.js?v=62"></script>
-<script defer src="js/data/grammar.js?v=62"></script>
-<script defer src="js/data/supplementals/mounce_paradigms.js?v=62"></script>
-<script defer src="js/data/advanced/advanced_01.js?v=62"></script>
-<script defer src="js/data/advanced/advanced_02.js?v=62"></script>
-<script defer src="js/data/advanced/advanced_03.js?v=62"></script>
-<script defer src="js/data/advanced/advanced_04.js?v=62"></script>
-<script defer src="js/data/advanced/advanced_05.js?v=62"></script>
-<script defer src="js/data/advanced/advanced_06.js?v=62"></script>
-<script defer src="js/data/advanced/advanced_07.js?v=62"></script>
-<script defer src="js/data/advanced/advanced_08.js?v=62"></script>
-<script defer src="js/data/advanced/advanced_09.js?v=62"></script>
-<script defer src="js/data/advanced/advanced_10.js?v=62"></script>
-<script defer src="js/data/advanced/advanced_11.js?v=62"></script>
-<script defer src="js/data/advanced/advanced_12.js?v=62"></script>
-<script defer src="js/data/advanced/advanced_13.js?v=62"></script>
-<script defer src="js/data/advanced/advanced_14.js?v=62"></script>
-<script defer src="js/data/advanced/advanced_15.js?v=62"></script>
-<script defer src="js/data/advanced/advanced_16.js?v=62"></script>
-<script defer src="js/data/advanced/advanced_17.js?v=62"></script>
-<script defer src="js/data/advanced/advanced_18.js?v=62"></script>
-<script defer src="js/data/advanced/advanced_19.js?v=62"></script>
-<script defer src="js/data/advanced/advanced_20.js?v=62"></script>
-<script defer src="js/data/advanced/advanced_21.js?v=62"></script>
-<script defer src="js/data/advanced/advanced_22.js?v=62"></script>
-<script defer src="js/data/advanced/advanced_23.js?v=62"></script>
-<script defer src="js/data/advanced/advanced_24.js?v=62"></script>
-<script defer src="js/data/advanced/advanced_25.js?v=62"></script>
-<script defer src="js/data/reader.js?v=62"></script>
-<script defer src="js/data/reader_verse_literals.js?v=62"></script>
-<script defer src="js/data/reader_translations.js?v=62"></script>
-<script defer src="js/logic/pos_logic.js?v=62"></script>
-<script type="module" src="js/app/main.js?v=62"></script>
+<script defer src="js/data/words.js?v=63"></script>
+<script defer src="js/data/morphology.js?v=63"></script>
+<script defer src="js/data/supplemental.js?v=63"></script>
+<script defer src="js/data/grammar.js?v=63"></script>
+<script defer src="js/data/supplementals/mounce_paradigms.js?v=63"></script>
+<script defer src="js/data/advanced/advanced_01.js?v=63"></script>
+<script defer src="js/data/advanced/advanced_02.js?v=63"></script>
+<script defer src="js/data/advanced/advanced_03.js?v=63"></script>
+<script defer src="js/data/advanced/advanced_04.js?v=63"></script>
+<script defer src="js/data/advanced/advanced_05.js?v=63"></script>
+<script defer src="js/data/advanced/advanced_06.js?v=63"></script>
+<script defer src="js/data/advanced/advanced_07.js?v=63"></script>
+<script defer src="js/data/advanced/advanced_08.js?v=63"></script>
+<script defer src="js/data/advanced/advanced_09.js?v=63"></script>
+<script defer src="js/data/advanced/advanced_10.js?v=63"></script>
+<script defer src="js/data/advanced/advanced_11.js?v=63"></script>
+<script defer src="js/data/advanced/advanced_12.js?v=63"></script>
+<script defer src="js/data/advanced/advanced_13.js?v=63"></script>
+<script defer src="js/data/advanced/advanced_14.js?v=63"></script>
+<script defer src="js/data/advanced/advanced_15.js?v=63"></script>
+<script defer src="js/data/advanced/advanced_16.js?v=63"></script>
+<script defer src="js/data/advanced/advanced_17.js?v=63"></script>
+<script defer src="js/data/advanced/advanced_18.js?v=63"></script>
+<script defer src="js/data/advanced/advanced_19.js?v=63"></script>
+<script defer src="js/data/advanced/advanced_20.js?v=63"></script>
+<script defer src="js/data/advanced/advanced_21.js?v=63"></script>
+<script defer src="js/data/advanced/advanced_22.js?v=63"></script>
+<script defer src="js/data/advanced/advanced_23.js?v=63"></script>
+<script defer src="js/data/advanced/advanced_24.js?v=63"></script>
+<script defer src="js/data/advanced/advanced_25.js?v=63"></script>
+<script defer src="js/data/reader.js?v=63"></script>
+<script defer src="js/data/reader_verse_literals.js?v=63"></script>
+<script defer src="js/data/reader_translations.js?v=63"></script>
+<script defer src="js/logic/pos_logic.js?v=63"></script>
+<script type="module" src="js/app/main.js?v=63"></script>
 </body>
 </html>

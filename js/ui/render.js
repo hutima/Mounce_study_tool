@@ -50,7 +50,13 @@ export function renderCard() {
     return;
   }
 
-  if (!runtime.spacedRepetition && runtime.currentIdx >= runtime.deck.length && runtime.unspacedPendingRecycle) {
+  if (!runtime.spacedRepetition && !host.isMorphologyMode() && runtime.currentIdx >= runtime.deck.length && runtime.unspacedPendingRecycle) {
+    // Legacy auto-recycle pathway — only retained for morph; vocab unspaced
+    // never sets unspacedPendingRecycle in the new flip-deck flow.
+    runtime.unspacedPendingRecycle = false;
+  }
+
+  if (!runtime.spacedRepetition && host.isMorphologyMode() && runtime.currentIdx >= runtime.deck.length && runtime.unspacedPendingRecycle) {
     host.startNextCycle('remaining');
     host.resetMorphAnswerState();
     renderCard();
@@ -68,7 +74,7 @@ export function renderCard() {
       ? 'Everything in this selection is scheduled ahead. Press next to advance the review clock by 1 hour and pull the next near-due cards back in.'
       : (host.isMorphologyMode()
         ? 'Everything in this grammar selection is currently marked correct. Press next to reshuffle the full selected set and run it again.'
-        : 'Every card in this deck is currently marked “I know this.”<br><span style="color:var(--muted);font-size:13px">Press next to reshuffle the full selected set for another unspaced pass.</span>');
+        : 'Every card in this deck is archived.<br><span style="color:var(--muted);font-size:13px">Press <strong>↻ Reset</strong> to bring them all back and run the deck again. Archived cards stay archived until you reset or pick a new session.</span>');
 
     area.innerHTML = `
       <div class="done-card show">

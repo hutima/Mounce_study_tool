@@ -101,6 +101,13 @@ export const runtime = {
   unspacedPendingRecycle: false,
   unspacedCycleState: {},
   unspacedDeferredIds: new Set(), // 'pass' cards excluded from current pass
+  // Round bookkeeping for the unspaced flip-deck flow. A "round" is one pass
+  // through the active deck — Hard/Uncertain bump the card to the back of the
+  // active queue (it'll reappear in the same round); Easy archives it. When
+  // every card present at the start of the round has been marked, the
+  // remaining (non-archived) cards reshuffle for the next round.
+  unspacedRoundSize: 0,
+  unspacedRoundMarks: 0,
   flipsSinceReshuffle: 0,         // forward navigations since last periodic reshuffle
   lastPeriodicReshuffleAt: 0,     // wall-clock ms timestamp anchor for the hourly reshuffle throttle
   spacedUndoSnapshot: null,
