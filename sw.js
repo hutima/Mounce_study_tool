@@ -3,7 +3,7 @@
 // GitHub Pages note: all app-shell URLs are resolved relative to the
 // service worker registration scope so this works both at a domain root
 // and at a project path such as https://user.github.io/repository/.
-const CACHE_NAME = 'mounce-bbg-greek-pwa-v60';
+const CACHE_NAME = 'mounce-bbg-greek-pwa-v61';
 const BASE_URL = new URL('./', self.registration.scope);
 
 // Cross-origin hosts whose responses we want to keep in the runtime cache
@@ -38,8 +38,9 @@ const APP_SHELL_PATHS = [
   'js/data/grammar_examples.js?v=59',
   'js/data/setMeta.js?v=59',
   'js/logic/pos_logic.js?v=59',
-  'js/data/reader.js?v=59',
-  'js/data/reader_translations.js?v=59',
+  'js/data/reader.js?v=60',
+  'js/data/reader_verse_literals.js?v=60',
+  'js/data/reader_translations.js?v=60',
   'js/data/supplementals/mounce_paradigms.js?v=59',
   'js/app/main.js?v=59',
   'js/data/advanced/advanced_01.js?v=59',
@@ -82,7 +83,7 @@ const APP_SHELL_PATHS = [
   'js/state/migrations.js?v=59',
   'js/state/store.js?v=59',
   'js/state/runtime.js?v=59',
-  'js/state/persistence.js?v=59',
+  'js/state/persistence.js?v=60',
   'js/domain/gamification/xp.js?v=59',
   'js/ui/analytics.js?v=59',
   'js/ui/charts.js?v=59',
@@ -90,7 +91,7 @@ const APP_SHELL_PATHS = [
   'js/ui/modals.js?v=59',
   'js/ui/navigation.js?v=59',
   'js/ui/progress.js?v=59',
-  'js/ui/reader.js?v=59',
+  'js/ui/reader.js?v=60',
   'js/ui/render.js?v=59',
   'js/ui/selectors.js?v=59',
   'js/ui/toast.js?v=59',

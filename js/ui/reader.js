@@ -53,7 +53,7 @@ export function renderReaderModule() {
 
   const verseByChapter = new Map(chapters.map(ch => [ch.chapter, ch.verses || []]));
 
-  let html = '<div class="reader-wrap"><div class="reader-intro">Short author-written Greek phrases per Mounce chapter, increasing in difficulty. Drills use only vocabulary and grammar introduced through that chapter. The Mounce variant ships without NT-verse curation — the focus here is bridging from flashcards to syntax, one chapter at a time.</div>';
+  let html = '<div class="reader-wrap"><div class="reader-intro">Short author-written Greek phrases per Mounce chapter, plus a graded NT reader: every verse listed under a chapter uses only vocabulary introduced through that chapter (Robinson-Pierpont 2005 Byzantine text, lemma-matched via Strong\'s). Tap any verse to reveal a literal English gloss.</div>';
 
   for (const chapterNum of allChapterNums) {
     const drillsRaw = drillSets[chapterNum] && Array.isArray(drillSets[chapterNum].sentences)

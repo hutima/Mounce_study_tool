@@ -25,8 +25,15 @@ Study modes
   μι Verbs, conditional-sentence classes, etc.) with inline notes
   and an optional self-check mode.
 - Translate — short author-written Greek phrases per chapter, scoped
-  to vocab and grammar introduced through that chapter. (No NT-verse
-  curation in the Mounce variant.)
+  to vocab and grammar introduced through that chapter. Plus a
+  precomputed graded NT reader: every verse listed under a chapter
+  uses only vocabulary cumulatively introduced through that chapter.
+  Verses come from the Robinson-Pierpont 2005 Byzantine Textform
+  (public domain, textually close to the Textus Receptus); lemma
+  membership is joined via Strong's numbers. Every verse has a tap-
+  to-reveal literal English gloss (working translations produced for
+  study purposes, in `js/data/reader_verse_literals.js`). See
+  "REGENERATING READER.JS" below.
 - Memorization — separate page (`pages/memorization.html`) for guided
   paradigm memorization in Mounce's order.
 
@@ -105,6 +112,27 @@ script equivalent to /tmp/build_full_words.py used during the
 initial Mounce port (see commit history for the working version).
 Each entry follows the schema:
     { g: "headword (with parsing info)", e: "gloss(es)", required: true }
+
+
+REGENERATING READER.JS
+----------------------
+The reader's NT verses are a derived dataset: for each chapter N,
+include every NT verse whose every lemma is in the cumulative Mounce
+vocab through chapter N (joined on Strong's number). Re-run when
+words.js changes:
+
+1. Clone the public-domain sources (one-time):
+     git clone https://github.com/biblicalhumanities/Byzantine-Textform-Robinson-Pierpont-2005.git /tmp/rp
+     git clone https://github.com/openscriptures/strongs.git /tmp/strongs
+2. Run scripts/build_reader.py from the repo root.
+3. The script writes js/data/reader.js, bump `?v=N` in index.html /
+   sw.js if shipping a refreshed bundle.
+
+The script lives at scripts/build_reader.py. Output shape:
+    window.READER_CHAPTERS = [
+      { chapter: N, verses: [ { g: "Greek …", r: "Mk 1:1" }, … ] },
+      …
+    ];
 
 
 DEPLOYMENT
