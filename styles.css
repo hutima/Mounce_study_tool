@@ -16,12 +16,20 @@
     --shadow: 0 8px 40px rgba(0,0,0,0.6);
     --font-body: 'EB Garamond', serif;
     --font-display: 'Cinzel', serif;
+    /* Greek text uses Noto Serif by default (polytonic-capable). The sans-
+       serif preference swaps it for a system sans stack whose entries all
+       ship with polytonic Greek (SF Pro / Segoe UI / Roboto / Noto Sans /
+       DejaVu Sans / Helvetica) — no webfont download, fully offline. */
+    --font-greek: 'Noto Serif', serif;
   }
 
-  /* Sans-serif override: keeps Noto Serif / Times New Roman (Greek text) untouched */
+  /* Sans-serif override: body/display switch to system sans, and Greek
+     text switches to a sans stack that still renders polytonic accents.
+     Fonts come from the OS so the PWA stays fully offline. */
   html[data-font-family="sans"] {
     --font-body: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
     --font-display: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+    --font-greek: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Helvetica Neue', 'Noto Sans', 'DejaVu Sans', 'Liberation Sans', Arial, sans-serif;
   }
 
   /* Text size: uses `zoom` so padding scales with the text — buttons keep
@@ -96,7 +104,7 @@
   .theme-btn + .theme-btn { border-left: 1px solid var(--border); }
   .theme-btn:hover { color: var(--gold); background: rgba(201,168,76,0.06); }
   .theme-btn.active { color: var(--gold-light); background: rgba(201,168,76,0.14); }
-  header .koine { font-family: 'Noto Serif', serif; font-size: 13px; letter-spacing: 3px; color: var(--gold-dim); text-transform: uppercase; margin-bottom: 10px; }
+  header .koine { font-family: var(--font-greek); font-size: 13px; letter-spacing: 3px; color: var(--gold-dim); text-transform: uppercase; margin-bottom: 10px; }
   header h1 { font-family: var(--font-display); font-size: clamp(20px, 4vw, 30px); font-weight: 600; color: var(--gold); letter-spacing: 1px; line-height: 1.3; }
   header .subtitle { font-style: italic; color: var(--muted); margin-top: 6px; font-size: 15px; }
   header .wycliffe { font-family: var(--font-display); font-size: 11px; letter-spacing: 2px; color: var(--gold-dim); text-transform: uppercase; margin-top: 8px; }
@@ -447,7 +455,7 @@
   }
 
   .card-greek {
-    font-family: 'Noto Serif', serif;
+    font-family: var(--font-greek);
     font-size: clamp(26px, 6vw, 42px);
     color: var(--cream);
     text-align: center;
@@ -479,7 +487,7 @@
     margin-bottom: 8px;
   }
   .card-greek-small {
-    font-family: 'Noto Serif', serif;
+    font-family: var(--font-greek);
     font-size: 16px;
     color: var(--muted);
     text-align: center;
@@ -505,8 +513,8 @@
     border-radius: 8px; cursor: pointer; transition: all 0.2s;
     border: 1px solid var(--border);
   }
-  .nav-prev { background: none; color: var(--muted); }
-  .nav-prev:hover { border-color: var(--gold-dim); color: var(--cream); }
+  .nav-prev { background: rgba(107, 98, 60, 0.10); color: var(--muted); border-color: var(--border); }
+  .nav-prev:hover { background: rgba(107, 98, 60, 0.20); border-color: var(--gold-dim); color: var(--cream); }
   .nav-next { background: linear-gradient(135deg, #2a2818, #1e1e2a); color: var(--gold); border-color: var(--gold-dim); }
   .nav-next:hover { background: linear-gradient(135deg, #332e1a, #252535); border-color: var(--gold); color: var(--gold-light); }
   .nav-next.spaced-again { background: linear-gradient(135deg, #3a1d1d, #241416); color: #e79a9a; border-color: #a55151; }
@@ -678,7 +686,7 @@
     font-size: 15px;
   }
   .review-item .rg {
-    font-family: 'Noto Serif', serif;
+    font-family: var(--font-greek);
     color: var(--cream);
     min-width: 0;
   }
@@ -722,7 +730,7 @@
 
   /* ── Empty state ── */
   .empty-state { text-align: center; padding: 60px 20px; color: var(--muted); font-style: italic; }
-  .empty-state .big { font-family: 'Noto Serif', serif; font-size: 40px; color: var(--border); margin-bottom: 16px; }
+  .empty-state .big { font-family: var(--font-greek); font-size: 40px; color: var(--border); margin-bottom: 16px; }
 
   /* ── Ornament divider ── */
   .ornament { text-align: center; color: var(--gold-dim); font-size: 18px; margin: 4px 0 20px; opacity: 0.5; letter-spacing: 8px; }
@@ -863,7 +871,7 @@
   }
 
   .morph-form {
-    font-family: 'Noto Serif', serif;
+    font-family: var(--font-greek);
     font-size: clamp(28px, 6vw, 44px);
     color: var(--cream);
     line-height: 1.3;
@@ -878,7 +886,7 @@
   }
 
   .choice-btn-greek {
-    font-family: 'Noto Serif', serif;
+    font-family: var(--font-greek);
     font-size: clamp(18px, 3.2vw, 22px);
   }
 
@@ -998,6 +1006,15 @@
     font-style: italic;
   }
 
+  /* Prev keeps the same Reset-like swatch when inactive — it's a constant
+     anchor in the nav row, so a grey-out reads as "broken" rather than
+     "nothing to do here right now". */
+  .nav-btn.nav-prev.nav-disabled,
+  .nav-btn.nav-prev:disabled {
+    opacity: 1;
+    cursor: not-allowed;
+  }
+
   .morph-result {
     border-radius: 10px;
     padding: 12px 14px;
@@ -1068,7 +1085,7 @@
   }
 
   .morph-example-greek {
-    font-family: 'Noto Serif', serif;
+    font-family: var(--font-greek);
     font-size: 18px;
     line-height: 1.45;
     color: var(--cream);
@@ -1107,7 +1124,7 @@
   }
 
   .morph-wrong-greek {
-    font-family: 'Noto Serif', serif;
+    font-family: var(--font-greek);
     font-size: 17px;
     line-height: 1.45;
     color: var(--cream);
@@ -1795,8 +1812,14 @@
     color: #7a2e2e;
   }
   html[data-theme="light"] .nav-prev {
-    background: transparent;
-    color: var(--muted);
+    background: rgba(210, 188, 110, 0.10);
+    border-color: rgba(142, 112, 34, 0.28);
+    color: #7a5b1f;
+  }
+  html[data-theme="light"] .nav-prev:hover {
+    background: rgba(210, 188, 110, 0.22);
+    border-color: rgba(142, 112, 34, 0.45);
+    color: #553c00;
   }
 
   /* ── Light mode: soften mark buttons ── */
@@ -3162,7 +3185,7 @@
   }
 
   .reader-verse-greek {
-    font-family: 'Noto Serif', serif;
+    font-family: var(--font-greek);
     font-size: clamp(18px, 3.4vw, 22px);
     color: var(--cream);
     line-height: 1.65;
@@ -3242,7 +3265,7 @@
   }
 
   .reader-drill-greek {
-    font-family: 'Noto Serif', serif;
+    font-family: var(--font-greek);
     font-size: clamp(18px, 3.4vw, 22px);
     color: var(--cream);
     line-height: 1.55;
