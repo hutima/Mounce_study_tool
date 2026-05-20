@@ -1827,6 +1827,21 @@
   html[data-theme="light"] .done-card {
     background: linear-gradient(180deg, #fffaf0 0%, #f7efdf 100%);
   }
+  /* Supplemental / advanced panels: the dark-mode default uses a translucent
+     dark-blue overlay that reads as grey on the cream light-mode background.
+     Override with warm cream variants so the panels match the rest of the
+     light theme. */
+  html[data-theme="light"] .supplemental-week,
+  html[data-theme="light"] .advanced-section-shell {
+    background: rgba(255, 250, 240, 0.6);
+  }
+  html[data-theme="light"] .supplemental-set,
+  html[data-theme="light"] .advanced-section-shell[open] {
+    background: rgba(255, 250, 240, 0.8);
+  }
+  html[data-theme="light"] .advanced-set {
+    background: rgba(255, 250, 240, 0.95);
+  }
   html[data-theme="light"] .card-front {
     background: radial-gradient(ellipse at 30% 30%, #fffdf7 0%, #f5eddc 100%);
     border-color: var(--border);
