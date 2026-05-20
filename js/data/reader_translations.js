@@ -917,4 +917,31 @@
   };
 
   window.READER_TRANSLATION_SETS = SETS;
+
+  // Merge READER_VERSE_LITERALS into READER_CHAPTERS so each verse gets a
+  // `.literal` property the renderer can show via tap-to-reveal. Runs once
+  // at script eval, and again on DOMContentLoaded in case the literals data
+  // file evaluates later (defer-script order is best-effort).
+  function attachToReaderChapters() {
+    if (!Array.isArray(window.READER_CHAPTERS)) return;
+    const literalsMap = (window.READER_VERSE_LITERALS
+      && typeof window.READER_VERSE_LITERALS === 'object')
+      ? window.READER_VERSE_LITERALS
+      : {};
+    window.READER_CHAPTERS.forEach((ch) => {
+      if (!ch || !Array.isArray(ch.verses)) return;
+      ch.verses.forEach((verse) => {
+        if (!verse || verse.literal) return;
+        const ref = verse.r;
+        if (!ref) return;
+        const literal = literalsMap[ref];
+        if (literal) verse.literal = literal;
+      });
+    });
+  }
+
+  attachToReaderChapters();
+  if (typeof window !== 'undefined') {
+    window.addEventListener('DOMContentLoaded', attachToReaderChapters);
+  }
 })();

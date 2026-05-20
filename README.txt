@@ -30,8 +30,10 @@ Study modes
   uses only vocabulary cumulatively introduced through that chapter.
   Verses come from the Robinson-Pierpont 2005 Byzantine Textform
   (public domain, textually close to the Textus Receptus); lemma
-  membership is joined via Strong's numbers. See "REGENERATING
-  READER.JS" below.
+  membership is joined via Strong's numbers. Every verse has a tap-
+  to-reveal literal English gloss (working translations produced for
+  study purposes, in `js/data/reader_verse_literals.js`). See
+  "REGENERATING READER.JS" below.
 - Memorization — separate page (`pages/memorization.html`) for guided
   paradigm memorization in Mounce's order.
 
