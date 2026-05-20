@@ -7,13 +7,13 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="Mounce Greek">
-<link rel="manifest" href="manifest.json?v=54">
-<link rel="apple-touch-icon" href="icons/apple-touch-icon.png?v=54">
-<link rel="icon" type="image/svg+xml" href="favicon.svg?v=54">
+<link rel="manifest" href="manifest.json?v=57">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png?v=57">
+<link rel="icon" type="image/svg+xml" href="favicon.svg?v=57">
 <title>Mounce BBG Greek — Flashcards</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700&family=EB+Garamond:ital,wght@0,400;0,500;1,400&family=Noto+Serif:ital,wght@0,400;1,400&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="styles.css?v=54">
+<link rel="stylesheet" href="styles.css?v=57">
 <script>
 (function(){
   try {
@@ -23,6 +23,17 @@
     document.documentElement.setAttribute("data-theme", resolved);
   } catch (err) {
     document.documentElement.setAttribute("data-theme", "dark");
+  }
+  try {
+    var fontFamily = localStorage.getItem("greekFlashcardsFontFamily");
+    if (fontFamily === "sans") document.documentElement.setAttribute("data-font-family", "sans");
+    else document.documentElement.setAttribute("data-font-family", "serif");
+    var textSize = localStorage.getItem("greekFlashcardsTextSize");
+    var allowed = { medium: 1, large: 1, "x-large": 1 };
+    document.documentElement.setAttribute("data-text-size", allowed[textSize] ? textSize : "medium");
+  } catch (err) {
+    document.documentElement.setAttribute("data-font-family", "serif");
+    document.documentElement.setAttribute("data-text-size", "medium");
   }
 })();
 </script>
@@ -73,6 +84,23 @@
 
   <details class="utility-section" id="advancedSettingsDetails">
     <summary>Advanced review settings</summary>
+    <div class="display-prefs" role="group" aria-label="Display preferences">
+      <div class="display-prefs-row">
+        <span class="display-prefs-label">Font</span>
+        <div class="theme-switcher" role="group" aria-label="Font family">
+          <button class="theme-btn" id="fontSerifBtn" type="button" onclick="setFontFamily('serif')">Serif</button>
+          <button class="theme-btn" id="fontSansBtn" type="button" onclick="setFontFamily('sans')">Sans</button>
+        </div>
+      </div>
+      <div class="display-prefs-row">
+        <span class="display-prefs-label">Text size</span>
+        <div class="theme-switcher" role="group" aria-label="Text size">
+          <button class="theme-btn" id="textSizeMediumBtn" type="button" onclick="setTextSize('medium')">Medium</button>
+          <button class="theme-btn" id="textSizeLargeBtn" type="button" onclick="setTextSize('large')">Large</button>
+          <button class="theme-btn" id="textSizeXLargeBtn" type="button" onclick="setTextSize('x-large')">X-Large</button>
+        </div>
+      </div>
+    </div>
 <div class="controls-bar" id="controlsBar">
 <button class="toggle-label" id="shuffleToggle" type="button" role="switch" aria-checked="false" onclick="toggleShuffle()">
       <span class="toggle-text">Shuffle</span>
@@ -513,8 +541,10 @@
     </div>
     <div class="consent-actions reset-spaced-actions">
       <button class="ctrl-btn" type="button" onclick="closeResetSpacedModal()">Cancel</button>
-      <button class="ctrl-btn" type="button" onclick="confirmResetSpacedTimingOnly()">Set all to now</button>
-      <button class="ctrl-btn consent-primary" type="button" onclick="confirmResetSpacedProgress()">Reset progress</button>
+      <button class="ctrl-btn reset-spaced-primary-btn" type="button" onclick="confirmResetSpacedTimingOnly()">Set all to now</button>
+    </div>
+    <div class="reset-spaced-danger-row">
+      <button class="ctrl-btn reset-spaced-danger-btn" type="button" onclick="confirmResetSpacedProgress()">Reset progress</button>
     </div>
   </div>
 </div>
@@ -555,39 +585,39 @@
   </div>
 </div>
 
-<script defer src="js/data/words.js?v=54"></script>
-<script defer src="js/data/morphology.js?v=54"></script>
-<script defer src="js/data/supplemental.js?v=54"></script>
-<script defer src="js/data/grammar.js?v=54"></script>
-<script defer src="js/data/supplementals/mounce_paradigms.js?v=54"></script>
-<script defer src="js/data/advanced/advanced_01.js?v=54"></script>
-<script defer src="js/data/advanced/advanced_02.js?v=54"></script>
-<script defer src="js/data/advanced/advanced_03.js?v=54"></script>
-<script defer src="js/data/advanced/advanced_04.js?v=54"></script>
-<script defer src="js/data/advanced/advanced_05.js?v=54"></script>
-<script defer src="js/data/advanced/advanced_06.js?v=54"></script>
-<script defer src="js/data/advanced/advanced_07.js?v=54"></script>
-<script defer src="js/data/advanced/advanced_08.js?v=54"></script>
-<script defer src="js/data/advanced/advanced_09.js?v=54"></script>
-<script defer src="js/data/advanced/advanced_10.js?v=54"></script>
-<script defer src="js/data/advanced/advanced_11.js?v=54"></script>
-<script defer src="js/data/advanced/advanced_12.js?v=54"></script>
-<script defer src="js/data/advanced/advanced_13.js?v=54"></script>
-<script defer src="js/data/advanced/advanced_14.js?v=54"></script>
-<script defer src="js/data/advanced/advanced_15.js?v=54"></script>
-<script defer src="js/data/advanced/advanced_16.js?v=54"></script>
-<script defer src="js/data/advanced/advanced_17.js?v=54"></script>
-<script defer src="js/data/advanced/advanced_18.js?v=54"></script>
-<script defer src="js/data/advanced/advanced_19.js?v=54"></script>
-<script defer src="js/data/advanced/advanced_20.js?v=54"></script>
-<script defer src="js/data/advanced/advanced_21.js?v=54"></script>
-<script defer src="js/data/advanced/advanced_22.js?v=54"></script>
-<script defer src="js/data/advanced/advanced_23.js?v=54"></script>
-<script defer src="js/data/advanced/advanced_24.js?v=54"></script>
-<script defer src="js/data/advanced/advanced_25.js?v=54"></script>
-<script defer src="js/data/reader.js?v=54"></script>
-<script defer src="js/data/reader_translations.js?v=54"></script>
-<script defer src="js/logic/pos_logic.js?v=54"></script>
-<script type="module" src="js/app/main.js?v=54"></script>
+<script defer src="js/data/words.js?v=57"></script>
+<script defer src="js/data/morphology.js?v=57"></script>
+<script defer src="js/data/supplemental.js?v=57"></script>
+<script defer src="js/data/grammar.js?v=57"></script>
+<script defer src="js/data/supplementals/mounce_paradigms.js?v=57"></script>
+<script defer src="js/data/advanced/advanced_01.js?v=57"></script>
+<script defer src="js/data/advanced/advanced_02.js?v=57"></script>
+<script defer src="js/data/advanced/advanced_03.js?v=57"></script>
+<script defer src="js/data/advanced/advanced_04.js?v=57"></script>
+<script defer src="js/data/advanced/advanced_05.js?v=57"></script>
+<script defer src="js/data/advanced/advanced_06.js?v=57"></script>
+<script defer src="js/data/advanced/advanced_07.js?v=57"></script>
+<script defer src="js/data/advanced/advanced_08.js?v=57"></script>
+<script defer src="js/data/advanced/advanced_09.js?v=57"></script>
+<script defer src="js/data/advanced/advanced_10.js?v=57"></script>
+<script defer src="js/data/advanced/advanced_11.js?v=57"></script>
+<script defer src="js/data/advanced/advanced_12.js?v=57"></script>
+<script defer src="js/data/advanced/advanced_13.js?v=57"></script>
+<script defer src="js/data/advanced/advanced_14.js?v=57"></script>
+<script defer src="js/data/advanced/advanced_15.js?v=57"></script>
+<script defer src="js/data/advanced/advanced_16.js?v=57"></script>
+<script defer src="js/data/advanced/advanced_17.js?v=57"></script>
+<script defer src="js/data/advanced/advanced_18.js?v=57"></script>
+<script defer src="js/data/advanced/advanced_19.js?v=57"></script>
+<script defer src="js/data/advanced/advanced_20.js?v=57"></script>
+<script defer src="js/data/advanced/advanced_21.js?v=57"></script>
+<script defer src="js/data/advanced/advanced_22.js?v=57"></script>
+<script defer src="js/data/advanced/advanced_23.js?v=57"></script>
+<script defer src="js/data/advanced/advanced_24.js?v=57"></script>
+<script defer src="js/data/advanced/advanced_25.js?v=57"></script>
+<script defer src="js/data/reader.js?v=57"></script>
+<script defer src="js/data/reader_translations.js?v=57"></script>
+<script defer src="js/logic/pos_logic.js?v=57"></script>
+<script type="module" src="js/app/main.js?v=57"></script>
 </body>
 </html>

@@ -308,6 +308,8 @@ import {
   CONSENT_STORAGE_KEY,
   WHATS_NEW_V1_1_STORAGE_KEY,
   THEME_STORAGE_KEY,
+  FONT_FAMILY_STORAGE_KEY,
+  TEXT_SIZE_STORAGE_KEY,
   PROGRESS_EXPORT_FORMAT,
   PROGRESS_EXPORT_VERSION,
   STUDY_IDLE_MS,
@@ -603,6 +605,66 @@ function initializeThemeMode() {
     if (typeof media.addEventListener === 'function') media.addEventListener('change', handleChange);
     else if (typeof media.addListener === 'function') media.addListener(handleChange);
   }
+}
+
+const FONT_FAMILY_OPTIONS = ['serif', 'sans'];
+const TEXT_SIZE_OPTIONS = ['medium', 'large', 'x-large'];
+
+function applyFontFamily(value = runtime.fontFamily, persist = true) {
+  runtime.fontFamily = FONT_FAMILY_OPTIONS.includes(value) ? value : 'serif';
+  document.documentElement.setAttribute('data-font-family', runtime.fontFamily);
+  const storage = getStorage();
+  if (persist && storage) storage.setItem(FONT_FAMILY_STORAGE_KEY, runtime.fontFamily);
+  syncFontFamilyButtons();
+}
+
+function syncFontFamilyButtons() {
+  const serifBtn = document.getElementById('fontSerifBtn');
+  const sansBtn = document.getElementById('fontSansBtn');
+  if (serifBtn) serifBtn.classList.toggle('active', runtime.fontFamily === 'serif');
+  if (sansBtn) sansBtn.classList.toggle('active', runtime.fontFamily === 'sans');
+}
+
+function setFontFamily(value) {
+  applyFontFamily(value, true);
+}
+
+function initializeFontFamily() {
+  const storage = getStorage();
+  const saved = storage ? storage.getItem(FONT_FAMILY_STORAGE_KEY) : null;
+  runtime.fontFamily = FONT_FAMILY_OPTIONS.includes(saved) ? saved : 'serif';
+  applyFontFamily(runtime.fontFamily, false);
+}
+
+function applyTextSize(value = runtime.textSize, persist = true) {
+  runtime.textSize = TEXT_SIZE_OPTIONS.includes(value) ? value : 'medium';
+  document.documentElement.setAttribute('data-text-size', runtime.textSize);
+  const storage = getStorage();
+  if (persist && storage) storage.setItem(TEXT_SIZE_STORAGE_KEY, runtime.textSize);
+  syncTextSizeButtons();
+}
+
+function syncTextSizeButtons() {
+  const map = {
+    'medium': 'textSizeMediumBtn',
+    'large': 'textSizeLargeBtn',
+    'x-large': 'textSizeXLargeBtn'
+  };
+  for (const [size, id] of Object.entries(map)) {
+    const btn = document.getElementById(id);
+    if (btn) btn.classList.toggle('active', runtime.textSize === size);
+  }
+}
+
+function setTextSize(value) {
+  applyTextSize(value, true);
+}
+
+function initializeTextSize() {
+  const storage = getStorage();
+  const saved = storage ? storage.getItem(TEXT_SIZE_STORAGE_KEY) : null;
+  runtime.textSize = TEXT_SIZE_OPTIONS.includes(saved) ? saved : 'medium';
+  applyTextSize(runtime.textSize, false);
 }
 
 function syncToggleButtons() {
@@ -1569,7 +1631,7 @@ const GLOBAL_CLICK_HANDLERS = {
   closeResetUnspacedModal, confirmResetUnspacedMarks,
   reshuffleEligible,
   fastForwardOneDay, fastForwardOneWeek,
-  restoreSpacedUndo, setAppProfile, setStudyMode, setThemeMode,
+  restoreSpacedUndo, setAppProfile, setStudyMode, setThemeMode, setFontFamily, setTextSize,
   showDisclaimerModal, startStudying, toggleDirection, toggleMorphSelfCheck,
   toggleRequiredOnly, toggleHardVocabReview, toggleShuffle, toggleSpacedRepetition, toggleSplitSelection, triggerImportProgress,
   openReaderTab, selectReaderDrillChoice, advanceReaderDrill,
@@ -1579,6 +1641,8 @@ if (typeof globalThis !== 'undefined') Object.assign(globalThis, GLOBAL_CLICK_HA
 if (typeof window !== 'undefined' && window !== globalThis) Object.assign(window, GLOBAL_CLICK_HANDLERS);
 
 initializeThemeMode();
+initializeFontFamily();
+initializeTextSize();
 // Initial build with default state (needed so restoreState can find DOM elements)
 buildSessions();
 buildChapterSelector();
