@@ -133,7 +133,7 @@
 
 // Utils
 import { clamp, isPlainObject, shuffleArray, escapeHtml, cloneForUndo } from '../utils/helpers.js';
-import { formatUsageDuration, formatAnalyticsDate, formatAnalyticsDateTime, getUsageDayKey } from '../utils/time.js';
+import { formatUsageDuration, formatAnalyticsDate, formatAnalyticsDateTime, getUsageDayKey, getUnspacedArchiveDayKey } from '../utils/time.js';
 import { getStorage, isLikelyIOS } from '../utils/storage.js';
 import { compareGreekAlphabetical } from '../utils/greekSort.js';
 
@@ -246,6 +246,7 @@ import {
   toggleDirection,
   toggleSpacedRepetition,
   toggleSplitSelection,
+  toggleUnspacedDailyReset,
   reshuffleEligible,
   fastForwardOneDay,
   fastForwardOneWeek,
@@ -408,6 +409,7 @@ configureNavigation({
   captureSpacedUndoSnapshot: () => captureSpacedUndoSnapshot(),
   applySpacedReview: (card, outcome) => applySpacedReview(card, outcome),
   clearSpacedUndoSnapshot: () => clearSpacedUndoSnapshot(),
+  restoreSpacedUndo: () => restoreSpacedUndo(),
   clearSavedState: () => clearSavedState(),
   maybeReturnConfirmedDeferredCard: () => maybeReturnConfirmedDeferredCard(),
   maybePeriodicReshuffle: () => maybePeriodicReshuffle(),
@@ -415,6 +417,7 @@ configureNavigation({
   applyUnspacedSharedSchedule: (card, outcome, at) => applyUnspacedSharedSchedule(card, outcome, at),
   getRemainingCards: () => getRemainingCards(),
   resetUnspacedCycleState: () => resetUnspacedCycleState(),
+  noteUnspacedArchiveActivity: () => noteUnspacedArchiveActivity(),
   saveCurrentDeckStateToBank: () => saveCurrentDeckStateToBank(),
   markActiveDeckRef: () => markActiveDeckRef(),
   saveState: () => saveState(),
@@ -447,7 +450,8 @@ configurePersistence({
   syncLayoutVisibility: () => syncLayoutVisibility(),
   getDirectionalProgressStore: () => getDirectionalProgressStore(),
   isReaderMode: () => isReaderMode(),
-  renderReaderModule: () => renderReaderModule()
+  renderReaderModule: () => renderReaderModule(),
+  maybeAutoResetUnspacedArchives: () => maybeAutoResetUnspacedArchives()
 });
 
 
@@ -683,6 +687,7 @@ function syncToggleButtons() {
   const hardReviewSwitch = document.getElementById('hardReviewBtn');
   const splitSelectionSwitch = document.getElementById('splitSelectionBtn');
   const selfCheckBtn    = document.getElementById('selfCheckBtn');
+  const dailyResetSwitch = document.getElementById('unspacedDailyResetBtn');
   const shuffleToggle   = document.getElementById('shuffleToggle');
   const requiredToggle  = document.getElementById('requiredToggle');
   const directionToggle = document.getElementById('directionToggle');
@@ -690,6 +695,7 @@ function syncToggleButtons() {
   const hardReviewToggle = document.getElementById('hardReviewToggle');
   const splitSelectionToggle = document.getElementById('splitSelectionToggle');
   const selfCheckToggle = document.getElementById('selfCheckToggle');
+  const dailyResetToggle = document.getElementById('unspacedDailyResetToggle');
   const modeVocabBtn    = document.getElementById('modeVocabBtn');
   const modeMorphBtn    = document.getElementById('modeMorphBtn');
   const modeReaderBtn   = document.getElementById('modeReaderBtn');
@@ -705,6 +711,7 @@ function syncToggleButtons() {
   if (hardReviewSwitch) hardReviewSwitch.classList.toggle('on', !!runtime.hardVocabReviewMode);
   if (splitSelectionSwitch) splitSelectionSwitch.classList.toggle('on', !!runtime.splitSelection);
   if (selfCheckBtn)    selfCheckBtn.classList.toggle('on',    !!runtime.morphSelfCheck && isMorphologyMode());
+  if (dailyResetSwitch) dailyResetSwitch.classList.toggle('on', !!runtime.unspacedAutoResetEnabled);
   if (shuffleToggle)   shuffleToggle.setAttribute('aria-checked',   runtime.shuffled ? 'true' : 'false');
   if (requiredToggle)  requiredToggle.setAttribute('aria-checked',  runtime.requiredOnly ? 'true' : 'false');
   if (directionToggle) directionToggle.setAttribute('aria-checked', runtime.directionToGreek ? 'true' : 'false');
@@ -712,6 +719,7 @@ function syncToggleButtons() {
   if (hardReviewToggle) hardReviewToggle.setAttribute('aria-checked', runtime.hardVocabReviewMode ? 'true' : 'false');
   if (splitSelectionToggle) splitSelectionToggle.setAttribute('aria-checked', runtime.splitSelection ? 'true' : 'false');
   if (selfCheckToggle) selfCheckToggle.setAttribute('aria-checked', (runtime.morphSelfCheck && isMorphologyMode()) ? 'true' : 'false');
+  if (dailyResetToggle) dailyResetToggle.setAttribute('aria-checked', runtime.unspacedAutoResetEnabled ? 'true' : 'false');
 
   if (directionToggle) {
     const directionLabel = directionToggle.querySelector('.toggle-text');
@@ -757,6 +765,7 @@ function syncLayoutVisibility() {
   const selfCheckToggle = document.getElementById('selfCheckToggle');
   const shuffleToggle = document.getElementById('shuffleToggle');
   const spacedToggle = document.getElementById('spacedToggle');
+  const dailyResetToggle = document.getElementById('unspacedDailyResetToggle');
   const modeGroup = document.querySelector('.mode-group[aria-label="Study mode"]');
   const cardArea = document.getElementById('cardArea');
   const reviewShell = document.querySelector('.review-shell');
@@ -776,10 +785,16 @@ function syncLayoutVisibility() {
   if (selfCheckToggle) selfCheckToggle.style.display = isMorphologyMode() && canAccessGrammarUi() ? 'flex' : 'none';
   if (shuffleToggle) shuffleToggle.style.display = reviewDeckMode ? 'flex' : 'none';
   if (spacedToggle) spacedToggle.style.display = reviewDeckMode ? 'flex' : 'none';
+  if (dailyResetToggle) dailyResetToggle.style.display = (reviewDeckMode && !runtime.spacedRepetition && runtime.studyMode === 'vocab') ? 'flex' : 'none';
   if (modeGroup) modeGroup.style.display = canAccessGrammarUi() ? 'inline-flex' : 'none';
   if (!reviewDeckMode) return;
+  const unspacedVocab = !runtime.spacedRepetition && !isMorphologyMode();
+  const unspacedHasUndo = unspacedVocab && !!runtime.spacedUndoSnapshot;
   if (prevBtn) {
-    const hidePrev = isMorphologyMode() || (runtime.spacedRepetition && !isMorphologyMode());
+    // Hidden in spaced/morph (those use the dedicated Undo button), and in
+    // unspaced when a mark just landed (Prev morphs into Undo for that
+    // step so the confidence-impacting action can be rolled back).
+    const hidePrev = isMorphologyMode() || (runtime.spacedRepetition && !isMorphologyMode()) || unspacedHasUndo;
     prevBtn.style.display = hidePrev ? 'none' : '';
     const atStart = !runtime.deck.length || runtime.currentIdx <= 0;
     prevBtn.disabled = atStart;
@@ -788,15 +803,13 @@ function syncLayoutVisibility() {
   if (undoBtn) {
     const morphUndoActive = isMorphologyMode() && runtime.morphAnswerState.answered && !!runtime.spacedUndoSnapshot;
     const vocabUndoActive = runtime.spacedRepetition && !isMorphologyMode() && !!runtime.spacedUndoSnapshot;
-    undoBtn.style.display = (morphUndoActive || vocabUndoActive) ? '' : 'none';
+    undoBtn.style.display = (morphUndoActive || vocabUndoActive || unspacedHasUndo) ? '' : 'none';
   }
-  const unspacedVocab = !runtime.spacedRepetition && !isMorphologyMode();
-  const unspacedDeckEmpty = unspacedVocab
-    && runtime.selectedKeys.length > 0
-    && runtime.originalDeck.length > 0
-    && runtime.activeDeckCount === 0;
   if (navResetBtn) {
-    navResetBtn.style.display = (unspacedVocab && !unspacedDeckEmpty) ? '' : 'none';
+    // Unspaced vocab keeps the inline Reset visible at all times so the
+    // user has a one-tap escape from the all-archived "Session Confirmed"
+    // state without Next having to morph.
+    navResetBtn.style.display = unspacedVocab && runtime.selectedKeys.length > 0 ? '' : 'none';
   }
   if (nextBtn) {
     if (isMorphologyMode()) {
@@ -806,11 +819,6 @@ function syncLayoutVisibility() {
       nextBtn.textContent = 'Again →';
       nextBtn.classList.toggle('spaced-again', true);
       nextBtn.classList.remove('nav-next-as-reset');
-    } else if (unspacedDeckEmpty) {
-      // Every card archived: Next morphs into a no-confirm Reset.
-      nextBtn.textContent = '↻ Reset';
-      nextBtn.classList.remove('spaced-again');
-      nextBtn.classList.add('nav-next-as-reset');
     } else {
       nextBtn.textContent = 'Next →';
       nextBtn.classList.remove('spaced-again', 'nav-next-as-reset');
@@ -887,6 +895,7 @@ function startUsageTracking() {
       } else {
         runtime.appUsageStats.lastActiveAt = Date.now();
         updateUsageMeta();
+        maybeAutoResetUnspacedArchivesAndRefresh();
       }
     });
 
@@ -928,6 +937,62 @@ function resetUnspacedCycleState() {
   runtime.unspacedDeferredIds = new Set();
   runtime.flipsSinceReshuffle = 0;
   runtime.lastPeriodicReshuffleAt = 0;
+}
+
+// Stamp the current archive day so subsequent auto-reset checks know the
+// "current batch" started today. Called whenever an archive (Easy mark in
+// unspaced vocab) is created.
+function noteUnspacedArchiveActivity() {
+  runtime.lastUnspacedArchiveDayKey = getUnspacedArchiveDayKey();
+}
+
+// Clears all unspaced 'known' marks across g2e and e2g when the local
+// archive-day key has rolled past the 5 AM cutoff since the last archive
+// activity. Morph marks are untouched. Returns true if anything was
+// cleared so callers can rebuild the active deck.
+function maybeAutoResetUnspacedArchives() {
+  if (!runtime.unspacedAutoResetEnabled) return false;
+  const todayKey = getUnspacedArchiveDayKey();
+  const lastKey = runtime.lastUnspacedArchiveDayKey || '';
+  if (!lastKey) {
+    runtime.lastUnspacedArchiveDayKey = todayKey;
+    return false;
+  }
+  if (lastKey === todayKey) return false;
+
+  ensureDirectionalStores();
+  let didClear = false;
+  ['g2e', 'e2g'].forEach(dirKey => {
+    const bucket = runtime.globalWordMarks[dirKey];
+    if (!bucket) return;
+    Object.keys(bucket).forEach(cardId => {
+      if (bucket[cardId] === 'known') {
+        delete bucket[cardId];
+        didClear = true;
+      }
+    });
+  });
+  runtime.lastUnspacedArchiveDayKey = todayKey;
+  runtime.marks = getDirectionalMarksStore();
+  return didClear;
+}
+
+// Wrapper that runs the auto-reset and, if it actually cleared archives,
+// rebuilds the active vocab unspaced deck + repaints so the freshly
+// restored cards show up immediately.
+function maybeAutoResetUnspacedArchivesAndRefresh() {
+  const didClear = maybeAutoResetUnspacedArchives();
+  if (!didClear) return;
+  if (!runtime.selectedKeys.length) return;
+  if (runtime.spacedRepetition || isMorphologyMode()) return;
+  runtime.deck = buildStudyDeck(runtime.originalDeck);
+  runtime.currentIdx = 0;
+  runtime.isFlipped = false;
+  resetMorphAnswerState();
+  renderCard();
+  renderProgress();
+  renderReview();
+  saveState();
 }
 
 function getUnspacedCycleEntry(cardId) {
@@ -1076,11 +1141,9 @@ function captureSpacedUndoSnapshot() {
     clearSpacedUndoSnapshot();
     return;
   }
-  if (!isMorphologyMode()) {
-    if (!runtime.spacedRepetition || runtime.currentIdx >= runtime.activeDeckCount) {
-      clearSpacedUndoSnapshot();
-      return;
-    }
+  if (runtime.spacedRepetition && runtime.currentIdx >= runtime.activeDeckCount) {
+    clearSpacedUndoSnapshot();
+    return;
   }
   runtime.spacedUndoSnapshot = {
     selectedKeys: cloneForUndo(runtime.selectedKeys),
@@ -1094,6 +1157,10 @@ function captureSpacedUndoSnapshot() {
     activeDeckCount: runtime.activeDeckCount,
     isFlipped: runtime.isFlipped,
     unspacedPendingRecycle: runtime.unspacedPendingRecycle,
+    unspacedRoundSize: runtime.unspacedRoundSize,
+    unspacedRoundMarks: runtime.unspacedRoundMarks,
+    unspacedCycleState: cloneForUndo(runtime.unspacedCycleState),
+    lastUnspacedArchiveDayKey: runtime.lastUnspacedArchiveDayKey,
     morphAnswerState: cloneForUndo(runtime.morphAnswerState),
     morphPendingAdvance: runtime.morphPendingAdvance,
     deck: cloneForUndo(runtime.deck),
@@ -1136,6 +1203,18 @@ function restoreSpacedUndo() {
   runtime.activeDeckCount = Math.max(0, runtime.spacedUndoSnapshot.activeDeckCount || 0);
   runtime.isFlipped = !!runtime.spacedUndoSnapshot.isFlipped;
   runtime.unspacedPendingRecycle = !!runtime.spacedUndoSnapshot.unspacedPendingRecycle;
+  if (Number.isFinite(runtime.spacedUndoSnapshot.unspacedRoundSize)) {
+    runtime.unspacedRoundSize = runtime.spacedUndoSnapshot.unspacedRoundSize;
+  }
+  if (Number.isFinite(runtime.spacedUndoSnapshot.unspacedRoundMarks)) {
+    runtime.unspacedRoundMarks = runtime.spacedUndoSnapshot.unspacedRoundMarks;
+  }
+  if (runtime.spacedUndoSnapshot.unspacedCycleState) {
+    runtime.unspacedCycleState = cloneForUndo(runtime.spacedUndoSnapshot.unspacedCycleState);
+  }
+  if (typeof runtime.spacedUndoSnapshot.lastUnspacedArchiveDayKey === 'string') {
+    runtime.lastUnspacedArchiveDayKey = runtime.spacedUndoSnapshot.lastUnspacedArchiveDayKey;
+  }
   if (isMorphologyMode() && runtime.spacedUndoSnapshot.morphAnswerState) {
     runtime.morphAnswerState = cloneForUndo(runtime.spacedUndoSnapshot.morphAnswerState);
     runtime.morphPendingAdvance = !!runtime.spacedUndoSnapshot.morphPendingAdvance;
@@ -1678,7 +1757,7 @@ const GLOBAL_CLICK_HANDLERS = {
   fastForwardOneDay, fastForwardOneWeek,
   restoreSpacedUndo, setAppProfile, setStudyMode, setThemeMode, setFontFamily, setTextSize,
   showDisclaimerModal, startStudying, toggleDirection, toggleMorphSelfCheck,
-  toggleRequiredOnly, toggleHardVocabReview, toggleShuffle, toggleSpacedRepetition, toggleSplitSelection, triggerImportProgress,
+  toggleRequiredOnly, toggleHardVocabReview, toggleShuffle, toggleSpacedRepetition, toggleSplitSelection, toggleUnspacedDailyReset, triggerImportProgress,
   openReaderTab, selectReaderDrillChoice, advanceReaderDrill,
   closeWhatsNewV1_1Modal
 };
@@ -1740,7 +1819,7 @@ function preventDoubleTapZoom(el) {
   }, false);
 }
 
-['shuffleToggle','requiredToggle','directionToggle','spacedToggle','splitSelectionToggle','selfCheckToggle','modeVocabBtn','modeMorphBtn','modeReaderBtn','modeShortcutVocabBtn','modeShortcutMorphBtn','modeShortcutReaderBtn','themeSystemBtn','themeDarkBtn','themeLightBtn'].forEach(id => {
+['shuffleToggle','requiredToggle','directionToggle','spacedToggle','splitSelectionToggle','selfCheckToggle','unspacedDailyResetToggle','modeVocabBtn','modeMorphBtn','modeReaderBtn','modeShortcutVocabBtn','modeShortcutMorphBtn','modeShortcutReaderBtn','themeSystemBtn','themeDarkBtn','themeLightBtn'].forEach(id => {
   const el = document.getElementById(id);
   if (el) preventDoubleTapZoom(el);
 });

@@ -66,15 +66,24 @@ export function renderCard() {
   }
 
   if ((!runtime.spacedRepetition && runtime.currentIdx >= runtime.deck.length) || (runtime.spacedRepetition && runtime.currentIdx >= runtime.activeDeckCount)) {
+    const unspacedVocab = !runtime.spacedRepetition && !host.isMorphologyMode();
+    const unspacedRoundComplete = unspacedVocab && runtime.activeDeckCount > 0;
+
     const doneTitle = runtime.spacedRepetition
       ? 'No cards currently due ✦'
-      : (host.isMorphologyMode() ? 'Grammar pass complete ✦' : 'Session Confirmed 🎉');
+      : host.isMorphologyMode()
+        ? 'Grammar pass complete ✦'
+        : unspacedRoundComplete
+          ? 'End of round ✦'
+          : 'Session Confirmed 🎉';
 
     const doneSub = runtime.spacedRepetition
       ? 'Everything in this selection is scheduled ahead. Press next to advance the review clock by 1 hour and pull the next near-due cards back in.'
-      : (host.isMorphologyMode()
+      : host.isMorphologyMode()
         ? 'Everything in this grammar selection is currently marked correct. Press next to reshuffle the full selected set and run it again.'
-        : 'Every card in this deck is archived.<br><span style="color:var(--muted);font-size:13px">Press <strong>↻ Reset</strong> to bring them all back and run the deck again. Archived cards stay archived until you reset or pick a new session.</span>');
+        : unspacedRoundComplete
+          ? 'Press <strong>Next →</strong> to shuffle the remaining cards and run another pass, or <strong>↻ Reset</strong> to start the whole deck over.'
+          : 'Every card in this deck is archived.<br><span style="color:var(--muted);font-size:13px">Press <strong>↻ Reset</strong> to bring them all back and run the deck again. Archived cards stay archived until you reset or pick a new session.</span>';
 
     area.innerHTML = `
       <div class="done-card show">

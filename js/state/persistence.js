@@ -53,7 +53,8 @@ let host = {
   syncLayoutVisibility: () => {},
   getDirectionalProgressStore: () => ({}),
   isReaderMode: () => false,
-  renderReaderModule: () => {}
+  renderReaderModule: () => {},
+  maybeAutoResetUnspacedArchives: () => false
 };
 
 export function configurePersistence(deps) {
@@ -114,7 +115,9 @@ export function buildPersistedStatePayload(compactOptions) {
       currentStudySession: null
     },
     unspacedRoundSize: Number.isFinite(runtime.unspacedRoundSize) ? runtime.unspacedRoundSize : 0,
-    unspacedRoundMarks: Number.isFinite(runtime.unspacedRoundMarks) ? runtime.unspacedRoundMarks : 0
+    unspacedRoundMarks: Number.isFinite(runtime.unspacedRoundMarks) ? runtime.unspacedRoundMarks : 0,
+    unspacedAutoResetEnabled: !!runtime.unspacedAutoResetEnabled,
+    lastUnspacedArchiveDayKey: typeof runtime.lastUnspacedArchiveDayKey === 'string' ? runtime.lastUnspacedArchiveDayKey : ''
   }, compactOptions);
 }
 
@@ -799,6 +802,11 @@ export function restoreState() {
       });
     }
     runtime.shuffled = saved.shuffled !== false;
+    // 5 AM auto-reset is opt-in: archived Easy cards persist by default so
+    // returning to the deck the next day finds them still archived. Older
+    // saves predate this field and load with the default-off state.
+    runtime.unspacedAutoResetEnabled = saved.unspacedAutoResetEnabled === true;
+    runtime.lastUnspacedArchiveDayKey = typeof saved.lastUnspacedArchiveDayKey === 'string' ? saved.lastUnspacedArchiveDayKey : '';
     runtime.deckStates = saved.deckStates && typeof saved.deckStates === 'object' ? saved.deckStates : {};
     runtime.globalWordMarks = saved.globalWordMarks && typeof saved.globalWordMarks === 'object' ? saved.globalWordMarks : {};
     runtime.globalWordProgress = saved.globalWordProgress && typeof saved.globalWordProgress === 'object' ? saved.globalWordProgress : {};
@@ -812,6 +820,10 @@ export function restoreState() {
       runtime.appGamification.lastCelebratedBadgeDay = null;
     }
     host.ensureDirectionalStores();
+    // Run the 5 AM auto-clear (if the toggle is on and the day key rolled)
+    // before any deck build sees the marks — otherwise we'd build the deck
+    // with stale archives and only refresh after the user interacts.
+    host.maybeAutoResetUnspacedArchives();
     if (hadSavedAchievementSnapshot && !Array.isArray(runtime.appGamification.lastEarnedAchievementIds)) {
       runtime.appGamification.lastEarnedAchievementIds = [];
     }

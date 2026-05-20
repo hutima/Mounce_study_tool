@@ -29,6 +29,21 @@ export function getUsageDayKey(ts = Date.now()) {
   return `${year}-${month}-${day}`;
 }
 
+// Day key for the unspaced auto-archive reset. The "day" rolls over at the
+// given cutoff hour (default 5 AM local time) so a late-night study session
+// stays grouped with the previous calendar day's archives instead of being
+// wiped at midnight.
+export function getUnspacedArchiveDayKey(ts = Date.now(), cutoffHour = 5) {
+  const d = new Date(ts);
+  if (d.getHours() < cutoffHour) {
+    d.setDate(d.getDate() - 1);
+  }
+  const year = d.getFullYear();
+  const month = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
 export function addDailyDurationSlice(bucket, startTs, durationMs) {
   if (!durationMs || durationMs <= 0) return;
   let cursor = startTs;
