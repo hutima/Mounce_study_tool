@@ -1327,10 +1327,45 @@
   .reset-spaced-actions {
     flex-wrap: wrap;
     gap: 10px;
+    justify-content: center;
   }
 
   .reset-spaced-actions .ctrl-btn {
-    min-width: 140px;
+    flex: 0 0 auto;
+    width: 170px;
+    text-align: center;
+  }
+
+  /* Set all to now is the recommended-but-still-noteworthy action, so
+     it gets the gold tint while Cancel keeps the default muted look. */
+  .reset-spaced-primary-btn {
+    color: var(--gold-light);
+    border-color: var(--gold-dim);
+  }
+
+  /* Destructive action: on its own row below the safer choices, centered,
+     and styled in red so it's obviously distinct. Sized a bit smaller than
+     the top row so the dangerous option doesn't read as the prominent one. */
+  .reset-spaced-danger-row {
+    margin-top: 24px;
+    padding-top: 16px;
+    border-top: 1px solid var(--border);
+    display: flex;
+    justify-content: center;
+  }
+
+  .reset-spaced-danger-btn {
+    color: var(--accent-red);
+    border-color: var(--accent-red);
+    padding: 8px 18px;
+    width: 150px;
+    text-align: center;
+  }
+
+  .reset-spaced-danger-btn:hover {
+    color: #d97a7a;
+    border-color: #d97a7a;
+    background: rgba(140, 58, 58, 0.08);
   }
 
   .reset-scope-row {
@@ -1772,6 +1807,19 @@
     border-color: var(--gold-dim);
     color: var(--gold);
     background: rgba(142,108,30,0.06);
+  }
+  html[data-theme="light"] .reset-spaced-primary-btn {
+    color: var(--gold);
+    border-color: var(--gold-dim);
+  }
+  html[data-theme="light"] .reset-spaced-danger-btn {
+    color: var(--accent-red);
+    border-color: var(--accent-red);
+  }
+  html[data-theme="light"] .reset-spaced-danger-btn:hover {
+    color: #b04545;
+    border-color: #b04545;
+    background: rgba(140, 58, 58, 0.06);
   }
   html[data-theme="light"] .controls-bar,
   html[data-theme="light"] .morph-card,
@@ -3052,7 +3100,7 @@
 
   .reader-verse-greek {
     font-family: 'Noto Serif', serif;
-    font-size: 16px;
+    font-size: clamp(18px, 3.4vw, 22px);
     color: var(--cream);
     line-height: 1.65;
     flex: 1;
@@ -3074,9 +3122,6 @@
     }
     .reader-verse-ref {
       align-self: flex-end;
-    }
-    .reader-verse-greek {
-      font-size: 15px;
     }
   }
 
