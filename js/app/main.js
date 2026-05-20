@@ -138,8 +138,8 @@ import { getStorage, isLikelyIOS } from '../utils/storage.js';
 import { compareGreekAlphabetical } from '../utils/greekSort.js';
 
 // Domain — SRS
-import { SRS_DAY_MS, SRS_AGAIN_MS, SRS_UNCERTAIN_MIN_MS, SRS_NEAR_WINDOW_MS, SRS_CYCLE_ADVANCE_MS } from '../domain/srs/constants.js';
-import { msFromDays, setProgressDelay, setMinimumProgressDelay,
+import { SRS_DAY_MS, SRS_AGAIN_MS, SRS_NEAR_WINDOW_MS, SRS_CYCLE_ADVANCE_MS } from '../domain/srs/constants.js';
+import { msFromDays, setProgressDelay,
          getSrsEase, getSrsStage, getLastEasyIntervalDays, getNextEasyIntervalDays,
          getEasyDelayMs, getUncertainDelayMs, formatRemainingForTable } from '../domain/srs/scheduler.js';
 import { recordConfidenceSample, getConfidencePct, computeCardXpAward } from '../domain/srs/confidence.js';
@@ -178,6 +178,7 @@ import {
 import { installKeyboardShortcuts } from '../ui/keyboard.js';
 import { showLevelToast, showBadgeToast } from '../ui/toast.js';
 import { installTouchSafeTapBridge } from '../ui/touchTapBridge.js';
+import { installClickShield } from '../utils/clickShield.js';
 import {
   configureModals,
   updateConsentButtonState,
@@ -207,7 +208,8 @@ import {
   configureProgress,
   renderProgress,
   renderReview,
-  returnSeenCardToDeck
+  returnSeenCardToDeck,
+  setReviewSortMode
 } from '../ui/progress.js';
 import { configureRender, renderCard, flipCard } from '../ui/render.js';
 import {
@@ -254,6 +256,10 @@ import {
   confirmResetSpacedProgress,
   closeResetUnspacedModal,
   confirmResetUnspacedMarks,
+  openResetStatsModal,
+  closeResetStatsModal,
+  confirmResetStatsKeepSettings,
+  confirmResetToStart,
   resetAllStats
 } from '../ui/navigation.js';
 import {
@@ -341,7 +347,6 @@ configureProgress({
   getDueCount: (cards) => getDueCount(cards),
   getRemainingCards: () => getRemainingCards(),
   getHighConfidenceCount: () => getHighConfidenceCount(),
-  getDeckAggregateStats: (cards) => getDeckAggregateStats(cards),
   getWordProgress: (id, opts) => getWordProgress(id, opts),
   isMorphologyMode: () => isMorphologyMode(),
   renderAnalyticsOverlay: () => renderAnalyticsOverlay(),
@@ -913,27 +918,22 @@ function getUnspacedCycleEntry(cardId) {
   return runtime.unspacedCycleState[cardId];
 }
 
-function applyUnspacedSharedSchedule(card, outcome, reviewedAt = Date.now()) {
-  const progress = getWordProgress(card.id, { persist: true });
+function applyUnspacedSharedSchedule(card, outcome, _reviewedAt = Date.now()) {
+  // Unspaced reviews update only the unspaced cycle bookkeeping. The spaced
+  // SRS schedule (progress.dueAt / intervalDays) is intentionally NOT touched
+  // here, so flipping into spaced-repetition mode later finds untouched
+  // schedules that reflect only previous spaced reviews.
   const cycleEntry = getUnspacedCycleEntry(card.id);
   const normalizedOutcome = outcome === 'easy' ? 'easy' : outcome === 'pass' ? 'pass' : 'again';
 
   if (normalizedOutcome === 'again') {
     cycleEntry.wrongThisCycle = true;
     cycleEntry.lastOutcome = 'again';
-    setProgressDelay(progress, SRS_AGAIN_MS, reviewedAt);
-    return progress;
+    return;
   }
-
-  const recoveringFromMiss = cycleEntry.wrongThisCycle;
-  const minimumDelayMs = (normalizedOutcome === 'pass' || recoveringFromMiss)
-    ? SRS_UNCERTAIN_MIN_MS
-    : SRS_DAY_MS;
 
   cycleEntry.correctCount += 1;
   cycleEntry.lastOutcome = normalizedOutcome;
-  setMinimumProgressDelay(progress, minimumDelayMs, reviewedAt);
-  return progress;
 }
 
 // ── Card selection wrapper (state-coupled) ──
@@ -1631,6 +1631,9 @@ const GLOBAL_CLICK_HANDLERS = {
   openAnalyticsOverlay, resetAllStats, resetCurrentDeck, resetRequiredOnly,
   closeResetSpacedModal, confirmResetSpacedTimingOnly, confirmResetSpacedProgress,
   closeResetUnspacedModal, confirmResetUnspacedMarks,
+  openResetStatsModal, closeResetStatsModal,
+  confirmResetStatsKeepSettings, confirmResetToStart,
+  setReviewSortMode,
   reshuffleEligible,
   fastForwardOneDay, fastForwardOneWeek,
   restoreSpacedUndo, setAppProfile, setStudyMode, setThemeMode, setFontFamily, setTextSize,
@@ -1685,6 +1688,7 @@ startUsageTracking();
 syncLayoutVisibility();
 renderProgress();
 installTouchSafeTapBridge();
+installClickShield();
 
 // Prevent mobile double-tap zoom on interactive controls
 function preventDoubleTapZoom(el) {

@@ -5,7 +5,9 @@
 //  Per-chapter vocab compiled from Paul Denisowski's BBG3 chapter-vocab
 //  files (bbg3_NN.txt), Version 1.0, distributed with the Mounce study
 //  tool repo. Chapters 1-3, 5, 15, 26 contain no Mounce vocab list.
-//  Chapters 4 and 6-36 inclusive are sourced verbatim from those files.
+//  Chapters 4 and 6-36 inclusive are sourced verbatim from those files,
+//  with one BBG4 adjustment: ἅγιος moved from Ch 10 to Ch 9 (matching
+//  the 4th-edition reordering — vocab is otherwise unchanged in BBG4).
 //
 //  Each entry: { g: "headword (with parsing info)", e: "gloss(es)", required: true }
 //
@@ -469,6 +471,11 @@ const SETS = {
         "required": true
       },
       {
+        "g": "ἅγιος, -ία, -ιον",
+        "e": "(adj.) holy; (pl. noun) saints",
+        "required": true
+      },
+      {
         "g": "αἰώνιος, -ον",
         "e": "eternal",
         "required": true
@@ -549,11 +556,6 @@ const SETS = {
     "label": "Chapter 10 — Third Declension",
     "type": "chapter",
     "cards": [
-      {
-        "g": "ἅγιος, -ία, -ιον",
-        "e": "(adj.) holy; (pl. noun) saints",
-        "required": true
-      },
       {
         "g": "εἰ",
         "e": "if",

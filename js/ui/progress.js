@@ -18,7 +18,6 @@ let host = {
   getDueCount: () => 0,
   getRemainingCards: () => [],
   getHighConfidenceCount: () => 0,
-  getDeckAggregateStats: () => ({ seenCount: 0 }),
   getWordProgress: () => ({}),
   isMorphologyMode: () => false,
   renderAnalyticsOverlay: () => {},
@@ -76,38 +75,80 @@ export function renderReview() {
   if (!panel) return;
   panel.classList.add('show');
 
-  const knownCount = host.getHighConfidenceCount();
-  const unsureCount = runtime.originalDeck.filter(card => runtime.marks[card.id] === 'unsure').length;
-  const remainingCount = Math.max(runtime.originalDeck.length - knownCount, 0);
-  const aggregateStats = host.getDeckAggregateStats(runtime.originalDeck);
+  // Bucket the deck by confidence so the progress frame stays focused on
+  // certainty rather than raw activity counts. A card is "high" when its
+  // confidence reads above 75% (matches getHighConfidenceCount), "low" when
+  // it has been seen but hasn't reached that bar, and "unseen" when no
+  // review has been recorded yet.
+  let highCount = 0;
+  let lowCount = 0;
+  let unseenCount = 0;
+  runtime.originalDeck.forEach(card => {
+    const progress = host.getWordProgress(card.id);
+    const pct = getConfidencePct(progress);
+    if (pct !== null && pct > 75) {
+      highCount += 1;
+    } else if (progress && progress.seenCount > 0) {
+      lowCount += 1;
+    } else {
+      unseenCount += 1;
+    }
+  });
 
-  if (runtime.spacedRepetition) {
-    const dueCount = host.getDueCount(runtime.originalDeck);
-    document.getElementById('reviewStats').innerHTML = `
-      <span class="stat-known">✓ Known: ${knownCount}</span>
-      <span class="stat-unsure">○ Due now: ${dueCount}</span>
-      <span class="stat-total">· Scheduled ahead: ${Math.max(runtime.originalDeck.length - dueCount, 0)}</span>
-      <span class="stat-total">· Seen ×${aggregateStats.seenCount}</span>
-      <span class="stat-total">· ${host.isMorphologyMode() ? 'Grammar deck' : (runtime.requiredOnly ? 'Required-only deck' : 'Full deck')}</span>`;
-  } else {
-    document.getElementById('reviewStats').innerHTML = `
-      <span class="stat-known">✓ Known: ${knownCount}</span>
-      <span class="stat-unsure">○ Not yet known: ${unsureCount}</span>
-      <span class="stat-total">· ${remainingCount} still to confirm</span>
-      <span class="stat-total">· Seen ×${aggregateStats.seenCount}</span>
-      <span class="stat-total">· ${host.isMorphologyMode() ? 'Grammar deck' : (runtime.requiredOnly ? 'Required-only deck' : 'Full deck')}</span>`;
+  const deckTagEl = document.getElementById('reviewDeckTag');
+  if (deckTagEl) {
+    deckTagEl.textContent = host.isMorphologyMode()
+      ? 'Grammar deck'
+      : (runtime.requiredOnly ? 'Required-only deck' : 'Full deck');
+  }
+
+  document.getElementById('reviewStats').innerHTML = `
+      <span class="stat-known">✓ High confidence: ${highCount}</span>
+      <span class="stat-unsure">○ Low confidence: ${lowCount}</span>
+      <span class="stat-total">· Unseen: ${unseenCount}</span>`;
+
+  const sortMode = runtime.reviewSortMode === 'confidence' ? 'confidence' : 'alphabetical';
+  const sortRowEl = document.getElementById('reviewSortRow');
+  if (sortRowEl) {
+    const btn = (mode, label) => {
+      const active = sortMode === mode;
+      return `<button type="button" class="ctrl-btn chapter-detail-sort-btn${active ? ' active-toggle' : ''}" onclick="setReviewSortMode('${mode}')" aria-pressed="${active ? 'true' : 'false'}">${label}</button>`;
+    };
+    sortRowEl.innerHTML = `
+      <span class="review-sort-label">Sort</span>
+      <div class="review-sort-group" role="group" aria-label="Sort cards">
+        ${btn('alphabetical', 'A–Ω')}
+        ${btn('confidence', 'Confidence')}
+      </div>`;
   }
 
   let listHtml = '';
-  runtime.originalDeck
+  const visibleRows = runtime.originalDeck
     .map((card, idx) => ({ card, idx }))
     .filter(({ card }) => {
       const status = runtime.marks[card.id];
       const progress = host.getWordProgress(card.id);
       return status || progress.seenCount;
-    })
-    .sort((a, b) => compareGreekAlphabetical(a.card, b.card))
-    .forEach(({ card }) => {
+    });
+
+  if (sortMode === 'confidence') {
+    // Raw confidence pct from getConfidencePct (no smoothing) so the lowest
+    // recall rises to the top of the drill list. Null (unseen) is treated as
+    // -1 so it sorts above 0% — unseen cards are typically the most urgent
+    // signal of "haven't touched this yet". Ties break alphabetically.
+    visibleRows.sort((a, b) => {
+      const pa = getConfidencePct(host.getWordProgress(a.card.id));
+      const pb = getConfidencePct(host.getWordProgress(b.card.id));
+      const va = pa === null ? -1 : pa;
+      const vb = pb === null ? -1 : pb;
+      if (va !== vb) return va - vb;
+      return compareGreekAlphabetical(a.card, b.card);
+    });
+  } else {
+    visibleRows.sort((a, b) => compareGreekAlphabetical(a.card, b.card));
+  }
+
+  visibleRows.forEach(({ card }) => {
       const status = runtime.marks[card.id];
       const progress = host.getWordProgress(card.id);
       const confidencePct = getConfidencePct(progress);
@@ -126,6 +167,16 @@ export function renderReview() {
       </div>`;
     });
   document.getElementById('reviewList').innerHTML = listHtml || '<span style="color:var(--muted);font-size:14px;font-style:italic">Mark cards as you study to track your progress in this direction.</span>';
+}
+
+// Sort-mode toggle for the per-deck progress list. Lives in runtime only —
+// the user's pick resets to 'alphabetical' on reload, matching how the
+// analytics chapter sort behaves.
+export function setReviewSortMode(mode) {
+  const next = mode === 'confidence' ? 'confidence' : 'alphabetical';
+  if (runtime.reviewSortMode === next) return;
+  runtime.reviewSortMode = next;
+  renderReview();
 }
 
 // Return a previously-known card to the active deck. Flips its mark back to

@@ -1698,9 +1698,21 @@ export function renderAnalyticsOverlay() {
   const overallMetricsEl = document.getElementById('analyticsOverallMetrics');
   const overallChartEl = document.getElementById('analyticsTimeChart');
   const sessionEl = document.getElementById('analyticsSessionSummary');
+  // Total card-views: sum of seenCount across every directional progress
+  // store (g2e + e2g + morph). This is the raw "how many flips have I done
+  // across the whole course" stat that used to live in the per-deck
+  // progress frame.
+  let totalCardViews = 0;
+  ['g2e', 'e2g', 'morph'].forEach(direction => {
+    const store = (runtime.globalWordProgress && runtime.globalWordProgress[direction]) || {};
+    Object.values(store).forEach(entry => {
+      if (entry && Number.isFinite(entry.seenCount)) totalCardViews += entry.seenCount;
+    });
+  });
   if (overallMetricsEl) overallMetricsEl.innerHTML = `
       <div class="analytics-metric-card"><div class="analytics-metric-label">Active study time</div><div class="analytics-metric-value">${escapeHtml(formatUsageDuration(usage.activeStudyMs))}</div><div class="analytics-metric-note">Stricter interaction-based timer</div></div>
       <div class="analytics-metric-card"><div class="analytics-metric-label">Foreground time</div><div class="analytics-metric-value">${escapeHtml(formatUsageDuration(usage.totalMs))}</div><div class="analytics-metric-note">App visible on screen</div></div>
+      <div class="analytics-metric-card"><div class="analytics-metric-label">Card-views logged</div><div class="analytics-metric-value">${totalCardViews.toLocaleString()}</div><div class="analytics-metric-note">Across every direction and mode</div></div>
       <div class="analytics-metric-card"><div class="analytics-metric-label">Study sessions logged</div><div class="analytics-metric-value">${sessionHistory.length}</div><div class="analytics-metric-note">${latestSession ? `Latest ${formatAnalyticsDateTime(latestSession.startedAt)}` : 'No completed sessions yet'}</div></div>
       <div class="analytics-metric-card"><div class="analytics-metric-label">Average session length</div><div class="analytics-metric-value">${escapeHtml(formatUsageDuration(sessionHistory.length ? sessionHistory.reduce((sum, entry) => sum + (entry.durationMs || 0), 0) / sessionHistory.length : 0))}</div><div class="analytics-metric-note">Across saved study sessions</div></div>`;
   if (overallChartEl) overallChartEl.innerHTML = usageSeries.length ? buildLineChartSvg(usageSeries, { title: 'Cumulative active study time' }) : `<div class="analytics-empty">Start studying and this cumulative time chart will wake up.</div>`;

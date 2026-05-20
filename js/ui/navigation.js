@@ -11,7 +11,17 @@ import { runtime } from '../state/runtime.js';
 import { shuffleArray } from '../utils/helpers.js';
 import { SRS_DAY_MS, SRS_CYCLE_ADVANCE_MS } from '../domain/srs/constants.js';
 import { expandSessionSets, sortSetKeys } from '../domain/deck/ordering.js';
-import { sanitizeGamificationState } from '../state/store.js';
+import {
+  sanitizeGamificationState,
+  STORAGE_KEY,
+  CONSENT_STORAGE_KEY,
+  WHATS_NEW_V1_1_STORAGE_KEY,
+  THEME_STORAGE_KEY,
+  FONT_FAMILY_STORAGE_KEY,
+  TEXT_SIZE_STORAGE_KEY
+} from '../state/store.js';
+import { getStorage } from '../utils/storage.js';
+import { shieldClicksBriefly } from '../utils/clickShield.js';
 import { renderCard } from './render.js';
 import { renderProgress, renderReview } from './progress.js';
 import {
@@ -635,6 +645,7 @@ export function closeResetSpacedModal() {
   // modal-open when no other overlay is currently visible.
   const anyOtherOpen = document.querySelector('.consent-overlay.show');
   if (!anyOtherOpen) document.body.classList.remove('modal-open');
+  shieldClicksBriefly();
 }
 
 export function confirmResetSpacedTimingOnly() {
@@ -677,6 +688,7 @@ export function closeResetUnspacedModal() {
   overlay.setAttribute('aria-hidden', 'true');
   const anyOtherOpen = document.querySelector('.consent-overlay.show');
   if (!anyOtherOpen) document.body.classList.remove('modal-open');
+  shieldClicksBriefly();
 }
 
 export function confirmResetUnspacedMarks() {
@@ -687,10 +699,49 @@ export function confirmResetUnspacedMarks() {
   performUnspacedDeckReset(requiredOnly);
 }
 
-export function resetAllStats() {
-  host.clearSpacedUndoSnapshot();
-  const confirmed = window.confirm('Reset all saved study stats, marks, and spaced-review scheduling for both directions?');
+export function openResetStatsModal() {
+  const overlay = document.getElementById('resetStatsOverlay');
+  if (!overlay) {
+    // Fall back to the legacy single-confirm flow if the modal markup
+    // isn't present (e.g. during older cached index.html on PWA installs).
+    if (window.confirm('Reset all saved study stats, marks, and spaced-review scheduling for both directions?')) {
+      performResetStatsKeepSettings();
+    }
+    return;
+  }
+  overlay.classList.add('show');
+  overlay.setAttribute('aria-hidden', 'false');
+  document.body.classList.add('modal-open');
+}
+
+export function closeResetStatsModal() {
+  const overlay = document.getElementById('resetStatsOverlay');
+  if (!overlay) return;
+  overlay.classList.remove('show');
+  overlay.setAttribute('aria-hidden', 'true');
+  const anyOtherOpen = document.querySelector('.consent-overlay.show');
+  if (!anyOtherOpen) document.body.classList.remove('modal-open');
+  shieldClicksBriefly();
+}
+
+export function confirmResetStatsKeepSettings() {
+  closeResetStatsModal();
+  // Double-confirm: the modal pick is the first step, this native dialog
+  // is the second so a misclick doesn't quietly wipe progress.
+  const confirmed = window.confirm('Reset all saved study stats, marks, spaced-review scheduling, achievements, and study-time history? Your settings are kept.');
   if (!confirmed) return;
+  performResetStatsKeepSettings();
+}
+
+export function confirmResetToStart() {
+  closeResetStatsModal();
+  const confirmed = window.confirm('Wipe ALL data and return to the initial launch state? This clears stats, settings, theme, fonts, profile, and the study-aid disclaimer, then reloads the page.');
+  if (!confirmed) return;
+  performResetToStart();
+}
+
+function performResetStatsKeepSettings() {
+  host.clearSpacedUndoSnapshot();
 
   runtime.globalWordMarks = { g2e: {}, e2g: {}, morph: {} };
   runtime.globalWordProgress = { g2e: {}, e2g: {}, morph: {} };
@@ -728,3 +779,29 @@ export function resetAllStats() {
 
   host.saveState();
 }
+
+function performResetToStart() {
+  const storage = getStorage();
+  if (storage) {
+    // Every key the app writes — clearing only STORAGE_KEY would leave
+    // the disclaimer, theme, font, and "what's new" flags behind, so a
+    // reload wouldn't feel like a fresh first launch.
+    const keysToWipe = [
+      STORAGE_KEY,
+      CONSENT_STORAGE_KEY,
+      WHATS_NEW_V1_1_STORAGE_KEY,
+      THEME_STORAGE_KEY,
+      FONT_FAMILY_STORAGE_KEY,
+      TEXT_SIZE_STORAGE_KEY
+    ];
+    for (const key of keysToWipe) {
+      try { storage.removeItem(key); } catch (_err) { /* ignore */ }
+    }
+  }
+  // Reload to rebuild every in-memory store from a clean slate, including
+  // the consent gate, theme initializer, and selector lists.
+  window.location.reload();
+}
+
+// Backward-compatible alias kept in case any cached HTML still calls it.
+export const resetAllStats = openResetStatsModal;

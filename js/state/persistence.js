@@ -9,6 +9,7 @@
 import { runtime } from './runtime.js';
 import { isPlainObject, shuffleArray } from '../utils/helpers.js';
 import { getStorage, isLikelyIOS } from '../utils/storage.js';
+import { shieldClicksBriefly } from '../utils/clickShield.js';
 import { sortSetKeys } from '../domain/deck/ordering.js';
 import { filterHardVocabCards } from '../domain/deck/filters.js';
 import { STATE_MIGRATIONS, summarizePersistedState, formatPersistedStateSummary, compactPersistedState, compactRuntimeStores } from './migrations.js';
@@ -383,6 +384,7 @@ export function closeTransferModal() {
   runtime.transferPrimaryAction = null;
   runtime.transferSecondaryAction = null;
   if (!isDisclaimerModalOpen() && !isAnalyticsModalOpen()) document.body.classList.remove('modal-open');
+  shieldClicksBriefly();
 }
 
 export function handleTransferPrimaryAction() {

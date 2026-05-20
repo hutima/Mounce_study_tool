@@ -8,6 +8,7 @@
 // so the module stays a thin wrapper over the existing semantics.
 
 import { getStorage } from '../utils/storage.js';
+import { shieldClicksBriefly } from '../utils/clickShield.js';
 import { CONSENT_STORAGE_KEY, WHATS_NEW_V1_1_STORAGE_KEY } from '../state/store.js';
 
 let host = {
@@ -66,6 +67,7 @@ export function closeDisclaimerModal() {
   overlay.classList.remove('show');
   overlay.setAttribute('aria-hidden', 'true');
   if (!isTransferModalOpen() && !isAnalyticsModalOpen()) document.body.classList.remove('modal-open');
+  shieldClicksBriefly();
 }
 
 export function handleConsentAction() {
@@ -140,6 +142,7 @@ export function closeWhatsNewV1_1Modal() {
   if (!isDisclaimerModalOpen() && !isTransferModalOpen() && !isAnalyticsModalOpen() && !isStudySelectorOpen() && !isShortcutsModalOpen()) {
     document.body.classList.remove('modal-open');
   }
+  shieldClicksBriefly();
 }
 
 export function isWhatsNewV1_1ModalOpen() {
@@ -178,6 +181,7 @@ export function closeStudySelector() {
   overlay.classList.remove('show');
   overlay.setAttribute('aria-hidden', 'true');
   if (!isDisclaimerModalOpen() && !isTransferModalOpen() && !isAnalyticsModalOpen() && !isShortcutsModalOpen()) document.body.classList.remove('modal-open');
+  shieldClicksBriefly();
 }
 
 // ── Shortcuts ────────────────────────────────────────────────────────────
@@ -200,6 +204,7 @@ export function closeShortcutsModal() {
   overlay.classList.remove('show');
   overlay.setAttribute('aria-hidden', 'true');
   if (!isDisclaimerModalOpen() && !isTransferModalOpen() && !isAnalyticsModalOpen() && !isStudySelectorOpen()) document.body.classList.remove('modal-open');
+  shieldClicksBriefly();
 }
 
 // ── Analytics overlay open/close (the render itself stays in main.js) ────
@@ -224,6 +229,7 @@ export function closeAnalyticsOverlay() {
   overlay.classList.remove('show');
   overlay.setAttribute('aria-hidden', 'true');
   if (!isDisclaimerModalOpen() && !isTransferModalOpen() && !isStudySelectorOpen() && !isShortcutsModalOpen()) document.body.classList.remove('modal-open');
+  shieldClicksBriefly();
 }
 
 // ── Start-studying button (scrolls the card area into view) ──────────────
