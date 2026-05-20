@@ -9,6 +9,7 @@
 import { runtime } from './runtime.js';
 import { isPlainObject, shuffleArray } from '../utils/helpers.js';
 import { getStorage, isLikelyIOS } from '../utils/storage.js';
+import { shieldClicksBriefly } from '../utils/clickShield.js';
 import { sortSetKeys } from '../domain/deck/ordering.js';
 import { filterHardVocabCards } from '../domain/deck/filters.js';
 import { STATE_MIGRATIONS, summarizePersistedState, formatPersistedStateSummary, compactPersistedState, compactRuntimeStores } from './migrations.js';
@@ -111,7 +112,9 @@ export function buildPersistedStatePayload(compactOptions) {
       lastStudyInteractionAt: 0,
       lastStudyCountedAt: 0,
       currentStudySession: null
-    }
+    },
+    unspacedRoundSize: Number.isFinite(runtime.unspacedRoundSize) ? runtime.unspacedRoundSize : 0,
+    unspacedRoundMarks: Number.isFinite(runtime.unspacedRoundMarks) ? runtime.unspacedRoundMarks : 0
   }, compactOptions);
 }
 
@@ -383,6 +386,7 @@ export function closeTransferModal() {
   runtime.transferPrimaryAction = null;
   runtime.transferSecondaryAction = null;
   if (!isDisclaimerModalOpen() && !isAnalyticsModalOpen()) document.body.classList.remove('modal-open');
+  shieldClicksBriefly();
 }
 
 export function handleTransferPrimaryAction() {
@@ -839,12 +843,39 @@ export function restoreState() {
       runtime.activeDeckCount = restoredDeck.length;
       runtime.deck = host.buildStudyDeck(runtime.originalDeck, { forceShuffle: runtime.shuffled });
     } else if (restoredDeck) {
-      runtime.deck = runtime.shuffled ? shuffleArray([...restoredDeck]) : restoredDeck;
+      // Unspaced: partition into [active, archived] so the flip-deck mark
+      // logic can rely on that layout. The saved order is preserved for
+      // active cards (or reshuffled if shuffle is on); archived cards sit
+      // at the tail.
+      const restoredActive = restoredDeck.filter(card => runtime.marks[card.id] !== 'known');
+      const restoredKnown = restoredDeck.filter(card => runtime.marks[card.id] === 'known');
+      const orderedActive = runtime.shuffled ? shuffleArray([...restoredActive]) : [...restoredActive];
+      runtime.deck = [...orderedActive, ...restoredKnown];
     } else {
-      runtime.deck = host.buildStudyDeck(runtime.originalDeck);
+      runtime.deck = host.buildStudyDeck(runtime.originalDeck, { preserveUnspacedRound: true });
     }
     host.resetUnspacedCycleState();
+    // Restore unspaced round counters AFTER any deck build so a mid-round
+    // reload doesn't lose the user's position. Clamp size to the current
+    // active count, since the persisted deck might have drifted.
     runtime.activeDeckCount = runtime.spacedRepetition ? host.getDueCount(runtime.originalDeck) : runtime.originalDeck.filter(card => runtime.marks[card.id] !== 'known').length;
+    if (!runtime.spacedRepetition) {
+      const savedRoundSize = Number(saved.unspacedRoundSize);
+      const savedRoundMarks = Number(saved.unspacedRoundMarks);
+      if (Number.isFinite(savedRoundSize) && savedRoundSize >= 0) {
+        runtime.unspacedRoundSize = Math.min(savedRoundSize, runtime.activeDeckCount);
+      } else {
+        runtime.unspacedRoundSize = runtime.activeDeckCount;
+      }
+      if (Number.isFinite(savedRoundMarks) && savedRoundMarks >= 0) {
+        runtime.unspacedRoundMarks = Math.min(savedRoundMarks, runtime.unspacedRoundSize);
+      } else {
+        runtime.unspacedRoundMarks = 0;
+      }
+    } else {
+      runtime.unspacedRoundSize = 0;
+      runtime.unspacedRoundMarks = 0;
+    }
     runtime.currentIdx = usableDeckState && Number.isInteger(usableDeckState.currentIdx)
       ? Math.min(Math.max(usableDeckState.currentIdx, 0), runtime.spacedRepetition ? runtime.activeDeckCount : runtime.deck.length)
       : 0;

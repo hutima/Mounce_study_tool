@@ -37,6 +37,10 @@ export const runtime = {
   analyticsGrammarExpandedConcept: null,
   analyticsGrammarExpandedCard: null,
   analyticsGrammarConceptSort: 'confidence', // 'confidence' | 'alphabetical'
+  // Sort order of the per-deck progress card list. Defaults to alphabetical
+  // because that's the predictable "find a word" lookup; confidence flips it
+  // to lowest-raw-pct-first for the "what should I drill next" view.
+  reviewSortMode: 'alphabetical', // 'alphabetical' | 'confidence'
   // Word IDs currently expanded inside the stubborn / improved / slipping
   // lists. Keyed by the list's collapseKey so each list tracks its own
   // expansion independently — opening a row in "Most stubborn" doesn't
@@ -97,6 +101,13 @@ export const runtime = {
   unspacedPendingRecycle: false,
   unspacedCycleState: {},
   unspacedDeferredIds: new Set(), // 'pass' cards excluded from current pass
+  // Round bookkeeping for the unspaced flip-deck flow. A "round" is one pass
+  // through the active deck — Hard/Uncertain bump the card to the back of the
+  // active queue (it'll reappear in the same round); Easy archives it. When
+  // every card present at the start of the round has been marked, the
+  // remaining (non-archived) cards reshuffle for the next round.
+  unspacedRoundSize: 0,
+  unspacedRoundMarks: 0,
   flipsSinceReshuffle: 0,         // forward navigations since last periodic reshuffle
   lastPeriodicReshuffleAt: 0,     // wall-clock ms timestamp anchor for the hourly reshuffle throttle
   spacedUndoSnapshot: null,

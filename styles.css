@@ -513,6 +513,10 @@
   .nav-next.spaced-again:hover { background: linear-gradient(135deg, #472121, #2d1719); border-color: #c66c6c; color: #f3b2b2; }
   .nav-undo { background: rgba(107, 98, 60, 0.12); color: var(--gold-light); border-color: var(--gold-dim); }
   .nav-undo:hover { background: rgba(107, 98, 60, 0.22); border-color: var(--gold); color: var(--gold-light); }
+  .nav-reset { background: rgba(107, 98, 60, 0.10); color: var(--muted); border-color: var(--border); }
+  .nav-reset:hover { background: rgba(107, 98, 60, 0.20); border-color: var(--gold-dim); color: var(--cream); }
+  .nav-next.nav-next-as-reset { background: linear-gradient(135deg, #2a2818, #1e1e2a); color: var(--gold-light); border-color: var(--gold); }
+  .nav-next.nav-next-as-reset:hover { background: linear-gradient(135deg, #332e1a, #252535); border-color: var(--gold-light); color: var(--cream); }
 
   /* ── Mark buttons ── */
   .mark-row {
@@ -650,8 +654,14 @@
     border-radius: var(--radius); padding: 20px 24px; margin-bottom: 24px;
   }
   .review-panel.show { display: block; }
-  .review-title { font-family: var(--font-display); font-size: 12px; letter-spacing: 2px; text-transform: uppercase; color: var(--gold-dim); margin-bottom: 14px; }
-  .review-stats { display: flex; gap: 24px; margin-bottom: 16px; font-size: 14px; }
+  .review-header { display: flex; justify-content: space-between; align-items: baseline; gap: 16px; margin-bottom: 14px; }
+  .review-deck-tag { font-family: var(--font-display); font-size: 11px; letter-spacing: 1.5px; text-transform: uppercase; color: var(--muted); }
+  .review-title { font-family: var(--font-display); font-size: 12px; letter-spacing: 2px; text-transform: uppercase; color: var(--gold-dim); }
+  .review-stats { display: flex; gap: 24px; margin-bottom: 16px; font-size: 14px; flex-wrap: wrap; }
+  .review-sort-row { display: flex; align-items: center; gap: 12px; margin: 4px 0 14px; flex-wrap: wrap; }
+  .review-sort-label { font-family: var(--font-display); font-size: 11px; letter-spacing: 1.5px; text-transform: uppercase; color: var(--muted); }
+  .review-sort-group { display: inline-flex; gap: 6px; }
+  .review-sort-group .ctrl-btn { padding: 4px 12px; font-size: 13px; }
   .stat-known { color: #7ab88a; }
   .stat-unsure { color: var(--gold); }
   .stat-total { color: var(--muted); }
@@ -1368,6 +1378,24 @@
     background: rgba(140, 58, 58, 0.08);
   }
 
+  /* Reset-stats modal: two action buttons sit side-by-side on a single
+     centered row (Cancel + yellow keep-settings + red wipe-all). The
+     danger button keeps its red styling but matches the row's width
+     so the layout reads as one frame of equally-sized choices. */
+  .reset-stats-actions {
+    flex-wrap: wrap;
+    gap: 10px;
+    justify-content: center;
+    align-items: center;
+  }
+
+  .reset-stats-actions .ctrl-btn {
+    flex: 0 0 auto;
+    width: 150px;
+    text-align: center;
+    padding: 8px 18px;
+  }
+
   .reset-scope-row {
     margin-top: 4px;
     padding: 10px 12px;
@@ -1738,6 +1766,26 @@
   html[data-theme="light"] .nav-undo:hover {
     background: rgba(210, 188, 110, 0.28);
     border-color: rgba(142, 112, 34, 0.52);
+    color: #553c00;
+  }
+  html[data-theme="light"] .nav-reset {
+    background: rgba(210, 188, 110, 0.10);
+    border-color: rgba(142, 112, 34, 0.28);
+    color: #7a5b1f;
+  }
+  html[data-theme="light"] .nav-reset:hover {
+    background: rgba(210, 188, 110, 0.22);
+    border-color: rgba(142, 112, 34, 0.45);
+    color: #553c00;
+  }
+  html[data-theme="light"] .nav-next.nav-next-as-reset {
+    background: linear-gradient(135deg, #fbf3df, #f5eddc);
+    color: #6b4e00;
+    border-color: rgba(142, 112, 34, 0.55);
+  }
+  html[data-theme="light"] .nav-next.nav-next-as-reset:hover {
+    background: linear-gradient(135deg, #f5eddc, #eee5d0);
+    border-color: rgba(142, 112, 34, 0.75);
     color: #553c00;
   }
 
