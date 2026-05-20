@@ -59,6 +59,8 @@ export const runtime = {
   transferPrimaryAction: null,
   transferSecondaryAction: null,
   themeMode: 'system',
+  fontFamily: 'serif',  // 'serif' | 'sans'
+  textSize: 'medium',   // 'medium' | 'large' | 'x-large'
 
   // ── Study mode / morphology answer state ────────────────────────────
   studyMode: 'vocab',
