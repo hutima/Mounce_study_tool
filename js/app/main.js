@@ -794,15 +794,15 @@ function syncLayoutVisibility() {
   const unspacedHistoryTop = unspacedVocab ? getUnspacedHistoryTopType() : null;
   const unspacedHasHistory = !!unspacedHistoryTop;
   if (prevBtn) {
-    // Spaced/morph keep their dedicated Undo button. In unspaced vocab
-    // Prev walks the history stack: each Next/Mark/Reshuffle pushed an
-    // entry, and Prev pops one at a time. Label flips to "↶ Undo" when
-    // the next pop will roll back a confidence-impacting mark, so the
-    // user sees the warning at exactly that step.
+    // Spaced/morph keep their dedicated Undo button (Prev stays hidden).
+    // In unspaced vocab Prev is always present — a constant anchor in
+    // the nav row — and walks the history stack. Label flips to
+    // "↶ Undo" when the next pop will roll back a confidence-impacting
+    // mark so the user sees the warning at exactly that step. The
+    // button is functionally disabled (CSS keeps the Reset-like swatch
+    // instead of greying out) when there's nothing to undo or step back.
     const atStart = !runtime.deck.length || runtime.currentIdx <= 0;
-    const hidePrev = isMorphologyMode()
-      || (runtime.spacedRepetition && !isMorphologyMode())
-      || (unspacedVocab && atStart && !unspacedHasHistory);
+    const hidePrev = isMorphologyMode() || (runtime.spacedRepetition && !isMorphologyMode());
     prevBtn.style.display = hidePrev ? 'none' : '';
     const prevDisabled = unspacedVocab ? (!unspacedHasHistory && atStart) : atStart;
     prevBtn.disabled = prevDisabled;
