@@ -489,5 +489,51 @@ export const STATE_MIGRATIONS = [
       saved.analyticsCollapsed = next;
       return saved;
     }
+  },
+
+  {
+    // Early "Reset progress" runs cleared the scheduling fields but left
+    // `lastSpacedOutcome` set, which made the per-word analytics show a
+    // last outcome alongside stage 0 / ease 2.30 / no due date — looking
+    // half-cooked. Drop the dangling outcome on entries whose SRS state
+    // is fully at defaults so the display reflects "no scheduled state".
+    name: 'drop-stale-last-spaced-outcome',
+    match(saved) {
+      const buckets = ['g2e', 'e2g'];
+      return buckets.some(dir => {
+        const bucket = saved.globalWordProgress?.[dir];
+        if (!isPlainObject(bucket)) return false;
+        return Object.values(bucket).some(entry => isStaleLastSpacedOutcome(entry));
+      });
+    },
+    migrate(saved) {
+      ['g2e', 'e2g'].forEach(dir => {
+        const bucket = saved.globalWordProgress?.[dir];
+        if (!isPlainObject(bucket)) return;
+        Object.values(bucket).forEach(entry => {
+          if (isStaleLastSpacedOutcome(entry)) delete entry.lastSpacedOutcome;
+        });
+      });
+      return saved;
+    }
   }
 ];
+
+// A `lastSpacedOutcome` is stale when the entry has no scheduling state
+// to back it up — every SRS field is missing or at its default and the
+// confidence history is empty. That shape is what a "Reset progress" run
+// leaves behind, and the outcome label without supporting state misreads.
+function isStaleLastSpacedOutcome(entry) {
+  if (!isPlainObject(entry)) return false;
+  if (!entry.lastSpacedOutcome) return false;
+  const num = (v) => Number.isFinite(v) ? v : 0;
+  if (num(entry.dueAt) > 0) return false;
+  if (num(entry.intervalDays) > 0) return false;
+  if (num(entry.streak) > 0) return false;
+  if (num(entry.easyStreak) > 0) return false;
+  if (num(entry.srsStage) > 0) return false;
+  if (num(entry.lastEasyIntervalDays) > 0) return false;
+  if (Number.isFinite(entry.ease) && entry.ease !== PROGRESS_DEFAULT_EASE) return false;
+  if (Array.isArray(entry.confidenceHistory) && entry.confidenceHistory.length) return false;
+  return true;
+}

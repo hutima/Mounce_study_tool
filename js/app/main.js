@@ -425,7 +425,8 @@ configureNavigation({
   saveState: () => saveState(),
   renderReaderModule: () => renderReaderModule(),
   getDeckStateKey: (keys, req, spaced) => getDeckStateKey(keys, req, spaced),
-  getSessions: () => getSessions()
+  getSessions: () => getSessions(),
+  getSelectedCards: (keys) => getSelectedCards(keys)
 });
 configureAnalytics({
   ensureUsageStats: () => ensureUsageStats(),

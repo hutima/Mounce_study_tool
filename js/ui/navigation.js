@@ -66,7 +66,8 @@ let host = {
   saveState: () => {},
   renderReaderModule: () => {},
   getDeckStateKey: () => '',
-  getSessions: () => []
+  getSessions: () => [],
+  getSelectedCards: () => []
 };
 
 export function configureNavigation(deps) {
@@ -671,6 +672,16 @@ function shouldResetCard(card, requiredOnly) {
   return !!(card && card.required);
 }
 
+// The reset modal targets the *current selection*, not the current deck.
+// runtime.originalDeck is already filtered to required-only when the
+// study toggle is on, so iterating it would silently skip non-required
+// cards on a whole-deck reset. Pull the full selection here and let
+// shouldResetCard apply the modal's own scope toggle.
+function getResetScopeCards() {
+  const allSelected = host.getSelectedCards(runtime.selectedKeys);
+  return Array.isArray(allSelected) && allSelected.length ? allSelected : runtime.originalDeck;
+}
+
 function performUnspacedDeckReset(requiredOnly) {
   if (!requiredOnly) {
     // Whole-deck reset still clears the saved deck-state for this combo.
@@ -679,7 +690,7 @@ function performUnspacedDeckReset(requiredOnly) {
   }
   const directionalMarks = host.getDirectionalMarksStore();
 
-  runtime.originalDeck.forEach(card => {
+  getResetScopeCards().forEach(card => {
     if (!shouldResetCard(card, requiredOnly)) return;
     delete directionalMarks[card.id];
   });
@@ -707,7 +718,7 @@ function performSpacedProgressReset(requiredOnly) {
   }
   const directionalProgress = host.getDirectionalProgressStore();
 
-  runtime.originalDeck.forEach(card => {
+  getResetScopeCards().forEach(card => {
     if (!shouldResetCard(card, requiredOnly)) return;
     const p = directionalProgress[card.id];
     if (p && typeof p === 'object') {
@@ -720,6 +731,11 @@ function performSpacedProgressReset(requiredOnly) {
       p.lastEasyIntervalDays = 0;
       p.confidence = 0;
       p.confidenceHistory = [];
+      // The SRS scheduling is gone, so the last spaced outcome can no
+      // longer describe a real scheduled state. Leaving it set made the
+      // per-word analytics show "lastOutcome: easy" alongside stage 0 /
+      // ease 2.30 / no due date.
+      delete p.lastSpacedOutcome;
       // seenCount, passCount, failCount, lastReviewedAt intentionally kept
     }
   });
@@ -741,7 +757,7 @@ function performSpacedProgressReset(requiredOnly) {
 function performSpacedTimingReset(requiredOnly) {
   const directionalProgress = host.getDirectionalProgressStore();
 
-  runtime.originalDeck.forEach(card => {
+  getResetScopeCards().forEach(card => {
     if (!shouldResetCard(card, requiredOnly)) return;
     const p = directionalProgress[card.id];
     if (p && typeof p === 'object') {
