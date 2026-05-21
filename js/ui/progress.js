@@ -94,13 +94,12 @@ export function renderReview() {
       unseenCount += 1;
     }
   });
-  // Spaced mode: cards not yet due (scheduled ahead). Unspaced: cards not
-  // yet confirmed known. Matches the per-mode "still to confirm" / "scheduled
-  // ahead" metric that used to sit in this stats line.
-  const deckTotal = runtime.originalDeck.length;
+  // Spaced mode: cards still due now. Marking Easy/Pass pushes a card out of
+  // the due pool, so the count drops as you study. Unspaced: cards not yet
+  // confirmed known.
   const cardsLeft = runtime.spacedRepetition
-    ? Math.max(deckTotal - host.getDueCount(runtime.originalDeck), 0)
-    : Math.max(deckTotal - host.getKnownCount(), 0);
+    ? host.getDueCount(runtime.originalDeck)
+    : Math.max(runtime.originalDeck.length - host.getKnownCount(), 0);
 
   const deckTagEl = document.getElementById('reviewDeckTag');
   if (deckTagEl) {
