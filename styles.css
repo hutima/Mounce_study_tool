@@ -454,6 +454,14 @@
     color: var(--gold-dim); opacity: 0.7;
   }
 
+  .card-required-label {
+    position: absolute; top: 14px; left: 18px;
+    font-family: var(--font-display); font-size: 11px;
+    letter-spacing: 2px; text-transform: uppercase;
+    color: var(--gold-dim); opacity: 0.55;
+  }
+  .card-required-label-opt { opacity: 0.4; }
+
   .card-greek {
     font-family: var(--font-greek);
     font-size: clamp(26px, 6vw, 42px);
