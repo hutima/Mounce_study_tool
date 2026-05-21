@@ -791,19 +791,31 @@ function syncLayoutVisibility() {
   const unspacedVocab = !runtime.spacedRepetition && !isMorphologyMode();
   const unspacedHasUndo = unspacedVocab && !!runtime.spacedUndoSnapshot;
   if (prevBtn) {
-    // Hidden in spaced/morph (those use the dedicated Undo button), and in
-    // unspaced when a mark just landed (Prev morphs into Undo for that
-    // step so the confidence-impacting action can be rolled back).
-    const hidePrev = isMorphologyMode() || (runtime.spacedRepetition && !isMorphologyMode()) || unspacedHasUndo;
-    prevBtn.style.display = hidePrev ? 'none' : '';
+    // Spaced/morph keep their dedicated Undo button. In unspaced vocab,
+    // Prev does double duty: it's the undo whenever a Hard/Uncertain/
+    // Easy mark just landed (snapshot present), and a plain cursor-back
+    // otherwise. Hide it entirely only when neither action is available
+    // — at the start of a deck with no snapshot.
     const atStart = !runtime.deck.length || runtime.currentIdx <= 0;
-    prevBtn.disabled = atStart;
-    prevBtn.classList.toggle('nav-disabled', atStart);
+    const hidePrev = isMorphologyMode()
+      || (runtime.spacedRepetition && !isMorphologyMode())
+      || (unspacedVocab && atStart && !unspacedHasUndo);
+    prevBtn.style.display = hidePrev ? 'none' : '';
+    const prevDisabled = unspacedVocab ? (!unspacedHasUndo && atStart) : atStart;
+    prevBtn.disabled = prevDisabled;
+    prevBtn.classList.toggle('nav-disabled', prevDisabled);
+    if (unspacedVocab) {
+      prevBtn.textContent = unspacedHasUndo ? '↶ Undo' : '← Prev';
+    } else {
+      prevBtn.textContent = '← Prev';
+    }
   }
   if (undoBtn) {
     const morphUndoActive = isMorphologyMode() && runtime.morphAnswerState.answered && !!runtime.spacedUndoSnapshot;
     const vocabUndoActive = runtime.spacedRepetition && !isMorphologyMode() && !!runtime.spacedUndoSnapshot;
-    undoBtn.style.display = (morphUndoActive || vocabUndoActive || unspacedHasUndo) ? '' : 'none';
+    // Unspaced now routes undo through the Prev button, so the separate
+    // Undo control only shows for spaced/morph.
+    undoBtn.style.display = (morphUndoActive || vocabUndoActive) ? '' : 'none';
   }
   if (navResetBtn) {
     // Unspaced vocab keeps the inline Reset visible at all times so the
