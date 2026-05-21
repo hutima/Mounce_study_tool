@@ -154,6 +154,14 @@ export function installTouchSafeTapBridge() {
     else updateGesture(activeTouchGesture, event);
   }
 
+  // Mark (Hard/Uncertain/Easy) and nav (Prev/Next) buttons exist to be
+  // tapped repeatedly while flipping through a deck — the rapid-tap
+  // suppressor is appropriate for toggles/modals, but it stalls real
+  // study sessions when applied to these. Skip the dedupe for them.
+  function isRapidTapExempt(el) {
+    return !!(el && el.closest && el.closest('.mark-btn, .nav-btn'));
+  }
+
   function onTouchLikeTap(event) {
     if (shouldIgnoreTouchEvent(event)) return;
     const gesture = event.type === 'pointerup' ? activePointerGesture : activeTouchGesture;
@@ -168,7 +176,7 @@ export function installTouchSafeTapBridge() {
     if (gesture.moved || gesture.scrolled) return;
 
     const now = Date.now();
-    if (lastTouchTriggeredEl === gestureTarget && (now - lastTouchTriggeredAt) < 700) {
+    if (!isRapidTapExempt(gestureTarget) && lastTouchTriggeredEl === gestureTarget && (now - lastTouchTriggeredAt) < 350) {
       event.preventDefault();
       return;
     }
@@ -188,7 +196,8 @@ export function installTouchSafeTapBridge() {
     if (syntheticTapDispatchDepth > 0) return;
     const el = getTapTarget(event.target);
     if (!el) return;
-    if (lastTouchTriggeredEl === el && (Date.now() - lastTouchTriggeredAt) < 700) {
+    if (isRapidTapExempt(el)) return;
+    if (lastTouchTriggeredEl === el && (Date.now() - lastTouchTriggeredAt) < 350) {
       event.preventDefault();
       event.stopPropagation();
       event.stopImmediatePropagation();
