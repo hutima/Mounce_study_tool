@@ -1262,7 +1262,7 @@ function buildStubbornConceptCollapseHtml(concepts, collapseKey) {
     const stat = `${c.fails} miss${c.fails === 1 ? '' : 'es'} · ${failRate}% miss rate`;
     const sub = `${c.totalCards} card${c.totalCards === 1 ? '' : 's'} · ${c.passes + c.fails} flip${c.passes + c.fails === 1 ? '' : 's'}`;
     return `
-      <li class="analytics-word-list-row">
+      <li class="analytics-word-list-row analytics-word-list-row-grammar">
         <span class="analytics-word-list-headword">${escapeHtml(c.family)}</span>
         <span class="analytics-word-list-gloss">${escapeHtml(sub)}</span>
         <span class="analytics-word-list-pct">${escapeHtml(stat)}</span>
@@ -1292,7 +1292,7 @@ function buildImprovedConceptCollapseHtml(concepts, collapseKey) {
     const stat = `+${Math.round(c.avgDelta * 100)}% · ${c.qualifying} card${c.qualifying === 1 ? '' : 's'}`;
     const sub = `${c.totalCards} card${c.totalCards === 1 ? '' : 's'} · prior ${Math.round(c.avgOlder * 100)}%`;
     return `
-      <li class="analytics-word-list-row">
+      <li class="analytics-word-list-row analytics-word-list-row-grammar">
         <span class="analytics-word-list-headword">${escapeHtml(c.family)}</span>
         <span class="analytics-word-list-gloss">${escapeHtml(sub)}</span>
         <span class="analytics-word-list-pct">${escapeHtml(stat)}</span>
