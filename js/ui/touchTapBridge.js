@@ -154,12 +154,21 @@ export function installTouchSafeTapBridge() {
     else updateGesture(activeTouchGesture, event);
   }
 
-  // Mark (Hard/Uncertain/Easy) and nav (Prev/Next) buttons exist to be
-  // tapped repeatedly while flipping through a deck — the rapid-tap
-  // suppressor is appropriate for toggles/modals, but it stalls real
-  // study sessions when applied to these. Skip the dedupe for them.
+  // Mark (Hard/Uncertain/Easy) and nav (Prev/Next/Undo) buttons exist to
+  // be tapped repeatedly while flipping through a deck. The original
+  // 350 ms same-element dedupe throttled real study sessions, so these
+  // controls use a much tighter window — just enough to collapse the
+  // pointer/touch/native-click triple-fire iOS emits for a single
+  // physical tap (those land within tens of milliseconds of each other,
+  // well below any human tap cadence). The wider window still applies
+  // to modals, toggles, and other one-shot controls.
+  const RAPID_TAP_DEDUPE_MS = 80;
+  const DEFAULT_TAP_DEDUPE_MS = 350;
   function isRapidTapExempt(el) {
     return !!(el && el.closest && el.closest('.mark-btn, .nav-btn'));
+  }
+  function getDedupeWindowMs(el) {
+    return isRapidTapExempt(el) ? RAPID_TAP_DEDUPE_MS : DEFAULT_TAP_DEDUPE_MS;
   }
 
   function onTouchLikeTap(event) {
@@ -176,7 +185,7 @@ export function installTouchSafeTapBridge() {
     if (gesture.moved || gesture.scrolled) return;
 
     const now = Date.now();
-    if (!isRapidTapExempt(gestureTarget) && lastTouchTriggeredEl === gestureTarget && (now - lastTouchTriggeredAt) < 350) {
+    if (lastTouchTriggeredEl === gestureTarget && (now - lastTouchTriggeredAt) < getDedupeWindowMs(gestureTarget)) {
       event.preventDefault();
       return;
     }
@@ -196,8 +205,15 @@ export function installTouchSafeTapBridge() {
     if (syntheticTapDispatchDepth > 0) return;
     const el = getTapTarget(event.target);
     if (!el) return;
-    if (isRapidTapExempt(el)) return;
-    if (lastTouchTriggeredEl === el && (Date.now() - lastTouchTriggeredAt) < 350) {
+    // The iOS-emitted native click after a touchend lands ~16 ms later,
+    // so it's always inside even the tight rapid-tap window. Suppress it
+    // whenever our synthetic click just fired for this element —
+    // otherwise the onclick handler runs twice per physical tap, which
+    // breaks anything that snapshots state per call (e.g. the spaced
+    // undo flow captures a fresh snapshot before each review, so a
+    // duplicate fire overwrites the pre-tap snapshot with the
+    // post-first-review state).
+    if (lastTouchTriggeredEl === el && (Date.now() - lastTouchTriggeredAt) < DEFAULT_TAP_DEDUPE_MS) {
       event.preventDefault();
       event.stopPropagation();
       event.stopImmediatePropagation();
