@@ -108,9 +108,25 @@ export const runtime = {
   // remaining (non-archived) cards reshuffle for the next round.
   unspacedRoundSize: 0,
   unspacedRoundMarks: 0,
+  // 5 AM-cutoff day key recorded the last time an unspaced archive (Easy
+  // mark) was active. When the current day key drifts past this and
+  // unspacedAutoResetEnabled is on, the daily auto-clear wipes all
+  // unspaced 'known' marks across both vocab directions.
+  lastUnspacedArchiveDayKey: '',
+  // Off by default: Easy-archived cards persist across sessions and chapter
+  // changes until the user explicitly resets, or until they opt in to the
+  // 5 AM daily reset via the deck control toggle.
+  unspacedAutoResetEnabled: false,
   flipsSinceReshuffle: 0,         // forward navigations since last periodic reshuffle
   lastPeriodicReshuffleAt: 0,     // wall-clock ms timestamp anchor for the hourly reshuffle throttle
   spacedUndoSnapshot: null,
+  // History stack of pre-action snapshots for vocab unspaced. Each Next
+  // press, Hard/Uncertain/Easy mark, and end-of-deck reshuffle pushes one
+  // entry; Prev pops the top and restores it. Entries are tagged 'next',
+  // 'mark', or 'reshuffle' so the Prev button label can switch to "Undo"
+  // when the next pop would roll back a confidence-impacting mark.
+  // Capped at runtime; not persisted (session-only).
+  unspacedHistory: [],
 
   // ── Per-direction mark store for the active study mode ──────────────
   marks: {}

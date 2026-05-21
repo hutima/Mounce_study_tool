@@ -50,6 +50,9 @@ let host = {
   captureSpacedUndoSnapshot: () => {},
   applySpacedReview: () => {},
   clearSpacedUndoSnapshot: () => {},
+  restoreSpacedUndo: () => {},
+  pushUnspacedHistory: () => {},
+  restoreUnspacedHistoryStep: () => false,
   clearSavedState: () => {},
   maybeReturnConfirmedDeferredCard: () => {},
   maybePeriodicReshuffle: () => {},
@@ -57,12 +60,14 @@ let host = {
   applyUnspacedSharedSchedule: () => {},
   getRemainingCards: () => [],
   resetUnspacedCycleState: () => {},
+  noteUnspacedArchiveActivity: () => {},
   saveCurrentDeckStateToBank: () => {},
   markActiveDeckRef: () => {},
   saveState: () => {},
   renderReaderModule: () => {},
   getDeckStateKey: () => '',
-  getSessions: () => []
+  getSessions: () => [],
+  getSelectedCards: () => []
 };
 
 export function configureNavigation(deps) {
@@ -95,6 +100,15 @@ export function navigate(dir, options = {}) {
   host.noteStudyInteraction();
 
   if (dir < 0) {
+    // Vocab unspaced: Prev walks back through the history stack. Each
+    // Next, mark, and reshuffle pushed a snapshot before mutating, so a
+    // Prev press just pops and restores. The label flips between
+    // "← Prev" and "↶ Undo" so the user knows when the next pop will
+    // roll back a confidence-impacting mark.
+    if (!runtime.spacedRepetition && !host.isMorphologyMode()) {
+      if (host.restoreUnspacedHistoryStep()) return;
+      // No history to walk: fall through to plain cursor-back.
+    }
     runtime.currentIdx = Math.max(0, runtime.currentIdx - 1);
     host.resetMorphAnswerState();
     renderCard();
@@ -116,15 +130,20 @@ export function navigate(dir, options = {}) {
       renderReview();
       renderProgress();
       host.saveState();
-    } else if (runtime.activeDeckCount === 0
-      && runtime.originalDeck.length > 0
-      && runtime.selectedKeys.length > 0) {
-      // Vocab unspaced + every card archived: the Next button visually
-      // morphs into "↻ Reset", and the keyboard equivalent does the same.
-      resetUnspacedDeckNoConfirm();
+    } else if (runtime.activeDeckCount > 0) {
+      // Vocab unspaced + end-of-round confirmation card: Next shuffles the
+      // still-active cards and starts a fresh round. Push history so Prev
+      // can put the deck back in its pre-shuffle order. (All-archived
+      // state requires the explicit Reset control — Next is a no-op there.)
+      host.pushUnspacedHistory('reshuffle');
+      reshuffleUnspacedRound(host.getDirectionalMarksStore());
+      runtime.isFlipped = false;
+      host.resetMorphAnswerState();
+      renderCard();
+      renderReview();
+      renderProgress();
+      host.saveState();
     }
-    // Otherwise: no auto-cycle. Vocab unspaced restart goes through the
-    // explicit "↻ Reset" button.
     return;
   }
 
@@ -191,20 +210,27 @@ export function navigate(dir, options = {}) {
     return;
   }
 
-  // Vocab unspaced: advance to the next still-active (non-archived) card.
-  // Hard / Uncertain marks rearrange the deck in place (handled by markCard);
-  // Next without marking just steps the cursor forward.
-  for (let i = runtime.currentIdx + 1; i < runtime.deck.length; i++) {
-    if (runtime.marks[runtime.deck[i].id] !== 'known') {
-      runtime.currentIdx = i;
-      host.maybePeriodicReshuffle();
-      renderCard();
-      return;
-    }
+  // Vocab unspaced: Next acts as a neutral pass — moves the current card
+  // to the back of the active queue and ticks the round counter, but
+  // does not record a confidence sample or touch pass/fail/XP. The
+  // pre-action state is pushed onto the unspaced history stack so a
+  // subsequent Prev can step back through each Next press one by one.
+  if (runtime.currentIdx < runtime.activeDeckCount) {
+    const currentCard = runtime.deck[runtime.currentIdx];
+    host.pushUnspacedHistory('next');
+    applyUnspacedMark(currentCard, 'pass', { skipRecording: true });
+    host.maybePeriodicReshuffle();
+    host.resetMorphAnswerState();
+    renderCard();
+    renderReview();
+    renderProgress();
+    host.saveState();
+    return;
   }
 
-  // No active card past the cursor. Park at the end so renderCard shows the
-  // done state; the user clicks "↻ Reset" (the morphed Next button) to restart.
+  // Cursor past the active section (e.g. every card archived via Easy).
+  // Park at the end so renderCard shows the done state; the user clicks
+  // "↻ Reset" (the morphed Next button) to restart.
   runtime.currentIdx = runtime.deck.length;
   runtime.unspacedPendingRecycle = false;
   host.resetMorphAnswerState();
@@ -229,6 +255,7 @@ export function markCard(outcome) {
       navigate(1, { skipAutoReview: true });
     }
   } else {
+    host.pushUnspacedHistory('mark');
     applyUnspacedMark(currentCard, outcome);
     renderCard();
   }
@@ -245,19 +272,26 @@ export function markCard(outcome) {
 // All three outcomes still feed recordStudyOutcome so confidence/analytics
 // reflect the response. applyUnspacedSharedSchedule keeps the legacy cycle
 // bookkeeping in sync for any reader that still consults it.
-function applyUnspacedMark(card, outcome) {
+// `options.skipRecording` makes the call a neutral queue-only nudge: the
+// card moves to the back and the round counter still ticks, but
+// confidence, XP, and pass/fail counts are untouched. Used by the Next
+// button in vocab unspaced mode.
+function applyUnspacedMark(card, outcome, options = {}) {
   if (!card) return;
   const normalizedOutcome = outcome === 'easy' ? 'easy' : outcome === 'pass' ? 'pass' : 'again';
-  const recordedOutcome = normalizedOutcome === 'easy' ? 'known' : normalizedOutcome === 'pass' ? 'pass' : 'review';
-  const reviewedAt = Date.now();
-  host.recordStudyOutcome(card.id, recordedOutcome, reviewedAt);
-  host.applyUnspacedSharedSchedule(card, normalizedOutcome, reviewedAt);
+  if (!options.skipRecording) {
+    const recordedOutcome = normalizedOutcome === 'easy' ? 'known' : normalizedOutcome === 'pass' ? 'pass' : 'review';
+    const reviewedAt = Date.now();
+    host.recordStudyOutcome(card.id, recordedOutcome, reviewedAt);
+    host.applyUnspacedSharedSchedule(card, normalizedOutcome, reviewedAt);
+  }
 
   const directionalMarks = host.getDirectionalMarksStore();
   const fromIdx = runtime.deck.findIndex(c => c && c.id === card.id);
 
   if (normalizedOutcome === 'easy') {
     directionalMarks[card.id] = 'known';
+    host.noteUnspacedArchiveActivity();
     if (fromIdx >= 0) {
       runtime.deck.splice(fromIdx, 1);
       runtime.deck.push(card);
@@ -280,16 +314,19 @@ function applyUnspacedMark(card, outcome) {
   runtime.activeDeckCount = runtime.deck.filter(c => directionalMarks[c.id] !== 'known').length;
   runtime.unspacedRoundMarks = (Number(runtime.unspacedRoundMarks) || 0) + 1;
 
-  // Round complete: reshuffle the still-active cards and start a new round.
+  // Round complete: park at the end-of-deck so renderCard shows the
+  // "Press Next to shuffle" confirmation. navigate(1) at deck.length is
+  // where the actual reshuffle happens, so the learner gets a chance to
+  // pause/reset instead of being yanked into a new shuffle automatically.
   const roundSize = Number(runtime.unspacedRoundSize) || 0;
-  if (roundSize > 0 && runtime.unspacedRoundMarks >= roundSize && runtime.activeDeckCount > 0) {
-    reshuffleUnspacedRound(directionalMarks);
-  } else if (runtime.activeDeckCount === 0) {
+  if (runtime.activeDeckCount === 0) {
     // Everything is archived; freeze the cursor at the end so renderCard()
     // shows the done state instead of looping back to a known card.
     runtime.currentIdx = runtime.deck.length;
     runtime.unspacedRoundSize = 0;
     runtime.unspacedRoundMarks = 0;
+  } else if (roundSize > 0 && runtime.unspacedRoundMarks >= roundSize) {
+    runtime.currentIdx = runtime.deck.length;
   } else {
     // Mid-round: the splice shifted later cards into our slot, so currentIdx
     // already points at the next card. Clamp to the new active count.
@@ -518,6 +555,23 @@ export function toggleSpacedRepetition() {
   host.saveState();
 }
 
+// Toggle the unspaced "Daily archive reset" preference. When on, the next
+// time the app sees the 5 AM-cutoff day key has rolled over from the last
+// archive activity it wipes the unspaced 'known' marks. When off,
+// Easy-archived cards persist indefinitely until the user resets.
+export function toggleUnspacedDailyReset() {
+  runtime.unspacedAutoResetEnabled = !runtime.unspacedAutoResetEnabled;
+  if (runtime.unspacedAutoResetEnabled) {
+    // Re-seed on every opt-in so the auto-clear fires on the *next*
+    // 5 AM boundary, never the moment of opt-in. Without this, flipping
+    // the toggle off+on across a day rollover would surprise the user
+    // by wiping archives the instant they re-enable it.
+    host.noteUnspacedArchiveActivity();
+  }
+  host.syncToggleButtons();
+  host.saveState();
+}
+
 export function toggleSplitSelection() {
   runtime.splitSelection = !runtime.splitSelection;
   if (runtime.splitSelection) {
@@ -618,6 +672,16 @@ function shouldResetCard(card, requiredOnly) {
   return !!(card && card.required);
 }
 
+// The reset modal targets the *current selection*, not the current deck.
+// runtime.originalDeck is already filtered to required-only when the
+// study toggle is on, so iterating it would silently skip non-required
+// cards on a whole-deck reset. Pull the full selection here and let
+// shouldResetCard apply the modal's own scope toggle.
+function getResetScopeCards() {
+  const allSelected = host.getSelectedCards(runtime.selectedKeys);
+  return Array.isArray(allSelected) && allSelected.length ? allSelected : runtime.originalDeck;
+}
+
 function performUnspacedDeckReset(requiredOnly) {
   if (!requiredOnly) {
     // Whole-deck reset still clears the saved deck-state for this combo.
@@ -626,7 +690,7 @@ function performUnspacedDeckReset(requiredOnly) {
   }
   const directionalMarks = host.getDirectionalMarksStore();
 
-  runtime.originalDeck.forEach(card => {
+  getResetScopeCards().forEach(card => {
     if (!shouldResetCard(card, requiredOnly)) return;
     delete directionalMarks[card.id];
   });
@@ -654,7 +718,7 @@ function performSpacedProgressReset(requiredOnly) {
   }
   const directionalProgress = host.getDirectionalProgressStore();
 
-  runtime.originalDeck.forEach(card => {
+  getResetScopeCards().forEach(card => {
     if (!shouldResetCard(card, requiredOnly)) return;
     const p = directionalProgress[card.id];
     if (p && typeof p === 'object') {
@@ -667,6 +731,11 @@ function performSpacedProgressReset(requiredOnly) {
       p.lastEasyIntervalDays = 0;
       p.confidence = 0;
       p.confidenceHistory = [];
+      // The SRS scheduling is gone, so the last spaced outcome can no
+      // longer describe a real scheduled state. Leaving it set made the
+      // per-word analytics show "lastOutcome: easy" alongside stage 0 /
+      // ease 2.30 / no due date.
+      delete p.lastSpacedOutcome;
       // seenCount, passCount, failCount, lastReviewedAt intentionally kept
     }
   });
@@ -688,7 +757,7 @@ function performSpacedProgressReset(requiredOnly) {
 function performSpacedTimingReset(requiredOnly) {
   const directionalProgress = host.getDirectionalProgressStore();
 
-  runtime.originalDeck.forEach(card => {
+  getResetScopeCards().forEach(card => {
     if (!shouldResetCard(card, requiredOnly)) return;
     const p = directionalProgress[card.id];
     if (p && typeof p === 'object') {
