@@ -454,6 +454,14 @@
     color: var(--gold-dim); opacity: 0.7;
   }
 
+  .card-required-label {
+    position: absolute; top: 14px; left: 18px;
+    font-family: var(--font-display); font-size: 11px;
+    letter-spacing: 2px; text-transform: uppercase;
+    color: var(--gold-dim); opacity: 0.55;
+  }
+  .card-required-label-opt { opacity: 0.4; }
+
   .card-greek {
     font-family: var(--font-greek);
     font-size: clamp(26px, 6vw, 42px);
@@ -3190,6 +3198,40 @@
     color: var(--cream);
     line-height: 1.65;
     flex: 1;
+  }
+
+  .reader-verse-difficulty {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 22px;
+    height: 22px;
+    margin-right: 10px;
+    border-radius: 5px;
+    border: 1px solid var(--border);
+    font-family: var(--font-display);
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0;
+    vertical-align: 2px;
+    color: var(--muted);
+    background: rgba(255,255,255,0.02);
+    flex-shrink: 0;
+  }
+  .reader-verse-difficulty-e {
+    color: #6db26d;
+    border-color: rgba(109,178,109,0.45);
+    background: rgba(109,178,109,0.08);
+  }
+  .reader-verse-difficulty-m {
+    color: #d3a64a;
+    border-color: rgba(211,166,74,0.45);
+    background: rgba(211,166,74,0.08);
+  }
+  .reader-verse-difficulty-h {
+    color: #c8755b;
+    border-color: rgba(200,117,91,0.45);
+    background: rgba(200,117,91,0.08);
   }
 
   .reader-verse-ref {
