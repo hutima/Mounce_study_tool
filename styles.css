@@ -678,6 +678,7 @@
   .review-sort-label { font-family: var(--font-display); font-size: 11px; letter-spacing: 1.5px; text-transform: uppercase; color: var(--muted); }
   .review-sort-group { display: inline-flex; gap: 6px; }
   .review-sort-group .ctrl-btn { padding: 4px 12px; font-size: 13px; }
+  .stat-deck { color: var(--gold-light); font-family: var(--font-display); letter-spacing: 0.5px; }
   .stat-known { color: #7ab88a; }
   .stat-unsure { color: var(--gold); }
   .stat-total { color: var(--muted); }

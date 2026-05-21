@@ -94,6 +94,13 @@ export function renderReview() {
       unseenCount += 1;
     }
   });
+  // Spaced mode: cards not yet due (scheduled ahead). Unspaced: cards not
+  // yet confirmed known. Matches the per-mode "still to confirm" / "scheduled
+  // ahead" metric that used to sit in this stats line.
+  const deckTotal = runtime.originalDeck.length;
+  const cardsLeft = runtime.spacedRepetition
+    ? Math.max(deckTotal - host.getDueCount(runtime.originalDeck), 0)
+    : Math.max(deckTotal - host.getKnownCount(), 0);
 
   const deckTagEl = document.getElementById('reviewDeckTag');
   if (deckTagEl) {
@@ -103,6 +110,7 @@ export function renderReview() {
   }
 
   document.getElementById('reviewStats').innerHTML = `
+      <span class="stat-deck">▦ Cards left: ${cardsLeft}</span>
       <span class="stat-known">✓ High confidence: ${highCount}</span>
       <span class="stat-unsure">○ Low confidence: ${lowCount}</span>
       <span class="stat-total">· Unseen: ${unseenCount}</span>`;
