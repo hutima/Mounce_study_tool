@@ -1156,9 +1156,10 @@ function renderCardListRow(item, kind, primaryDisplay, opts = {}) {
   const gloss = kind === 'grammar' ? (card.answer || card.gloss || '') : (card.e || '');
 
   const tappable = kind === 'vocab' && listKey && progressStore;
+  const kindClass = kind === 'grammar' ? ' analytics-word-list-row-grammar' : '';
   if (!tappable) {
     return `
-      <li class="analytics-word-list-row">
+      <li class="analytics-word-list-row${kindClass}">
         <span class="analytics-word-list-headword">${headword}</span>
         <span class="analytics-word-list-gloss">${escapeHtml(gloss)}</span>
         <span class="analytics-word-list-pct">${escapeHtml(primaryDisplay)}</span>
@@ -1172,7 +1173,7 @@ function renderCardListRow(item, kind, primaryDisplay, opts = {}) {
     ? `<li class="analytics-word-list-statcard-row" aria-hidden="false">${buildWordStatCardHtml(card, progressStore?.[card.id], marksStore?.[card.id] === 'known')}</li>`
     : '';
   return `
-    <li class="analytics-word-list-row analytics-word-list-row-tappable${isExpanded ? ' analytics-word-list-row-active' : ''}"
+    <li class="analytics-word-list-row analytics-word-list-row-tappable${kindClass}${isExpanded ? ' analytics-word-list-row-active' : ''}"
         role="button"
         tabindex="0"
         aria-expanded="${isExpanded ? 'true' : 'false'}"

@@ -2099,6 +2099,31 @@
     letter-spacing: 0.5px;
     white-space: nowrap;
   }
+  /* Grammar rows stack lemma + definition on two lines so the parenthetical
+     article forms and longer parsing labels don't get ellipsis-truncated on
+     narrow screens. */
+  .analytics-word-list-row-grammar {
+    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-areas:
+      "headword pct"
+      "gloss    pct";
+    align-items: center;
+    row-gap: 2px;
+  }
+  .analytics-word-list-row-grammar .analytics-word-list-headword {
+    grid-area: headword;
+    white-space: normal;
+    overflow: visible;
+  }
+  .analytics-word-list-row-grammar .analytics-word-list-gloss {
+    grid-area: gloss;
+    white-space: normal;
+    overflow: visible;
+  }
+  .analytics-word-list-row-grammar .analytics-word-list-pct {
+    grid-area: pct;
+    align-self: center;
+  }
   .analytics-collapse-meta {
     color: var(--muted);
     font-size: 11px;
