@@ -138,7 +138,7 @@ import { getStorage, isLikelyIOS } from '../utils/storage.js';
 import { compareGreekAlphabetical } from '../utils/greekSort.js';
 
 // Domain — SRS
-import { SRS_DAY_MS, SRS_AGAIN_MS, SRS_NEAR_WINDOW_MS, SRS_CYCLE_ADVANCE_MS } from '../domain/srs/constants.js';
+import { SRS_DAY_MS, SRS_AGAIN_MS, SRS_NEAR_WINDOW_MS, SRS_CYCLE_ADVANCE_MS, SESSION_IDLE_RESET_MS } from '../domain/srs/constants.js';
 import { msFromDays, setProgressDelay,
          getSrsEase, getSrsStage, getLastEasyIntervalDays, getNextEasyIntervalDays,
          getEasyDelayMs, getUncertainDelayMs, formatRemainingForTable } from '../domain/srs/scheduler.js';
@@ -360,6 +360,7 @@ configureRender({
   saveState: () => saveState(),
   syncLayoutVisibility: () => syncLayoutVisibility(),
   noteStudyInteraction: () => noteStudyInteraction(),
+  getNearDueCount: () => getNearDueCount(),
   isMorphologyMode: () => isMorphologyMode(),
   isReverseGrammarActive: () => isReverseGrammarActive(),
   isMorphCard: (card) => isMorphCard(card),
@@ -874,6 +875,17 @@ function noteStudyInteraction(now = Date.now()) {
     studySessionBreakMs: STUDY_SESSION_BREAK_MS,
     maxStudySessionHistory: MAX_STUDY_SESSION_HISTORY
   });
+  // Session-boundary clock for the three-deck flow. Snapshot the previous
+  // value into previousStudyActivityAt BEFORE updating lastStudyActivityAt,
+  // so buildStudyDeck (called later in the same flip handler) sees the
+  // timestamp of the PREVIOUS activity, not the one we just recorded. Any
+  // study event (vocab mark, grammar mark, reader interaction) updates
+  // both; persistence saves lastStudyActivityAt to gate session-state
+  // restore across reloads.
+  if (!document.hidden) {
+    runtime.previousStudyActivityAt = runtime.lastStudyActivityAt || 0;
+    runtime.lastStudyActivityAt = now;
+  }
 }
 
 function getTodayUsageMs() {
@@ -1176,6 +1188,17 @@ function buildUndoSnapshot(extra = {}) {
     unspacedPendingRecycle: runtime.unspacedPendingRecycle,
     unspacedRoundSize: runtime.unspacedRoundSize,
     unspacedRoundMarks: runtime.unspacedRoundMarks,
+    unspacedMiddleIds: Array.from(runtime.unspacedMiddleIds || []),
+    unspacedMiddleCount: runtime.unspacedMiddleCount || 0,
+    // Three-deck spaced state — captured here so the 2% revival (which can
+    // fire between the snapshot and the next user action) doesn't leave
+    // stale spacedActiveIds/middleDeckCount lying around after an undo.
+    // Without this, the visible card is correct after undo but the next
+    // navigation can mis-route end-of-active or treat a card as middle when
+    // it should be active.
+    spacedActiveIds: Array.isArray(runtime.spacedActiveIds) ? [...runtime.spacedActiveIds] : [],
+    middleDeckCount: runtime.middleDeckCount || 0,
+    lastStudyActivityAt: runtime.lastStudyActivityAt || 0,
     unspacedCycleState: cloneForUndo(runtime.unspacedCycleState),
     lastUnspacedArchiveDayKey: runtime.lastUnspacedArchiveDayKey,
     morphAnswerState: cloneForUndo(runtime.morphAnswerState),
@@ -1229,6 +1252,11 @@ function applyUndoSnapshot(snapshot) {
   runtime.unspacedPendingRecycle = !!snapshot.unspacedPendingRecycle;
   if (Number.isFinite(snapshot.unspacedRoundSize)) runtime.unspacedRoundSize = snapshot.unspacedRoundSize;
   if (Number.isFinite(snapshot.unspacedRoundMarks)) runtime.unspacedRoundMarks = snapshot.unspacedRoundMarks;
+  if (Array.isArray(snapshot.unspacedMiddleIds)) runtime.unspacedMiddleIds = new Set(snapshot.unspacedMiddleIds);
+  if (Number.isFinite(snapshot.unspacedMiddleCount)) runtime.unspacedMiddleCount = snapshot.unspacedMiddleCount;
+  if (Array.isArray(snapshot.spacedActiveIds)) runtime.spacedActiveIds = [...snapshot.spacedActiveIds];
+  if (Number.isFinite(snapshot.middleDeckCount)) runtime.middleDeckCount = snapshot.middleDeckCount;
+  if (Number.isFinite(snapshot.lastStudyActivityAt)) runtime.lastStudyActivityAt = snapshot.lastStudyActivityAt;
   if (snapshot.unspacedCycleState) runtime.unspacedCycleState = cloneForUndo(snapshot.unspacedCycleState);
   if (typeof snapshot.lastUnspacedArchiveDayKey === 'string') runtime.lastUnspacedArchiveDayKey = snapshot.lastUnspacedArchiveDayKey;
   if (isMorphologyMode() && snapshot.morphAnswerState) {
@@ -1314,31 +1342,53 @@ function restoreSpacedUndo() {
 
 function buildStudyDeck(cards, options = {}) {
   if (!runtime.spacedRepetition) {
-    // Unspaced flip deck: keep the deck partitioned as [active..., archived...].
-    // markCard's "move to end of active section" logic assumes that layout, and
-    // it makes "Next" navigation a straight forward scan past archived cards.
-    const active = cards.filter(card => runtime.marks[card.id] !== 'known');
+    // Unspaced flip deck has three sections: [active..., middle..., known...].
+    //   active — cards not yet seen this round (the in-flight pile).
+    //   middle — cards Hard/Uncertain-marked this round, parked until the
+    //            next reshuffle so they don't reappear before the round ends.
+    //   known  — Easy-archived cards; stay out until the user resets.
+    // Default: every fresh build starts a new round, so middle clears and
+    // every unmarked card collapses back into active. Callers that need to
+    // preserve mid-round middle membership pass preserveUnspacedRound: true.
+    if (options.preserveUnspacedRound !== true) {
+      runtime.unspacedMiddleIds = new Set();
+    }
+    const middleIds = runtime.unspacedMiddleIds || new Set();
+    const active = cards.filter(card => runtime.marks[card.id] !== 'known' && !middleIds.has(card.id));
+    const middle = cards.filter(card => runtime.marks[card.id] !== 'known' && middleIds.has(card.id));
     const known = cards.filter(card => runtime.marks[card.id] === 'known');
     runtime.activeDeckCount = active.length;
+    runtime.unspacedMiddleCount = middle.length;
     const orderedActive = runtime.shuffled ? shuffleArray([...active]) : [...active];
-    // Default: every fresh build starts a new round so the round counter
-    // matches the deck we're about to show. Callers (notably restoreState)
-    // that need to preserve mid-round bookkeeping pass preserveUnspacedRound.
     if (options.preserveUnspacedRound !== true) {
       runtime.unspacedRoundSize = orderedActive.length;
       runtime.unspacedRoundMarks = 0;
     }
-    return [...orderedActive, ...known];
+    return [...orderedActive, ...middle, ...known];
   }
 
+  // Three-section spaced deck: [active..., middle..., deferred...].
+  //   active  — due-now cards already in the in-flight rotation. Drains as
+  //             the user reviews; preserved in order across rebuilds.
+  //   middle  — due-now cards that weren't in active when the session
+  //             started (their dueAt timer expired mid-session, OR they got
+  //             pushed back to due by ✕-return). Doesn't interrupt the
+  //             active rotation; only joins active when active drains,
+  //             when the user hits the Reshuffle button, on a 2% revival,
+  //             or after a ≥ 5 h idle gap.
+  //   deferred — dueAt in the future, sorted by dueAt.
+  // runtime.spacedActiveIds is the source of truth for who lives in active;
+  // it's filtered on every rebuild against the currently-due set, so reviewed
+  // cards (now scheduled forward) drop out automatically.
   const forceShuffle = !!options.forceShuffle;
+  const shuffleActive = !!options.shuffleActive;
+  const now = Date.now();
   let promotedNearCards = false;
   let dueCards = cards.filter(isCardDue);
 
-  // Backstop: if nothing is due but cards are deferred within 1 hour,
-  // promote them to due immediately so the user never hits a dead runtime.deck.
+  // Backstop: if nothing is due but cards are deferred within 30 minutes,
+  // promote them to due immediately so the user never hits a dead deck.
   if (!dueCards.length) {
-    const now = Date.now();
     const nearCards = cards.filter(card => {
       const p = getWordProgress(card.id);
       return p.dueAt && p.dueAt > now && p.dueAt <= now + SRS_NEAR_WINDOW_MS;
@@ -1355,39 +1405,61 @@ function buildStudyDeck(cards, options = {}) {
   }
 
   const deferredCards = cards.filter(card => !isCardDue(card));
+  const dueIds = new Set(dueCards.map(c => c.id));
 
-  // Preserve existing order of due cards already in the current runtime.deck;
-  // append newly-eligible cards (including "(x) return to runtime.deck" and
-  // time-promoted cards) at the back.
-  const prevDueIds = new Set(
-    (runtime.deck || []).slice(0, runtime.activeDeckCount || 0)
-      .filter(card => card && dueCards.some(d => d.id === card.id))
-      .map(card => card.id)
-  );
+  // Drop any carry-over IDs that aren't due anymore (reviewed cards that
+  // got bumped to deferred, or stale IDs from a different deck after a
+  // mode/chapter switch).
+  const carriedActiveIds = (runtime.spacedActiveIds || []).filter(id => dueIds.has(id));
 
-  const existingInOrder = [];
-  (runtime.deck || []).forEach(card => {
-    if (card && prevDueIds.has(card.id)) {
-      const match = dueCards.find(d => d.id === card.id);
-      if (match) existingInOrder.push(match);
-    }
-  });
-  const newlyDue = dueCards.filter(card => !prevDueIds.has(card.id));
+  // Treat as a fresh start when:
+  //  - the caller asked for it (forceShuffle: manual reshuffle, active-drain
+  //    dump, or restore path),
+  //  - the near-due backstop just fired (no real active to carry forward),
+  //  - the last card flip was ≥ 5 h ago (genuine idle gap), or
+  //  - there's no carry-over at all (initial build, post-reload, post-reset,
+  //    or deck-identity change so no previous active IDs match the new deck).
+  // Use the previous-activity snapshot (taken at the start of the current
+  // noteStudyInteraction call) so the idle gap reflects time since the
+  // PREVIOUS activity, not the one we just recorded a millisecond ago.
+  const lastActivityAt = Number(runtime.previousStudyActivityAt) || 0;
+  const idleReset = lastActivityAt && (now - lastActivityAt > SESSION_IDLE_RESET_MS);
+  const freshStart = forceShuffle || promotedNearCards || idleReset || carriedActiveIds.length === 0;
 
-  let orderedDue;
-  if (forceShuffle || promotedNearCards) {
-    orderedDue = shuffleArray([...dueCards]);
-  } else if (!existingInOrder.length) {
-    // First build for this runtime.deck — apply shuffle preference if set.
-    orderedDue = runtime.shuffled ? shuffleArray([...dueCards]) : sortCardsByDue(dueCards);
+  let activeDue;
+  let middleDue;
+  if (freshStart) {
+    // Everything currently due collapses into active; middle clears.
+    activeDue = runtime.shuffled ? shuffleArray([...dueCards]) : sortCardsByDue(dueCards);
+    middleDue = [];
   } else {
-    // Keep in-flight order stable; newly eligible cards go to the back.
-    orderedDue = [...existingInOrder, ...newlyDue];
+    // Continue session: preserve the in-flight active order from the
+    // previous deck where possible; anything else due lives in middle.
+    const carriedSet = new Set(carriedActiveIds);
+    const seen = new Set();
+    const orderedFromPrev = [];
+    (runtime.deck || []).forEach(card => {
+      if (!card || !carriedSet.has(card.id) || seen.has(card.id)) return;
+      const match = dueCards.find(d => d.id === card.id);
+      if (match) {
+        orderedFromPrev.push(match);
+        seen.add(card.id);
+      }
+    });
+    const orphans = carriedActiveIds
+      .filter(id => !seen.has(id))
+      .map(id => dueCards.find(d => d.id === id))
+      .filter(Boolean);
+    activeDue = [...orderedFromPrev, ...orphans];
+    if (shuffleActive) activeDue = shuffleArray(activeDue);
+    middleDue = sortCardsByDue(dueCards.filter(c => !carriedSet.has(c.id)));
   }
 
+  runtime.spacedActiveIds = activeDue.map(c => c.id);
+  runtime.activeDeckCount = activeDue.length;
+  runtime.middleDeckCount = middleDue.length;
   const orderedDeferred = sortCardsByDue(deferredCards);
-  runtime.activeDeckCount = orderedDue.length;
-  return [...orderedDue, ...orderedDeferred];
+  return [...activeDue, ...middleDue, ...orderedDeferred];
 }
 
 function recordStudyOutcome(cardId, outcome, reviewedAt = Date.now()) {
@@ -1473,6 +1545,19 @@ function applySpacedReview(card, outcome) {
 
 function getDueCount(cards = runtime.originalDeck) {
   return (cards || []).filter(isCardDue).length;
+}
+
+// Count of cards that the end-of-deck "advance 1 h" Next press would
+// promote from deferred to due-now. Used by render.js to show the user
+// "(N near-due)" in brackets on the spaced session-complete card so
+// they know whether pressing Next will actually surface more work.
+function getNearDueCount(cards = runtime.originalDeck) {
+  const now = Date.now();
+  const threshold = now + SRS_CYCLE_ADVANCE_MS;
+  return (cards || []).filter(card => {
+    const p = getWordProgress(card.id);
+    return p.dueAt && p.dueAt > now && p.dueAt <= threshold;
+  }).length;
 }
 
 
@@ -1649,21 +1734,19 @@ function moveCardToBackOfActivePile(card) {
   return true;
 }
 
-// Periodic reshuffle is throttled to once per hour. The old behaviour
-// (every 10 flips) shuffled cards out from under the learner mid-session,
-// which made it hard to predict when an "again" card would resurface. The
-// hourly cap means within a single study session the order stays stable
-// after the initial shuffle.
+// Unspaced flip-deck hourly upcoming-cards reshuffle. Kept on its old
+// cadence — the unspaced flow has no middle deck and still benefits from
+// occasional order churn during long sessions.
 const PERIODIC_RESHUFFLE_MIN_MS = 60 * 60 * 1000;
 
 function maybePeriodicReshuffle() {
+  // Spaced mode handles session boundaries inside buildStudyDeck via
+  // SESSION_IDLE_RESET_MS, so there's nothing for this hook to do.
+  if (runtime.spacedRepetition) return;
   if (!runtime.shuffled) return;
   runtime.flipsSinceReshuffle++;
   const now = Date.now();
   const lastAt = Number(runtime.lastPeriodicReshuffleAt) || 0;
-  // Seed lastPeriodicReshuffleAt on the first navigation so the first hour
-  // measures from when the user actually started navigating, not from the
-  // epoch.
   if (!lastAt) {
     runtime.lastPeriodicReshuffleAt = now;
     return;
@@ -1674,8 +1757,12 @@ function maybePeriodicReshuffle() {
   reshuffleUpcomingCards();
 }
 
-// Per-flip ~1/50 (2%) chance to bring one high-confidence (>75%) deferred card
-// back into the active pile. Skipped when shuffle is off or in morphology mode.
+// Per-flip ~1/50 (2%) chance to bring one high-confidence (>75%) deferred
+// card back into the active pile. Skipped when shuffle is off or in
+// morphology mode. The picked card is forced due, added to spacedActiveIds
+// so it lands directly in active (not middle), and the active section is
+// reshuffled so the returning card mixes in randomly instead of sitting on
+// the back.
 function maybeReturnConfirmedDeferredCard() {
   if (!runtime.spacedRepetition || !runtime.shuffled || isMorphologyMode()) return false;
   if (CONFIRMED_CARD_RANDOM_RETURN_FLIP_ODDS <= 0) return false;
@@ -1690,7 +1777,8 @@ function maybeReturnConfirmedDeferredCard() {
 
   const pick = eligible[Math.floor(Math.random() * eligible.length)];
   getWordProgress(pick.id).dueAt = Date.now();
-  runtime.deck = buildStudyDeck(runtime.originalDeck);
+  runtime.spacedActiveIds = [...(runtime.spacedActiveIds || []), pick.id];
+  runtime.deck = buildStudyDeck(runtime.originalDeck, { shuffleActive: true });
   return true;
 }
 

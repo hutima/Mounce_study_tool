@@ -98,9 +98,39 @@ export const runtime = {
   spacedRepetition: true,
   hardVocabReviewMode: false, // restrict vocab deck to cards missed >10× and still under 40% confidence
   activeDeckCount: 0,
+  // Cards in the "middle deck" — currently due but not yet seen this session.
+  // Builds up as deferred cards' timers expire mid-session; gets dumped into
+  // active when the active section drains, on manual reshuffle, on 2% revival,
+  // or after a 5-hour idle. In-memory only (not persisted, recomputed each
+  // build).
+  middleDeckCount: 0,
+  // IDs that should land in the active section on the next buildStudyDeck.
+  // Drains as those cards are reviewed; replenishes when middle dumps in
+  // (active-empties / manual reshuffle / 2% revival / 5 h idle). Persisted
+  // through reload only when lastStudyActivityAt is within the 5 h window;
+  // see persistence.js for the gating logic.
+  spacedActiveIds: [],
+  // Timestamp (ms) of the most recent study activity in any mode (vocab,
+  // grammar, or reader — anything that fires noteStudyInteraction).
+  // Persisted, so the timer survives reload. persistence.js gates restore
+  // of session state (spacedActiveIds, unspacedMiddleIds) on
+  // (now - lastStudyActivityAt) <= SESSION_IDLE_RESET_MS.
+  lastStudyActivityAt: 0,
+  // Snapshot of lastStudyActivityAt taken at the start of each
+  // noteStudyInteraction, before the field is bumped to "now". Used by
+  // buildStudyDeck's in-session idle check so it sees the timestamp of the
+  // previous activity instead of the one we just recorded. In-memory.
+  previousStudyActivityAt: 0,
   unspacedPendingRecycle: false,
   unspacedCycleState: {},
-  unspacedDeferredIds: new Set(), // 'pass' cards excluded from current pass
+  unspacedDeferredIds: new Set(), // 'pass' and 'again' cards excluded from current pass; reappear in next cycle
+  // Cards Hard/Uncertain-marked in the current unspaced round, awaiting the
+  // next reshuffle. Sits between active and archived in the deck layout.
+  // In-memory only — on reload everything unmarked goes back to active so a
+  // fresh round starts. Never persisted (Sets aren't in saveStateImpl's
+  // allow-list).
+  unspacedMiddleIds: new Set(),
+  unspacedMiddleCount: 0,
   // Round bookkeeping for the unspaced flip-deck flow. A "round" is one pass
   // through the active deck — Hard/Uncertain bump the card to the back of the
   // active queue (it'll reappear in the same round); Easy archives it. When

@@ -12,6 +12,7 @@ import { getStorage, isLikelyIOS } from '../utils/storage.js';
 import { shieldClicksBriefly } from '../utils/clickShield.js';
 import { sortSetKeys } from '../domain/deck/ordering.js';
 import { filterHardVocabCards } from '../domain/deck/filters.js';
+import { SESSION_IDLE_RESET_MS } from '../domain/srs/constants.js';
 import { STATE_MIGRATIONS, summarizePersistedState, formatPersistedStateSummary, compactPersistedState, compactRuntimeStores } from './migrations.js';
 import {
   sanitizeGamificationState,
@@ -63,7 +64,7 @@ export function configurePersistence(deps) {
 
 // ── Persisted-state payload + sanitization for import ────────────────────
 
-export function buildPersistedStatePayload(compactOptions) {
+export function buildPersistedStatePayload(options = {}) {
   saveCurrentDeckStateToBank();
   // Keep the active mode's selection snapshot fresh before persisting.
   if (runtime.splitSelection && (runtime.studyMode === 'vocab' || runtime.studyMode === 'morph')) {
@@ -117,8 +118,16 @@ export function buildPersistedStatePayload(compactOptions) {
     unspacedRoundSize: Number.isFinite(runtime.unspacedRoundSize) ? runtime.unspacedRoundSize : 0,
     unspacedRoundMarks: Number.isFinite(runtime.unspacedRoundMarks) ? runtime.unspacedRoundMarks : 0,
     unspacedAutoResetEnabled: !!runtime.unspacedAutoResetEnabled,
-    lastUnspacedArchiveDayKey: typeof runtime.lastUnspacedArchiveDayKey === 'string' ? runtime.lastUnspacedArchiveDayKey : ''
-  }, compactOptions);
+    lastUnspacedArchiveDayKey: typeof runtime.lastUnspacedArchiveDayKey === 'string' ? runtime.lastUnspacedArchiveDayKey : '',
+    // Three-deck session state — saved so a reload within SESSION_IDLE_RESET_MS
+    // (5 h) lands the user back in the middle of the same session instead of
+    // forcing a fresh shuffle. The middle decks are intentionally kept
+    // separate between spaced (spacedActiveIds tracks the *active* half) and
+    // unspaced (unspacedMiddleIds tracks the *middle* half).
+    lastStudyActivityAt: Number(runtime.lastStudyActivityAt) || 0,
+    spacedActiveIds: Array.isArray(runtime.spacedActiveIds) ? runtime.spacedActiveIds.slice(0, 1000) : [],
+    unspacedMiddleIds: runtime.unspacedMiddleIds ? Array.from(runtime.unspacedMiddleIds).slice(0, 1000) : []
+  }, options);
 }
 
 function sanitizeImportedState(candidate) {
@@ -807,6 +816,26 @@ export function restoreState() {
     // saves predate this field and load with the default-off state.
     runtime.unspacedAutoResetEnabled = saved.unspacedAutoResetEnabled === true;
     runtime.lastUnspacedArchiveDayKey = typeof saved.lastUnspacedArchiveDayKey === 'string' ? saved.lastUnspacedArchiveDayKey : '';
+    // Restore the three-deck session state only if the saved activity
+    // timestamp is within the 5 h session window. Past that, force a fresh
+    // session — leave spacedActiveIds/unspacedMiddleIds at their defaults
+    // (empty) so the next buildStudyDeck rebuilds from scratch and the user
+    // gets a freshly-shuffled active pile.
+    const savedActivityAt = Number(saved.lastStudyActivityAt) || 0;
+    if (savedActivityAt && (Date.now() - savedActivityAt) <= SESSION_IDLE_RESET_MS) {
+      runtime.lastStudyActivityAt = savedActivityAt;
+      // previousStudyActivityAt seeds equal to lastStudyActivityAt so the
+      // first post-restore noteStudyInteraction snapshots the right gap
+      // into the idle check.
+      runtime.previousStudyActivityAt = savedActivityAt;
+      runtime.spacedActiveIds = Array.isArray(saved.spacedActiveIds) ? saved.spacedActiveIds.slice() : [];
+      runtime.unspacedMiddleIds = new Set(Array.isArray(saved.unspacedMiddleIds) ? saved.unspacedMiddleIds : []);
+    } else {
+      runtime.lastStudyActivityAt = 0;
+      runtime.previousStudyActivityAt = 0;
+      runtime.spacedActiveIds = [];
+      runtime.unspacedMiddleIds = new Set();
+    }
     runtime.deckStates = saved.deckStates && typeof saved.deckStates === 'object' ? saved.deckStates : {};
     runtime.globalWordMarks = saved.globalWordMarks && typeof saved.globalWordMarks === 'object' ? saved.globalWordMarks : {};
     runtime.globalWordProgress = saved.globalWordProgress && typeof saved.globalWordProgress === 'object' ? saved.globalWordProgress : {};
@@ -853,16 +882,26 @@ export function restoreState() {
     if (runtime.spacedRepetition && restoredDeck) {
       runtime.deck = restoredDeck;
       runtime.activeDeckCount = restoredDeck.length;
-      runtime.deck = host.buildStudyDeck(runtime.originalDeck, { forceShuffle: runtime.shuffled });
+      // Don't force a shuffle here — if spacedActiveIds was restored within
+      // the 5 h session window, buildStudyDeck's "continue session" branch
+      // preserves the in-flight active order. If the session expired,
+      // spacedActiveIds is empty and freshStart fires naturally (which also
+      // honours runtime.shuffled).
+      runtime.deck = host.buildStudyDeck(runtime.originalDeck);
     } else if (restoredDeck) {
-      // Unspaced: partition into [active, archived] so the flip-deck mark
-      // logic can rely on that layout. The saved order is preserved for
-      // active cards (or reshuffled if shuffle is on); archived cards sit
-      // at the tail.
-      const restoredActive = restoredDeck.filter(card => runtime.marks[card.id] !== 'known');
+      // Unspaced: partition into [active, middle, archived]. Middle is the
+      // subset of unmarked cards whose IDs are in unspacedMiddleIds — restored
+      // intact within 5 h of last activity, empty Set otherwise. Saved
+      // active order is preserved; active gets reshuffled only when we're
+      // outside the session window (middle is empty in that case, so the
+      // shuffle applies to the whole unmarked pile).
+      const middleIds = runtime.unspacedMiddleIds || new Set();
+      const restoredActive = restoredDeck.filter(card => runtime.marks[card.id] !== 'known' && !middleIds.has(card.id));
+      const restoredMiddle = restoredDeck.filter(card => runtime.marks[card.id] !== 'known' && middleIds.has(card.id));
       const restoredKnown = restoredDeck.filter(card => runtime.marks[card.id] === 'known');
-      const orderedActive = runtime.shuffled ? shuffleArray([...restoredActive]) : [...restoredActive];
-      runtime.deck = [...orderedActive, ...restoredKnown];
+      const orderedActive = (runtime.shuffled && middleIds.size === 0) ? shuffleArray([...restoredActive]) : [...restoredActive];
+      runtime.deck = [...orderedActive, ...restoredMiddle, ...restoredKnown];
+      runtime.unspacedMiddleCount = restoredMiddle.length;
     } else {
       runtime.deck = host.buildStudyDeck(runtime.originalDeck, { preserveUnspacedRound: true });
     }
@@ -870,7 +909,13 @@ export function restoreState() {
     // Restore unspaced round counters AFTER any deck build so a mid-round
     // reload doesn't lose the user's position. Clamp size to the current
     // active count, since the persisted deck might have drifted.
-    runtime.activeDeckCount = runtime.spacedRepetition ? host.getDueCount(runtime.originalDeck) : runtime.originalDeck.filter(card => runtime.marks[card.id] !== 'known').length;
+    // Unspaced activeDeckCount excludes the middle section so end-of-round
+    // detection (activeDeckCount === 0) fires correctly when only active is
+    // drained and middle still has cards waiting.
+    const unspacedMiddleSet = runtime.unspacedMiddleIds || new Set();
+    runtime.activeDeckCount = runtime.spacedRepetition
+      ? host.getDueCount(runtime.originalDeck)
+      : runtime.originalDeck.filter(card => runtime.marks[card.id] !== 'known' && !unspacedMiddleSet.has(card.id)).length;
     if (!runtime.spacedRepetition) {
       const savedRoundSize = Number(saved.unspacedRoundSize);
       const savedRoundMarks = Number(saved.unspacedRoundMarks);
