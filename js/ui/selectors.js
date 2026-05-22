@@ -567,10 +567,12 @@ export function loadDeckFromKeys(keys, sessionId = null, options = {}) {
       runtime.activeDeckCount = restoredDeck.length;
       runtime.deck = host.buildStudyDeck(runtime.originalDeck, { forceShuffle: runtime.shuffled });
     } else {
-      // Partition into [active, archived] so the unspaced mark/navigation
-      // logic can rely on that layout. The saved order from the bank is
-      // honoured for the active cards (or reshuffled if the shuffle toggle
-      // is on); archived cards always sit at the tail.
+      // Unspaced: partition into [active, archived]. A different deck loaded
+      // through selectors (mode/chapter switch) starts a fresh round, so the
+      // middle pile clears — any restored IDs wouldn't match this deck's
+      // cards anyway.
+      runtime.unspacedMiddleIds = new Set();
+      runtime.unspacedMiddleCount = 0;
       const restoredActive = restoredDeck.filter(card => runtime.marks[card.id] !== 'known');
       const restoredKnown = restoredDeck.filter(card => runtime.marks[card.id] === 'known');
       const orderedActive = runtime.shuffled ? shuffleArray([...restoredActive]) : [...restoredActive];

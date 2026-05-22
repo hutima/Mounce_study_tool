@@ -13,6 +13,7 @@ let host = {
   saveState: () => {},
   syncLayoutVisibility: () => {},
   noteStudyInteraction: () => {},
+  getNearDueCount: () => 0,
   isMorphologyMode: () => false,
   isReverseGrammarActive: () => false,
   isMorphCard: () => false,
@@ -67,23 +68,35 @@ export function renderCard() {
 
   if ((!runtime.spacedRepetition && runtime.currentIdx >= runtime.deck.length) || (runtime.spacedRepetition && runtime.currentIdx >= runtime.activeDeckCount)) {
     const unspacedVocab = !runtime.spacedRepetition && !host.isMorphologyMode();
-    const unspacedRoundComplete = unspacedVocab && runtime.activeDeckCount > 0;
+    // Round complete = active is empty AND middle still has cards waiting to
+    // reshuffle. If middle is empty too, everything is archived and the
+    // "Session Confirmed" state takes over instead.
+    const unspacedRoundComplete = unspacedVocab && runtime.unspacedMiddleCount > 0;
+
+    const nearDueCount = runtime.spacedRepetition ? host.getNearDueCount() : 0;
+    const spacedAdvanceTitle = nearDueCount > 0
+      ? `No cards currently due ✦ <span style="color:var(--muted);font-weight:normal;font-size:0.82em;letter-spacing:1px">(${nearDueCount} near-due)</span>`
+      : 'No cards currently due ✦';
 
     const doneTitle = runtime.spacedRepetition
-      ? 'No cards currently due ✦'
+      ? spacedAdvanceTitle
       : host.isMorphologyMode()
         ? 'Grammar pass complete ✦'
         : unspacedRoundComplete
           ? 'End of round ✦'
-          : 'Session Confirmed 🎉';
+          : 'All cards confirmed ✨';
+
+    const spacedAdvanceSub = nearDueCount > 0
+      ? `Everything in this selection is scheduled ahead. Press <strong>Next →</strong> to advance the review clock by 1 hour and pull <strong>${nearDueCount}</strong> near-due card${nearDueCount === 1 ? '' : 's'} back in.`
+      : 'Everything in this selection is scheduled ahead. Press <strong>Next →</strong> to advance the review clock by 1 hour and pull the next near-due cards back in.';
 
     const doneSub = runtime.spacedRepetition
-      ? 'Everything in this selection is scheduled ahead. Press next to advance the review clock by 1 hour and pull the next near-due cards back in.'
+      ? spacedAdvanceSub
       : host.isMorphologyMode()
         ? 'Everything in this grammar selection is currently marked correct. Press next to reshuffle the full selected set and run it again.'
         : unspacedRoundComplete
-          ? 'Press <strong>Next →</strong> to shuffle the remaining cards and run another pass, or <strong>↻ Reset</strong> to start the whole deck over.'
-          : 'Every card in this deck is archived.<br><span style="color:var(--muted);font-size:13px">Press <strong>↻ Reset</strong> to bring them all back and run the deck again. Archived cards stay archived until you reset or pick a new session.</span>';
+          ? 'Press <strong>Next →</strong> to reshuffle unconfirmed cards into another pass, or <strong>↻ Reset</strong> to start the whole deck over.'
+          : 'Press <strong>↻ Reset</strong> to reshuffle the selected cards.<br><span style="color:var(--muted);font-size:13px">Archived cards stay archived until you reset or pick a new session.</span>';
 
     area.innerHTML = `
       <div class="done-card show">

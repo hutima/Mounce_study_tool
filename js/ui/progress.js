@@ -94,12 +94,16 @@ export function renderReview() {
       unseenCount += 1;
     }
   });
-  // Spaced mode: cards still due now. Marking Easy/Pass pushes a card out of
-  // the due pool, so the count drops as you study. Unspaced: cards not yet
-  // confirmed known.
-  const cardsLeft = runtime.spacedRepetition
-    ? host.getDueCount(runtime.originalDeck)
-    : Math.max(runtime.originalDeck.length - host.getKnownCount(), 0);
+  // Combined "still in this session" count: active section + middle section
+  // (the cards waiting to dump into active). Equivalent to getDueCount in
+  // spaced and (total − known) in unspaced, but sourced from the three-deck
+  // bookkeeping so it stays consistent with the mid-session partitioning.
+  // Labelled "Due now" in spaced mode and "Unconfirmed" in unspaced; counts
+  // down on Easy/Pass in spaced and on Easy in unspaced.
+  const sessionDeckCount = runtime.activeDeckCount + (runtime.spacedRepetition
+    ? (runtime.middleDeckCount || 0)
+    : (runtime.unspacedMiddleCount || 0));
+  const sessionDeckLabel = runtime.spacedRepetition ? 'Due now' : 'Unconfirmed';
 
   const deckTagEl = document.getElementById('reviewDeckTag');
   if (deckTagEl) {
@@ -109,7 +113,7 @@ export function renderReview() {
   }
 
   document.getElementById('reviewStats').innerHTML = `
-      <span class="stat-deck">▦ Cards left: ${cardsLeft}</span>
+      <span class="stat-deck">▦ ${sessionDeckLabel}: ${sessionDeckCount}</span>
       <span class="stat-known">✓ High confidence: ${highCount}</span>
       <span class="stat-unsure">○ Low confidence: ${lowCount}</span>
       <span class="stat-total">· Unseen: ${unseenCount}</span>`;

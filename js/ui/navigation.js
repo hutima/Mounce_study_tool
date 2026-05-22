@@ -130,11 +130,13 @@ export function navigate(dir, options = {}) {
       renderReview();
       renderProgress();
       host.saveState();
-    } else if (runtime.activeDeckCount > 0) {
-      // Vocab unspaced + end-of-round confirmation card: Next shuffles the
-      // still-active cards and starts a fresh round. Push history so Prev
-      // can put the deck back in its pre-shuffle order. (All-archived
-      // state requires the explicit Reset control — Next is a no-op there.)
+    } else if (runtime.unspacedMiddleCount > 0) {
+      // Vocab unspaced + end-of-round confirmation card: middle has cards
+      // waiting. Next dumps middle back into active (shuffled) and starts a
+      // fresh round. Push history so Prev can put the deck back in its
+      // pre-shuffle order. When middle is empty AND active is empty, the
+      // deck is fully archived — Next is a no-op and the user must use
+      // Reset.
       host.pushUnspacedHistory('reshuffle');
       reshuffleUnspacedRound(host.getDirectionalMarksStore());
       runtime.isFlipped = false;
@@ -148,8 +150,23 @@ export function navigate(dir, options = {}) {
   }
 
   if (runtime.spacedRepetition && runtime.currentIdx >= runtime.activeDeckCount) {
-    host.advanceScheduledCards(runtime.originalDeck, SRS_CYCLE_ADVANCE_MS);
-    runtime.deck = host.buildStudyDeck(runtime.originalDeck);
+    // Active section drained. If middle has cards (timers expired during
+    // this session), dump them into active and reshuffle — keeps the user
+    // moving without burning time. Only when middle is empty too do we fall
+    // back to the existing scheduled-advance behaviour, which nudges the
+    // next-up deferred cards forward an hour so the deck isn't dead.
+    if (runtime.middleDeckCount > 0) {
+      runtime.deck = host.buildStudyDeck(runtime.originalDeck, { forceShuffle: true });
+    } else {
+      // Advance the SRS clock so cards within 1 h of due become due-now,
+      // then rebuild with forceShuffle so every newly-promoted card lands
+      // in active (not middle). Without forceShuffle, any stale entry in
+      // spacedActiveIds that happens to coincide with a newly-due card
+      // would split the cohort across active and middle, forcing the user
+      // to press Next a second time to dump middle in.
+      host.advanceScheduledCards(runtime.originalDeck, SRS_CYCLE_ADVANCE_MS);
+      runtime.deck = host.buildStudyDeck(runtime.originalDeck, { forceShuffle: true });
+    }
     runtime.currentIdx = 0;
     host.resetMorphAnswerState();
     renderCard();
@@ -248,7 +265,15 @@ export function markCard(outcome) {
     host.applySpacedReview(currentCard, outcome);
     runtime.deck = host.buildStudyDeck(runtime.originalDeck);
     if (runtime.activeDeckCount <= 0) {
-      runtime.currentIdx = runtime.activeDeckCount;
+      // Active drained on this very mark. If middle has waiting cards, dump
+      // them in so the user keeps moving rather than landing on the
+      // empty-deck state and needing another Next press to recover.
+      if (runtime.middleDeckCount > 0) {
+        runtime.deck = host.buildStudyDeck(runtime.originalDeck, { forceShuffle: true });
+        runtime.currentIdx = 0;
+      } else {
+        runtime.currentIdx = runtime.activeDeckCount;
+      }
       host.resetMorphAnswerState();
       renderCard();
     } else {
@@ -264,17 +289,17 @@ export function markCard(outcome) {
   host.saveState();
 }
 
-// Unspaced flip-deck marking.
-// - Hard ('again') / Uncertain ('pass') → move card to the back of the active
-//   queue. It will reappear later in the same round.
+// Unspaced flip-deck marking. Three sections: [active, middle, archived].
+// - Hard ('again') / Uncertain ('pass') → move card to the back of the middle
+//   section. It will NOT reappear until the active section drains and the
+//   user reshuffles, dumping middle back into active.
 // - Easy ('easy') → archive the card (mark 'known'); it stays out until the
 //   user clicks Reset or picks a new session.
 // All three outcomes still feed recordStudyOutcome so confidence/analytics
 // reflect the response. applyUnspacedSharedSchedule keeps the legacy cycle
 // bookkeeping in sync for any reader that still consults it.
 // `options.skipRecording` makes the call a neutral queue-only nudge: the
-// card moves to the back and the round counter still ticks, but
-// confidence, XP, and pass/fail counts are untouched. Used by the Next
+// card moves to middle without recording confidence/XP. Used by the Next
 // button in vocab unspaced mode.
 function applyUnspacedMark(card, outcome, options = {}) {
   if (!card) return;
@@ -288,45 +313,52 @@ function applyUnspacedMark(card, outcome, options = {}) {
 
   const directionalMarks = host.getDirectionalMarksStore();
   const fromIdx = runtime.deck.findIndex(c => c && c.id === card.id);
+  if (!runtime.unspacedMiddleIds) runtime.unspacedMiddleIds = new Set();
 
   if (normalizedOutcome === 'easy') {
     directionalMarks[card.id] = 'known';
+    runtime.unspacedMiddleIds.delete(card.id);
     host.noteUnspacedArchiveActivity();
     if (fromIdx >= 0) {
       runtime.deck.splice(fromIdx, 1);
       runtime.deck.push(card);
     }
   } else {
-    // Hard / Uncertain: move to the end of the active section (just before
-    // the first 'known' card, or the deck tail if none are archived).
+    // Hard / Uncertain: move card into the middle section. Insert at the end
+    // of middle (= start of archived), so middle preserves insertion order
+    // — earliest-marked cards reshuffle first.
     delete directionalMarks[card.id];
+    runtime.unspacedMiddleIds.add(card.id);
     if (fromIdx >= 0) {
       runtime.deck.splice(fromIdx, 1);
+      // After splice, find first archived card; insert just before it so the
+      // card lands at the tail of middle. If nothing is archived yet, push
+      // to the deck tail.
       const splitAt = runtime.deck.findIndex(c => c && directionalMarks[c.id] === 'known');
       const insertAt = splitAt === -1 ? runtime.deck.length : splitAt;
-      // Avoid putting the card right back at currentIdx when it's the lone
-      // active card; we just want it at the back of whatever's active.
       runtime.deck.splice(insertAt, 0, card);
     }
   }
 
   runtime.marks = directionalMarks;
-  runtime.activeDeckCount = runtime.deck.filter(c => directionalMarks[c.id] !== 'known').length;
+  // active = unmarked AND not in middle; middle = unmarked AND in middle.
+  runtime.activeDeckCount = runtime.deck.filter(c => directionalMarks[c.id] !== 'known' && !runtime.unspacedMiddleIds.has(c.id)).length;
+  runtime.unspacedMiddleCount = runtime.deck.filter(c => directionalMarks[c.id] !== 'known' && runtime.unspacedMiddleIds.has(c.id)).length;
   runtime.unspacedRoundMarks = (Number(runtime.unspacedRoundMarks) || 0) + 1;
 
-  // Round complete: park at the end-of-deck so renderCard shows the
-  // "Press Next to shuffle" confirmation. navigate(1) at deck.length is
-  // where the actual reshuffle happens, so the learner gets a chance to
-  // pause/reset instead of being yanked into a new shuffle automatically.
-  const roundSize = Number(runtime.unspacedRoundSize) || 0;
+  // Round complete = active is empty. Park at deck.length so renderCard
+  // shows the "End of round" (middle has cards) or "Session complete"
+  // (middle empty) state. The user's next press at deck.length is where
+  // the reshuffle (middle → active) actually happens, so they get a beat
+  // to pause/reset before the next pass starts.
   if (runtime.activeDeckCount === 0) {
-    // Everything is archived; freeze the cursor at the end so renderCard()
-    // shows the done state instead of looping back to a known card.
     runtime.currentIdx = runtime.deck.length;
-    runtime.unspacedRoundSize = 0;
-    runtime.unspacedRoundMarks = 0;
-  } else if (roundSize > 0 && runtime.unspacedRoundMarks >= roundSize) {
-    runtime.currentIdx = runtime.deck.length;
+    if (runtime.unspacedMiddleCount === 0) {
+      // Everything archived; clear the round counter too so a re-entry into
+      // the deck doesn't inherit stale bookkeeping.
+      runtime.unspacedRoundSize = 0;
+      runtime.unspacedRoundMarks = 0;
+    }
   } else {
     // Mid-round: the splice shifted later cards into our slot, so currentIdx
     // already points at the next card. Clamp to the new active count.
@@ -346,6 +378,11 @@ function applyUnspacedMark(card, outcome, options = {}) {
 
 function reshuffleUnspacedRound(directionalMarks) {
   const marks = directionalMarks || host.getDirectionalMarksStore();
+  // Reshuffle = end of a round. Middle dumps back into active (everyone
+  // unmarked is now eligible again), the combined pile is shuffled, and the
+  // round counter resets. Archived cards stay archived.
+  runtime.unspacedMiddleIds = new Set();
+  runtime.unspacedMiddleCount = 0;
   const active = runtime.deck.filter(c => c && marks[c.id] !== 'known');
   const known = runtime.deck.filter(c => c && marks[c.id] === 'known');
   runtime.deck = [...shuffleArray(active), ...known];
