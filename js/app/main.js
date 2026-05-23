@@ -354,6 +354,7 @@ configureProgress({
   getHighConfidenceCount: () => getHighConfidenceCount(),
   getWordProgress: (id, opts) => getWordProgress(id, opts),
   isMorphologyMode: () => isMorphologyMode(),
+  isParsingMode: () => isParsingMode(),
   renderAnalyticsOverlay: () => renderAnalyticsOverlay(),
   moveCardToBackOfActivePile: (card) => moveCardToBackOfActivePile(card),
   buildStudyDeck: (cards, opts) => buildStudyDeck(cards, opts),
@@ -651,7 +652,13 @@ function answerMorphologyStep(choiceIdx) {
   const step = state.steps[state.stepIdx];
   if (!step) return;
   const picked = step.choices[choiceIdx];
-  const isCorrect = picked === step.correct;
+  // Aspect (and any future multi-valid dimension) carries an `acceptable`
+  // array of every legitimate answer; fall back to the single `correct`
+  // value for dimensions where one answer is the only right one.
+  const validSet = Array.isArray(step.acceptable) && step.acceptable.length
+    ? new Set(step.acceptable)
+    : new Set([step.correct]);
+  const isCorrect = validSet.has(picked);
   state.answers[state.stepIdx] = { selectedIdx: choiceIdx, isCorrect };
   state.stepIdx += 1;
   if (state.stepIdx >= state.steps.length) {

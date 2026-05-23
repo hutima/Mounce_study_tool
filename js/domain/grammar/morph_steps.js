@@ -13,7 +13,7 @@
 // answer from the card's parsed answer string and pulls distractors from the
 // remaining pool entries for that dimension.
 const DIM_POOLS = {
-  aspect: ['continuous', 'undefined', 'completed'],
+  aspect: ['continuous', 'undefined', 'continuous/undefined', 'completed'],
   tense:  ['present', 'future', 'imperfect', 'aorist', 'first aorist', 'second aorist', 'perfect', 'pluperfect'],
   voice:  ['active', 'middle', 'passive', 'middle/passive'],
   mood:   ['indicative', 'subjunctive', 'imperative', 'infinitive', 'participle'],
@@ -34,20 +34,46 @@ const DIM_LABEL = {
   gender: 'Gender'
 };
 
-// Aspect is implicit in tense in Mounce's pedagogy: present/imperfect carry
-// continuous (imperfective) aspect, aorists carry undefined (aoristic), and
-// perfect/pluperfect carry completed (stative). Future is conventionally
-// classed as undefined here.
+// Aspect is implicit in tense in Mounce's pedagogy. Present and future are
+// genuinely ambiguous between continuous (imperfective) and undefined
+// (aoristic) — the form alone doesn't pick one (progressive vs gnomic for
+// the present; context decides for the future), so the right parse is the
+// composite 'continuous/undefined'. Imperfect commits to continuous,
+// aorist to undefined, perfect/pluperfect to completed. Exactly one
+// correct aspect per tense; picking just one half of the composite for
+// present/future overcommits and is marked wrong.
 const TENSE_TO_ASPECT = {
-  'present':       'continuous',
+  'present':       'continuous/undefined',
   'imperfect':     'continuous',
-  'future':        'undefined',
+  'future':        'continuous/undefined',
   'aorist':        'undefined',
   'first aorist':  'undefined',
   'second aorist': 'undefined',
   'perfect':       'completed',
   'pluperfect':    'completed'
 };
+
+export function aspectForTense(tense) {
+  return TENSE_TO_ASPECT[tense] || '';
+}
+
+// When the student gets the aspect step wrong, returns a short clarifying
+// note explaining the mistake. Especially important when the picked value
+// visually overlaps the correct one (e.g. picking "continuous" when the
+// correct is "continuous/undefined") — the strikethrough alone reads like
+// a close miss rather than a real error, so an explicit note disambiguates.
+// Returns '' when no special note is warranted (e.g. picking "continuous"
+// for an aorist; the standard "continuous → undefined" line is clear).
+export function aspectMistakeNote(tense, picked, correct) {
+  if (!tense || !picked || picked === correct) return '';
+  if (correct === 'continuous/undefined') {
+    return `${tense} is aspectually ambiguous — pick continuous/undefined, not just ${picked}`;
+  }
+  if (picked === 'continuous/undefined') {
+    return `${tense} isn't ambiguous — it commits to ${correct}`;
+  }
+  return '';
+}
 
 const DIM_DISPLAY_SUFFIX = {
   person: ' person'
@@ -107,7 +133,7 @@ export function parseAnswerDimensions(answer) {
 
   // Aspect is derived from tense (Mounce's pedagogy: aspect is the primary
   // category, with tense as a secondary marker). Missing tense → no aspect.
-  const aspect = tense ? (TENSE_TO_ASPECT[tense] || '') : '';
+  const aspect = tense ? aspectForTense(tense) : '';
 
   return { aspect, tense, voice, mood, person, case: grammaticalCase, number, gender };
 }
@@ -160,6 +186,18 @@ export function computeAccessibleDimensionPools(cards) {
     Object.keys(pools).forEach((k) => {
       if (dims[k]) pools[k].add(dims[k]);
     });
+    // Aspect pool: continuous, undefined, and the composite continuous/undefined
+    // are foundational from the present onward, so always expose all three
+    // as choices — the student needs to distinguish "either reading is valid"
+    // from "this form commits to one reading" on every card. The composite is
+    // never auto-correct from being present in the choices: it's only right
+    // for present/future. 'completed' arrives via the per-card add above
+    // when a perfect-stem form is in the accessible set.
+    if (dims.tense) {
+      pools.aspect.add('continuous');
+      pools.aspect.add('undefined');
+      pools.aspect.add('continuous/undefined');
+    }
   });
   const out = {};
   Object.keys(pools).forEach((k) => { out[k] = [...pools[k]]; });
@@ -196,14 +234,26 @@ export function buildMorphSteps(card, accessiblePools = null) {
     const choices = buildChoices(dimKey, correct, pool);
     const displayCorrect = applyDisplaySuffix(dimKey, correct);
     const displayChoices = choices.map((c) => applyDisplaySuffix(dimKey, c));
-    steps.push({
+    // Each dimension has exactly one correct value per card. For aspect on
+    // present/future verbs the correct value is the composite
+    // 'continuous/undefined' (since either reading is licensed by the form);
+    // for imperfect/aorist/perfect/pluperfect it's a single specific aspect.
+    // The aspect step carries a `context.tense` so the wrong-answer
+    // comparator can spell out the mistake when picked and correct overlap
+    // visually (e.g. picked "continuous" vs correct "continuous/undefined").
+    const step = {
       key: dimKey,
       label: DIM_LABEL[dimKey] || dimKey,
       correct,
+      acceptable: [correct],
       choices,
       displayCorrect,
       displayChoices
-    });
+    };
+    if (dimKey === 'aspect' && dims.tense) {
+      step.context = { tense: dims.tense };
+    }
+    steps.push(step);
   }
   return steps;
 }
