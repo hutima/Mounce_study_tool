@@ -62,30 +62,63 @@ export function configurePersistence(deps) {
   host = { ...host, ...deps };
 }
 
-// Per-lemma sliding window of paradigm-parse attempts. Capped at 20 entries
-// per lemma; older attempts drop off the front. Sanitizer is forgiving on
-// import so a stat from a previous version (or a missing field) restores as
-// empty rather than wiping the rest of the save.
+// Per-lemma sliding window of paradigm-parse attempts plus the
+// disjoint-20-attempt buckets that feed the performance bar chart. Capped
+// per lemma at 20 raw attempts and 10 completed buckets; older entries drop
+// off the front. Sanitizer is forgiving on import so a stat from a previous
+// version (or a missing field) restores as empty rather than wiping the
+// rest of the save.
 const PARADIGM_STEP_ATTEMPT_CAP = 20;
+const PARADIGM_STEP_BUCKET_CAP = 10;
+function sanitizeInProgressBucket(input) {
+  if (!isPlainObject(input)) return { correct: 0, total: 0 };
+  const total = Math.max(0, Math.floor(Number(input.total) || 0));
+  const correct = Math.max(0, Math.min(total, Math.floor(Number(input.correct) || 0)));
+  return { correct, total };
+}
+function sanitizeBucketList(input) {
+  if (!Array.isArray(input)) return [];
+  return input
+    .filter((b) => isPlainObject(b))
+    .slice(-PARADIGM_STEP_BUCKET_CAP)
+    .map((b) => {
+      const total = Math.max(0, Math.floor(Number(b.total) || 0));
+      const correct = Math.max(0, Math.min(total, Math.floor(Number(b.correct) || 0)));
+      return { correct, total, at: Number(b.at) || 0 };
+    });
+}
 function sanitizeParadigmStepStats(input) {
-  const out = { byLemma: {} };
+  const out = { byLemma: {}, overall: { totalAttempts: 0, inProgress: { correct: 0, total: 0 }, buckets: [] } };
   if (!isPlainObject(input)) return out;
   const lemmaBag = isPlainObject(input.byLemma) ? input.byLemma : null;
-  if (!lemmaBag) return out;
-  Object.keys(lemmaBag).forEach((lemma) => {
-    const entry = lemmaBag[lemma];
-    if (!isPlainObject(entry) || !Array.isArray(entry.attempts)) return;
-    const attempts = entry.attempts
-      .filter((a) => isPlainObject(a) && isPlainObject(a.dims))
-      .slice(-PARADIGM_STEP_ATTEMPT_CAP)
-      .map((a) => ({
-        at: Number(a.at) || 0,
-        dims: Object.fromEntries(
-          Object.entries(a.dims).map(([k, v]) => [String(k), v ? 1 : 0])
-        )
-      }));
-    if (attempts.length) out.byLemma[String(lemma)] = { attempts };
-  });
+  if (lemmaBag) {
+    Object.keys(lemmaBag).forEach((lemma) => {
+      const entry = lemmaBag[lemma];
+      if (!isPlainObject(entry) || !Array.isArray(entry.attempts)) return;
+      const attempts = entry.attempts
+        .filter((a) => isPlainObject(a) && isPlainObject(a.dims))
+        .slice(-PARADIGM_STEP_ATTEMPT_CAP)
+        .map((a) => ({
+          at: Number(a.at) || 0,
+          dims: Object.fromEntries(
+            Object.entries(a.dims).map(([k, v]) => [String(k), v ? 1 : 0])
+          )
+        }));
+      const buckets = sanitizeBucketList(entry.buckets);
+      const inProgress = sanitizeInProgressBucket(entry.inProgress);
+      const totalAttempts = Math.max(0, Math.floor(Number(entry.totalAttempts) || 0));
+      if (attempts.length || buckets.length || inProgress.total) {
+        out.byLemma[String(lemma)] = { attempts, totalAttempts, inProgress, buckets };
+      }
+    });
+  }
+  if (isPlainObject(input.overall)) {
+    out.overall = {
+      totalAttempts: Math.max(0, Math.floor(Number(input.overall.totalAttempts) || 0)),
+      inProgress: sanitizeInProgressBucket(input.overall.inProgress),
+      buckets: sanitizeBucketList(input.overall.buckets)
+    };
+  }
   return out;
 }
 

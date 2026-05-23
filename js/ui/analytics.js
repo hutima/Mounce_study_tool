@@ -36,7 +36,11 @@ import {
 import {
   getAllLemmaStats,
   getParadigmStepDimensionLabel,
-  getParadigmStepAttemptWindow
+  getParadigmStepAttemptWindow,
+  getParadigmBucketHistorySize,
+  getLemmaBucketSeries,
+  getOverallBucketSeries,
+  summarizeOverallRolling
 } from '../domain/grammar/morph_steps.js';
 import {
   buildDailyCumulativeSeriesFromMap,
@@ -48,7 +52,8 @@ import {
   buildCircularProgressSvg,
   buildLevelBarHtml,
   buildTitleLadderHtml,
-  buildWordStatCardHtml
+  buildWordStatCardHtml,
+  buildParadigmBucketBarsHtml
 } from './charts.js';
 import { showLevelToast, showBadgeToast } from './toast.js';
 
@@ -787,14 +792,22 @@ function renderGrammarReviewSection() {
 
 // Render the rolling per-lemma stats from the step-by-step drill. Doesn't
 // touch any other stat surface — this is a separate, opt-in record.
+//
+// Each row is tappable: tapping expands an inline performance bar chart
+// (up to 10 disjoint 20-attempt buckets + an in-progress trailing column).
+// The "All paradigms" row at the top aggregates buckets across every
+// drilled paradigm; per-lemma rows show that paradigm's own buckets.
 function renderParadigmStepStatsSection() {
   const body = document.getElementById('analyticsParadigmStepStatsBody');
   const status = document.getElementById('analyticsParadigmStepStatsStatus');
   if (!body) return;
-  const lemmaSummaries = getAllLemmaStats(runtime.paradigmStepStats || {});
+  const stats = runtime.paradigmStepStats || {};
+  const lemmaSummaries = getAllLemmaStats(stats);
+  const attemptWindow = getParadigmStepAttemptWindow();
+  const bucketHistory = getParadigmBucketHistorySize();
   if (!lemmaSummaries.length) {
     body.innerHTML = `<p class="analytics-empty">Turn on “Parse step-by-step” in Grammar mode and complete a parse to start seeing rolling per-paradigm accuracy here.</p>`;
-    if (status) status.textContent = `No drill attempts yet. Last ${getParadigmStepAttemptWindow()} attempts per paradigm.`;
+    if (status) status.textContent = `No drill attempts yet. Tap a row to see its performance history (up to ${bucketHistory} buckets of ${attemptWindow}).`;
     return;
   }
   lemmaSummaries.sort((a, b) => {
@@ -802,23 +815,91 @@ function renderParadigmStepStatsSection() {
     const pb = b.correct / Math.max(1, b.total);
     return pa - pb;
   });
-  const rows = lemmaSummaries.map((s) => {
+
+  const expandedKey = runtime.analyticsParadigmExpanded;
+
+  // Overall row: aggregates the sliding-window dims across every lemma plus
+  // the cross-paradigm bucket series. Always rendered at the top so the
+  // user can spot trend changes without scrolling per-lemma.
+  const overallSummary = summarizeOverallRolling(stats);
+  const overallBucketSeries = getOverallBucketSeries(stats);
+  const overallPct = Math.round(100 * overallSummary.correct / Math.max(1, overallSummary.total));
+  const overallExpanded = expandedKey === '__overall';
+  const overallChartHtml = overallExpanded
+    ? buildParadigmBucketBarsHtml(
+        overallBucketSeries.buckets,
+        overallBucketSeries.inProgress,
+        { bucketSize: attemptWindow, maxBuckets: bucketHistory, title: 'Overall parsing performance' }
+      )
+    : '';
+  const overallRow = `
+    <div class="paradigm-stat-row paradigm-stat-row-overall${overallExpanded ? ' paradigm-stat-row-active' : ''}"
+         role="button"
+         tabindex="0"
+         aria-expanded="${overallExpanded ? 'true' : 'false'}"
+         data-paradigm-row="__overall">
+      <div class="paradigm-stat-header">
+        <span class="paradigm-stat-lemma paradigm-stat-lemma-overall">All paradigms</span>
+        <span class="paradigm-stat-pct">${overallSummary.total ? `${overallPct}%` : '—'} · ${overallSummary.attempts} attempt${overallSummary.attempts === 1 ? '' : 's'} across ${overallSummary.paradigms} paradigm${overallSummary.paradigms === 1 ? '' : 's'}</span>
+      </div>
+      ${overallExpanded ? `<div class="paradigm-stat-chart">${overallChartHtml}</div>` : ''}
+    </div>`;
+
+  const lemmaRows = lemmaSummaries.map((s) => {
     const pct = Math.round(100 * s.correct / Math.max(1, s.total));
     const perDimChips = Object.entries(s.perDim).map(([dim, agg]) => {
       const dpct = Math.round(100 * agg.correct / Math.max(1, agg.seen));
       return `<span class="paradigm-stat-chip">${escapeHtml(getParadigmStepDimensionLabel(dim))} ${dpct}%</span>`;
     }).join('');
+    const isExpanded = expandedKey === s.lemma;
+    const series = isExpanded ? getLemmaBucketSeries(stats, s.lemma) : null;
+    const chartHtml = isExpanded
+      ? buildParadigmBucketBarsHtml(series.buckets, series.inProgress, {
+          bucketSize: attemptWindow,
+          maxBuckets: bucketHistory,
+          title: `${s.lemma} parsing performance`
+        })
+      : '';
     return `
-      <div class="paradigm-stat-row">
+      <div class="paradigm-stat-row${isExpanded ? ' paradigm-stat-row-active' : ''}"
+           role="button"
+           tabindex="0"
+           aria-expanded="${isExpanded ? 'true' : 'false'}"
+           data-paradigm-row="${escapeHtml(s.lemma)}">
         <div class="paradigm-stat-header">
           <span class="paradigm-stat-lemma">${escapeHtml(s.lemma)}</span>
-          <span class="paradigm-stat-pct">${pct}% · ${s.attempts}/${getParadigmStepAttemptWindow()} attempts</span>
+          <span class="paradigm-stat-pct">${pct}% · ${s.attempts}/${attemptWindow} attempts</span>
         </div>
         <div class="paradigm-stat-chips">${perDimChips}</div>
+        ${isExpanded ? `<div class="paradigm-stat-chart">${chartHtml}</div>` : ''}
       </div>`;
   }).join('');
-  body.innerHTML = `<div class="paradigm-stat-list">${rows}</div>`;
-  if (status) status.textContent = `${lemmaSummaries.length} paradigm${lemmaSummaries.length === 1 ? '' : 's'} drilled · last ${getParadigmStepAttemptWindow()} attempts each.`;
+
+  body.innerHTML = `<div class="paradigm-stat-list">${overallRow}${lemmaRows}</div>`;
+  setupParadigmStepStatsInteractivity(body);
+  if (status) status.textContent = `${lemmaSummaries.length} paradigm${lemmaSummaries.length === 1 ? '' : 's'} drilled · tap a row for the ${bucketHistory}-bucket performance chart.`;
+}
+
+function setupParadigmStepStatsInteractivity(rootEl) {
+  if (!rootEl || rootEl.dataset.paradigmStatsBound === '1') return;
+  rootEl.dataset.paradigmStatsBound = '1';
+  const toggle = (key) => {
+    if (!key) return;
+    runtime.analyticsParadigmExpanded = runtime.analyticsParadigmExpanded === key ? null : key;
+    renderParadigmStepStatsSection();
+  };
+  rootEl.addEventListener('click', (event) => {
+    const row = event.target.closest('[data-paradigm-row]');
+    if (!row || !rootEl.contains(row)) return;
+    toggle(row.dataset.paradigmRow || '');
+  });
+  rootEl.addEventListener('keydown', (event) => {
+    if (event.key !== 'Enter' && event.key !== ' ') return;
+    const row = event.target.closest('[data-paradigm-row]');
+    if (!row || !rootEl.contains(row)) return;
+    event.preventDefault();
+    toggle(row.dataset.paradigmRow || '');
+  });
 }
 
 function setupGrammarReviewInteractivity(rootEl) {

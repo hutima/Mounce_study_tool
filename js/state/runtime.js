@@ -37,6 +37,13 @@ export const runtime = {
   analyticsGrammarExpandedConcept: null,
   analyticsGrammarExpandedCard: null,
   analyticsGrammarConceptSort: 'confidence', // 'confidence' | 'alphabetical'
+  // Inline-expansion state for the paradigm parsing rows on the analytics
+  // tile vs the in-study parsing review panel. Tracked separately so opening
+  // a row in analytics doesn't auto-open the same row at the bottom of the
+  // study screen. Value is a lemma string, or '__overall' for the
+  // all-paradigms summary row, or null when nothing is expanded.
+  analyticsParadigmExpanded: null,
+  parsingReviewExpanded: null,
   // Sort order of the per-deck progress card list. Defaults to alphabetical
   // because that's the predictable "find a word" lookup; confidence flips it
   // to lowest-raw-pct-first for the "what should I drill next" view.
