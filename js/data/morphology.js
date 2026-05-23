@@ -1022,13 +1022,19 @@
             lemma: item.lemma,
             gloss: item.gloss,
             form: q.form,
-            prompt: 'Parse this form.',
+            prompt: q.prompt || 'Parse this form.',
+            // dimensional=false marks cards that aren't parsing drills (e.g.
+            // stem-change recall: "what is the aorist of βάλλω?"). The
+            // step-by-step renderer detects this and falls back to a simple
+            // MC layout instead of trying to decompose a Greek form into
+            // parsing dimensions.
+            dimensional: q.dimensional !== false,
             context: q.context || '',
             note: q.note || '',
             answer: q.answer,
             choices,
-            reversible: true,
-            reversePrompt: 'Choose the correct Greek form.',
+            reversible: q.reversible !== false,
+            reversePrompt: q.reversePrompt || 'Choose the correct Greek form.',
             reverseChoices,
             formToAnswer
           });

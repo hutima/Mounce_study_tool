@@ -818,6 +818,44 @@
     margin-right: 4px;
   }
 
+  /* Wrapped layout for the mode shortcut row with 5 entries. Every cell is
+   * the same fixed width (indexed to the longest label, "Memorization") so
+   * the grid reads as a uniform strip. Container width is pinned to exactly
+   * three cells across so the strip wraps to a 3-on-top / 2-on-bottom split,
+   * and the bottom row's two cells are centered horizontally within the
+   * outline — not left-justified. */
+  .mode-group.mode-group-wrap {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    width: calc(3 * 110px);
+    max-width: 100%;
+  }
+
+  .mode-group.mode-group-wrap .mode-btn {
+    flex: 0 0 110px;
+    width: 110px;
+    box-sizing: border-box;
+    padding: 9px 6px;
+    text-align: center;
+    border-left: 0;
+    border-right: 1px solid var(--border);
+    border-bottom: 1px solid var(--border);
+  }
+
+  /* Row-trailing cells drop their right border so it doesn't double up with
+   * the container's outline. With 5 cells: cell 3 is row-1 trailing, cell 5
+   * is row-2 trailing (also last overall). */
+  .mode-group.mode-group-wrap .mode-btn:nth-child(3),
+  .mode-group.mode-group-wrap .mode-btn:last-child {
+    border-right: 0;
+  }
+  /* Bottom-row cells drop their bottom border since the container outline
+   * draws the strip's bottom edge. */
+  .mode-group.mode-group-wrap .mode-btn:nth-child(n+4) {
+    border-bottom: 0;
+  }
+
   .mode-btn {
     background: transparent;
     border: 0;
@@ -1208,11 +1246,25 @@
   /* Step-by-step parsing drill */
   .paradigm-focus-row {
     display: flex;
+    flex-wrap: wrap;
     align-items: center;
     gap: 10px;
     margin-top: 4px;
     font-size: 13px;
     color: var(--muted);
+    width: 100%;
+  }
+
+  /* Primary placement above the card area when Parsing mode is active —
+   * elevates the dropdown out of advanced settings so the lemma choice is
+   * a first-class control. */
+  .paradigm-focus-row-primary {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 12px 16px;
+    margin-bottom: 14px;
+    gap: 12px;
   }
 
   .paradigm-focus-label {
@@ -1221,6 +1273,8 @@
     letter-spacing: 1.5px;
     text-transform: uppercase;
     color: var(--gold-dim);
+    white-space: nowrap;
+    flex: 0 0 auto;
   }
 
   .paradigm-focus-select {
@@ -1231,7 +1285,20 @@
     padding: 6px 8px;
     font-family: var(--font-body);
     font-size: 14px;
-    max-width: 320px;
+    flex: 1 1 200px;
+    min-width: 0;
+    max-width: 100%;
+  }
+
+  @media (max-width: 600px) {
+    .paradigm-focus-row {
+      flex-direction: column;
+      align-items: stretch;
+    }
+    .paradigm-focus-select {
+      width: 100%;
+      flex: 1 1 auto;
+    }
   }
 
   .morph-step-breadcrumb {
@@ -1335,6 +1402,25 @@
     border-top: 1px dashed var(--border);
     font-size: 12px;
     color: var(--muted);
+  }
+  .morph-step-stem-note {
+    margin-top: 10px;
+    padding: 8px 10px;
+    border-left: 2px solid rgba(201,168,76,0.45);
+    background: rgba(201,168,76,0.05);
+    font-family: var(--font-greek);
+    font-size: 15px;
+    color: var(--cream);
+    border-radius: 0 6px 6px 0;
+  }
+  .morph-step-stem-label {
+    display: inline-block;
+    margin-right: 8px;
+    font-family: var(--font-display);
+    font-size: 10px;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    color: var(--gold-dim);
   }
   .morph-step-summary-meta {
     margin-top: 10px;

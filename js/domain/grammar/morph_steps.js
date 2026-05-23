@@ -13,6 +13,7 @@
 // answer from the card's parsed answer string and pulls distractors from the
 // remaining pool entries for that dimension.
 const DIM_POOLS = {
+  aspect: ['continuous', 'undefined', 'completed'],
   tense:  ['present', 'future', 'imperfect', 'aorist', 'first aorist', 'second aorist', 'perfect', 'pluperfect'],
   voice:  ['active', 'middle', 'passive', 'middle/passive'],
   mood:   ['indicative', 'subjunctive', 'imperative', 'infinitive', 'participle'],
@@ -23,6 +24,7 @@ const DIM_POOLS = {
 };
 
 const DIM_LABEL = {
+  aspect: 'Aspect',
   tense:  'Tense',
   voice:  'Voice',
   mood:   'Mood',
@@ -30,6 +32,21 @@ const DIM_LABEL = {
   case:   'Case',
   number: 'Number',
   gender: 'Gender'
+};
+
+// Aspect is implicit in tense in Mounce's pedagogy: present/imperfect carry
+// continuous (imperfective) aspect, aorists carry undefined (aoristic), and
+// perfect/pluperfect carry completed (stative). Future is conventionally
+// classed as undefined here.
+const TENSE_TO_ASPECT = {
+  'present':       'continuous',
+  'imperfect':     'continuous',
+  'future':        'undefined',
+  'aorist':        'undefined',
+  'first aorist':  'undefined',
+  'second aorist': 'undefined',
+  'perfect':       'completed',
+  'pluperfect':    'completed'
 };
 
 const DIM_DISPLAY_SUFFIX = {
@@ -88,7 +105,11 @@ export function parseAnswerDimensions(answer) {
     ? 'all genders'
     : (cleaned.match(/\b(masculine|feminine|neuter)(?:\/(?:masculine|feminine|neuter))*\b/) || [''])[0];
 
-  return { tense, voice, mood, person, case: grammaticalCase, number, gender };
+  // Aspect is derived from tense (Mounce's pedagogy: aspect is the primary
+  // category, with tense as a secondary marker). Missing tense → no aspect.
+  const aspect = tense ? (TENSE_TO_ASPECT[tense] || '') : '';
+
+  return { aspect, tense, voice, mood, person, case: grammaticalCase, number, gender };
 }
 
 function shuffle(arr) {
@@ -100,20 +121,49 @@ function shuffle(arr) {
   return out;
 }
 
-function buildChoices(dimensionKey, correct) {
-  const pool = DIM_POOLS[dimensionKey] || [];
+function buildChoices(dimensionKey, correct, accessiblePool) {
+  // Prefer the chapter-gated accessible pool when provided (only values that
+  // appear in morph cards the student has access to at their current point
+  // in the course). Fall back to the full DIM_POOLS list if no pool was
+  // passed — useful for unit tests and for callers that don't gate.
+  //
+  // The full accessible pool is shown — every distinct value the student has
+  // learned for this dimension to date — rather than a 4-choice cap. As the
+  // course progresses the choice list grows, mirroring expanding paradigm
+  // recognition.
+  const sourcePool = accessiblePool && accessiblePool.length
+    ? accessiblePool
+    : (DIM_POOLS[dimensionKey] || []);
   const seen = new Set([correct]);
-  // For syncretic case ("nominative/accusative") or aggregate gender ("all
-  // genders"), distractors come from the single-value pool plus the correct
-  // syncretic form so the right answer is still selectable.
   const distractors = [];
-  for (const candidate of shuffle(pool)) {
+  for (const candidate of sourcePool) {
     if (seen.has(candidate)) continue;
     distractors.push(candidate);
     seen.add(candidate);
-    if (distractors.length >= 3) break;
   }
   return shuffle([correct, ...distractors]);
+}
+
+// Walks a set of morph cards (e.g. every card whose source chapter is ≤ the
+// student's max selected chapter) and returns the unique values that appear
+// in each parsing dimension. Used to build chapter-gated MC distractor pools
+// so the drill never asks about a tense/mood/case the textbook hasn't yet
+// introduced.
+export function computeAccessibleDimensionPools(cards) {
+  const pools = {
+    aspect: new Set(), tense: new Set(), voice: new Set(), mood: new Set(), person: new Set(),
+    case: new Set(), number: new Set(), gender: new Set()
+  };
+  (cards || []).forEach((card) => {
+    if (!card || !card.answer) return;
+    const dims = parseAnswerDimensions(card.answer);
+    Object.keys(pools).forEach((k) => {
+      if (dims[k]) pools[k].add(dims[k]);
+    });
+  });
+  const out = {};
+  Object.keys(pools).forEach((k) => { out[k] = [...pools[k]]; });
+  return out;
 }
 
 function applyDisplaySuffix(dimensionKey, value) {
@@ -123,24 +173,27 @@ function applyDisplaySuffix(dimensionKey, value) {
 
 // Returns ordered dimension steps for this card. Each step:
 //   { key, label, correct, choices, displayChoices, displayCorrect }
-// `correct` and `choices` are the canonical (lowercase, no-suffix) tokens
-// that the renderer compares against; `display*` are the user-facing strings
-// (e.g. "first person" instead of "first").
-export function buildMorphSteps(card) {
+// `accessiblePools` is the optional chapter-gated distractor pool produced by
+// computeAccessibleDimensionPools — pass it in to restrict MC choices to
+// values the textbook has introduced so far.
+export function buildMorphSteps(card, accessiblePools = null) {
   if (!card || card.kind !== 'morph') return [];
   const dims = parseAnswerDimensions(card.answer);
 
-  // Determine the dimension order. Verbs lead with tense; nominals with case.
+  // Determine the dimension order. Verbs lead with aspect → tense (Mounce's
+  // aspect-first pedagogy), then voice → mood → person → number, with a
+  // case/number/gender tail for participles. Nominals skip the verb steps.
   const isVerb = !!(dims.tense || dims.voice || dims.person);
   const order = isVerb
-    ? ['tense', 'voice', 'mood', 'person', 'case', 'number', 'gender']
-    : ['case', 'number', 'gender', 'tense', 'voice', 'mood', 'person'];
+    ? ['aspect', 'tense', 'voice', 'mood', 'person', 'case', 'number', 'gender']
+    : ['case', 'number', 'gender', 'aspect', 'tense', 'voice', 'mood', 'person'];
 
   const steps = [];
   for (const dimKey of order) {
     const correct = dims[dimKey];
     if (!correct) continue;
-    const choices = buildChoices(dimKey, correct);
+    const pool = accessiblePools ? accessiblePools[dimKey] : null;
+    const choices = buildChoices(dimKey, correct, pool);
     const displayCorrect = applyDisplaySuffix(dimKey, correct);
     const displayChoices = choices.map((c) => applyDisplaySuffix(dimKey, c));
     steps.push({

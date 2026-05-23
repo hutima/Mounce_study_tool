@@ -35,6 +35,7 @@ import {
 let host = {
   noteStudyInteraction: () => {},
   isMorphologyMode: () => false,
+  isParsingMode: () => false,
   isReaderMode: () => false,
   normalizeStudyMode: (m) => m,
   resetMorphAnswerState: () => {},
@@ -81,7 +82,7 @@ export function configureNavigation(deps) {
 // chapters. These helpers stash/restore that selection as the study mode
 // changes. Only 'vocab' and 'morph' participate; 'reader' is left untouched.
 function saveModeSelection(mode) {
-  if (mode !== 'vocab' && mode !== 'morph') return;
+  if (mode !== 'vocab' && mode !== 'morph' && mode !== 'parsing') return;
   runtime.modeSelections[mode] = {
     selectedKeys: [...runtime.selectedKeys],
     currentSessionId: runtime.currentSession ? runtime.currentSession.id : null
@@ -89,7 +90,7 @@ function saveModeSelection(mode) {
 }
 
 function restoreModeSelection(mode) {
-  if (mode !== 'vocab' && mode !== 'morph') return;
+  if (mode !== 'vocab' && mode !== 'morph' && mode !== 'parsing') return;
   const saved = runtime.modeSelections[mode];
   if (!saved) return;
   runtime.selectedKeys = sortSetKeys((saved.selectedKeys || []).map(String));
@@ -108,7 +109,7 @@ export function navigate(dir, options = {}) {
     // Prev press just pops and restores. The label flips between
     // "← Prev" and "↶ Undo" so the user knows when the next pop will
     // roll back a confidence-impacting mark.
-    if (!runtime.spacedRepetition && !host.isMorphologyMode()) {
+    if (!runtime.spacedRepetition && !host.isMorphologyMode() && !host.isParsingMode()) {
       if (host.restoreUnspacedHistoryStep()) return;
       // No history to walk: fall through to plain cursor-back.
     }
@@ -119,8 +120,8 @@ export function navigate(dir, options = {}) {
   }
 
   if (!runtime.spacedRepetition && runtime.currentIdx >= runtime.deck.length) {
-    if (host.isMorphologyMode()) {
-      // Morph still auto-cycles on Next when everything is known.
+    if (host.isMorphologyMode() || host.isParsingMode()) {
+      // Morph + parsing both auto-cycle on Next when everything is known.
       if (runtime.unspacedPendingRecycle) {
         host.startNextCycle('remaining');
       } else if (host.getKnownCount() === runtime.originalDeck.length) {
@@ -158,8 +159,13 @@ export function navigate(dir, options = {}) {
     // moving without burning time. Only when middle is empty too do we fall
     // back to the existing scheduled-advance behaviour, which nudges the
     // next-up deferred cards forward an hour so the deck isn't dead.
+    // For parsing mode, also forward the last-shown card's id as
+    // avoidHeadId so the reshuffled deck doesn't repeat that card first.
+    const avoidHeadId = host.isParsingMode() && runtime.deck[runtime.currentIdx - 1]
+      ? runtime.deck[runtime.currentIdx - 1].id
+      : undefined;
     if (runtime.middleDeckCount > 0) {
-      runtime.deck = host.buildStudyDeck(runtime.originalDeck, { forceShuffle: true });
+      runtime.deck = host.buildStudyDeck(runtime.originalDeck, { forceShuffle: true, avoidHeadId });
     } else {
       // Advance the SRS clock so cards within 1 h of due become due-now,
       // then rebuild with forceShuffle so every newly-promoted card lands
@@ -168,7 +174,7 @@ export function navigate(dir, options = {}) {
       // would split the cohort across active and middle, forcing the user
       // to press Next a second time to dump middle in.
       host.advanceScheduledCards(runtime.originalDeck, SRS_CYCLE_ADVANCE_MS);
-      runtime.deck = host.buildStudyDeck(runtime.originalDeck, { forceShuffle: true });
+      runtime.deck = host.buildStudyDeck(runtime.originalDeck, { forceShuffle: true, avoidHeadId });
     }
     runtime.currentIdx = 0;
     host.resetMorphAnswerState();
@@ -179,17 +185,28 @@ export function navigate(dir, options = {}) {
     return;
   }
 
-  if (runtime.spacedRepetition && runtime.currentIdx < runtime.activeDeckCount && !options.skipAutoReview && !host.isMorphologyMode()) {
+  if (runtime.spacedRepetition && runtime.currentIdx < runtime.activeDeckCount && !options.skipAutoReview && !host.isMorphologyMode() && !host.isParsingMode()) {
     host.captureSpacedUndoSnapshot();
     host.applySpacedReview(runtime.deck[runtime.currentIdx], 'again');
     runtime.deck = host.buildStudyDeck(runtime.originalDeck);
   }
 
   if (runtime.spacedRepetition) {
-    if (host.isMorphologyMode()) {
+    if (host.isMorphologyMode() || host.isParsingMode()) {
       if (runtime.morphPendingAdvance) {
         runtime.deck = host.buildStudyDeck(runtime.originalDeck);
         runtime.currentIdx = Math.min(runtime.currentIdx, runtime.activeDeckCount);
+      } else if (host.isParsingMode() && runtime.currentIdx + 1 >= runtime.activeDeckCount) {
+        // Parsing has no SRS writes, so the standard end-of-cycle "no cards
+        // due" splash never resolves on its own — reshuffle immediately
+        // when the cursor would step past the last card. The just-shown
+        // card's id is forwarded as avoidHeadId so it doesn't repeat at
+        // the head of the new shuffled cycle.
+        const avoidHeadId = runtime.deck[runtime.currentIdx]
+          ? runtime.deck[runtime.currentIdx].id
+          : undefined;
+        runtime.deck = host.buildStudyDeck(runtime.originalDeck, { forceShuffle: true, avoidHeadId });
+        runtime.currentIdx = 0;
       } else {
         runtime.currentIdx = Math.min(runtime.currentIdx + 1, runtime.activeDeckCount);
       }
@@ -207,10 +224,16 @@ export function navigate(dir, options = {}) {
     return;
   }
 
-  if (host.isMorphologyMode()) {
+  if (host.isMorphologyMode() || host.isParsingMode()) {
     const nextIdx = runtime.currentIdx + 1;
     if (nextIdx >= runtime.deck.length) {
-      if (host.getKnownCount() === runtime.originalDeck.length) {
+      if (host.isParsingMode()) {
+        // Parsing: silent auto-reshuffle, no "end of round" splash.
+        const avoidHeadId = runtime.deck[runtime.currentIdx]
+          ? runtime.deck[runtime.currentIdx].id
+          : undefined;
+        host.startNextCycle('remaining', { avoidHeadId });
+      } else if (host.getKnownCount() === runtime.originalDeck.length) {
         runtime.currentIdx = runtime.deck.length;
         runtime.unspacedPendingRecycle = false;
       } else {
@@ -259,7 +282,7 @@ export function navigate(dir, options = {}) {
 
 export function markCard(outcome) {
   // outcome: 'again' | 'pass' | 'easy'
-  if (host.isMorphologyMode()) return;
+  if (host.isMorphologyMode() || host.isParsingMode()) return;
   host.noteStudyInteraction();
   if ((!runtime.spacedRepetition && runtime.currentIdx >= runtime.deck.length) || (runtime.spacedRepetition && runtime.currentIdx >= runtime.activeDeckCount)) return;
   const currentCard = runtime.deck[runtime.currentIdx];
@@ -505,28 +528,15 @@ export function toggleMorphSelfCheck() {
   host.saveState();
 }
 
-// Step-by-step parsing drill — alternate render path for morph cards that
-// walks one MC per dimension. Toggling on rebuilds the deck filtered to the
-// focused paradigm; toggling off restores the standard morph deck.
+// Legacy no-op: Parse step-by-step used to be a toggle inside Grammar mode.
+// It's now its own top-level study mode (setStudyMode('parsing')); kept as
+// a stub so saved/imported state that still references it doesn't error.
 export function toggleMorphStepByStep() {
-  if (!host.isMorphologyMode()) return;
-  // Bank the outgoing deck's cursor so the standard morph deck's position
-  // isn't lost when entering (or leaving) the focused-paradigm subset.
-  host.saveCurrentDeckStateToBank();
-  runtime.morphStepByStep = !runtime.morphStepByStep;
-  host.resetMorphAnswerState();
-  host.resetMorphStepState();
-  if (runtime.morphStepByStep) host.ensureMorphFocusedParadigm();
-  host.rebuildMorphDeckForStepMode();
-  host.syncToggleButtons();
-  renderCard();
-  renderProgress();
-  renderReview();
-  host.saveState();
+  // Intentionally empty — see setStudyMode('parsing') instead.
 }
 
 export function setMorphFocusedParadigm(lemma) {
-  if (!host.isMorphologyMode()) return;
+  if (!host.isParsingMode()) return;
   // Bank the outgoing paradigm's cursor before swapping to a different lemma.
   host.saveCurrentDeckStateToBank();
   runtime.morphFocusedParadigm = lemma || null;
