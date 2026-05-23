@@ -510,6 +510,9 @@ export function toggleMorphSelfCheck() {
 // focused paradigm; toggling off restores the standard morph deck.
 export function toggleMorphStepByStep() {
   if (!host.isMorphologyMode()) return;
+  // Bank the outgoing deck's cursor so the standard morph deck's position
+  // isn't lost when entering (or leaving) the focused-paradigm subset.
+  host.saveCurrentDeckStateToBank();
   runtime.morphStepByStep = !runtime.morphStepByStep;
   host.resetMorphAnswerState();
   host.resetMorphStepState();
@@ -524,6 +527,8 @@ export function toggleMorphStepByStep() {
 
 export function setMorphFocusedParadigm(lemma) {
   if (!host.isMorphologyMode()) return;
+  // Bank the outgoing paradigm's cursor before swapping to a different lemma.
+  host.saveCurrentDeckStateToBank();
   runtime.morphFocusedParadigm = lemma || null;
   host.resetMorphStepState();
   host.rebuildMorphDeckForStepMode();

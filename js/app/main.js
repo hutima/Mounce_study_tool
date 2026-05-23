@@ -606,11 +606,11 @@ function rebuildMorphDeckForStepMode() {
 
 // Step-by-step answer: record dimension correctness locally, advance through
 // the steps, write a single attempt to the rolling per-lemma window on
-// completion. NO writes to SRS, recordStudyOutcome, or directional marks —
-// this mode is explicitly off-the-record.
+// completion. NO writes to SRS, recordStudyOutcome, directional marks, or
+// usage timers — this mode is explicitly off-the-record per the in-card
+// "Stats not affected" label.
 function answerMorphologyStep(choiceIdx) {
   if (!isMorphologyMode() || !runtime.morphStepByStep) return;
-  noteStudyInteraction();
   const card = runtime.deck[runtime.currentIdx];
   if (!card || !runtime.morphStepState || runtime.morphStepState.completed) return;
   const state = runtime.morphStepState;
@@ -631,7 +631,6 @@ function answerMorphologyStep(choiceIdx) {
 
 function skipMorphologyStep() {
   if (!isMorphologyMode() || !runtime.morphStepByStep) return;
-  noteStudyInteraction();
   const card = runtime.deck[runtime.currentIdx];
   if (!card || !runtime.morphStepState || runtime.morphStepState.completed) return;
   const state = runtime.morphStepState;
@@ -797,7 +796,7 @@ function syncParadigmFocusUi() {
     rebuildMorphDeckForStepMode();
   }
   select.innerHTML = available
-    .map((p) => `<option value="${p.lemma}">${p.displayLabel}</option>`)
+    .map((p) => `<option value="${escapeHtml(p.lemma)}">${escapeHtml(p.displayLabel)}</option>`)
     .join('');
   select.value = chosen;
 }

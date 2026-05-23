@@ -47,15 +47,35 @@ function findToken(text, regex) {
 // number, gender }, with missing dimensions left as ''.
 export function parseAnswerDimensions(answer) {
   const a = String(answer || '').toLowerCase();
-  const cleaned = a.replace(/[(),;]/g, ' ').replace(/\s+/g, ' ').trim();
+  // Normalize "X or Y" → "X/Y" for voice/case syncretism, then strip
+  // grouping punctuation. Mounce writes "nominative or accusative singular
+  // neuter" and "middle or passive" — the slash-form is what the regexes
+  // and DIM_POOLS canonicalize to.
+  const cleaned = a
+    .replace(/(nominative|accusative|genitive|dative|vocative)\s+or\s+(nominative|accusative|genitive|dative|vocative)/g, '$1/$2')
+    .replace(/(masculine|feminine|neuter)\s+or\s+(masculine|feminine|neuter)/g, '$1/$2')
+    .replace(/middle\s+or\s+passive/g, 'middle/passive')
+    .replace(/[(),;]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
 
-  const qualifierTense = findToken(cleaned, /\b(first aorist|second aorist)\b/);
+  const qualifierTense = findToken(cleaned, /\b(first aorist|second aorist|1st aorist|2nd aorist)\b/)
+    .replace(/^1st\b/, 'first')
+    .replace(/^2nd\b/, 'second');
   const tense = qualifierTense
     || findToken(cleaned, /\b(present|future|imperfect|aorist|perfect|pluperfect)\b/);
-  const voice = findToken(cleaned, /\b(middle\/passive|middle or passive|active|middle|passive)\b/)
-    .replace(/middle or passive/, 'middle/passive');
+  const voice = findToken(cleaned, /\b(middle\/passive|mid\/pas|active|middle|passive)\b/)
+    .replace(/^mid\/pas$/, 'middle/passive');
   const mood = findToken(cleaned, /\b(indicative|subjunctive|imperative|infinitive|participle)\b/);
-  const person = findToken(cleaned, /\b(first|second|third) person\b/).replace(/\s+person$/, '');
+  // Person: accept both "first person" (duff/long form) and "1st" (Mounce
+  // shorthand, where person appears as "1st singular" / "2nd plural" with
+  // no "person" token). Normalize the digit form to the long form so
+  // DIM_POOLS distractors stay consistent.
+  let person = findToken(cleaned, /\b(first|second|third)\s+person\b/).replace(/\s+person$/, '');
+  if (!person) {
+    const m = cleaned.match(/\b(1st|2nd|3rd)\s+(singular|plural)\b/);
+    if (m) person = { '1st': 'first', '2nd': 'second', '3rd': 'third' }[m[1]];
+  }
   const number = findToken(cleaned, /\b(singular|plural)\b/);
 
   // Case can be syncretic (e.g. "nominative/accusative"). Capture as-is.

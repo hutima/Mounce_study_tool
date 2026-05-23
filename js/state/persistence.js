@@ -641,13 +641,21 @@ function handleImportedProgressFile(event) {
 
 export function getDeckStateKey(keys = runtime.selectedKeys, requiredFlag = runtime.requiredOnly, spacedFlag = runtime.spacedRepetition) {
   const normalizedKeys = sortSetKeys((keys || []).map(String));
+  // Step-by-step paradigm mode rebuilds the morph deck against a single
+  // lemma subset; include the focused paradigm in the key so each lemma
+  // gets its own cursor bank and switching paradigms doesn't carry over a
+  // stale currentIdx from the previous one (or from the standard morph deck).
+  const morphStep = runtime.studyMode === 'morph' && runtime.morphStepByStep
+    ? { stepByStep: true, focusedParadigm: runtime.morphFocusedParadigm || '' }
+    : undefined;
   return JSON.stringify({
     keys: normalizedKeys,
     requiredOnly: !!requiredFlag,
     spacedRepetition: !!spacedFlag,
     hardVocabReviewMode: !!runtime.hardVocabReviewMode,
     direction: host.getStudyStoreKey(),
-    mode: runtime.studyMode
+    mode: runtime.studyMode,
+    ...(morphStep ? { morphStep } : {})
   });
 }
 

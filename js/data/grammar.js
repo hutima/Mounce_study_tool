@@ -934,7 +934,7 @@
             { form: "Which endings?",
               prompt: "What set of endings does the present active indicative use?",
               answer: "primary active",
-              choices: ["primary active", "secondary active", "primary middle/passive", "perfect active"],
+              choices: ["primary active", "secondary active", "primary middle/passive", "secondary middle/passive"],
               note: "Mounce's four sets: primary active, primary mid/pas, secondary active, secondary mid/pas." }
           ]
         }
