@@ -439,6 +439,42 @@ function assembleParseLine(steps, values) {
   }).filter(Boolean).join(' · ');
 }
 
+// Two dimension values are compatible if they share any '/'-separated
+// component. Picking 'nominative' matches an answer of 'nominative' or
+// 'nominative/accusative'; picking 'nominative/accusative' matches an
+// answer of 'nominative' or 'accusative' or 'nominative/accusative'.
+function dimsCompatible(picked, answer) {
+  if (!picked || !answer) return false;
+  const pp = String(picked).split('/').filter(Boolean);
+  const ap = String(answer).split('/').filter(Boolean);
+  return pp.some((p) => ap.includes(p));
+}
+
+// Returns the forms in the card's paradigm whose canonical answer is
+// compatible with the student's picked dimensions. Used in the wrong-parse
+// summary to show "your picks would name this form" — for τὰς ἀρχάς with
+// picks 'nominative/accusative plural feminine' this surfaces αἱ ἀρχαί and
+// τὰς ἀρχάς, making concrete that feminine nom/acc are distinct forms.
+function findFormsMatchingPickedDims(card, steps, pickedValues) {
+  if (!card || !card.formToAnswer || typeof card.formToAnswer !== 'object') return [];
+  const pickedDims = {};
+  steps.forEach((step, idx) => {
+    const v = pickedValues[idx];
+    if (v) pickedDims[step.key] = v;
+  });
+  const keys = Object.keys(pickedDims);
+  if (keys.length === 0) return [];
+  const matches = [];
+  for (const [form, answer] of Object.entries(card.formToAnswer)) {
+    if (!form || !answer) continue;
+    const ansDims = parseAnswerDimensions(answer);
+    if (keys.every((k) => dimsCompatible(pickedDims[k], ansDims[k]))) {
+      matches.push(form);
+    }
+  }
+  return matches;
+}
+
 function renderMorphStepSummary(card, state) {
   const rows = state.steps.map((step, idx) => {
     const answer = state.answers[idx];
@@ -486,11 +522,16 @@ function renderMorphStepSummary(card, state) {
     return ans && ans.selectedIdx >= 0 ? step.choices[ans.selectedIdx] : '';
   });
   const correctValues = state.steps.map((step) => step.correct);
+  const matchingForms = anyWrong ? findFormsMatchingPickedDims(card, state.steps, pickedValues) : [];
+  const matchingFormsLine = matchingForms.length
+    ? `<div class="morph-step-parse-match">→ ${escapeHtml(matchingForms.join(' / '))}</div>`
+    : '';
   const youParseLine = anyWrong
     ? `<div class="morph-step-parse-compare">
         <div class="morph-step-parse-line morph-step-parse-line-yours">
           <span class="morph-step-parse-label">Your parse</span>
           ${escapeHtml(assembleParseLine(state.steps, pickedValues) || '—')}
+          ${matchingFormsLine}
         </div>
         <div class="morph-step-parse-line morph-step-parse-line-correct">
           <span class="morph-step-parse-label">Correct parse</span>

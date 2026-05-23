@@ -1462,6 +1462,17 @@
   }
   .morph-step-parse-line-yours .morph-step-parse-label { color: #e7a1a1; }
   .morph-step-parse-line-correct .morph-step-parse-label { color: #9ad0a7; }
+  .morph-step-parse-match {
+    margin-top: 4px;
+    margin-left: 92px;
+    font-family: var(--font-greek);
+    font-size: 14px;
+    color: var(--muted);
+    font-style: italic;
+  }
+  @media (max-width: 600px) {
+    .morph-step-parse-match { margin-left: 0; }
+  }
 
   /* Per-paradigm review panel — replaces the standard confidence/seen list
    * in parsing mode. Each row shows lemma + accuracy % + dimension chips. */
