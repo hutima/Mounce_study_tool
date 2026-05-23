@@ -1425,6 +1425,25 @@
     text-transform: uppercase;
     color: var(--gold-dim);
   }
+  .morph-step-ambig-note {
+    margin-top: 10px;
+    padding: 8px 10px;
+    border-left: 2px solid rgba(120,170,210,0.45);
+    background: rgba(120,170,210,0.05);
+    font-size: 13px;
+    line-height: 1.45;
+    color: var(--cream);
+    border-radius: 0 6px 6px 0;
+  }
+  .morph-step-ambig-label {
+    display: inline-block;
+    margin-right: 8px;
+    font-family: var(--font-display);
+    font-size: 10px;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    color: rgba(120,170,210,0.95);
+  }
   .morph-step-summary-meta {
     margin-top: 10px;
     font-size: 12px;
