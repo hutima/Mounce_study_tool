@@ -368,6 +368,69 @@ export function buildTitleLadderHtml(xpData) {
   `;
 }
 
+// ── Paradigm parsing bucket bar chart ────────────────────────────────────
+// Renders up to maxBuckets disjoint completed 20-attempt buckets (oldest →
+// newest, left → right). If there's an `inProgress` bucket with any
+// recorded dims, it appears as a muted trailing column so the user can
+// watch their current bucket filling. Empty state shows when there are no
+// completed buckets and the in-progress bucket is empty.
+export function buildParadigmBucketBarsHtml(buckets, inProgress, options = {}) {
+  const bucketSize = Number(options.bucketSize) || 20;
+  const maxBuckets = Number(options.maxBuckets) || 10;
+  const list = Array.isArray(buckets) ? buckets.slice(-maxBuckets) : [];
+  const ip = inProgress && typeof inProgress === 'object'
+    ? { correct: Number(inProgress.correct) || 0, total: Number(inProgress.total) || 0 }
+    : { correct: 0, total: 0 };
+  const hasInProgress = ip.total > 0;
+
+  if (!list.length && !hasInProgress) {
+    const remaining = bucketSize;
+    return `<div class="paradigm-bucket-empty">No completed buckets yet. ${remaining} more parses for the first bar.</div>`;
+  }
+
+  const newestIdx = list.length - 1; // 0 = most recent completed
+  const cols = list.map((b, i) => {
+    const total = Math.max(0, Number(b.total) || 0);
+    const correct = Math.max(0, Number(b.correct) || 0);
+    const pct = total > 0 ? Math.round(100 * correct / total) : 0;
+    const cls = pct >= 80 ? 'paradigm-bucket-bar-high'
+      : pct >= 50 ? 'paradigm-bucket-bar-mid'
+      : 'paradigm-bucket-bar-low';
+    const offset = newestIdx - i; // 0 = newest, increases for older
+    const indexLabel = offset === 0 ? 'last' : `−${offset}`;
+    const dateText = b.at ? formatAnalyticsDate(b.at) : '';
+    const title = `Bucket ${indexLabel}${dateText ? ` (${dateText})` : ''}: ${correct}/${total} (${pct}%)`;
+    return `
+      <div class="paradigm-bucket-col" title="${escapeHtml(title)}">
+        <div class="paradigm-bucket-pct">${pct}%</div>
+        <div class="paradigm-bucket-bar-track">
+          <div class="paradigm-bucket-bar ${cls}" style="height:${pct}%"></div>
+        </div>
+        <div class="paradigm-bucket-idx">${escapeHtml(indexLabel)}</div>
+      </div>`;
+  }).join('');
+
+  let ipCol = '';
+  if (hasInProgress) {
+    const ipPct = ip.total > 0 ? Math.round(100 * ip.correct / ip.total) : 0;
+    const title = `In progress: ${ipPct}% across ${ip.correct}/${ip.total} dims so far`;
+    ipCol = `
+      <div class="paradigm-bucket-col paradigm-bucket-col-inprogress" title="${escapeHtml(title)}">
+        <div class="paradigm-bucket-pct paradigm-bucket-pct-muted">${ipPct}%</div>
+        <div class="paradigm-bucket-bar-track">
+          <div class="paradigm-bucket-bar paradigm-bucket-bar-inprogress" style="height:${ipPct}%"></div>
+        </div>
+        <div class="paradigm-bucket-idx paradigm-bucket-idx-inprogress">now</div>
+      </div>`;
+  }
+
+  const ariaLabel = options.title || `Performance by buckets of ${bucketSize}`;
+  return `
+    <div class="paradigm-bucket-chart" role="img" aria-label="${escapeHtml(ariaLabel)}">${cols}${ipCol}</div>
+    <div class="paradigm-bucket-chart-caption">Each bar = ${bucketSize} parses · oldest → newest${hasInProgress ? ' · "now" = current bucket filling' : ''}</div>
+  `;
+}
+
 // ── Per-word stat card (revealed by tapping a word row inside a chapter) ──
 // Pulls everything off the same g2e progress record the SRS uses, so the
 // numbers here are authoritative — same source as Study screen.
