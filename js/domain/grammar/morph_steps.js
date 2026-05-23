@@ -212,15 +212,21 @@ export function computeAccessibleDimensionPools(cards) {
 // commit to a person before we can resolve their picks to a single Greek
 // form; inject person (and number if the card also lacks one).
 //
+// Imperative is treated specially: it's structurally 2nd person (Koine has
+// no 1st-person imperatives), so person is never injected — only number.
+//
 // Returns [] when no injection is needed. Voice is never injected here —
 // it's introduced in chapter 15 and gated separately.
-const FINITE_MOODS_NEEDING_PERSON_NUMBER = new Set(['indicative', 'subjunctive', 'imperative', 'optative']);
+const FINITE_MOODS_NEEDING_PERSON_NUMBER = new Set(['indicative', 'subjunctive', 'optative']);
 export function inferredFollowupDims(stepKey, picked, existingStepKeys) {
   if (stepKey !== 'mood' || !picked) return [];
   const have = existingStepKeys instanceof Set ? existingStepKeys : new Set(existingStepKeys || []);
   const out = [];
   if (FINITE_MOODS_NEEDING_PERSON_NUMBER.has(picked)) {
     if (!have.has('person')) out.push('person');
+    if (!have.has('number')) out.push('number');
+  } else if (picked === 'imperative') {
+    // Structurally 2nd person — only number disambiguates the form.
     if (!have.has('number')) out.push('number');
   } else if (picked === 'participle') {
     if (!have.has('case'))   out.push('case');
@@ -229,6 +235,39 @@ export function inferredFollowupDims(stepKey, picked, existingStepKeys) {
   }
   // infinitive: no follow-ups needed (no person/number/case/gender).
   return out;
+}
+
+// Structural impossibilities in Koine Greek that don't depend on a specific
+// lemma — these are paradigm-level gaps any verb shares. Separate from the
+// per-lemma negative inventory in js/data/lemma_inventory.js (which handles
+// lemma-specific gaps like aorist εἰμί). When the student's picks combine
+// into one of these, the form lookup should explain *why* no morph exists
+// instead of just rendering "[no morph exists]".
+const STRUCTURAL_TENSE_MOOD_IMPOSSIBILITIES = [
+  { tense: 'future',     mood: 'imperative',  why: 'no future imperative exists' },
+  { tense: 'future',     mood: 'subjunctive', why: 'no future subjunctive exists' },
+  { tense: 'imperfect',  mood: 'subjunctive', why: 'no imperfect subjunctive exists (imperfect is indicative-only)' },
+  { tense: 'imperfect',  mood: 'imperative',  why: 'no imperfect imperative exists (imperfect is indicative-only)' },
+  { tense: 'imperfect',  mood: 'infinitive',  why: 'no imperfect infinitive exists (imperfect is indicative-only)' },
+  { tense: 'imperfect',  mood: 'participle',  why: 'no imperfect participle exists (imperfect is indicative-only)' },
+  { tense: 'pluperfect', mood: 'subjunctive', why: 'no pluperfect subjunctive exists (pluperfect is indicative-only)' },
+  { tense: 'pluperfect', mood: 'imperative',  why: 'no pluperfect imperative exists (pluperfect is indicative-only)' }
+];
+
+// Returns a short explanation when the picked (tense, mood) combo is
+// structurally impossible in Koine, or null otherwise. Aorist qualifiers
+// (first/second) are collapsed onto 'aorist' since they don't introduce
+// new mood gaps.
+export function structuralImpossibilityReason(pickedDims) {
+  if (!pickedDims) return null;
+  const tenseRaw = String(pickedDims.tense || '').toLowerCase();
+  const mood = String(pickedDims.mood || '').toLowerCase();
+  if (!tenseRaw || !mood) return null;
+  const tense = tenseRaw.replace(/^(first |second )/, '');
+  for (const entry of STRUCTURAL_TENSE_MOOD_IMPOSSIBILITIES) {
+    if (entry.tense === tense && entry.mood === mood) return entry.why;
+  }
+  return null;
 }
 
 // Builds an ungraded follow-up step for the given dimension. Choices come
@@ -281,6 +320,11 @@ export function buildMorphSteps(card, accessiblePools = null) {
   for (const dimKey of order) {
     const correct = dims[dimKey];
     if (!correct) continue;
+    // Imperative is structurally 2nd person in Koine — skip the person step
+    // for imperative cards so the dimension count matches non-explicit
+    // imperatives (e.g. "active imperative singular" with no "second person"
+    // tag).
+    if (dimKey === 'person' && dims.mood === 'imperative') continue;
     const pool = accessiblePools ? accessiblePools[dimKey] : null;
     const choices = buildChoices(dimKey, correct, pool);
     const displayCorrect = applyDisplaySuffix(dimKey, correct);

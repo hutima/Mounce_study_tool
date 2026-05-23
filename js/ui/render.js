@@ -440,12 +440,27 @@ function applyDisplaySuffixIfPerson(dimKey, value) {
 // ['continuous', 'present', 'indicative', 'second', 'plural'] →
 // "continuous · present · indicative · second person · plural". Skips
 // empty values so a partial walk still reads cleanly.
+// Imperative cards have no Person step (it's structurally 2nd person), but
+// the canonical parse still reads "...imperative · second person ·
+// singular" — slot the implied 2nd-person token in after mood when no
+// Person step is present.
 function assembleParseLine(steps, values) {
-  return steps.map((step, idx) => {
+  const parts = [];
+  let moodImperativePos = -1;
+  let hasPersonStep = false;
+  steps.forEach((step, idx) => {
+    if (step.key === 'person') hasPersonStep = true;
     const v = values[idx];
-    if (!v) return null;
-    return step.key === 'person' ? `${v} person` : v;
-  }).filter(Boolean).join(' · ');
+    if (!v) return;
+    parts.push(step.key === 'person' ? `${v} person` : v);
+    if (step.key === 'mood' && String(v).toLowerCase() === 'imperative') {
+      moodImperativePos = parts.length;
+    }
+  });
+  if (moodImperativePos >= 0 && !hasPersonStep) {
+    parts.splice(moodImperativePos, 0, 'second person');
+  }
+  return parts.join(' · ');
 }
 
 // Two dimension values are compatible if they share any '/'-separated
@@ -636,6 +651,16 @@ function renderMorphStepSummary(card, state) {
     const pickedLabel = answer && answer.selectedIdx >= 0
       ? step.displayChoices[answer.selectedIdx]
       : '—';
+    // A null answer means the walk ended before this step (structural
+    // impossibility short-circuit). Render neutral, no ✓/✗ — these were
+    // never asked, so they're not graded.
+    if (!answer && state.structuralImpossibility) {
+      return `
+        <div class="morph-step-summary-row morph-step-inferred">
+          <span class="morph-step-summary-dim">${escapeHtml(step.label)}</span>
+          <span class="morph-step-summary-pick">${escapeHtml(pickedLabel)}</span>
+        </div>`;
+    }
     // Inferred follow-up steps are ungraded: render the student's pick
     // without a ✓/✗ mark and without a correction arrow.
     if (step.inferred) {
@@ -673,8 +698,9 @@ function renderMorphStepSummary(card, state) {
       </div>`;
   }).join('');
 
-  // X/N excludes inferred (ungraded) follow-up steps.
-  const gradedCount = state.steps.filter((s) => !s.inferred).length;
+  // X/N excludes inferred (ungraded) follow-up steps and steps that were
+  // never asked because a structural impossibility ended the walk early.
+  const gradedCount = state.steps.filter((s, i) => !s.inferred && state.answers[i]).length;
   const totalCorrect = state.answers.filter((a, i) => a && a.isCorrect && !state.steps[i].inferred).length;
   const totalStr = `${totalCorrect}/${gradedCount} correct`;
 
@@ -690,14 +716,22 @@ function renderMorphStepSummary(card, state) {
     return ans && ans.selectedIdx >= 0 ? step.choices[ans.selectedIdx] : '';
   });
   const correctValues = state.steps.map((step) => step.correct);
-  const lookup = resolveFormForPickedDims(card, state.steps, pickedValues);
+  // A structural impossibility (e.g. future imperative) trumps any lemma
+  // lookup — show the specific reason instead of the generic "[no morph
+  // exists]" we'd fall back to from the inventory check.
+  const structReason = state.structuralImpossibility && state.structuralImpossibility.reason;
   let yourFormHtml;
-  if (lookup.kind === 'form') {
-    yourFormHtml = `<div class="morph-step-parse-match">${escapeHtml(lookup.form)}</div>`;
-  } else if (lookup.kind === 'impossible') {
-    yourFormHtml = `<div class="morph-step-parse-match morph-step-parse-match-impossible">[no morph exists]</div>`;
+  if (structReason) {
+    yourFormHtml = `<div class="morph-step-parse-match morph-step-parse-match-impossible">[${escapeHtml(structReason)}]</div>`;
   } else {
-    yourFormHtml = `<div class="morph-step-parse-match morph-step-parse-match-empty">—</div>`;
+    const lookup = resolveFormForPickedDims(card, state.steps, pickedValues);
+    if (lookup.kind === 'form') {
+      yourFormHtml = `<div class="morph-step-parse-match">${escapeHtml(lookup.form)}</div>`;
+    } else if (lookup.kind === 'impossible') {
+      yourFormHtml = `<div class="morph-step-parse-match morph-step-parse-match-impossible">[no morph exists]</div>`;
+    } else {
+      yourFormHtml = `<div class="morph-step-parse-match morph-step-parse-match-empty">—</div>`;
+    }
   }
   const correctFormHtml = card.form
     ? `<div class="morph-step-parse-match">${escapeHtml(card.form)}</div>`
