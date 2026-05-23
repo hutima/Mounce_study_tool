@@ -72,6 +72,17 @@ export const runtime = {
   morphAnswerState: { answered: false, revealed: false, selfRated: false, selectedIndex: -1, isCorrect: null, skipped: false },
   morphPendingAdvance: false,
 
+  // ── Step-by-step paradigm drill (off by default, no SRS/main-stats writes)
+  // morphStepByStep: gates the alternate render + deck filter in grammar mode.
+  // morphFocusedParadigm: lemma string the user is drilling (default = first
+  // paradigm in selection). morphStepState: ephemeral per-card walk progress.
+  // paradigmStepStats: { byLemma: { lemma: { attempts: [{ at, dims }] } } }
+  // — sliding window capped at 20 attempts per lemma (see morph_steps.js).
+  morphStepByStep: false,
+  morphFocusedParadigm: null,
+  morphStepState: { cardId: null, steps: [], stepIdx: 0, answers: [], completed: false },
+  paradigmStepStats: { byLemma: {} },
+
   // ── Persisted directional stores (rebuilt from localStorage) ────────
   deckStates: {},
   globalWordMarks: {},

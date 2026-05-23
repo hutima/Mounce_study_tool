@@ -166,6 +166,8 @@ import { getSelectedVocabCards, getSelectedGrammarCards, getAllVocabKeys, getAll
 
 // Domain — Grammar
 import { buildGrammarSupportHtml } from '../domain/grammar/explanations.js';
+import { recordParadigmAttempt } from '../domain/grammar/morph_steps.js';
+import { listAvailableParadigms, getCardsForFocusedParadigm } from '../domain/grammar/paradigm_focus.js';
 
 // UI
 import {
@@ -240,6 +242,8 @@ import {
   setStudyMode,
   setAppProfile,
   toggleMorphSelfCheck,
+  toggleMorphStepByStep,
+  setMorphFocusedParadigm,
   toggleShuffle,
   toggleRequiredOnly,
   toggleHardVocabReview,
@@ -390,7 +394,14 @@ configureSelectors({
   saveCurrentDeckStateToBank: () => saveCurrentDeckStateToBank(),
   markActiveDeckRef: () => markActiveDeckRef(),
   saveState: () => saveState(),
-  canAccessGrammarUi: () => canAccessGrammarUi()
+  canAccessGrammarUi: () => canAccessGrammarUi(),
+  isMorphStepByStepActive: () => !!runtime.morphStepByStep && isMorphologyMode(),
+  getFocusedParadigmCards: () => {
+    if (!isMorphologyMode() || !runtime.morphStepByStep) return null;
+    ensureMorphFocusedParadigm();
+    if (!runtime.morphFocusedParadigm) return [];
+    return getCardsForFocusedParadigm(runtime.selectedKeys, runtime.morphFocusedParadigm);
+  }
 });
 configureNavigation({
   noteStudyInteraction: () => noteStudyInteraction(),
@@ -427,7 +438,10 @@ configureNavigation({
   renderReaderModule: () => renderReaderModule(),
   getDeckStateKey: (keys, req, spaced) => getDeckStateKey(keys, req, spaced),
   getSessions: () => getSessions(),
-  getSelectedCards: (keys) => getSelectedCards(keys)
+  getSelectedCards: (keys) => getSelectedCards(keys),
+  resetMorphStepState: () => resetMorphStepState(),
+  ensureMorphFocusedParadigm: () => ensureMorphFocusedParadigm(),
+  rebuildMorphDeckForStepMode: () => rebuildMorphDeckForStepMode()
 });
 configureAnalytics({
   ensureUsageStats: () => ensureUsageStats(),
@@ -569,6 +583,84 @@ function resetMorphAnswerState() {
   runtime.morphPendingAdvance = false;
 }
 
+function resetMorphStepState() {
+  runtime.morphStepState = { cardId: null, steps: [], stepIdx: 0, answers: [], completed: false };
+}
+
+// Pick a default focused paradigm if none chosen, drawn from the current
+// selection. Called when toggling step-by-step on; safe to call any time —
+// it only writes when the field is currently null and a candidate exists.
+function ensureMorphFocusedParadigm() {
+  if (runtime.morphFocusedParadigm) return;
+  const available = listAvailableParadigms(runtime.selectedKeys);
+  if (available.length) runtime.morphFocusedParadigm = available[0].lemma;
+}
+
+// Step-by-step mode narrows the morph deck to the focused paradigm's forms
+// via the selectors-host hook; toggling it off (or switching the focused
+// paradigm) re-runs loadDeckFromKeys so the deck rebuilds accordingly.
+function rebuildMorphDeckForStepMode() {
+  if (!isMorphologyMode()) return;
+  loadDeckFromKeys(runtime.selectedKeys, runtime.currentSession ? runtime.currentSession.id : null);
+}
+
+// Step-by-step answer: record dimension correctness locally, advance through
+// the steps, write a single attempt to the rolling per-lemma window on
+// completion. NO writes to SRS, recordStudyOutcome, or directional marks —
+// this mode is explicitly off-the-record.
+function answerMorphologyStep(choiceIdx) {
+  if (!isMorphologyMode() || !runtime.morphStepByStep) return;
+  noteStudyInteraction();
+  const card = runtime.deck[runtime.currentIdx];
+  if (!card || !runtime.morphStepState || runtime.morphStepState.completed) return;
+  const state = runtime.morphStepState;
+  const step = state.steps[state.stepIdx];
+  if (!step) return;
+  const picked = step.choices[choiceIdx];
+  const isCorrect = picked === step.correct;
+  state.answers[state.stepIdx] = { selectedIdx: choiceIdx, isCorrect };
+  state.stepIdx += 1;
+  if (state.stepIdx >= state.steps.length) {
+    state.completed = true;
+    finalizeMorphStepAttempt(card, state);
+  }
+  renderCard();
+  renderProgress();
+  saveState();
+}
+
+function skipMorphologyStep() {
+  if (!isMorphologyMode() || !runtime.morphStepByStep) return;
+  noteStudyInteraction();
+  const card = runtime.deck[runtime.currentIdx];
+  if (!card || !runtime.morphStepState || runtime.morphStepState.completed) return;
+  const state = runtime.morphStepState;
+  const step = state.steps[state.stepIdx];
+  if (!step) return;
+  state.answers[state.stepIdx] = { selectedIdx: -1, isCorrect: false };
+  state.stepIdx += 1;
+  if (state.stepIdx >= state.steps.length) {
+    state.completed = true;
+    finalizeMorphStepAttempt(card, state);
+  }
+  renderCard();
+  renderProgress();
+  saveState();
+}
+
+function finalizeMorphStepAttempt(card, state) {
+  if (!card || !card.lemma) return;
+  const dims = {};
+  state.steps.forEach((step, idx) => {
+    const ans = state.answers[idx];
+    dims[step.key] = ans && ans.isCorrect ? 1 : 0;
+  });
+  if (!runtime.paradigmStepStats || typeof runtime.paradigmStepStats !== 'object') {
+    runtime.paradigmStepStats = { byLemma: {} };
+  }
+  recordParadigmAttempt(runtime.paradigmStepStats, card.lemma, dims);
+}
+
 function getModeDescription() {
   if (isMorphologyMode()) return 'Grammar Quiz';
   if (isReaderMode()) return 'Reader';
@@ -683,6 +775,33 @@ function initializeTextSize() {
   applyTextSize(runtime.textSize, false);
 }
 
+// Populate the focused-paradigm dropdown from the current selection, and
+// resync runtime.morphFocusedParadigm if the current pick is no longer
+// available (e.g. user changed chapters).
+function syncParadigmFocusUi() {
+  const select = document.getElementById('paradigmFocusSelect');
+  if (!select) return;
+  const visible = runtime.morphStepByStep && isMorphologyMode();
+  if (!visible) return;
+  const available = listAvailableParadigms(runtime.selectedKeys);
+  if (!available.length) {
+    select.innerHTML = '<option value="">No paradigms in current selection</option>';
+    select.value = '';
+    return;
+  }
+  const currentValue = runtime.morphFocusedParadigm;
+  const stillAvailable = currentValue && available.some((p) => p.lemma === currentValue);
+  const chosen = stillAvailable ? currentValue : available[0].lemma;
+  if (chosen !== currentValue) {
+    runtime.morphFocusedParadigm = chosen;
+    rebuildMorphDeckForStepMode();
+  }
+  select.innerHTML = available
+    .map((p) => `<option value="${p.lemma}">${p.displayLabel}</option>`)
+    .join('');
+  select.value = chosen;
+}
+
 function syncToggleButtons() {
   const requiredSwitch  = document.getElementById('requiredBtn');
   const shuffleSwitch   = document.getElementById('shuffleBtn');
@@ -715,6 +834,11 @@ function syncToggleButtons() {
   if (hardReviewSwitch) hardReviewSwitch.classList.toggle('on', !!runtime.hardVocabReviewMode);
   if (splitSelectionSwitch) splitSelectionSwitch.classList.toggle('on', !!runtime.splitSelection);
   if (selfCheckBtn)    selfCheckBtn.classList.toggle('on',    !!runtime.morphSelfCheck && isMorphologyMode());
+  const stepByStepBtn = document.getElementById('morphStepByStepBtn');
+  const stepByStepToggle = document.getElementById('morphStepByStepToggle');
+  if (stepByStepBtn)    stepByStepBtn.classList.toggle('on', !!runtime.morphStepByStep && isMorphologyMode());
+  if (stepByStepToggle) stepByStepToggle.setAttribute('aria-checked', (runtime.morphStepByStep && isMorphologyMode()) ? 'true' : 'false');
+  syncParadigmFocusUi();
   if (dailyResetSwitch) dailyResetSwitch.classList.toggle('on', !!runtime.unspacedAutoResetEnabled);
   if (shuffleToggle)   shuffleToggle.setAttribute('aria-checked',   runtime.shuffled ? 'true' : 'false');
   if (requiredToggle)  requiredToggle.setAttribute('aria-checked',  runtime.requiredOnly ? 'true' : 'false');
@@ -786,7 +910,11 @@ function syncLayoutVisibility() {
   if (requiredToggle) requiredToggle.style.display = runtime.studyMode === 'vocab' ? 'flex' : 'none';
   if (hardReviewToggle) hardReviewToggle.style.display = runtime.studyMode === 'vocab' ? 'flex' : 'none';
   if (splitSelectionToggle) splitSelectionToggle.style.display = canAccessGrammarUi() ? 'flex' : 'none';
-  if (selfCheckToggle) selfCheckToggle.style.display = isMorphologyMode() && canAccessGrammarUi() ? 'flex' : 'none';
+  if (selfCheckToggle) selfCheckToggle.style.display = (isMorphologyMode() && canAccessGrammarUi() && !runtime.morphStepByStep) ? 'flex' : 'none';
+  const stepByStepToggle = document.getElementById('morphStepByStepToggle');
+  if (stepByStepToggle) stepByStepToggle.style.display = isMorphologyMode() && canAccessGrammarUi() ? 'flex' : 'none';
+  const paradigmFocusRow = document.getElementById('paradigmFocusRow');
+  if (paradigmFocusRow) paradigmFocusRow.style.display = (runtime.morphStepByStep && isMorphologyMode() && canAccessGrammarUi()) ? 'flex' : 'none';
   if (shuffleToggle) shuffleToggle.style.display = reviewDeckMode ? 'flex' : 'none';
   if (spacedToggle) spacedToggle.style.display = reviewDeckMode ? 'flex' : 'none';
   if (dailyResetToggle) dailyResetToggle.style.display = (reviewDeckMode && !runtime.spacedRepetition && runtime.studyMode === 'vocab') ? 'flex' : 'none';
@@ -1912,7 +2040,9 @@ installKeyboardShortcuts({
 // ═══════════════════════════════════════════════════════
 const GLOBAL_CLICK_HANDLERS = {
   flipCard, navigate, markCard, handleNavNext, answerMorphologyChoice,
-  revealMorphologyAnswer, rateMorphologySelfCheck, passMorphologyChoice, returnSeenCardToDeck,
+  revealMorphologyAnswer, rateMorphologySelfCheck, passMorphologyChoice,
+  answerMorphologyStep, skipMorphologyStep,
+  returnSeenCardToDeck,
   closeAnalyticsOverlay, closeTransferModal, exportProgressJson,
   closeShortcutsModal, closeStudySelector,
   deselectAllChapters, deselectAllSupplementals, deselectAllAdvanced, deselectAll,
@@ -1928,6 +2058,7 @@ const GLOBAL_CLICK_HANDLERS = {
   fastForwardOneDay, fastForwardOneWeek,
   restoreSpacedUndo, setAppProfile, setStudyMode, setThemeMode, setFontFamily, setTextSize,
   showDisclaimerModal, startStudying, toggleDirection, toggleMorphSelfCheck,
+  toggleMorphStepByStep, setMorphFocusedParadigm,
   toggleRequiredOnly, toggleHardVocabReview, toggleShuffle, toggleSpacedRepetition, toggleSplitSelection, toggleUnspacedDailyReset, triggerImportProgress,
   openReaderTab, selectReaderDrillChoice, advanceReaderDrill,
   closeWhatsNewV1_1Modal

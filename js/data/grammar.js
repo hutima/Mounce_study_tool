@@ -523,7 +523,7 @@
             { form: "εἰμί",
               prompt: "Identify the form.",
               answer: "1st singular ('I am')",
-              choices: ["1st singular ('I am')", "3rd singular ('he/she/it is')", "1st plural ('we are')", "infinitive ('to be')"] },
+              choices: ["1st singular ('I am')", "3rd singular ('he/she/it is')", "1st plural ('we are')", "2nd plural ('you all are')"] },
             { form: "ἐστίν",
               prompt: "Identify the form.",
               answer: "3rd singular ('he/she/it is')",
@@ -539,7 +539,7 @@
                 "no subject + main verb of its own (it depends on another clause)",
                 "always begins with εἰμί",
                 "always introduced by καί",
-                "always uses the subjunctive"
+                "always lacks its own εἰμί"
               ] }
           ]
         }
@@ -914,16 +914,16 @@
               answer: "stem λυ + connecting vowel ο + ending μεν",
               choices: [
                 "stem λυ + connecting vowel ο + ending μεν",
-                "augment ε + stem λυ + ending μεν",
-                "stem λύσ + connecting vowel α + ending μεν",
-                "reduplication λε + stem λυ + ending κα"
+                "stem λυ + connecting vowel ε + ending μεν",
+                "stem λυ + connecting vowel ο + ending τε",
+                "stem λυ + connecting vowel ε + ending τε"
               ] },
             { form: "λύεις", answer: "present active indicative, 2nd singular", prompt: "Parse.",
-              choices: ["present active indicative, 2nd singular", "present active indicative, 3rd singular", "imperfect 2nd singular", "future 2nd singular"] },
+              choices: ["present active indicative, 2nd singular", "present active indicative, 3rd singular", "present active indicative, 1st singular", "present active indicative, 1st plural"] },
             { form: "λύει", answer: "present active indicative, 3rd singular", prompt: "Parse.",
-              choices: ["present active indicative, 3rd singular", "present active indicative, 2nd singular", "imperfect 3rd singular", "present middle 2nd singular"] },
+              choices: ["present active indicative, 3rd singular", "present active indicative, 2nd singular", "present active indicative, 1st singular", "present active indicative, 3rd plural"] },
             { form: "λύουσι(ν)", answer: "present active indicative, 3rd plural", prompt: "Parse.",
-              choices: ["present active indicative, 3rd plural", "present active indicative, 3rd singular", "future active 3rd plural", "imperfect 3rd plural"] }
+              choices: ["present active indicative, 3rd plural", "present active indicative, 3rd singular", "present active indicative, 2nd plural", "present active indicative, 1st plural"] }
           ]
         },
         {
@@ -1010,14 +1010,14 @@
           gloss: "I am being loosed / loose for myself",
           questions: [
             { form: "λύομαι", answer: "present mid/pas indicative, 1st singular", prompt: "Parse.",
-              choices: ["present mid/pas indicative, 1st singular", "present active 1st singular", "imperfect mid/pas 1st singular", "future mid 1st singular"] },
+              choices: ["present mid/pas indicative, 1st singular", "present active indicative, 1st singular", "present mid/pas indicative, 1st plural", "present active indicative, 1st plural"] },
             { form: "λύῃ", answer: "present mid/pas indicative, 2nd singular", prompt: "Parse (note the morphology, ignore homophony).",
-              choices: ["present mid/pas indicative, 2nd singular", "present active 3rd singular", "subjunctive 3rd singular", "imperfect 2nd singular"],
+              choices: ["present mid/pas indicative, 2nd singular", "present active indicative, 3rd singular", "present mid/pas indicative, 3rd singular", "present active indicative, 2nd singular"],
               note: "λύῃ comes from λύεσαι; the σ drops and ε+αι → ῃ." },
             { form: "λυόμεθα", answer: "present mid/pas indicative, 1st plural", prompt: "Parse.",
-              choices: ["present mid/pas indicative, 1st plural", "present mid/pas indicative, 2nd plural", "imperfect mid/pas 1st plural", "perfect mid/pas 1st plural"] },
+              choices: ["present mid/pas indicative, 1st plural", "present mid/pas indicative, 2nd plural", "present mid/pas indicative, 3rd plural", "present active indicative, 1st plural"] },
             { form: "λύονται", answer: "present mid/pas indicative, 3rd plural", prompt: "Parse.",
-              choices: ["present mid/pas indicative, 3rd plural", "present active 3rd plural", "imperfect mid/pas 3rd plural", "subjunctive 3rd plural"] }
+              choices: ["present mid/pas indicative, 3rd plural", "present active indicative, 3rd plural", "present mid/pas indicative, 2nd plural", "present mid/pas indicative, 1st plural"] }
           ]
         },
         {
@@ -1031,7 +1031,7 @@
               choices: [
                 "middle/passive in form, active in meaning",
                 "always passive in meaning",
-                "found only in the imperfect tense",
+                "active in form but middle/passive in meaning",
                 "without any personal endings"
               ],
               note: "Mounce introduces deponents alongside the present middle/passive." }
@@ -1054,14 +1054,14 @@
               answer: "stem λυ + tense formative σ + connecting vowel ο/ε + primary active endings",
               choices: [
                 "stem λυ + tense formative σ + connecting vowel ο/ε + primary active endings",
-                "augment ε + stem λυσ + secondary active endings",
-                "reduplication λε + stem λυκ + primary active endings",
-                "stem λυ + tense formative σα + secondary active endings"
+                "stem λυ + connecting vowel ο/ε + primary active endings (no σ)",
+                "tense formative σ + stem λυ + primary active endings",
+                "stem λυ + tense formative σ + connecting vowel α + primary active endings"
               ] },
             { form: "λύσομεν", answer: "future active indicative, 1st plural", prompt: "Parse.",
-              choices: ["future active indicative, 1st plural", "aorist active 1st plural", "present active 1st plural", "imperfect 1st plural"] },
+              choices: ["future active indicative, 1st plural", "future active indicative, 2nd plural", "future active indicative, 3rd plural", "present active indicative, 1st plural"] },
             { form: "πορεύσομαι", answer: "future middle indicative, 1st singular", prompt: "Parse.",
-              choices: ["future middle indicative, 1st singular", "present middle 1st singular", "aorist middle 1st singular", "future active 1st singular"] }
+              choices: ["future middle indicative, 1st singular", "present mid/pas indicative, 1st singular", "future middle indicative, 3rd singular", "future active indicative, 1st singular"] }
           ]
         }
       ]
@@ -1103,7 +1103,7 @@
               ],
               note: "Liquid stems end in λ, μ, ν, or ρ. The εσ formative drops its σ and ε contracts with following vowels (Rules of Contraction)." },
             { form: "κρινοῦμεν", answer: "future active indicative, 1st plural (liquid)", prompt: "Parse.",
-              choices: ["future active indicative, 1st plural (liquid)", "present active 1st plural", "aorist active 1st plural", "imperfect 1st plural"] }
+              choices: ["future active indicative, 1st plural (liquid)", "present active indicative, 1st plural", "future active indicative, 2nd plural (liquid)", "future active indicative, 1st singular (liquid)"] }
           ]
         }
       ]
@@ -1123,9 +1123,9 @@
               answer: "augment ε + present stem λυ + connecting vowel ο + secondary active endings",
               choices: [
                 "augment ε + present stem λυ + connecting vowel ο + secondary active endings",
-                "reduplication λε + stem λυ + κα + primary active",
-                "tense formative σ + stem λυ + primary active",
-                "stem λυ + connecting vowel ο + primary active"
+                "augment ε + present stem λυ + connecting vowel ο + primary active endings",
+                "present stem λυ + connecting vowel ο + secondary active endings",
+                "augment ε + present stem λυ + secondary active endings (no connecting vowel)"
               ] },
             { form: "Augment",
               prompt: "How does the augment work for verbs starting with a vowel?",
@@ -1137,9 +1137,9 @@
                 "no augment is needed"
               ] },
             { form: "ἐλύομεν", answer: "imperfect active indicative, 1st plural", prompt: "Parse.",
-              choices: ["imperfect active indicative, 1st plural", "present active 1st plural", "aorist active 1st plural", "imperfect mid/pas 1st plural"] },
+              choices: ["imperfect active indicative, 1st plural", "present active indicative, 1st plural", "imperfect active indicative, 2nd plural", "imperfect mid/pas indicative, 1st plural"] },
             { form: "ἐλυόμην", answer: "imperfect mid/pas indicative, 1st singular", prompt: "Parse.",
-              choices: ["imperfect mid/pas indicative, 1st singular", "imperfect active 1st singular", "aorist mid 1st singular", "present mid 1st singular"] }
+              choices: ["imperfect mid/pas indicative, 1st singular", "imperfect active indicative, 1st singular", "present mid/pas indicative, 1st singular", "imperfect mid/pas indicative, 1st plural"] }
           ]
         }
       ]
@@ -1170,11 +1170,11 @@
               choices: [
                 "secondary active (same as imperfect)",
                 "primary active (same as present)",
-                "perfect active endings",
+                "primary mid/pas",
                 "secondary mid/pas"
               ] },
             { form: "ἐγενόμην", answer: "2nd aorist middle indicative, 1st singular", prompt: "Parse.",
-              choices: ["2nd aorist middle indicative, 1st singular", "imperfect mid/pas 1st singular", "present middle 1st singular", "perfect mid 1st singular"] },
+              choices: ["2nd aorist middle indicative, 1st singular", "imperfect mid/pas indicative, 1st singular", "present mid/pas indicative, 1st singular", "2nd aorist middle indicative, 1st plural"] },
             { form: "Recognition tip",
               prompt: "How do you know it's a 2nd aorist and not an imperfect?",
               answer: "the stem differs from the present (ἔλαβον vs. λαμβάνω)",
@@ -1204,11 +1204,11 @@
               choices: [
                 "augment ε + stem λυ + tense formative σα + secondary active endings",
                 "augment ε + stem λυ + connecting vowel ο/ε + secondary active",
-                "reduplication λε + stem λυ + κα + primary active",
+                "augment ε + stem λυ + tense formative σα + primary active endings",
                 "stem λυ + tense formative σ + primary active"
               ] },
             { form: "ἐλύσαμεν", answer: "1st aorist active indicative, 1st plural", prompt: "Parse.",
-              choices: ["1st aorist active indicative, 1st plural", "future active 1st plural", "imperfect 1st plural", "perfect active 1st plural"] },
+              choices: ["1st aorist active indicative, 1st plural", "future active indicative, 1st plural", "imperfect active indicative, 1st plural", "1st aorist active indicative, 2nd plural"] },
             { form: "ἔμεινα",
               prompt: "Why doesn't the aorist of μένω have σα?",
               answer: "liquid aorist drops σ from σα, leaving just α (after stem change)",
@@ -1219,7 +1219,7 @@
                 "the σ is hidden in the accent"
               ] },
             { form: "ἐλυσάμην", answer: "1st aorist middle indicative, 1st singular", prompt: "Parse.",
-              choices: ["1st aorist middle indicative, 1st singular", "imperfect mid/pas 1st singular", "future middle 1st singular", "perfect middle 1st singular"] }
+              choices: ["1st aorist middle indicative, 1st singular", "imperfect mid/pas indicative, 1st singular", "future middle indicative, 1st singular", "1st aorist active indicative, 1st singular"] }
           ]
         }
       ]
@@ -1254,7 +1254,7 @@
                 "this is not an aorist passive form"
               ] },
             { form: "ἐλύθησαν", answer: "1st aorist passive indicative, 3rd plural", prompt: "Parse.",
-              choices: ["1st aorist passive indicative, 3rd plural", "1st aorist active 3rd plural", "perfect passive 3rd plural", "imperfect passive 3rd plural"] }
+              choices: ["1st aorist passive indicative, 3rd plural", "1st aorist active indicative, 3rd plural", "1st aorist passive indicative, 2nd plural", "imperfect mid/pas indicative, 3rd plural"] }
           ]
         },
         {
@@ -1269,7 +1269,7 @@
                 "stem λυ + tense formative θησ + connecting vowel ο/ε + primary mid/pas endings (no augment)",
                 "augment + stem + θη + primary active",
                 "stem + tense formative σ + primary mid/pas",
-                "reduplication + stem + κα + primary mid/pas"
+                "augment + stem + tense formative θη + secondary mid/pas"
               ] },
             { form: "ἀποσταλήσομαι",
               prompt: "Why no θ in the tense formative here?",

@@ -67,7 +67,10 @@ let host = {
   renderReaderModule: () => {},
   getDeckStateKey: () => '',
   getSessions: () => [],
-  getSelectedCards: () => []
+  getSelectedCards: () => [],
+  resetMorphStepState: () => {},
+  ensureMorphFocusedParadigm: () => {},
+  rebuildMorphDeckForStepMode: () => {}
 };
 
 export function configureNavigation(deps) {
@@ -499,6 +502,35 @@ export function toggleMorphSelfCheck() {
   host.resetMorphAnswerState();
   host.syncToggleButtons();
   renderCard();
+  host.saveState();
+}
+
+// Step-by-step parsing drill — alternate render path for morph cards that
+// walks one MC per dimension. Toggling on rebuilds the deck filtered to the
+// focused paradigm; toggling off restores the standard morph deck.
+export function toggleMorphStepByStep() {
+  if (!host.isMorphologyMode()) return;
+  runtime.morphStepByStep = !runtime.morphStepByStep;
+  host.resetMorphAnswerState();
+  host.resetMorphStepState();
+  if (runtime.morphStepByStep) host.ensureMorphFocusedParadigm();
+  host.rebuildMorphDeckForStepMode();
+  host.syncToggleButtons();
+  renderCard();
+  renderProgress();
+  renderReview();
+  host.saveState();
+}
+
+export function setMorphFocusedParadigm(lemma) {
+  if (!host.isMorphologyMode()) return;
+  runtime.morphFocusedParadigm = lemma || null;
+  host.resetMorphStepState();
+  host.rebuildMorphDeckForStepMode();
+  host.syncToggleButtons();
+  renderCard();
+  renderProgress();
+  renderReview();
   host.saveState();
 }
 

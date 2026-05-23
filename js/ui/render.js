@@ -8,6 +8,7 @@
 import { runtime } from '../state/runtime.js';
 import { buildGrammarSupportHtml } from '../domain/grammar/explanations.js';
 import { renderProgress, renderReview } from './progress.js';
+import { buildMorphSteps, summarizeLemmaStats, getParadigmStepAttemptWindow } from '../domain/grammar/morph_steps.js';
 
 let host = {
   saveState: () => {},
@@ -109,6 +110,11 @@ export function renderCard() {
 
   document.getElementById('markRow').style.display = host.isMorphologyMode() ? 'none' : 'flex';
   const card = runtime.deck[runtime.currentIdx];
+
+  if (host.isMorphCard(card) && runtime.morphStepByStep) {
+    renderMorphStepCard(area, card);
+    return;
+  }
 
   if (host.isMorphCard(card)) {
     const reversed = host.reverseDisplayActive(card);
@@ -277,6 +283,124 @@ export function renderCard() {
       </div>
     </div>`;
 
+  runtime.isFlipped = false;
+  renderProgress();
+}
+
+// ─── Step-by-step paradigm rendering ──────────────────────────────────────
+// Walks one dimension MC per click. State is held in runtime.morphStepState
+// and lazily initialized whenever the active card changes.
+function ensureStepStateForCard(card) {
+  const state = runtime.morphStepState;
+  if (state && state.cardId === card.id) return state;
+  const steps = buildMorphSteps(card);
+  runtime.morphStepState = {
+    cardId: card.id,
+    steps,
+    stepIdx: 0,
+    answers: new Array(steps.length).fill(null),
+    completed: steps.length === 0
+  };
+  return runtime.morphStepState;
+}
+
+function escapeHtml(s) {
+  return String(s == null ? '' : s)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+function renderMorphStepBreadcrumb(state) {
+  if (!state.steps.length) return '';
+  const dots = state.steps.map((step, idx) => {
+    const answer = state.answers[idx];
+    let cls = 'morph-step-dot';
+    if (idx === state.stepIdx && !state.completed) cls += ' current';
+    if (answer && answer.isCorrect) cls += ' correct';
+    if (answer && answer.isCorrect === false) cls += ' incorrect';
+    return `<span class="${cls}" title="${escapeHtml(step.label)}">${escapeHtml(step.label[0])}</span>`;
+  }).join('');
+  return `<div class="morph-step-breadcrumb">${dots}</div>`;
+}
+
+function renderMorphStepCurrent(state) {
+  const step = state.steps[state.stepIdx];
+  if (!step) return '';
+  const choiceButtons = step.displayChoices.map((label, idx) => {
+    return `<button class="choice-btn" type="button" onclick="answerMorphologyStep(${idx})">${escapeHtml(label)}</button>`;
+  }).join('');
+  return `
+    <div class="morph-step-current">
+      <div class="morph-step-progress">Step ${state.stepIdx + 1} of ${state.steps.length}</div>
+      <div class="morph-step-label">${escapeHtml(step.label)}?</div>
+      <div class="morph-choices">${choiceButtons}</div>
+      <div class="morph-dontknow-row">
+        <button class="ctrl-btn morph-dontknow-btn" type="button" onclick="skipMorphologyStep()">I don't know</button>
+      </div>
+    </div>`;
+}
+
+function renderMorphStepSummary(card, state) {
+  const rows = state.steps.map((step, idx) => {
+    const answer = state.answers[idx];
+    const pickedLabel = answer && answer.selectedIdx >= 0
+      ? step.displayChoices[answer.selectedIdx]
+      : '—';
+    const correct = answer && answer.isCorrect;
+    const markClass = correct ? 'morph-step-correct' : 'morph-step-incorrect';
+    const mark = correct ? '✓' : '✗';
+    const showCorrection = !correct && answer
+      ? `<span class="morph-step-correction">→ ${escapeHtml(step.displayCorrect)}</span>`
+      : '';
+    return `
+      <div class="morph-step-summary-row ${markClass}">
+        <span class="morph-step-summary-dim">${escapeHtml(step.label)}</span>
+        <span class="morph-step-summary-pick">${escapeHtml(pickedLabel)} ${mark}</span>
+        ${showCorrection}
+      </div>`;
+  }).join('');
+
+  const totalCorrect = state.answers.filter((a) => a && a.isCorrect).length;
+  const totalStr = `${totalCorrect}/${state.steps.length} correct`;
+
+  const lemmaSummary = summarizeLemmaStats(runtime.paradigmStepStats || {}, card.lemma);
+  const recentLine = lemmaSummary.attempts > 0
+    ? `<div class="morph-step-rollup-recent">Last ${lemmaSummary.attempts}/${getParadigmStepAttemptWindow()} attempts for ${escapeHtml(card.lemma)}: ${lemmaSummary.correct}/${lemmaSummary.total} dimensions correct (${Math.round(100 * lemmaSummary.correct / Math.max(1, lemmaSummary.total))}%)</div>`
+    : '';
+
+  return `
+    <div class="morph-step-summary">
+      <div class="morph-step-summary-title">Parse complete — ${escapeHtml(totalStr)}</div>
+      <div class="morph-step-summary-body">${rows}</div>
+      ${recentLine}
+      <div class="morph-step-summary-meta">${escapeHtml(card.lemma)}${card.family ? ' · ' + escapeHtml(card.family) : ''}</div>
+    </div>`;
+}
+
+function renderMorphStepCard(area, card) {
+  const state = ensureStepStateForCard(card);
+  const lemmaGloss = card.lemmaGloss || card.gloss
+    ? `<div class="morph-gloss">Gloss: “${escapeHtml(card.lemmaGloss || card.gloss)}”</div>`
+    : '';
+
+  const body = state.completed
+    ? renderMorphStepSummary(card, state)
+    : renderMorphStepCurrent(state);
+
+  area.innerHTML = `
+    <div class="morph-card morph-step-card">
+      <div class="morph-label">Grammar · Step-by-step</div>
+      <div class="morph-prompt">Parse this form one dimension at a time.</div>
+      ${lemmaGloss}
+      <div class="morph-form">${escapeHtml(card.form)}</div>
+      <div class="morph-hint">${escapeHtml(card.lemma)}</div>
+      <div class="morph-source">${escapeHtml(card.sourceLabel || '')} · Stats not affected</div>
+      ${renderMorphStepBreadcrumb(state)}
+      ${body}
+    </div>`;
   runtime.isFlipped = false;
   renderProgress();
 }
