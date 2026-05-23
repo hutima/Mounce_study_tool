@@ -510,6 +510,38 @@
     pointer-events: none;
   }
 
+  /* Stem-flip cards: present ↔ aorist (or perfect / future / passive) with
+   * diff-highlighted character changes between the two forms. Both faces
+   * show Greek-on-top + English-gloss-subtitle in italic, mirroring the
+   * structure so the eye stays focused on the form comparison. */
+  .card-stem-flip .card-stem-flip-form {
+    margin-top: 18px;
+  }
+  .card-stem-flip-gloss {
+    font-family: var(--font-body);
+    font-style: italic;
+    font-size: clamp(14px, 2.6vw, 17px);
+    color: var(--gold-light);
+    margin-top: 6px;
+    margin-bottom: 10px;
+  }
+  .card-stem-note {
+    font-size: 12px;
+    color: var(--muted);
+    line-height: 1.4;
+    padding: 6px 12px;
+    border-top: 1px dashed rgba(201,168,76,0.25);
+    margin: 8px auto 0;
+    max-width: 90%;
+  }
+  .stem-diff {
+    color: #e7a55a;
+    font-weight: 600;
+    background: rgba(231,165,90,0.10);
+    border-radius: 3px;
+    padding: 0 1px;
+  }
+
   /* ── Nav buttons ── */
   .nav-row {
     display: flex; gap: 12px; justify-content: center;
@@ -816,44 +848,6 @@
     border-radius: 8px;
     overflow: hidden;
     margin-right: 4px;
-  }
-
-  /* Wrapped layout for the mode shortcut row with 5 entries. Every cell is
-   * the same fixed width (indexed to the longest label, "Memorization") so
-   * the grid reads as a uniform strip. Container width is pinned to exactly
-   * three cells across so the strip wraps to a 3-on-top / 2-on-bottom split,
-   * and the bottom row's two cells are centered horizontally within the
-   * outline — not left-justified. */
-  .mode-group.mode-group-wrap {
-    display: flex;
-    flex-wrap: wrap;
-    justify-content: center;
-    width: calc(3 * 110px);
-    max-width: 100%;
-  }
-
-  .mode-group.mode-group-wrap .mode-btn {
-    flex: 0 0 110px;
-    width: 110px;
-    box-sizing: border-box;
-    padding: 9px 6px;
-    text-align: center;
-    border-left: 0;
-    border-right: 1px solid var(--border);
-    border-bottom: 1px solid var(--border);
-  }
-
-  /* Row-trailing cells drop their right border so it doesn't double up with
-   * the container's outline. With 5 cells: cell 3 is row-1 trailing, cell 5
-   * is row-2 trailing (also last overall). */
-  .mode-group.mode-group-wrap .mode-btn:nth-child(3),
-  .mode-group.mode-group-wrap .mode-btn:last-child {
-    border-right: 0;
-  }
-  /* Bottom-row cells drop their bottom border since the container outline
-   * draws the strip's bottom edge. */
-  .mode-group.mode-group-wrap .mode-btn:nth-child(n+4) {
-    border-bottom: 0;
   }
 
   .mode-btn {

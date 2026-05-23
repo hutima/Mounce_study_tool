@@ -245,8 +245,37 @@ export function renderCard() {
   const englishDisplay = `${prepStar}${card.e || '—'}`;
   const requiredLabelHTML = `<span class="card-required-label card-required-label-${card.required ? 'req' : 'opt'}">(${card.required ? 'req.' : 'opt.'})</span>`;
 
+  // Stem-flip cards (2nd-aorist / aorist-passive / perfect-active / μι-verb
+  // supplements): both faces show Greek + English gloss subtitle, with the
+  // differing characters highlighted so the stem change between the two
+  // forms is visually obvious. Direction toggle is ignored — the card is
+  // always present-on-front, target-on-back.
   let frontHTML, backHTML;
-  if (!runtime.directionToGreek) {
+  if (card.stemFlip) {
+    const diff = diffHighlightPair(card.g, card.aorist);
+    const flipHint = '<div class="flip-hint">click to reveal →</div>';
+    const noteHtml = card.stemNote
+      ? `<div class="card-stem-note">${escapeHtml(card.stemNote)}</div>`
+      : '';
+    frontHTML = `
+        <div class="card-face card-front card-stem-flip">
+          ${requiredLabelHTML}
+          <span class="card-label">Present</span>
+          <div class="card-greek card-stem-flip-form">${diff.aHtml}</div>
+          <div class="card-stem-flip-gloss">${escapeHtml(card.e || '')}</div>
+          <div class="card-hint">${sourceLabelDisplay}</div>
+          ${flipHint}
+        </div>`;
+    backHTML = `
+        <div class="card-face card-back card-stem-flip">
+          ${requiredLabelHTML}
+          <span class="card-label">${escapeHtml(card.stemFlipAorist || 'Aorist (1st sg.)')}</span>
+          <div class="card-greek card-stem-flip-form">${diff.bHtml}</div>
+          <div class="card-stem-flip-gloss">${escapeHtml(card.aoristGloss || '')}</div>
+          ${noteHtml}
+          <div class="card-hint">${escapeHtml(card.g)} → ${escapeHtml(card.aorist)}</div>
+        </div>`;
+  } else if (!runtime.directionToGreek) {
     frontHTML = `
         <div class="card-face card-front">
           ${requiredLabelHTML}
@@ -324,6 +353,42 @@ function escapeHtml(s) {
     .replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;')
     .replace(/'/g, '&#39;');
+}
+
+// Diff-highlights two Greek strings via Longest Common Subsequence: shared
+// characters render plain, the rest get wrapped in <span class="stem-diff">.
+// Used by the stem-flip card renderer so the present↔aorist stem change is
+// visually obvious without the student having to mentally subtract one form
+// from the other.
+function diffHighlightPair(a, b) {
+  const A = [...String(a || '')];
+  const B = [...String(b || '')];
+  if (!A.length || !B.length) return { aHtml: escapeHtml(a || ''), bHtml: escapeHtml(b || '') };
+  const m = A.length, n = B.length;
+  const dp = Array.from({ length: m + 1 }, () => new Array(n + 1).fill(0));
+  for (let i = 0; i < m; i++) {
+    for (let j = 0; j < n; j++) {
+      dp[i + 1][j + 1] = A[i] === B[j] ? dp[i][j] + 1 : Math.max(dp[i + 1][j], dp[i][j + 1]);
+    }
+  }
+  const inLCS_A = new Array(m).fill(false);
+  const inLCS_B = new Array(n).fill(false);
+  let i = m, j = n;
+  while (i > 0 && j > 0) {
+    if (A[i - 1] === B[j - 1]) {
+      inLCS_A[i - 1] = true;
+      inLCS_B[j - 1] = true;
+      i--; j--;
+    } else if (dp[i - 1][j] >= dp[i][j - 1]) {
+      i--;
+    } else {
+      j--;
+    }
+  }
+  const wrap = (chars, mask) => chars.map((ch, idx) =>
+    mask[idx] ? escapeHtml(ch) : `<span class="stem-diff">${escapeHtml(ch)}</span>`
+  ).join('');
+  return { aHtml: wrap(A, inLCS_A), bHtml: wrap(B, inLCS_B) };
 }
 
 function renderMorphStepBreadcrumb(state) {

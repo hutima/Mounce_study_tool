@@ -401,7 +401,7 @@ configureSelectors({
     if (!isParsingMode()) return null;
     ensureMorphFocusedParadigm();
     if (!runtime.morphFocusedParadigm) return [];
-    return getCardsForFocusedParadigm(runtime.selectedKeys, runtime.morphFocusedParadigm);
+    return getCardsForFocusedParadigm(getAggregateSelectionKeys(), runtime.morphFocusedParadigm);
   }
 });
 configureNavigation({
@@ -603,12 +603,30 @@ function resetMorphStepState() {
   runtime.morphStepState = { cardId: null, steps: [], stepIdx: 0, answers: [], completed: false };
 }
 
+// Union of selectedKeys from every mode (vocab, morph, parsing) so the
+// student's "max effective chapter" reflects their highest point in the
+// course anywhere in the app — not just their parsing-mode-local selection.
+// With split-selection on, a user who has Ch 1-24 picked in vocab/grammar
+// but only one ch-22 set checked in parsing would otherwise be gated at
+// ch 22, hiding the rest of the cumulative paradigm catalog.
+function getAggregateSelectionKeys() {
+  const union = new Set((runtime.selectedKeys || []).map(String));
+  const ms = runtime.modeSelections || {};
+  Object.keys(ms).forEach((mode) => {
+    const entry = ms[mode];
+    if (entry && Array.isArray(entry.selectedKeys)) {
+      entry.selectedKeys.forEach((k) => union.add(String(k)));
+    }
+  });
+  return [...union];
+}
+
 // Pick a default focused paradigm if none chosen, drawn from the current
 // selection. Called when toggling step-by-step on; safe to call any time —
 // it only writes when the field is currently null and a candidate exists.
 function ensureMorphFocusedParadigm() {
   if (runtime.morphFocusedParadigm) return;
-  const available = listAvailableParadigms(runtime.selectedKeys);
+  const available = listAvailableParadigms(getAggregateSelectionKeys());
   if (available.length) runtime.morphFocusedParadigm = available[0].lemma;
 }
 
@@ -798,7 +816,8 @@ function syncParadigmFocusUi() {
   const select = document.getElementById('paradigmFocusSelectPrimary');
   if (!select) return;
   if (!isParsingMode()) return;
-  const available = listAvailableParadigms(runtime.selectedKeys);
+  const aggregateKeys = getAggregateSelectionKeys();
+  const available = listAvailableParadigms(aggregateKeys);
   if (!available.length) {
     select.innerHTML = '<option value="">No paradigms in current selection</option>';
     select.value = '';
@@ -814,7 +833,7 @@ function syncParadigmFocusUi() {
   // Render with native <optgroup>s — categories like "Verbs · standard
   // ω-pattern (λύω)" head sections of lemmas, so the user can scan by
   // paradigm type instead of reading a flat alphabetical list.
-  const grouped = listAvailableParadigmsByCategory(runtime.selectedKeys);
+  const grouped = listAvailableParadigmsByCategory(aggregateKeys);
   select.innerHTML = grouped.map((g) => {
     const opts = g.lemmas
       .map((p) => `<option value="${escapeHtml(p.lemma)}">${escapeHtml(p.displayLabel)}</option>`)
@@ -934,7 +953,9 @@ function syncLayoutVisibility() {
   const paradigmFocusRowPrimary = document.getElementById('paradigmFocusRowPrimary');
   if (paradigmFocusRowPrimary) paradigmFocusRowPrimary.style.display = isParsingMode() ? 'flex' : 'none';
   if (shuffleToggle) shuffleToggle.style.display = reviewDeckMode ? 'flex' : 'none';
-  if (spacedToggle) spacedToggle.style.display = reviewDeckMode ? 'flex' : 'none';
+  // Spaced repetition writes confidence stats — parsing mode is explicitly
+  // off-the-record, so the toggle is irrelevant there and gets hidden.
+  if (spacedToggle) spacedToggle.style.display = (reviewDeckMode && !isParsingMode()) ? 'flex' : 'none';
   if (dailyResetToggle) dailyResetToggle.style.display = (reviewDeckMode && !runtime.spacedRepetition && runtime.studyMode === 'vocab') ? 'flex' : 'none';
   if (modeGroup) modeGroup.style.display = canAccessGrammarUi() ? 'inline-flex' : 'none';
   if (!reviewDeckMode) return;
@@ -975,7 +996,9 @@ function syncLayoutVisibility() {
     navResetBtn.style.display = unspacedVocab && runtime.selectedKeys.length > 0 ? '' : 'none';
   }
   if (nextBtn) {
-    if (isMorphologyMode()) {
+    if (isMorphologyMode() || isParsingMode()) {
+      // Grammar and Parsing have no SRS/confidence writes, so the "Again →"
+      // semantic doesn't apply — Next is just "advance to the next card".
       nextBtn.textContent = 'Next →';
       nextBtn.classList.remove('spaced-again', 'nav-next-as-reset');
     } else if (runtime.spacedRepetition) {
@@ -1203,6 +1226,17 @@ function getSelectedCards(keys) {
       return cards.filter(card => card && card.reversible === true);
     }
     return cards;
+  }
+  // Parsing mode loads the focused paradigm's cards regardless of which
+  // call path got us here (selectors.loadDeckFromKeys vs. restoreState).
+  // selectors.js layers an extra override on top, but restoreState rebuilds
+  // its own deck without that hook — so without this branch a fresh app
+  // load in parsing mode would surface vocab cards until the user picks a
+  // paradigm.
+  if (isParsingMode()) {
+    ensureMorphFocusedParadigm();
+    if (!runtime.morphFocusedParadigm) return [];
+    return getCardsForFocusedParadigm(getAggregateSelectionKeys(), runtime.morphFocusedParadigm);
   }
   return getSelectedVocabCards(keys, false);
 }
@@ -1585,7 +1619,11 @@ function buildStudyDeck(cards, options = {}) {
   // PREVIOUS activity, not the one we just recorded a millisecond ago.
   const lastActivityAt = Number(runtime.previousStudyActivityAt) || 0;
   const idleReset = lastActivityAt && (now - lastActivityAt > SESSION_IDLE_RESET_MS);
-  const freshStart = forceShuffle || promotedNearCards || idleReset || carriedActiveIds.length === 0;
+  // Parsing mode always starts fresh — it maintains no SRS scheduling state,
+  // so there's no "continued session" to preserve and the carried active-ids
+  // list is meaningless. Without this, restoring a parsing session would
+  // honor a stale active-ids list from whatever mode last wrote it.
+  const freshStart = forceShuffle || promotedNearCards || idleReset || carriedActiveIds.length === 0 || isParsingMode();
 
   let activeDue;
   let middleDue;
