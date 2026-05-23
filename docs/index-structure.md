@@ -1,0 +1,163 @@
+# `index.html` structure notes
+
+Navigation map for the root `index.html` (currently ~685 lines). Keep this in
+sync when you change the file — see "Maintenance" at the bottom.
+
+Line numbers are approximate (drift a few lines between edits). When in doubt,
+grep for the `id` rather than jumping to a line.
+
+---
+
+## Top-level layout
+
+```
+1     <!DOCTYPE html> / <head>      ← analytics, meta/PWA, manifest, theme bootstrap
+53    <body>
+54    <div class="app">              ← main shell (in-flow UI)
+56       header, notice, quick-start, settings, deck, modals trigger
+203   </div>
+205   overlays (modals)              ← siblings of .app, position:fixed
+643   <script defer …>               ← data + entry point
+684   </body>
+```
+
+The `<div class="app">` shell is everything that scrolls in the page. Every
+`<div class="consent-overlay" …>` is a top-level sibling of `.app` and is
+shown/hidden by JS — never nest a new overlay inside `.app`.
+
+---
+
+## `<head>` (1–52)
+
+- 2–6     Pointer comment to this structure doc
+- 10–16   Google Analytics tag
+- 17–24   PWA / icon / manifest meta (`?v=N` cache-bust param appears here and on every script/stylesheet)
+- 26–27   Google Fonts preconnect + stylesheet link
+- 28      `<link rel="stylesheet" href="styles.css?v=N">`
+- 29–51   **Pre-paint inline script.** Reads `localStorage` and sets
+          `data-theme` / `data-font-family` / `data-text-size` on `<html>`
+          before first paint to avoid flash-of-wrong-theme. Don't move this.
+
+> Cache-bust: every asset URL ends in `?v=NNN`. Bump the number on release.
+> Same number lives in `sw.js` (`CACHE_NAME = 'mounce-bbg-greek-pwa-vNN'`
+> plus the asset list). Both must agree.
+
+---
+
+## `<div class="app">` (54–203)
+
+In-document order (these all render in the main column):
+
+| Lines      | Element                                       | Notes |
+|-----------:|-----------------------------------------------|-------|
+|   56–69    | `<header>`                                    | Theme switcher (System/Dark/Light), Greek + English title, `#appSubtitle`, "Koine Greek Study Tool" tag |
+|   71–74    | `.notice-row`                                 | Disclaimer button + `#appNotice` |
+|   76–88    | `.quick-start`                                | Choose session / Start studying / mode strip (`#modeShortcutVocabBtn`, `…MorphBtn`, `…ParsingBtn`, `…ReaderBtn`) / Progress / User guide / `#modeShortcutMemorizationBtn` link to `pages/memorization.html` |
+|   90–94    | `<details>` Progress tools                    | Export/Import progress buttons (open the transfer modal) |
+|   96       | `.ornament`                                   | Decorative `✦ · · · ✦` |
+|   98–157   | `<details id="advancedSettingsDetails">`      | Wraps **both** font/text-size prefs **and** `#controlsBar` toggles. The controls bar is not a separate section — it lives inside this `<details>`. |
+|  117–155   | └ `#controlsBar`                              | Toggles: `#shuffleToggle`, `#requiredToggle`, `#hardReviewToggle`, `#directionToggle`, `#spacedToggle`, `#unspacedDailyResetToggle`, `#splitSelectionToggle`, `#selfCheckToggle` (hidden by default) + reset action grid (`#resetDeckBtn`, `#resetRequiredBtn`, Reshuffle, Reset stats) |
+|  159       | `#readerView`                                 | Empty mount point. Reader mode JS injects content here. |
+|  161–163   | `#paradigmFocusRowPrimary`                    | Focused-paradigm dropdown (`#paradigmFocusSelectPrimary`) — hidden unless in a mode that uses it |
+|  166–171   | `#cardArea`                                   | **Main flashcard mount.** Contains a placeholder `.empty-state`; JS replaces it. |
+|  173–178   | `#navRow`                                     | Prev / `#spacedUndoBtn` / `#navResetBtn` / `#navNextBtn` |
+|  180–184   | `#markRow`                                    | Mark buttons: Hard (again) / Uncertain (pass) / Easy |
+|  186–189   | `#fastForwardRow`                             | Fast-forward 1 day / 1 week (debug-ish). **Mounce-specific name** — duff calls it `#ffRow`. |
+|  191–202   | `<section class="review-shell">`              | Bottom progress panel: `#reviewPanel` → `#reviewDeckTag`, `#reviewStats`, `#reviewSortRow`, `#reviewList` |
+
+---
+
+## Overlays (205–641) — siblings of `.app`
+
+All use `class="consent-overlay"` + an `aria-hidden` toggle. Most use
+`class="consent-modal"` inside. Open/close handlers live in JS.
+
+| Lines      | id                            | Purpose |
+|-----------:|-------------------------------|---------|
+|  205–221   | `#transferOverlay`            | Import/export progress (textarea + file picker) |
+|  223–431   | `#analyticsOverlay`           | "Progress and study time". Large; contains many `<details class="analytics-collapse" data-collapse-key="…">` sections — achievements, totalVocab (+ChapterMap, +Progress sub-collapses), selectedVocab (+Bar, +Progress), totalGrammar (incl. `#analyticsParadigmStepStatsBody` for paradigm step-by-step), selectedGrammar (+Bar, +Progress), studyActivity, titles. Each section has a `…SummaryStatus` element JS updates. |
+|  433–478   | `#studySelectorOverlay`       | "Choose session" — deselect buttons, `#sessionsGrid`, `#chaptersGrid`, `#supplementalGrid`, `#advancedGrid` (inside `#advancedSectionShell` `<details>`). Mounce uses the four-Parts + three-milestones session set (not duff's weekly presets). |
+|  480–545   | `#shortcutsOverlay`           | User guide. **No changelog yet** — Mounce is not released. The duff equivalent embeds a `<details class="user-guide-changelog">` here; once Mounce ships, add one. |
+|  547–565   | `#consentOverlay`             | First-run "Before you begin" consent (`#consentTitle`) |
+|  567–589   | `#resetSpacedOverlay`         | Confirm reset of spaced review |
+|  591–605   | `#resetStatsOverlay`          | Confirm reset of stats |
+|  607–625   | `#resetUnspacedOverlay`       | Confirm reset of current (unspaced) deck |
+|  627–641   | `#whatsNewV1_1Overlay`        | **Mounce-variant intro modal** — NOT a release announcement. Storage key `mounceBbgFlashcardsMounceVariantSeen`. Different role from duff's `#whatsNewVX_YOverlay` (which is a per-release "What's new" popup). When Mounce eventually does releases, decide whether to keep the variant intro and add a separate release modal, or repurpose this one. |
+
+---
+
+## Scripts (643–683)
+
+Load order matters — `main.js` is the only `type="module"` and runs last. All
+data files are plain `defer` globals that publish onto `window`.
+
+Groups, in order:
+
+- **Core data (643–647):** `words.js`, `morphology.js`, `lemma_inventory.js`, `supplemental.js`, `grammar.js`
+- **Mounce paradigm + flip supplements (648–653):** `mounce_paradigms.js` (single Mounce-wide paradigm table — duff splits into `week_N_paradigms.js`), `stem_change_drills.js`, then chapter-mapped flip sets: `second_aorist_flip.js` (Ch 11), `w3_aorist_passive_flip.js` (Ch 14), `w3_perfect_active_flip.js` (Ch 15), `w4_mi_verb_principal_parts_flip.js` (Ch 18). The `wN_` prefix is the Mounce Part number, not a week.
+- **Advanced vocabulary buckets (654–678):** `advanced/advanced_NN.js` (currently 01–25)
+- **Reader (679–681):** `reader.js`, `reader_verse_literals.js`, `reader_translations.js`
+- **Logic (682):** `pos_logic.js` (intentionally loaded before main)
+- **Entry point (683):** `js/app/main.js` — the only ES module
+
+When adding a new flip set / advanced bucket / supplemental, add the
+`<script>` tag in the matching group and keep the `?v=NNN` aligned.
+
+---
+
+## Related files (not in this doc)
+
+- `styles.css` — single multi-thousand-line stylesheet, also `?v=NNN`-busted.
+- `sw.js` — service worker. `CACHE_NAME` (`mounce-bbg-greek-pwa-vNN`) + precache list must agree with `?v=NNN`.
+- `manifest.json` — PWA manifest.
+- `pages/memorization.html` — Paradigms page (linked from `.quick-start`). Has its own structure; not covered here.
+- `js/`
+  - `app/` — entry (`main.js`) and bootstrap
+  - `data/` — vocab, morphology, paradigm tables, reader text, plus `supplementals/` and `advanced/`
+  - `domain/` — model objects (cards, decks, paradigms)
+  - `logic/` — POS / parsing logic
+  - `state/` — global state, persistence
+  - `ui/` — DOM rendering, modals, overlays
+  - `utils/` — shared helpers
+
+---
+
+## Mounce ↔ duff differences (quick reference for ports)
+
+This repo is a Mounce-flavoured port of the duff_study_tool. When porting a
+duff PR here, watch for:
+
+- **No changelog / no release modal.** Mounce's `#whatsNewV1_1Overlay` is the
+  variant-intro modal (storage key `mounceBbgFlashcardsMounceVariantSeen`).
+  Skip duff PRs that touch `#whatsNewVX_YOverlay`, the
+  `WHATS_NEW_VX_Y_STORAGE_KEY` constant, or the inline
+  `user-guide-changelog`.
+- **Paradigm files** — Mounce has `mounce_paradigms.js`; duff has
+  `week_N_paradigms.js`.
+- **Flip-set filenames** — Mounce uses `wN_` (Mounce Part); duff uses
+  `wN_` (week). Names look similar but the chapter mapping differs.
+- **Sessions** — Mounce uses Mounce's four Parts + three cumulative
+  milestones; duff uses lecture-week presets.
+- **`fastForwardRow` vs `ffRow`** — same UI, different id.
+- **PWA cache name** — Mounce: `mounce-bbg-greek-pwa-vNN`. Duff:
+  `greek-flashcards-pwa-vNN-github-pages`.
+- **`v=NNN` numbering is independent.** Don't sync the number with duff.
+- **Off-the-record parsing mode** — Mounce omits `noteStudyInteraction()` in
+  the morph-step handlers; preserve that when porting.
+
+---
+
+## Maintenance
+
+**If you edit `index.html` and any of the following change, update this doc in
+the same commit:**
+
+- A section in `.app` is added, removed, reordered, or renamed.
+- An overlay (`consent-overlay`) is added or removed.
+- An `id` that other code refers to is added, removed, or renamed.
+- The script load order or grouping changes (new data file, new bucket, etc.).
+- The cache-bust scheme (`?v=NNN`) changes.
+
+Line numbers drift — don't chase them obsessively, just keep them in the right
+neighborhood. The tables above are the source of truth for *what exists*; line
+numbers are a convenience.

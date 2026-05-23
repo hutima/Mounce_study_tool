@@ -1330,6 +1330,15 @@
     color: #e7a1a1;
     background: rgba(140,58,58,0.18);
   }
+  .morph-step-dot.neutral {
+    border-color: var(--border);
+    color: var(--muted);
+    background: rgba(255,255,255,0.04);
+  }
+  .morph-step-summary-row.morph-step-inferred .morph-step-summary-pick {
+    color: var(--muted);
+    font-style: italic;
+  }
 
   .morph-step-progress {
     font-family: var(--font-display);
@@ -1416,6 +1425,25 @@
     text-transform: uppercase;
     color: var(--gold-dim);
   }
+  .morph-step-ambig-note {
+    margin-top: 10px;
+    padding: 8px 10px;
+    border-left: 2px solid rgba(120,170,210,0.45);
+    background: rgba(120,170,210,0.05);
+    font-size: 13px;
+    line-height: 1.45;
+    color: var(--cream);
+    border-radius: 0 6px 6px 0;
+  }
+  .morph-step-ambig-label {
+    display: inline-block;
+    margin-right: 8px;
+    font-family: var(--font-display);
+    font-size: 10px;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    color: rgba(120,170,210,0.95);
+  }
   .morph-step-summary-meta {
     margin-top: 10px;
     font-size: 12px;
@@ -1462,6 +1490,26 @@
   }
   .morph-step-parse-line-yours .morph-step-parse-label { color: #e7a1a1; }
   .morph-step-parse-line-correct .morph-step-parse-label { color: #9ad0a7; }
+  .morph-step-parse-match {
+    margin-top: 4px;
+    margin-left: 92px;
+    font-family: var(--font-greek);
+    font-size: 15px;
+    color: var(--cream);
+  }
+  .morph-step-parse-match-empty {
+    color: var(--muted);
+    font-family: var(--font-body);
+  }
+  .morph-step-parse-match-impossible {
+    color: #e7a1a1;
+    font-family: var(--font-body);
+    font-size: 13px;
+    font-style: italic;
+  }
+  @media (max-width: 600px) {
+    .morph-step-parse-match { margin-left: 0; }
+  }
 
   /* Per-paradigm review panel — replaces the standard confidence/seen list
    * in parsing mode. Each row shows lemma + accuracy % + dimension chips. */

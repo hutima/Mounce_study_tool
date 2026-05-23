@@ -8,7 +8,7 @@
 import { runtime } from '../state/runtime.js';
 import { buildGrammarSupportHtml } from '../domain/grammar/explanations.js';
 import { renderProgress, renderReview } from './progress.js';
-import { buildMorphSteps, summarizeLemmaStats, getParadigmStepAttemptWindow, computeAccessibleDimensionPools, parseAnswerDimensions, aspectMistakeNote } from '../domain/grammar/morph_steps.js';
+import { buildMorphSteps, summarizeLemmaStats, getParadigmStepAttemptWindow, computeAccessibleDimensionPools, parseAnswerDimensions, aspectMistakeNote, isSecondPluralPresentMoodAmbiguity } from '../domain/grammar/morph_steps.js';
 import { getAccessibleMorphCards } from '../domain/grammar/paradigm_focus.js';
 
 let host = {
@@ -341,7 +341,11 @@ function ensureStepStateForCard(card) {
     steps,
     stepIdx: 0,
     answers: new Array(steps.length).fill(null),
-    completed: steps.length === 0
+    completed: steps.length === 0,
+    // Kept on state so answerMorphologyStep can build ungraded follow-up
+    // steps with the same chapter-gated MC choices the original steps
+    // were drawn from (avoids re-computing on every answer).
+    accessiblePools
   };
   return runtime.morphStepState;
 }
@@ -397,8 +401,13 @@ function renderMorphStepBreadcrumb(state) {
     const answer = state.answers[idx];
     let cls = 'morph-step-dot';
     if (idx === state.stepIdx && !state.completed) cls += ' current';
-    if (answer && answer.isCorrect) cls += ' correct';
-    if (answer && answer.isCorrect === false) cls += ' incorrect';
+    // Inferred steps (ungraded follow-ups) and steps whose correctness
+    // is deferred pending a follow-up answer render as neutral — the
+    // student shouldn't see "wrong" on mood before they've committed
+    // to the dynamic person that completes their parse.
+    else if (answer && (step.inferred || answer.deferred)) cls += ' neutral';
+    else if (answer && answer.isCorrect === true) cls += ' correct';
+    else if (answer && answer.isCorrect === false) cls += ' incorrect';
     return `<span class="${cls}" title="${escapeHtml(step.label)}">${escapeHtml(step.label[0])}</span>`;
   }).join('');
   return `<div class="morph-step-breadcrumb">${dots}</div>`;
@@ -431,12 +440,209 @@ function applyDisplaySuffixIfPerson(dimKey, value) {
 // ['continuous', 'present', 'indicative', 'second', 'plural'] →
 // "continuous · present · indicative · second person · plural". Skips
 // empty values so a partial walk still reads cleanly.
+// Imperative cards have no Person step (it's structurally 2nd person), but
+// the canonical parse still reads "...imperative · second person ·
+// singular" — slot the implied 2nd-person token in after mood when no
+// Person step is present.
 function assembleParseLine(steps, values) {
-  return steps.map((step, idx) => {
+  const parts = [];
+  let moodImperativePos = -1;
+  let hasPersonStep = false;
+  steps.forEach((step, idx) => {
+    if (step.key === 'person') hasPersonStep = true;
     const v = values[idx];
-    if (!v) return null;
-    return step.key === 'person' ? `${v} person` : v;
-  }).filter(Boolean).join(' · ');
+    if (!v) return;
+    parts.push(step.key === 'person' ? `${v} person` : v);
+    if (step.key === 'mood' && String(v).toLowerCase() === 'imperative') {
+      moodImperativePos = parts.length;
+    }
+  });
+  if (moodImperativePos >= 0 && !hasPersonStep) {
+    parts.splice(moodImperativePos, 0, 'second person');
+  }
+  return parts.join(' · ');
+}
+
+// Two dimension values are compatible if they share any '/'-separated
+// component. Picking 'nominative' matches an answer of 'nominative' or
+// 'nominative/accusative'; picking 'nominative/accusative' matches an
+// answer of 'nominative' or 'accusative' or 'nominative/accusative'.
+function dimsCompatible(picked, answer) {
+  if (!picked || !answer) return false;
+  const pp = String(picked).split('/').filter(Boolean);
+  const ap = String(answer).split('/').filter(Boolean);
+  return pp.some((p) => ap.includes(p));
+}
+
+// Many paradigm-derived card answers omit voice and/or mood — the data
+// extracts the parsing from the card's English-side note, so a card like
+// `{ g: 'λύω', e: 'I untie / I am untying (1st person sg.)' }` produces
+// the canonical "present first person singular" with no 'indicative' or
+// 'active' tag, even though the set label says "λύω — present active
+// indicative." For the form-lookup feedback we need those tags, otherwise
+// the orphan-skip rule lets a student picking mood=imperative falsely
+// match λύω. Reads what the label implies and prepends it to the answer
+// string when not already present. Augmentation is local to the lookup —
+// it doesn't change card.answer used by step generation or grading, so
+// the student isn't suddenly asked about voice in chapters where the
+// textbook hasn't introduced it.
+function augmentAnswerWithLabel(answer, label) {
+  if (!answer) return '';
+  if (!label) return answer;
+  const t = String(label).toLowerCase();
+  const voiceMatch = t.match(/\b(middle\/passive|middle or passive|active|middle|passive)\b/);
+  const moodMatch  = t.match(/\b(indicative|subjunctive|imperative|infinitive|participle)\b/);
+  const lcAns = String(answer).toLowerCase();
+  let out = String(answer);
+  if (voiceMatch) {
+    const v = voiceMatch[0].replace(/middle or passive/, 'middle/passive');
+    if (!lcAns.includes(v)) out = `${v} ${out}`;
+  }
+  if (moodMatch && !lcAns.includes(moodMatch[0])) {
+    out = `${moodMatch[0]} ${out}`;
+  }
+  return out;
+}
+
+// Builds a form→answer map for every morph card in `cards` whose lemma
+// matches. Used as a fallback pool when the card's own paradigm subset
+// doesn't cover the student's picks (e.g. λῦε lives in the active-
+// imperative paradigm; 'aorist infinitive' picks point at λῦσαι in
+// λύω's separate active-infinitive paradigm).
+//
+// Critically, `cards` should be the chapter-gated accessible deck (from
+// getAccessibleMorphCards) — NOT every morph card ever defined. Voice
+// isn't introduced until chapter 15 in Mounce's curriculum, so a chapter-3
+// student parsing λῦε must not have λύομαι (middle/passive indicative
+// 1sg, chapter 15+) surfaced as a candidate match. Restricting the
+// pool to accessible cards keeps the feedback aligned with what the
+// student has actually been taught.
+function buildLemmaFormToAnswerFromCards(lemma, cards) {
+  if (!lemma) return {};
+  const out = {};
+  for (const c of (cards || [])) {
+    if (!c || c.lemma !== lemma || !c.form || !c.answer) continue;
+    // Stem-pair study notes like 'βάλλω → ἔβαλον' aren't single forms.
+    if (/→/.test(c.form)) continue;
+    if (out[c.form] === undefined) out[c.form] = augmentAnswerWithLabel(c.answer, c.sourceLabel || '');
+  }
+  return out;
+}
+
+// Card's own paradigm pool augmented with voice/mood implied by the
+// card's sourceLabel — same reason as buildLemmaFormToAnswerFromCards
+// above. Without this the orphan-skip rule lets every untagged answer
+// in the card's pool spuriously match whichever mood/voice the student
+// picked.
+function buildAugmentedCardPool(card) {
+  if (!card || !card.formToAnswer || typeof card.formToAnswer !== 'object') return {};
+  const out = {};
+  for (const [form, answer] of Object.entries(card.formToAnswer)) {
+    if (!form || !answer) continue;
+    out[form] = augmentAnswerWithLabel(answer, card.sourceLabel || '');
+  }
+  return out;
+}
+
+// Aspect is derivative of tense (present → continuous/undefined, aorist →
+// undefined, etc.) so it adds no form-identification information beyond
+// tense. Excluded from picked-dim matching to keep the lookup focused on
+// the dimensions that actually disambiguate a Greek form.
+const FORM_LOOKUP_SKIP_DIMS = new Set(['aspect']);
+
+// Citation-form priority used to pick a single canonical match when the
+// student's picks underdetermine the form (e.g. picking 'present
+// indicative singular' on a verb without specifying voice or person —
+// six forms qualify, we want one). Lower scores win.
+const VOICE_ORDER  = { active: 0, 'middle/passive': 1, middle: 2, passive: 3 };
+const PERSON_ORDER = { first: 0, third: 1, second: 2 };
+const NUMBER_ORDER = { singular: 0, plural: 1 };
+const CASE_ORDER   = { nominative: 0, accusative: 1, genitive: 2, dative: 3, vocative: 4 };
+const GENDER_ORDER = { masculine: 0, feminine: 1, neuter: 2 };
+function canonicalScore(ansDims) {
+  const v = VOICE_ORDER[ansDims.voice]  ?? 9;
+  const p = PERSON_ORDER[ansDims.person] ?? 9;
+  const n = NUMBER_ORDER[ansDims.number] ?? 9;
+  const c = CASE_ORDER[ansDims.case]     ?? 9;
+  const g = GENDER_ORDER[ansDims.gender] ?? 9;
+  return v * 1e6 + p * 1e4 + n * 1e2 + c * 1e1 + g;
+}
+
+// Checks the student's picked parse against the lemma's negative
+// morphological inventory (from js/data/lemma_inventory.js). Returns
+// false only when the picks include a tense/voice/mood that genuinely
+// doesn't exist for this lemma in Greek (e.g. aorist εἰμί). Lemmas with
+// no inventory entry default to "all combos possible," so this function
+// never spuriously reports impossibility — that's how we distinguish
+// "[no morph exists]" (confident) from "—" (data gap).
+function isParseImpossibleForLemma(lemma, pickedDims) {
+  const inv = (typeof window !== 'undefined' && window.LEMMA_INVENTORY) ? window.LEMMA_INVENTORY[lemma] : null;
+  if (!inv) return false;
+  const violates = (list, picked) => {
+    if (!Array.isArray(list) || !picked) return false;
+    // Picked may itself be syncretic ('middle/passive'); any component
+    // landing in the impossible list disqualifies the combination.
+    const parts = String(picked).split('/').filter(Boolean);
+    return parts.some((p) => list.includes(p));
+  };
+  if (violates(inv.impossibleTenses, pickedDims.tense)) return true;
+  if (violates(inv.impossibleVoices, pickedDims.voice)) return true;
+  if (violates(inv.impossibleMoods,  pickedDims.mood))  return true;
+  return false;
+}
+
+// Resolves the student's picked dimensions to one of three outcomes:
+//   { kind: 'form', form }       — canonical Greek form matching the picks
+//   { kind: 'impossible' }       — inventory says this combo doesn't exist
+//                                  in Greek for this lemma (e.g. aorist εἰμί)
+//   { kind: 'none' }             — combo is theoretically possible but no
+//                                  form for it appears in our data
+//
+// Strategy: skip aspect (derivative of tense). Inventory check first,
+// since a confident "impossible" verdict should win over a data-gap
+// "—" even if the picks happen not to match anything in the pool.
+// Then try the card's own paradigm subset (tightest context), broaden
+// to the lemma-wide pool, and pick a single canonical form.
+function resolveFormForPickedDims(card, steps, pickedValues) {
+  if (!card) return { kind: 'none' };
+  const pickedDims = {};
+  steps.forEach((step, idx) => {
+    const v = pickedValues[idx];
+    if (v && !FORM_LOOKUP_SKIP_DIMS.has(step.key)) pickedDims[step.key] = v;
+  });
+  const keys = Object.keys(pickedDims);
+  if (keys.length === 0) return { kind: 'none' };
+
+  if (isParseImpossibleForLemma(card.lemma, pickedDims)) return { kind: 'impossible' };
+
+  // A dimension the candidate answer doesn't carry (infinitives have no
+  // number; finite verbs have no case) shouldn't disqualify the
+  // candidate — the orphan dimension is a category error against this
+  // candidate, not a disagreement.
+  const matchPool = (pool) => {
+    const out = [];
+    for (const [form, answer] of Object.entries(pool || {})) {
+      if (!form || !answer) continue;
+      const ansDims = parseAnswerDimensions(answer);
+      const ok = keys.every((k) => !ansDims[k] || dimsCompatible(pickedDims[k], ansDims[k]));
+      if (ok) out.push({ form, ansDims });
+    }
+    return out;
+  };
+
+  let candidates = matchPool(buildAugmentedCardPool(card));
+  if (!candidates.length) {
+    // Chapter-gated broadening: pool only forms from cards the student
+    // currently has access to. Stops voice-distinguished forms (m/p,
+    // passive — chapter 15+) from leaking into a chapter-3 student's
+    // feedback for λύω.
+    const accessibleCards = getAccessibleMorphCards(runtime.selectedKeys);
+    candidates = matchPool(buildLemmaFormToAnswerFromCards(card.lemma, accessibleCards));
+  }
+  if (!candidates.length) return { kind: 'none' };
+
+  candidates.sort((a, b) => canonicalScore(a.ansDims) - canonicalScore(b.ansDims));
+  return { kind: 'form', form: candidates[0].form };
 }
 
 function renderMorphStepSummary(card, state) {
@@ -445,6 +651,25 @@ function renderMorphStepSummary(card, state) {
     const pickedLabel = answer && answer.selectedIdx >= 0
       ? step.displayChoices[answer.selectedIdx]
       : '—';
+    // A null answer means the walk ended before this step (structural
+    // impossibility short-circuit). Render neutral, no ✓/✗ — these were
+    // never asked, so they're not graded.
+    if (!answer && state.structuralImpossibility) {
+      return `
+        <div class="morph-step-summary-row morph-step-inferred">
+          <span class="morph-step-summary-dim">${escapeHtml(step.label)}</span>
+          <span class="morph-step-summary-pick">${escapeHtml(pickedLabel)}</span>
+        </div>`;
+    }
+    // Inferred follow-up steps are ungraded: render the student's pick
+    // without a ✓/✗ mark and without a correction arrow.
+    if (step.inferred) {
+      return `
+        <div class="morph-step-summary-row morph-step-inferred">
+          <span class="morph-step-summary-dim">${escapeHtml(step.label)}</span>
+          <span class="morph-step-summary-pick">${escapeHtml(pickedLabel)}</span>
+        </div>`;
+    }
     const correct = answer && answer.isCorrect;
     const markClass = correct ? 'morph-step-correct' : 'morph-step-incorrect';
     const mark = correct ? '✓' : '✗';
@@ -473,31 +698,56 @@ function renderMorphStepSummary(card, state) {
       </div>`;
   }).join('');
 
-  const totalCorrect = state.answers.filter((a) => a && a.isCorrect).length;
-  const totalStr = `${totalCorrect}/${state.steps.length} correct`;
+  // X/N excludes inferred (ungraded) follow-up steps and steps that were
+  // never asked because a structural impossibility ended the walk early.
+  const gradedCount = state.steps.filter((s, i) => !s.inferred && state.answers[i]).length;
+  const totalCorrect = state.answers.filter((a, i) => a && a.isCorrect && !state.steps[i].inferred).length;
+  const totalStr = `${totalCorrect}/${gradedCount} correct`;
 
-  // Assemble side-by-side "Your parse" vs "Correct parse" lines so the
-  // student sees the full assembled parse of their picks (useful when most
-  // dimensions were wrong — turning the per-row corrections into a coherent
-  // sentence).
-  const anyWrong = state.answers.some((a) => a && a.isCorrect === false);
+  // Side-by-side "Your parse" vs "Correct parse" with the corresponding
+  // Greek form under each. Shown on every walk (right or wrong) so the
+  // parse → form mapping is reinforced consistently. Under "Your parse"
+  // we resolve a single canonical paradigm form for the picks; if the
+  // picks violate the lemma's morphological inventory (aorist εἰμί,
+  // middle/passive εἰμί, …) we say so explicitly. Under "Correct parse"
+  // we always show the card's own form.
   const pickedValues = state.steps.map((step, idx) => {
     const ans = state.answers[idx];
     return ans && ans.selectedIdx >= 0 ? step.choices[ans.selectedIdx] : '';
   });
   const correctValues = state.steps.map((step) => step.correct);
-  const youParseLine = anyWrong
-    ? `<div class="morph-step-parse-compare">
-        <div class="morph-step-parse-line morph-step-parse-line-yours">
-          <span class="morph-step-parse-label">Your parse</span>
-          ${escapeHtml(assembleParseLine(state.steps, pickedValues) || '—')}
-        </div>
-        <div class="morph-step-parse-line morph-step-parse-line-correct">
-          <span class="morph-step-parse-label">Correct parse</span>
-          ${escapeHtml(assembleParseLine(state.steps, correctValues))}
-        </div>
-      </div>`
+  // A structural impossibility (e.g. future imperative) trumps any lemma
+  // lookup — show the specific reason instead of the generic "[no morph
+  // exists]" we'd fall back to from the inventory check.
+  const structReason = state.structuralImpossibility && state.structuralImpossibility.reason;
+  let yourFormHtml;
+  if (structReason) {
+    yourFormHtml = `<div class="morph-step-parse-match morph-step-parse-match-impossible">[${escapeHtml(structReason)}]</div>`;
+  } else {
+    const lookup = resolveFormForPickedDims(card, state.steps, pickedValues);
+    if (lookup.kind === 'form') {
+      yourFormHtml = `<div class="morph-step-parse-match">${escapeHtml(lookup.form)}</div>`;
+    } else if (lookup.kind === 'impossible') {
+      yourFormHtml = `<div class="morph-step-parse-match morph-step-parse-match-impossible">[no morph exists]</div>`;
+    } else {
+      yourFormHtml = `<div class="morph-step-parse-match morph-step-parse-match-empty">—</div>`;
+    }
+  }
+  const correctFormHtml = card.form
+    ? `<div class="morph-step-parse-match">${escapeHtml(card.form)}</div>`
     : '';
+  const youParseLine = `<div class="morph-step-parse-compare">
+       <div class="morph-step-parse-line morph-step-parse-line-yours">
+         <span class="morph-step-parse-label">Your parse</span>
+         ${escapeHtml(assembleParseLine(state.steps, pickedValues) || '—')}
+         ${yourFormHtml}
+       </div>
+       <div class="morph-step-parse-line morph-step-parse-line-correct">
+         <span class="morph-step-parse-label">Correct parse</span>
+         ${escapeHtml(assembleParseLine(state.steps, correctValues))}
+         ${correctFormHtml}
+       </div>
+     </div>`;
 
   const lemmaSummary = summarizeLemmaStats(runtime.paradigmStepStats || {}, card.lemma);
   const recentLine = lemmaSummary.attempts > 0
@@ -517,11 +767,20 @@ function renderMorphStepSummary(card, state) {
     ? `<div class="morph-step-stem-note"><span class="morph-step-stem-label">Stem change</span> ${escapeHtml(presentLemma)} → ${escapeHtml(card.form)}</div>`
     : '';
 
+  // Ambiguity footer: 2nd-plural present is spelt identically in the
+  // indicative and imperative (λύετε, λύεσθε), so the form alone doesn't
+  // pick a mood — flag it so the student sees why both readings score
+  // correct on the Mood step.
+  const ambigNote = isSecondPluralPresentMoodAmbiguity(card.answer, parsedDims)
+    ? `<div class="morph-step-ambig-note"><span class="morph-step-ambig-label">Ambiguous form</span> 2nd-plural present is spelt the same in the indicative and the imperative — only context picks the mood. Either reading is accepted.</div>`
+    : '';
+
   return `
     <div class="morph-step-summary">
       <div class="morph-step-summary-title">Parse complete — ${escapeHtml(totalStr)}</div>
       <div class="morph-step-summary-body">${rows}</div>
       ${youParseLine}
+      ${ambigNote}
       ${stemChangeNote}
       ${recentLine}
       <div class="morph-step-summary-meta">${escapeHtml(card.lemma)}${card.family ? ' · ' + escapeHtml(card.family) : ''}</div>

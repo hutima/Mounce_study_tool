@@ -138,6 +138,37 @@ export function parseAnswerDimensions(answer) {
   return { aspect, tense, voice, mood, person, case: grammaticalCase, number, gender };
 }
 
+// 2nd-person plural present (any voice) is genuinely syncretic in Koine
+// Greek: the indicative and imperative are spelt the same — λύετε is both
+// "you (pl.) are untying" and "untie!"; likewise λύεσθε for the middle/
+// passive. The form alone doesn't pick one mood; only context (presence
+// of a subject, surrounding clauses) decides. When a card's parse names
+// this configuration we accept either mood at the Mood step, instead of
+// marking the alternate reading wrong.
+//
+// Detected from the raw answer text so this works across canonical
+// ("second person plural") and abbreviated ("2nd pl.") formats. Imperative
+// cards may omit person entirely (structurally 2nd) — treated as 2nd-pl
+// when the only number marker is plural and no 1st/3rd person tag appears.
+export function isSecondPluralPresentMoodAmbiguity(answer, parsedDims) {
+  if (!answer) return false;
+  const dims = parsedDims || parseAnswerDimensions(answer);
+  if (dims.tense !== 'present') return false;
+  if (dims.mood !== 'indicative' && dims.mood !== 'imperative') return false;
+  const a = String(answer).toLowerCase();
+  const isPlural = dims.number === 'plural' || /\bplural\b/.test(a) || /\bpl\./.test(a);
+  if (!isPlural) return false;
+  if (dims.person === 'second') return true;
+  if (/\b2nd\b/.test(a) || /\bsecond person\b/.test(a)) return true;
+  // Imperative cards are structurally 2nd person and often omit person
+  // markers entirely. Treat as 2nd plural when no other person is named.
+  if (dims.mood === 'imperative' && !dims.person
+      && !/\b(1st|3rd|first person|third person)\b/.test(a)) {
+    return true;
+  }
+  return false;
+}
+
 function shuffle(arr) {
   const out = [...arr];
   for (let i = out.length - 1; i > 0; i--) {
@@ -204,6 +235,96 @@ export function computeAccessibleDimensionPools(cards) {
   return out;
 }
 
+// When the student picks a mood that requires more dimensions than the
+// source card's parse class supplied, returns the dim keys to inject as
+// ungraded follow-up steps. Example: card λῦε is a 2-singular imperative
+// — its steps don't include person (the canonicalized answer drops "2nd"
+// without "person"). If the student picks mood=indicative, they need to
+// commit to a person before we can resolve their picks to a single Greek
+// form; inject person (and number if the card also lacks one).
+//
+// Imperative is treated specially: it's structurally 2nd person (Koine has
+// no 1st-person imperatives), so person is never injected — only number.
+//
+// Returns [] when no injection is needed. Voice is never injected here —
+// it's introduced in chapter 15 and gated separately.
+const FINITE_MOODS_NEEDING_PERSON_NUMBER = new Set(['indicative', 'subjunctive', 'optative']);
+export function inferredFollowupDims(stepKey, picked, existingStepKeys) {
+  if (stepKey !== 'mood' || !picked) return [];
+  const have = existingStepKeys instanceof Set ? existingStepKeys : new Set(existingStepKeys || []);
+  const out = [];
+  if (FINITE_MOODS_NEEDING_PERSON_NUMBER.has(picked)) {
+    if (!have.has('person')) out.push('person');
+    if (!have.has('number')) out.push('number');
+  } else if (picked === 'imperative') {
+    // Structurally 2nd person — only number disambiguates the form.
+    if (!have.has('number')) out.push('number');
+  } else if (picked === 'participle') {
+    if (!have.has('case'))   out.push('case');
+    if (!have.has('number')) out.push('number');
+    if (!have.has('gender')) out.push('gender');
+  }
+  // infinitive: no follow-ups needed (no person/number/case/gender).
+  return out;
+}
+
+// Structural impossibilities in Koine Greek that don't depend on a specific
+// lemma — these are paradigm-level gaps any verb shares. Separate from the
+// per-lemma negative inventory in js/data/lemma_inventory.js (which handles
+// lemma-specific gaps like aorist εἰμί). When the student's picks combine
+// into one of these, the form lookup should explain *why* no morph exists
+// instead of just rendering "[no morph exists]".
+const STRUCTURAL_TENSE_MOOD_IMPOSSIBILITIES = [
+  { tense: 'future',     mood: 'imperative',  why: 'no future imperative exists' },
+  { tense: 'future',     mood: 'subjunctive', why: 'no future subjunctive exists' },
+  { tense: 'imperfect',  mood: 'subjunctive', why: 'no imperfect subjunctive exists (imperfect is indicative-only)' },
+  { tense: 'imperfect',  mood: 'imperative',  why: 'no imperfect imperative exists (imperfect is indicative-only)' },
+  { tense: 'imperfect',  mood: 'infinitive',  why: 'no imperfect infinitive exists (imperfect is indicative-only)' },
+  { tense: 'imperfect',  mood: 'participle',  why: 'no imperfect participle exists (imperfect is indicative-only)' },
+  { tense: 'pluperfect', mood: 'subjunctive', why: 'no pluperfect subjunctive exists (pluperfect is indicative-only)' },
+  { tense: 'pluperfect', mood: 'imperative',  why: 'no pluperfect imperative exists (pluperfect is indicative-only)' }
+];
+
+// Returns a short explanation when the picked (tense, mood) combo is
+// structurally impossible in Koine, or null otherwise. Aorist qualifiers
+// (first/second) are collapsed onto 'aorist' since they don't introduce
+// new mood gaps.
+export function structuralImpossibilityReason(pickedDims) {
+  if (!pickedDims) return null;
+  const tenseRaw = String(pickedDims.tense || '').toLowerCase();
+  const mood = String(pickedDims.mood || '').toLowerCase();
+  if (!tenseRaw || !mood) return null;
+  const tense = tenseRaw.replace(/^(first |second )/, '');
+  for (const entry of STRUCTURAL_TENSE_MOOD_IMPOSSIBILITIES) {
+    if (entry.tense === tense && entry.mood === mood) return entry.why;
+  }
+  return null;
+}
+
+// Builds an ungraded follow-up step for the given dimension. Choices come
+// from the chapter-gated accessible pool when available; falls back to
+// the full DIM_POOLS. The returned step has `inferred: true` and no
+// `correct` value — it's scored as informational, not graded against the
+// source card.
+export function buildInferredStep(dimKey, accessiblePools) {
+  const pool = (accessiblePools && Array.isArray(accessiblePools[dimKey]) && accessiblePools[dimKey].length)
+    ? accessiblePools[dimKey]
+    : (DIM_POOLS[dimKey] || []);
+  if (!pool.length) return null;
+  const choices = shuffle([...pool]);
+  const displayChoices = choices.map((c) => applyDisplaySuffix(dimKey, c));
+  return {
+    key: dimKey,
+    label: DIM_LABEL[dimKey] || dimKey,
+    correct: null,
+    acceptable: [],
+    choices,
+    displayCorrect: '',
+    displayChoices,
+    inferred: true
+  };
+}
+
 function applyDisplaySuffix(dimensionKey, value) {
   const suffix = DIM_DISPLAY_SUFFIX[dimensionKey];
   return suffix ? `${value}${suffix}` : value;
@@ -230,6 +351,11 @@ export function buildMorphSteps(card, accessiblePools = null) {
   for (const dimKey of order) {
     const correct = dims[dimKey];
     if (!correct) continue;
+    // Imperative is structurally 2nd person in Koine — skip the person step
+    // for imperative cards so the dimension count matches non-explicit
+    // imperatives (e.g. "active imperative singular" with no "second person"
+    // tag).
+    if (dimKey === 'person' && dims.mood === 'imperative') continue;
     const pool = accessiblePools ? accessiblePools[dimKey] : null;
     const choices = buildChoices(dimKey, correct, pool);
     const displayCorrect = applyDisplaySuffix(dimKey, correct);
@@ -252,6 +378,9 @@ export function buildMorphSteps(card, accessiblePools = null) {
     };
     if (dimKey === 'aspect' && dims.tense) {
       step.context = { tense: dims.tense };
+    }
+    if (dimKey === 'mood' && isSecondPluralPresentMoodAmbiguity(card.answer, dims)) {
+      step.acceptable = ['indicative', 'imperative'];
     }
     steps.push(step);
   }
