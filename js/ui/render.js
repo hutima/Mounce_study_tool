@@ -450,13 +450,37 @@ function dimsCompatible(picked, answer) {
   return pp.some((p) => ap.includes(p));
 }
 
-// Returns the forms in the card's paradigm whose canonical answer is
-// compatible with the student's picked dimensions. Used in the wrong-parse
-// summary to show "your picks would name this form" — for τὰς ἀρχάς with
-// picks 'nominative/accusative plural feminine' this surfaces αἱ ἀρχαί and
-// τὰς ἀρχάς, making concrete that feminine nom/acc are distinct forms.
+// Walks every morphology set and collects form→answer pairs whose item
+// shares this lemma. Used as a fallback pool when the card's own paradigm
+// subset doesn't cover the student's picks (e.g. λῦε lives in the active-
+// imperative paradigm, but a student picking 'aorist infinitive' is
+// pointing at λῦσαι in λύω's separate active-infinitive paradigm).
+function buildLemmaFormToAnswer(lemma) {
+  if (!lemma || typeof window === 'undefined' || !window.MORPHOLOGY_SETS) return {};
+  const out = {};
+  for (const set of Object.values(window.MORPHOLOGY_SETS)) {
+    if (!set || !Array.isArray(set.items)) continue;
+    for (const item of set.items) {
+      if (!item || item.lemma !== lemma) continue;
+      for (const q of (item.questions || [])) {
+        if (!q || !q.form || !q.answer) continue;
+        // Stem-pair study notes like 'βάλλω → ἔβαλον' aren't single forms.
+        if (/→/.test(q.form)) continue;
+        if (out[q.form] === undefined) out[q.form] = q.answer;
+      }
+    }
+  }
+  return out;
+}
+
+// Returns paradigm forms whose canonical answer is compatible with the
+// student's picked dimensions. Tries the card's own paradigm pool first
+// (tightest context — αἱ ἀρχαί for nominative plural feminine inside
+// ἀρχή's row) and falls back to a lemma-wide pool when the card's subset
+// doesn't cover the picks (λῦσαι for 'aorist infinitive' picked on a λῦε
+// imperative card).
 function findFormsMatchingPickedDims(card, steps, pickedValues) {
-  if (!card || !card.formToAnswer || typeof card.formToAnswer !== 'object') return [];
+  if (!card) return [];
   const pickedDims = {};
   steps.forEach((step, idx) => {
     const v = pickedValues[idx];
@@ -464,15 +488,25 @@ function findFormsMatchingPickedDims(card, steps, pickedValues) {
   });
   const keys = Object.keys(pickedDims);
   if (keys.length === 0) return [];
-  const matches = [];
-  for (const [form, answer] of Object.entries(card.formToAnswer)) {
-    if (!form || !answer) continue;
-    const ansDims = parseAnswerDimensions(answer);
-    if (keys.every((k) => dimsCompatible(pickedDims[k], ansDims[k]))) {
-      matches.push(form);
+
+  // A dimension the candidate answer doesn't carry (e.g. infinitives have
+  // no number) shouldn't disqualify the candidate. The student's intent
+  // was the tense+mood; the orphan dimension step was effectively a
+  // category error against this candidate, not a disagreement.
+  const pickFrom = (pool) => {
+    const matches = [];
+    for (const [form, answer] of Object.entries(pool || {})) {
+      if (!form || !answer) continue;
+      const ansDims = parseAnswerDimensions(answer);
+      const ok = keys.every((k) => !ansDims[k] || dimsCompatible(pickedDims[k], ansDims[k]));
+      if (ok) matches.push(form);
     }
-  }
-  return matches;
+    return matches;
+  };
+
+  const local = pickFrom(card.formToAnswer);
+  if (local.length) return local;
+  return pickFrom(buildLemmaFormToAnswer(card.lemma));
 }
 
 function renderMorphStepSummary(card, state) {
