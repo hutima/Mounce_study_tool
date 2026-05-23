@@ -512,33 +512,37 @@ function renderMorphStepSummary(card, state) {
   const totalCorrect = state.answers.filter((a) => a && a.isCorrect).length;
   const totalStr = `${totalCorrect}/${state.steps.length} correct`;
 
-  // Assemble side-by-side "Your parse" vs "Correct parse" lines so the
-  // student sees the full assembled parse of their picks (useful when most
-  // dimensions were wrong — turning the per-row corrections into a coherent
-  // sentence).
-  const anyWrong = state.answers.some((a) => a && a.isCorrect === false);
+  // Side-by-side "Your parse" vs "Correct parse" with the corresponding
+  // Greek form under each. Shown on every walk (right or wrong) so the
+  // parse → form mapping is reinforced consistently. Under "Your parse"
+  // we surface the paradigm form(s) compatible with the student's picks
+  // when any exists; otherwise an em dash flags "no form in this paradigm
+  // matches what you said." Under "Correct parse" we show the card's
+  // actual form.
   const pickedValues = state.steps.map((step, idx) => {
     const ans = state.answers[idx];
     return ans && ans.selectedIdx >= 0 ? step.choices[ans.selectedIdx] : '';
   });
   const correctValues = state.steps.map((step) => step.correct);
-  const matchingForms = anyWrong ? findFormsMatchingPickedDims(card, state.steps, pickedValues) : [];
-  const matchingFormsLine = matchingForms.length
-    ? `<div class="morph-step-parse-match">→ ${escapeHtml(matchingForms.join(' / '))}</div>`
+  const matchingForms = findFormsMatchingPickedDims(card, state.steps, pickedValues);
+  const yourFormHtml = matchingForms.length
+    ? `<div class="morph-step-parse-match">${escapeHtml(matchingForms.join(' / '))}</div>`
+    : `<div class="morph-step-parse-match morph-step-parse-match-empty">—</div>`;
+  const correctFormHtml = card.form
+    ? `<div class="morph-step-parse-match">${escapeHtml(card.form)}</div>`
     : '';
-  const youParseLine = anyWrong
-    ? `<div class="morph-step-parse-compare">
-        <div class="morph-step-parse-line morph-step-parse-line-yours">
-          <span class="morph-step-parse-label">Your parse</span>
-          ${escapeHtml(assembleParseLine(state.steps, pickedValues) || '—')}
-          ${matchingFormsLine}
-        </div>
-        <div class="morph-step-parse-line morph-step-parse-line-correct">
-          <span class="morph-step-parse-label">Correct parse</span>
-          ${escapeHtml(assembleParseLine(state.steps, correctValues))}
-        </div>
-      </div>`
-    : '';
+  const youParseLine = `<div class="morph-step-parse-compare">
+       <div class="morph-step-parse-line morph-step-parse-line-yours">
+         <span class="morph-step-parse-label">Your parse</span>
+         ${escapeHtml(assembleParseLine(state.steps, pickedValues) || '—')}
+         ${yourFormHtml}
+       </div>
+       <div class="morph-step-parse-line morph-step-parse-line-correct">
+         <span class="morph-step-parse-label">Correct parse</span>
+         ${escapeHtml(assembleParseLine(state.steps, correctValues))}
+         ${correctFormHtml}
+       </div>
+     </div>`;
 
   const lemmaSummary = summarizeLemmaStats(runtime.paradigmStepStats || {}, card.lemma);
   const recentLine = lemmaSummary.attempts > 0
