@@ -58,6 +58,7 @@ export const ANALYTICS_COLLAPSED_DEFAULTS = {
   totalGrammarProgress: true,
   totalGrammarStubborn: true,
   totalGrammarImproved: true,
+  paradigmStepStats: true,
   // Selected Grammar sub-sections
   selectedGrammarBar: false,
   selectedGrammarProgress: true,
@@ -96,6 +97,10 @@ export const S = {
   morphSelfCheck: false,
   morphAnswerState: { answered: false, revealed: false, selfRated: false, selectedIndex: -1, isCorrect: null },
   morphPendingAdvance: false,
+  morphStepByStep: false,
+  morphFocusedParadigm: null,
+  morphStepState: { cardId: null, steps: [], stepIdx: 0, answers: [], completed: false },
+  paradigmStepStats: { byLemma: {} },
 
   // Deck / study state
   deckStates: {},

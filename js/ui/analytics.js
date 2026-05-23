@@ -34,6 +34,11 @@ import {
   getRegressionProjection
 } from '../domain/gamification/xp.js';
 import {
+  getAllLemmaStats,
+  getParadigmStepDimensionLabel,
+  getParadigmStepAttemptWindow
+} from '../domain/grammar/morph_steps.js';
+import {
   buildDailyCumulativeSeriesFromMap,
   buildCumulativeConfirmationSeries,
   buildConfirmationHistogram,
@@ -778,6 +783,42 @@ function renderGrammarReviewSection() {
   if (!host.canAccessGrammarUi()) { el.innerHTML = ''; return; }
   el.innerHTML = buildGrammarChapterGridHtml(computeGrammarChapterMastery());
   setupGrammarReviewInteractivity(el);
+}
+
+// Render the rolling per-lemma stats from the step-by-step drill. Doesn't
+// touch any other stat surface — this is a separate, opt-in record.
+function renderParadigmStepStatsSection() {
+  const body = document.getElementById('analyticsParadigmStepStatsBody');
+  const status = document.getElementById('analyticsParadigmStepStatsStatus');
+  if (!body) return;
+  const lemmaSummaries = getAllLemmaStats(runtime.paradigmStepStats || {});
+  if (!lemmaSummaries.length) {
+    body.innerHTML = `<p class="analytics-empty">Turn on “Parse step-by-step” in Grammar mode and complete a parse to start seeing rolling per-paradigm accuracy here.</p>`;
+    if (status) status.textContent = `No drill attempts yet. Last ${getParadigmStepAttemptWindow()} attempts per paradigm.`;
+    return;
+  }
+  lemmaSummaries.sort((a, b) => {
+    const pa = a.correct / Math.max(1, a.total);
+    const pb = b.correct / Math.max(1, b.total);
+    return pa - pb;
+  });
+  const rows = lemmaSummaries.map((s) => {
+    const pct = Math.round(100 * s.correct / Math.max(1, s.total));
+    const perDimChips = Object.entries(s.perDim).map(([dim, agg]) => {
+      const dpct = Math.round(100 * agg.correct / Math.max(1, agg.seen));
+      return `<span class="paradigm-stat-chip">${escapeHtml(getParadigmStepDimensionLabel(dim))} ${dpct}%</span>`;
+    }).join('');
+    return `
+      <div class="paradigm-stat-row">
+        <div class="paradigm-stat-header">
+          <span class="paradigm-stat-lemma">${escapeHtml(s.lemma)}</span>
+          <span class="paradigm-stat-pct">${pct}% · ${s.attempts}/${getParadigmStepAttemptWindow()} attempts</span>
+        </div>
+        <div class="paradigm-stat-chips">${perDimChips}</div>
+      </div>`;
+  }).join('');
+  body.innerHTML = `<div class="paradigm-stat-list">${rows}</div>`;
+  if (status) status.textContent = `${lemmaSummaries.length} paradigm${lemmaSummaries.length === 1 ? '' : 's'} drilled · last ${getParadigmStepAttemptWindow()} attempts each.`;
 }
 
 function setupGrammarReviewInteractivity(rootEl) {
@@ -1603,6 +1644,7 @@ export function renderAnalyticsOverlay() {
   // Grammar review (chapter mastery grid) renders into #analyticsGrammarReview
   // which lives inside the Total Grammar > Chapter mastery collapse.
   renderGrammarReviewSection();
+  renderParadigmStepStatsSection();
   const totalGrammarBody = document.getElementById('analyticsTotalGrammarProgressBody');
   if (totalGrammarBody) {
     totalGrammarBody.innerHTML = buildProgressInnerHtml({

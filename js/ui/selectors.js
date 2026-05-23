@@ -38,7 +38,9 @@ let host = {
   saveCurrentDeckStateToBank: () => {},
   markActiveDeckRef: () => {},
   saveState: () => {},
-  canAccessGrammarUi: () => true
+  canAccessGrammarUi: () => true,
+  isMorphStepByStepActive: () => false,
+  getFocusedParadigmCards: () => null
 };
 
 export function configureSelectors(deps) {
@@ -552,6 +554,13 @@ export function loadDeckFromKeys(keys, sessionId = null, options = {}) {
   let scopedCards = runtime.requiredOnly ? selectedCards.filter(card => card.required) : selectedCards;
   if (runtime.hardVocabReviewMode && runtime.studyMode === 'vocab') {
     scopedCards = filterHardVocabCards(scopedCards, host.getDirectionalProgressStore());
+  }
+  // Step-by-step morphology drill: narrow the deck to the focused paradigm's
+  // forms (lemma-matched, gated by max selected chapter/week). Falls through
+  // to the standard scoped deck if nothing's focused yet.
+  if (host.isMorphStepByStepActive()) {
+    const focusedCards = host.getFocusedParadigmCards();
+    if (Array.isArray(focusedCards)) scopedCards = focusedCards;
   }
   runtime.originalDeck = scopedCards;
   host.resetMorphAnswerState();

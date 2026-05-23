@@ -62,6 +62,33 @@ export function configurePersistence(deps) {
   host = { ...host, ...deps };
 }
 
+// Per-lemma sliding window of paradigm-parse attempts. Capped at 20 entries
+// per lemma; older attempts drop off the front. Sanitizer is forgiving on
+// import so a stat from a previous version (or a missing field) restores as
+// empty rather than wiping the rest of the save.
+const PARADIGM_STEP_ATTEMPT_CAP = 20;
+function sanitizeParadigmStepStats(input) {
+  const out = { byLemma: {} };
+  if (!isPlainObject(input)) return out;
+  const lemmaBag = isPlainObject(input.byLemma) ? input.byLemma : null;
+  if (!lemmaBag) return out;
+  Object.keys(lemmaBag).forEach((lemma) => {
+    const entry = lemmaBag[lemma];
+    if (!isPlainObject(entry) || !Array.isArray(entry.attempts)) return;
+    const attempts = entry.attempts
+      .filter((a) => isPlainObject(a) && isPlainObject(a.dims))
+      .slice(-PARADIGM_STEP_ATTEMPT_CAP)
+      .map((a) => ({
+        at: Number(a.at) || 0,
+        dims: Object.fromEntries(
+          Object.entries(a.dims).map(([k, v]) => [String(k), v ? 1 : 0])
+        )
+      }));
+    if (attempts.length) out.byLemma[String(lemma)] = { attempts };
+  });
+  return out;
+}
+
 // ── Persisted-state payload + sanitization for import ────────────────────
 
 export function buildPersistedStatePayload(options = {}) {
@@ -95,6 +122,9 @@ export function buildPersistedStatePayload(options = {}) {
     studyMode: runtime.studyMode,
     appProfile: runtime.appProfile,
     morphSelfCheck: runtime.morphSelfCheck,
+    morphStepByStep: runtime.morphStepByStep,
+    morphFocusedParadigm: runtime.morphFocusedParadigm,
+    paradigmStepStats: runtime.paradigmStepStats,
     analyticsVocabDirection: runtime.analyticsVocabDirection,
     analyticsVocabScope: runtime.analyticsVocabScope,
     analyticsCollapsed: runtime.analyticsCollapsed,
@@ -154,6 +184,11 @@ function sanitizeImportedState(candidate) {
   state.splitSelection = !!candidate.splitSelection;
   state.modeSelections = isPlainObject(candidate.modeSelections) ? candidate.modeSelections : {};
   state.morphSelfCheck = !!candidate.morphSelfCheck;
+  state.morphStepByStep = !!candidate.morphStepByStep;
+  state.morphFocusedParadigm = typeof candidate.morphFocusedParadigm === 'string'
+    ? candidate.morphFocusedParadigm
+    : null;
+  state.paradigmStepStats = sanitizeParadigmStepStats(candidate.paradigmStepStats);
 
   // Older exports made while the user was in reader mode persist reader as the
   // top-level studyMode, with selectedKeys/currentSessionId left over from the
@@ -606,13 +641,21 @@ function handleImportedProgressFile(event) {
 
 export function getDeckStateKey(keys = runtime.selectedKeys, requiredFlag = runtime.requiredOnly, spacedFlag = runtime.spacedRepetition) {
   const normalizedKeys = sortSetKeys((keys || []).map(String));
+  // Step-by-step paradigm mode rebuilds the morph deck against a single
+  // lemma subset; include the focused paradigm in the key so each lemma
+  // gets its own cursor bank and switching paradigms doesn't carry over a
+  // stale currentIdx from the previous one (or from the standard morph deck).
+  const morphStep = runtime.studyMode === 'morph' && runtime.morphStepByStep
+    ? { stepByStep: true, focusedParadigm: runtime.morphFocusedParadigm || '' }
+    : undefined;
   return JSON.stringify({
     keys: normalizedKeys,
     requiredOnly: !!requiredFlag,
     spacedRepetition: !!spacedFlag,
     hardVocabReviewMode: !!runtime.hardVocabReviewMode,
     direction: host.getStudyStoreKey(),
-    mode: runtime.studyMode
+    mode: runtime.studyMode,
+    ...(morphStep ? { morphStep } : {})
   });
 }
 
@@ -801,6 +844,11 @@ export function restoreState() {
     runtime.appGamification = sanitizeGamificationState(saved.gamification);
     runtime.studyMode = host.normalizeStudyMode(saved.studyMode);
     runtime.morphSelfCheck = !!saved.morphSelfCheck;
+    runtime.morphStepByStep = !!saved.morphStepByStep;
+    runtime.morphFocusedParadigm = typeof saved.morphFocusedParadigm === 'string'
+      ? saved.morphFocusedParadigm
+      : null;
+    runtime.paradigmStepStats = sanitizeParadigmStepStats(saved.paradigmStepStats);
     runtime.analyticsVocabDirection = saved.analyticsVocabDirection === 'e2g' ? 'e2g' : 'g2e';
     runtime.analyticsVocabScope = saved.analyticsVocabScope === 'all' ? 'all' : 'required';
     if (saved.analyticsCollapsed && typeof saved.analyticsCollapsed === 'object') {

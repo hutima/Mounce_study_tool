@@ -9,6 +9,7 @@ import { getConfidencePct } from '../domain/srs/confidence.js';
 import { formatRemainingForTable, getSrsStage } from '../domain/srs/scheduler.js';
 import { getCardReviewLeft, getCardReviewRight, getCardMetaLine } from '../domain/deck/filters.js';
 import { isAnalyticsModalOpen } from './modals.js';
+import { getAllLemmaStats, getParadigmStepDimensionLabel, getParadigmStepAttemptWindow } from '../domain/grammar/morph_steps.js';
 
 let host = {
   accumulateUsageTime: () => {},
@@ -20,6 +21,7 @@ let host = {
   getHighConfidenceCount: () => 0,
   getWordProgress: () => ({}),
   isMorphologyMode: () => false,
+  isParsingMode: () => false,
   renderAnalyticsOverlay: () => {},
   moveCardToBackOfActivePile: () => {},
   buildStudyDeck: () => [],
@@ -74,6 +76,16 @@ export function renderReview() {
   const panel = document.getElementById('reviewPanel');
   if (!panel) return;
   panel.classList.add('show');
+
+  // Parsing mode has no card-level confidence stats (no SRS / no main-stats
+  // writes), so the standard "due now / high / low / unseen" buckets would
+  // all read 0 + "unseen". Render a per-paradigm rolling-window summary
+  // instead — same paradigmStepStats that the analytics tile uses, scoped
+  // to the lemmas the user has actually parsed.
+  if (host.isParsingMode && host.isParsingMode()) {
+    renderParsingReviewPanel();
+    return;
+  }
 
   // Bucket the deck by confidence so the progress frame stays focused on
   // certainty rather than raw activity counts. A card is "high" when its
@@ -178,6 +190,75 @@ export function renderReview() {
       </div>`;
     });
   document.getElementById('reviewList').innerHTML = listHtml || '<span style="color:var(--muted);font-size:14px;font-style:italic">Mark cards as you study to track your progress in this direction.</span>';
+}
+
+function escapeHtmlSmall(s) {
+  return String(s == null ? '' : s)
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;').replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+// Replacement for renderReview when in parsing mode. The standard
+// confidence/seen/unseen breakdown doesn't apply (parsing has no SRS or
+// main-stats writes); instead we surface the per-lemma rolling-window
+// stats from runtime.paradigmStepStats — same data the analytics tile
+// uses — so the bottom panel becomes "here's how each paradigm I've
+// drilled is going."
+function renderParsingReviewPanel() {
+  const deckTagEl = document.getElementById('reviewDeckTag');
+  if (deckTagEl) deckTagEl.textContent = 'Paradigm parsing';
+
+  const focused = runtime.morphFocusedParadigm || '';
+  const allStats = getAllLemmaStats(runtime.paradigmStepStats || {});
+
+  // Pull out the currently-focused paradigm so it always reads at the top,
+  // even if other paradigms have more attempts.
+  const focusedEntry = allStats.find((s) => s.lemma === focused);
+  const otherEntries = allStats.filter((s) => s.lemma !== focused);
+  otherEntries.sort((a, b) => b.attempts - a.attempts);
+  const ordered = focusedEntry ? [focusedEntry, ...otherEntries] : otherEntries;
+
+  const attemptWindow = getParadigmStepAttemptWindow();
+  const drilledCount = ordered.length;
+
+  document.getElementById('reviewStats').innerHTML = `
+    <span class="stat-deck">▦ Paradigms drilled: ${drilledCount}</span>
+    <span class="stat-total">· Window: last ${attemptWindow} attempts each</span>`;
+
+  const sortRowEl = document.getElementById('reviewSortRow');
+  if (sortRowEl) sortRowEl.innerHTML = '';
+
+  if (!ordered.length) {
+    document.getElementById('reviewList').innerHTML =
+      '<span style="color:var(--muted);font-size:14px;font-style:italic">Complete a parse to start seeing per-paradigm accuracy here.</span>';
+    return;
+  }
+
+  const rows = ordered.map((s) => {
+    const pct = Math.round(100 * s.correct / Math.max(1, s.total));
+    const pctClass = pct >= 80 ? 'parsing-review-pct-high' : pct >= 50 ? 'parsing-review-pct-mid' : 'parsing-review-pct-low';
+    const chips = Object.entries(s.perDim).map(([dim, agg]) => {
+      const dpct = Math.round(100 * agg.correct / Math.max(1, agg.seen));
+      return `<span class="parsing-review-chip">${escapeHtmlSmall(getParadigmStepDimensionLabel(dim))} ${dpct}%</span>`;
+    }).join('');
+    const focusBadge = s.lemma === focused
+      ? '<span class="parsing-review-focused-badge">FOCUSED</span>'
+      : '';
+    return `
+      <div class="parsing-review-row">
+        <div class="parsing-review-header">
+          <span class="parsing-review-lemma">${escapeHtmlSmall(s.lemma)}</span>
+          ${focusBadge}
+          <span class="parsing-review-pct ${pctClass}">${pct}%</span>
+          <span class="parsing-review-attempts">${s.attempts}/${attemptWindow} attempts</span>
+        </div>
+        <div class="parsing-review-chips">${chips}</div>
+      </div>`;
+  }).join('');
+
+  document.getElementById('reviewList').innerHTML =
+    `<div class="parsing-review-list">${rows}</div>`;
 }
 
 // Sort-mode toggle for the per-deck progress list. Lives in runtime only —

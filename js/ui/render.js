@@ -8,6 +8,8 @@
 import { runtime } from '../state/runtime.js';
 import { buildGrammarSupportHtml } from '../domain/grammar/explanations.js';
 import { renderProgress, renderReview } from './progress.js';
+import { buildMorphSteps, summarizeLemmaStats, getParadigmStepAttemptWindow, computeAccessibleDimensionPools, parseAnswerDimensions, aspectMistakeNote } from '../domain/grammar/morph_steps.js';
+import { getAccessibleMorphCards } from '../domain/grammar/paradigm_focus.js';
 
 let host = {
   saveState: () => {},
@@ -15,6 +17,7 @@ let host = {
   noteStudyInteraction: () => {},
   getNearDueCount: () => 0,
   isMorphologyMode: () => false,
+  isParsingMode: () => false,
   isReverseGrammarActive: () => false,
   isMorphCard: () => false,
   reverseDisplayActive: () => false,
@@ -40,7 +43,9 @@ export function renderCard() {
 
   if (!runtime.deck.length) {
     let emptyMessage;
-    if (host.isMorphologyMode()) {
+    if (host.isParsingMode()) {
+      emptyMessage = 'Pick a focused paradigm from the dropdown above to start parsing.';
+    } else if (host.isMorphologyMode()) {
       emptyMessage = host.isReverseGrammarActive()
         ? 'No reversible grammar items in this selection. Toggle “English → Greek” off to see all questions.'
         : 'No grammar quiz material is available yet for this selection.';
@@ -57,7 +62,7 @@ export function renderCard() {
     runtime.unspacedPendingRecycle = false;
   }
 
-  if (!runtime.spacedRepetition && host.isMorphologyMode() && runtime.currentIdx >= runtime.deck.length && runtime.unspacedPendingRecycle) {
+  if (!runtime.spacedRepetition && (host.isMorphologyMode() || host.isParsingMode()) && runtime.currentIdx >= runtime.deck.length && runtime.unspacedPendingRecycle) {
     host.startNextCycle('remaining');
     host.resetMorphAnswerState();
     renderCard();
@@ -109,6 +114,15 @@ export function renderCard() {
 
   document.getElementById('markRow').style.display = host.isMorphologyMode() ? 'none' : 'flex';
   const card = runtime.deck[runtime.currentIdx];
+
+  // Parsing mode always uses the step-by-step renderer for dimensional cards.
+  // Stem-change recall cards ("what is the aorist of βάλλω?") have
+  // card.dimensional === false; those fall through to the standard MC
+  // renderer below regardless of mode.
+  if (host.isMorphCard(card) && host.isParsingMode() && card.dimensional !== false) {
+    renderMorphStepCard(area, card);
+    return;
+  }
 
   if (host.isMorphCard(card)) {
     const reversed = host.reverseDisplayActive(card);
@@ -231,8 +245,37 @@ export function renderCard() {
   const englishDisplay = `${prepStar}${card.e || '—'}`;
   const requiredLabelHTML = `<span class="card-required-label card-required-label-${card.required ? 'req' : 'opt'}">(${card.required ? 'req.' : 'opt.'})</span>`;
 
+  // Stem-flip cards (2nd-aorist / aorist-passive / perfect-active / μι-verb
+  // supplements): both faces show Greek + English gloss subtitle, with the
+  // differing characters highlighted so the stem change between the two
+  // forms is visually obvious. Direction toggle is ignored — the card is
+  // always present-on-front, target-on-back.
   let frontHTML, backHTML;
-  if (!runtime.directionToGreek) {
+  if (card.stemFlip) {
+    const diff = diffHighlightPair(card.g, card.aorist);
+    const flipHint = '<div class="flip-hint">click to reveal →</div>';
+    const noteHtml = card.stemNote
+      ? `<div class="card-stem-note">${escapeHtml(card.stemNote)}</div>`
+      : '';
+    frontHTML = `
+        <div class="card-face card-front card-stem-flip">
+          ${requiredLabelHTML}
+          <span class="card-label">Present</span>
+          <div class="card-greek card-stem-flip-form">${diff.aHtml}</div>
+          <div class="card-stem-flip-gloss">${escapeHtml(card.e || '')}</div>
+          <div class="card-hint">${sourceLabelDisplay}</div>
+          ${flipHint}
+        </div>`;
+    backHTML = `
+        <div class="card-face card-back card-stem-flip">
+          ${requiredLabelHTML}
+          <span class="card-label">${escapeHtml(card.stemFlipAorist || 'Aorist (1st sg.)')}</span>
+          <div class="card-greek card-stem-flip-form">${diff.bHtml}</div>
+          <div class="card-stem-flip-gloss">${escapeHtml(card.aoristGloss || '')}</div>
+          ${noteHtml}
+          <div class="card-hint">${escapeHtml(card.g)} → ${escapeHtml(card.aorist)}</div>
+        </div>`;
+  } else if (!runtime.directionToGreek) {
     frontHTML = `
         <div class="card-face card-front">
           ${requiredLabelHTML}
@@ -277,6 +320,235 @@ export function renderCard() {
       </div>
     </div>`;
 
+  runtime.isFlipped = false;
+  renderProgress();
+}
+
+// ─── Step-by-step paradigm rendering ──────────────────────────────────────
+// Walks one dimension MC per click. State is held in runtime.morphStepState
+// and lazily initialized whenever the active card changes.
+function ensureStepStateForCard(card) {
+  const state = runtime.morphStepState;
+  if (state && state.cardId === card.id) return state;
+  // Build a chapter-gated distractor pool so MC choices never include
+  // tenses/moods/cases the textbook hasn't introduced by the user's max
+  // selected chapter (e.g. no "pluperfect" while Ch ≤ 24).
+  const accessibleCards = getAccessibleMorphCards(runtime.selectedKeys);
+  const accessiblePools = computeAccessibleDimensionPools(accessibleCards);
+  const steps = buildMorphSteps(card, accessiblePools);
+  runtime.morphStepState = {
+    cardId: card.id,
+    steps,
+    stepIdx: 0,
+    answers: new Array(steps.length).fill(null),
+    completed: steps.length === 0
+  };
+  return runtime.morphStepState;
+}
+
+function escapeHtml(s) {
+  return String(s == null ? '' : s)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+// Diff-highlights two Greek strings via Longest Common Subsequence: shared
+// characters render plain, the rest get wrapped in <span class="stem-diff">.
+// Used by the stem-flip card renderer so the present↔aorist stem change is
+// visually obvious without the student having to mentally subtract one form
+// from the other.
+function diffHighlightPair(a, b) {
+  const A = [...String(a || '')];
+  const B = [...String(b || '')];
+  if (!A.length || !B.length) return { aHtml: escapeHtml(a || ''), bHtml: escapeHtml(b || '') };
+  const m = A.length, n = B.length;
+  const dp = Array.from({ length: m + 1 }, () => new Array(n + 1).fill(0));
+  for (let i = 0; i < m; i++) {
+    for (let j = 0; j < n; j++) {
+      dp[i + 1][j + 1] = A[i] === B[j] ? dp[i][j] + 1 : Math.max(dp[i + 1][j], dp[i][j + 1]);
+    }
+  }
+  const inLCS_A = new Array(m).fill(false);
+  const inLCS_B = new Array(n).fill(false);
+  let i = m, j = n;
+  while (i > 0 && j > 0) {
+    if (A[i - 1] === B[j - 1]) {
+      inLCS_A[i - 1] = true;
+      inLCS_B[j - 1] = true;
+      i--; j--;
+    } else if (dp[i - 1][j] >= dp[i][j - 1]) {
+      i--;
+    } else {
+      j--;
+    }
+  }
+  const wrap = (chars, mask) => chars.map((ch, idx) =>
+    mask[idx] ? escapeHtml(ch) : `<span class="stem-diff">${escapeHtml(ch)}</span>`
+  ).join('');
+  return { aHtml: wrap(A, inLCS_A), bHtml: wrap(B, inLCS_B) };
+}
+
+function renderMorphStepBreadcrumb(state) {
+  if (!state.steps.length) return '';
+  const dots = state.steps.map((step, idx) => {
+    const answer = state.answers[idx];
+    let cls = 'morph-step-dot';
+    if (idx === state.stepIdx && !state.completed) cls += ' current';
+    if (answer && answer.isCorrect) cls += ' correct';
+    if (answer && answer.isCorrect === false) cls += ' incorrect';
+    return `<span class="${cls}" title="${escapeHtml(step.label)}">${escapeHtml(step.label[0])}</span>`;
+  }).join('');
+  return `<div class="morph-step-breadcrumb">${dots}</div>`;
+}
+
+function renderMorphStepCurrent(state) {
+  const step = state.steps[state.stepIdx];
+  if (!step) return '';
+  const choiceButtons = step.displayChoices.map((label, idx) => {
+    return `<button class="choice-btn" type="button" onclick="answerMorphologyStep(${idx})">${escapeHtml(label)}</button>`;
+  }).join('');
+  return `
+    <div class="morph-step-current">
+      <div class="morph-step-progress">Step ${state.stepIdx + 1} of ${state.steps.length}</div>
+      <div class="morph-step-label">${escapeHtml(step.label)}?</div>
+      <div class="morph-choices">${choiceButtons}</div>
+      <div class="morph-dontknow-row">
+        <button class="ctrl-btn morph-dontknow-btn" type="button" onclick="skipMorphologyStep()">I don't know</button>
+      </div>
+    </div>`;
+}
+
+// Mirrors the display-suffix logic in morph_steps.js so a person value
+// like "first" reads as "first person" in correction lines too.
+function applyDisplaySuffixIfPerson(dimKey, value) {
+  return dimKey === 'person' ? `${value} person` : value;
+}
+
+// Builds a human-readable parse from a list of dimension values, e.g.
+// ['continuous', 'present', 'indicative', 'second', 'plural'] →
+// "continuous · present · indicative · second person · plural". Skips
+// empty values so a partial walk still reads cleanly.
+function assembleParseLine(steps, values) {
+  return steps.map((step, idx) => {
+    const v = values[idx];
+    if (!v) return null;
+    return step.key === 'person' ? `${v} person` : v;
+  }).filter(Boolean).join(' · ');
+}
+
+function renderMorphStepSummary(card, state) {
+  const rows = state.steps.map((step, idx) => {
+    const answer = state.answers[idx];
+    const pickedLabel = answer && answer.selectedIdx >= 0
+      ? step.displayChoices[answer.selectedIdx]
+      : '—';
+    const correct = answer && answer.isCorrect;
+    const markClass = correct ? 'morph-step-correct' : 'morph-step-incorrect';
+    const mark = correct ? '✓' : '✗';
+    // Each step now carries a single correct value (the composite
+    // 'continuous/undefined' counts as one). For aspect mistakes the
+    // picked value can visually overlap the correct one (picking
+    // "continuous" when the right answer is "continuous/undefined"), so
+    // we append a one-line note that names the mistake — strikethrough +
+    // arrow alone reads like a near-miss in that case.
+    const acceptable = Array.isArray(step.acceptable) ? step.acceptable : [step.correct];
+    const correctionInner = acceptable.map((a) => escapeHtml(applyDisplaySuffixIfPerson(step.key, a))).join(' / ');
+    let aspectNoteHtml = '';
+    if (!correct && answer && answer.selectedIdx >= 0 && step.key === 'aspect' && step.context) {
+      const pickedRaw = step.choices[answer.selectedIdx];
+      const note = aspectMistakeNote(step.context.tense, pickedRaw, step.correct);
+      if (note) aspectNoteHtml = `<span class="morph-step-aspect-note">${escapeHtml(note)}</span>`;
+    }
+    const showCorrection = !correct && answer
+      ? `<span class="morph-step-correction">→ ${correctionInner}</span>${aspectNoteHtml}`
+      : '';
+    return `
+      <div class="morph-step-summary-row ${markClass}">
+        <span class="morph-step-summary-dim">${escapeHtml(step.label)}</span>
+        <span class="morph-step-summary-pick">${escapeHtml(pickedLabel)} ${mark}</span>
+        ${showCorrection}
+      </div>`;
+  }).join('');
+
+  const totalCorrect = state.answers.filter((a) => a && a.isCorrect).length;
+  const totalStr = `${totalCorrect}/${state.steps.length} correct`;
+
+  // Assemble side-by-side "Your parse" vs "Correct parse" lines so the
+  // student sees the full assembled parse of their picks (useful when most
+  // dimensions were wrong — turning the per-row corrections into a coherent
+  // sentence).
+  const anyWrong = state.answers.some((a) => a && a.isCorrect === false);
+  const pickedValues = state.steps.map((step, idx) => {
+    const ans = state.answers[idx];
+    return ans && ans.selectedIdx >= 0 ? step.choices[ans.selectedIdx] : '';
+  });
+  const correctValues = state.steps.map((step) => step.correct);
+  const youParseLine = anyWrong
+    ? `<div class="morph-step-parse-compare">
+        <div class="morph-step-parse-line morph-step-parse-line-yours">
+          <span class="morph-step-parse-label">Your parse</span>
+          ${escapeHtml(assembleParseLine(state.steps, pickedValues) || '—')}
+        </div>
+        <div class="morph-step-parse-line morph-step-parse-line-correct">
+          <span class="morph-step-parse-label">Correct parse</span>
+          ${escapeHtml(assembleParseLine(state.steps, correctValues))}
+        </div>
+      </div>`
+    : '';
+
+  const lemmaSummary = summarizeLemmaStats(runtime.paradigmStepStats || {}, card.lemma);
+  const recentLine = lemmaSummary.attempts > 0
+    ? `<div class="morph-step-rollup-recent">Last ${lemmaSummary.attempts}/${getParadigmStepAttemptWindow()} attempts for ${escapeHtml(card.lemma)}: ${lemmaSummary.correct}/${lemmaSummary.total} dimensions correct (${Math.round(100 * lemmaSummary.correct / Math.max(1, lemmaSummary.total))}%)</div>`
+    : '';
+
+  // Stem-change footer: if the parsed form is in a tense whose stem differs
+  // from the present lemma (aorist family, perfect, pluperfect), surface the
+  // present → form pair so the student sees the stem association alongside
+  // the completed parse. Mounce paradigm lemmas often already encode the
+  // stem pair ("λύω → ἔλυσα"); split on " → " and take the head form so the
+  // note reads "λύω → ἐλύσαμεν" rather than "λύω → ἔλυσα → ἐλύσαμεν".
+  const STEM_CHANGE_TENSES = new Set(['aorist', 'first aorist', 'second aorist', 'perfect', 'pluperfect']);
+  const parsedDims = parseAnswerDimensions(card.answer);
+  const presentLemma = card.lemma ? String(card.lemma).split(/\s*→\s*/)[0].trim() : '';
+  const stemChangeNote = (STEM_CHANGE_TENSES.has(parsedDims.tense) && presentLemma && card.form && presentLemma !== card.form)
+    ? `<div class="morph-step-stem-note"><span class="morph-step-stem-label">Stem change</span> ${escapeHtml(presentLemma)} → ${escapeHtml(card.form)}</div>`
+    : '';
+
+  return `
+    <div class="morph-step-summary">
+      <div class="morph-step-summary-title">Parse complete — ${escapeHtml(totalStr)}</div>
+      <div class="morph-step-summary-body">${rows}</div>
+      ${youParseLine}
+      ${stemChangeNote}
+      ${recentLine}
+      <div class="morph-step-summary-meta">${escapeHtml(card.lemma)}${card.family ? ' · ' + escapeHtml(card.family) : ''}</div>
+    </div>`;
+}
+
+function renderMorphStepCard(area, card) {
+  const state = ensureStepStateForCard(card);
+  const lemmaGloss = card.lemmaGloss || card.gloss
+    ? `<div class="morph-gloss">Gloss: “${escapeHtml(card.lemmaGloss || card.gloss)}”</div>`
+    : '';
+
+  const body = state.completed
+    ? renderMorphStepSummary(card, state)
+    : renderMorphStepCurrent(state);
+
+  area.innerHTML = `
+    <div class="morph-card morph-step-card">
+      <div class="morph-label">Grammar · Step-by-step</div>
+      <div class="morph-prompt">Parse this form one dimension at a time.</div>
+      ${lemmaGloss}
+      <div class="morph-form">${escapeHtml(card.form)}</div>
+      <div class="morph-hint">${escapeHtml(card.lemma)}</div>
+      <div class="morph-source">${escapeHtml(card.sourceLabel || '')} · Stats not affected · Use "continuous/undefined" when the form licenses either reading</div>
+      ${renderMorphStepBreadcrumb(state)}
+      ${body}
+    </div>`;
   runtime.isFlipped = false;
   renderProgress();
 }
