@@ -166,7 +166,7 @@ import { getSelectedVocabCards, getSelectedGrammarCards, getAllVocabKeys, getAll
 
 // Domain — Grammar
 import { buildGrammarSupportHtml } from '../domain/grammar/explanations.js';
-import { recordParadigmAttempt } from '../domain/grammar/morph_steps.js';
+import { recordParadigmAttempt, inferredFollowupDims, buildInferredStep } from '../domain/grammar/morph_steps.js';
 import { listAvailableParadigms, listAvailableParadigmsByCategory, getCardsForFocusedParadigm } from '../domain/grammar/paradigm_focus.js';
 
 // UI
@@ -639,6 +639,46 @@ function rebuildMorphDeckForStepMode() {
   loadDeckFromKeys(runtime.selectedKeys, runtime.currentSession ? runtime.currentSession.id : null);
 }
 
+// Dynamically appends ungraded follow-up steps when the student's pick
+// implies a parse class richer than the source card supplies (e.g.
+// picking mood=indicative on an imperative card means they need to
+// commit to a person before we can resolve their picks to a single
+// form). Returns the number of steps appended, or 0 if none.
+function maybeInjectInferredSteps(state, stepKey, picked) {
+  if (!state || !Array.isArray(state.steps)) return 0;
+  const existing = new Set(state.steps.map((s) => s.key));
+  const needs = inferredFollowupDims(stepKey, picked, existing);
+  if (!needs.length) return 0;
+  const pools = state.accessiblePools || {};
+  const newSteps = needs.map((dk) => buildInferredStep(dk, pools)).filter(Boolean);
+  if (!newSteps.length) return 0;
+  // Insert right after the current step so the natural dimension order
+  // (mood → person → number, etc.) is preserved.
+  state.steps.splice(state.stepIdx + 1, 0, ...newSteps);
+  state.answers.splice(state.stepIdx + 1, 0, ...new Array(newSteps.length).fill(null));
+  return newSteps.length;
+}
+
+// When an inferred follow-up step is answered, the trigger step that
+// caused its injection should reveal its correctness. Walks backward
+// from the just-answered inferred step, decrements the most recent
+// pending trigger, and clears the deferred flag when its counter hits
+// zero.
+function noteInferredAnswerSatisfied(state, answeredIdx) {
+  if (!state || !Array.isArray(state.answers)) return;
+  for (let i = answeredIdx - 1; i >= 0; i--) {
+    const a = state.answers[i];
+    if (a && a.deferred && a.triggersInferred > 0) {
+      a.triggersInferred -= 1;
+      if (a.triggersInferred === 0) {
+        delete a.deferred;
+        delete a.triggersInferred;
+      }
+      return;
+    }
+  }
+}
+
 // Step answer: record dimension correctness locally, advance through the
 // steps, write a single attempt to the rolling per-lemma window on
 // completion. NO writes to SRS, recordStudyOutcome, directional marks, or
@@ -652,15 +692,29 @@ function answerMorphologyStep(choiceIdx) {
   const step = state.steps[state.stepIdx];
   if (!step) return;
   const picked = step.choices[choiceIdx];
-  // Aspect (and any future multi-valid dimension) carries an `acceptable`
-  // array of every legitimate answer; fall back to the single `correct`
-  // value for dimensions where one answer is the only right one.
+  // Inferred follow-up steps are ungraded — they exist to converge on a
+  // single form for feedback, not to score the student. For graded steps
+  // we still use `acceptable` (multi-valid like aspect's continuous/
+  // undefined composite) with a fallback to `correct`.
   const validSet = Array.isArray(step.acceptable) && step.acceptable.length
     ? new Set(step.acceptable)
     : new Set([step.correct]);
-  const isCorrect = validSet.has(picked);
+  const isCorrect = step.inferred ? null : validSet.has(picked);
   state.answers[state.stepIdx] = { selectedIdx: choiceIdx, isCorrect };
+
+  const answeredIdx = state.stepIdx;
+  const wasInferred = !!step.inferred;
+  const injectedCount = maybeInjectInferredSteps(state, step.key, picked);
+  if (injectedCount > 0) {
+    // Defer this step's correctness reveal until the injected follow-ups
+    // are answered, so the student doesn't see "mood wrong" before they
+    // commit to the person/number that completes their parse.
+    state.answers[answeredIdx].deferred = true;
+    state.answers[answeredIdx].triggersInferred = injectedCount;
+  }
   state.stepIdx += 1;
+  if (wasInferred) noteInferredAnswerSatisfied(state, answeredIdx);
+
   if (state.stepIdx >= state.steps.length) {
     state.completed = true;
     finalizeMorphStepAttempt(card, state);
@@ -677,7 +731,10 @@ function skipMorphologyStep() {
   const state = runtime.morphStepState;
   const step = state.steps[state.stepIdx];
   if (!step) return;
-  state.answers[state.stepIdx] = { selectedIdx: -1, isCorrect: false };
+  const isCorrect = step.inferred ? null : false;
+  state.answers[state.stepIdx] = { selectedIdx: -1, isCorrect };
+  const answeredIdx = state.stepIdx;
+  if (step.inferred) noteInferredAnswerSatisfied(state, answeredIdx);
   state.stepIdx += 1;
   if (state.stepIdx >= state.steps.length) {
     state.completed = true;
@@ -692,6 +749,7 @@ function finalizeMorphStepAttempt(card, state) {
   if (!card || !card.lemma) return;
   const dims = {};
   state.steps.forEach((step, idx) => {
+    if (step.inferred) return; // ungraded — don't contribute to per-dim stats
     const ans = state.answers[idx];
     dims[step.key] = ans && ans.isCorrect ? 1 : 0;
   });

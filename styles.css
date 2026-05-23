@@ -1330,6 +1330,15 @@
     color: #e7a1a1;
     background: rgba(140,58,58,0.18);
   }
+  .morph-step-dot.neutral {
+    border-color: var(--border);
+    color: var(--muted);
+    background: rgba(255,255,255,0.04);
+  }
+  .morph-step-summary-row.morph-step-inferred .morph-step-summary-pick {
+    color: var(--muted);
+    font-style: italic;
+  }
 
   .morph-step-progress {
     font-family: var(--font-display);
@@ -1472,6 +1481,12 @@
   .morph-step-parse-match-empty {
     color: var(--muted);
     font-family: var(--font-body);
+  }
+  .morph-step-parse-match-impossible {
+    color: #e7a1a1;
+    font-family: var(--font-body);
+    font-size: 13px;
+    font-style: italic;
   }
   @media (max-width: 600px) {
     .morph-step-parse-match { margin-left: 0; }

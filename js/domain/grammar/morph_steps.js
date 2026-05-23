@@ -204,6 +204,57 @@ export function computeAccessibleDimensionPools(cards) {
   return out;
 }
 
+// When the student picks a mood that requires more dimensions than the
+// source card's parse class supplied, returns the dim keys to inject as
+// ungraded follow-up steps. Example: card λῦε is a 2-singular imperative
+// — its steps don't include person (the canonicalized answer drops "2nd"
+// without "person"). If the student picks mood=indicative, they need to
+// commit to a person before we can resolve their picks to a single Greek
+// form; inject person (and number if the card also lacks one).
+//
+// Returns [] when no injection is needed. Voice is never injected here —
+// it's introduced in chapter 15 and gated separately.
+const FINITE_MOODS_NEEDING_PERSON_NUMBER = new Set(['indicative', 'subjunctive', 'imperative', 'optative']);
+export function inferredFollowupDims(stepKey, picked, existingStepKeys) {
+  if (stepKey !== 'mood' || !picked) return [];
+  const have = existingStepKeys instanceof Set ? existingStepKeys : new Set(existingStepKeys || []);
+  const out = [];
+  if (FINITE_MOODS_NEEDING_PERSON_NUMBER.has(picked)) {
+    if (!have.has('person')) out.push('person');
+    if (!have.has('number')) out.push('number');
+  } else if (picked === 'participle') {
+    if (!have.has('case'))   out.push('case');
+    if (!have.has('number')) out.push('number');
+    if (!have.has('gender')) out.push('gender');
+  }
+  // infinitive: no follow-ups needed (no person/number/case/gender).
+  return out;
+}
+
+// Builds an ungraded follow-up step for the given dimension. Choices come
+// from the chapter-gated accessible pool when available; falls back to
+// the full DIM_POOLS. The returned step has `inferred: true` and no
+// `correct` value — it's scored as informational, not graded against the
+// source card.
+export function buildInferredStep(dimKey, accessiblePools) {
+  const pool = (accessiblePools && Array.isArray(accessiblePools[dimKey]) && accessiblePools[dimKey].length)
+    ? accessiblePools[dimKey]
+    : (DIM_POOLS[dimKey] || []);
+  if (!pool.length) return null;
+  const choices = shuffle([...pool]);
+  const displayChoices = choices.map((c) => applyDisplaySuffix(dimKey, c));
+  return {
+    key: dimKey,
+    label: DIM_LABEL[dimKey] || dimKey,
+    correct: null,
+    acceptable: [],
+    choices,
+    displayCorrect: '',
+    displayChoices,
+    inferred: true
+  };
+}
+
 function applyDisplaySuffix(dimensionKey, value) {
   const suffix = DIM_DISPLAY_SUFFIX[dimensionKey];
   return suffix ? `${value}${suffix}` : value;
