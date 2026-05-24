@@ -672,6 +672,17 @@ export function toggleSplitSelection() {
   host.saveState();
 }
 
+export function toggleAspectStep() {
+  runtime.aspectStep = !runtime.aspectStep;
+  // Reset any in-flight step state so the next render rebuilds the walk
+  // with the new step set (otherwise the cached state still has the old
+  // step list with/without aspect).
+  runtime.morphStepState = { cardId: null, steps: [], stepIdx: 0, answers: [], completed: false };
+  host.syncToggleButtons();
+  renderCard();
+  host.saveState();
+}
+
 export function reshuffleEligible() {
   if (!runtime.selectedKeys.length) return;
 

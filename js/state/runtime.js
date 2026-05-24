@@ -82,6 +82,11 @@ export const runtime = {
   morphFocusedParadigm: null,
   morphStepState: { cardId: null, steps: [], stepIdx: 0, answers: [], completed: false },
   paradigmStepStats: { byLemma: {} },
+  // Whether the parsing walk asks an explicit Aspect step before Tense.
+  // Aspect is derivable from tense (present/future → continuous/undefined,
+  // aorist → undefined, etc.), so for students who don't want to drill the
+  // composite-vs-single distinction it can be turned off. Default on.
+  aspectStep: true,
 
   // ── Persisted directional stores (rebuilt from localStorage) ────────
   deckStates: {},

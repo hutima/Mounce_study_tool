@@ -147,6 +147,10 @@ update that doc in the same commit. Line numbers in the doc are approximate.
       <span class="toggle-text">Self-check</span>
       <span class="toggle-switch" id="selfCheckBtn" aria-hidden="true"></span>
     </button>
+    <button class="toggle-label" id="aspectStepToggle" type="button" role="switch" aria-checked="true" onclick="toggleAspectStep()" title="Aspect is derivable from tense, so turning this off shortens the parsing walk by one step.">
+      <span class="toggle-text">Aspect step (parsing)</span>
+      <span class="toggle-switch" id="aspectStepBtn" aria-hidden="true"></span>
+    </button>
     <div class="reset-actions-grid">
       <button class="ctrl-btn" type="button" onclick="reshuffleEligible()">Reshuffle</button>
       <button class="ctrl-btn" id="resetDeckBtn" type="button" onclick="resetCurrentDeck()">Reset deck</button>
