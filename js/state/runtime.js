@@ -87,6 +87,12 @@ export const runtime = {
   // — sliding window capped at 20 attempts per lemma (see morph_steps.js).
   morphStepByStep: false,
   morphFocusedParadigm: null,
+  // Parsing mode owns its chapter scope via this field — driven by the
+  // dedicated chapter dropdown above the focused paradigm. Replaces the
+  // shared `selectedKeys`-based gating used by vocab/grammar so picking
+  // chapters in those modes never widens or narrows the parsing pool.
+  // Default 36 = the last Mounce chapter (every paradigm in scope).
+  parsingChapter: 36,
   morphStepState: { cardId: null, steps: [], stepIdx: 0, answers: [], completed: false },
   paradigmStepStats: { byLemma: {} },
   // Whether the parsing walk asks an explicit Aspect step before Tense.

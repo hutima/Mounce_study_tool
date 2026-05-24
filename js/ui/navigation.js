@@ -461,11 +461,40 @@ export function setStudyMode(mode) {
 
   const prevMode = runtime.studyMode;
   host.saveCurrentDeckStateToBank();
-  if (runtime.splitSelection) {
-    saveModeSelection(prevMode);
+  // Parsing mode owns its chapter scope via runtime.parsingChapter (the
+  // dropdown above the focused paradigm). It must never share selectedKeys
+  // with vocab/morph, regardless of splitSelection — otherwise entering
+  // parsing would clobber the vocab/morph chapter pick, and leaving would
+  // leak the parsing chapter back into them. So we always save/restore
+  // around any parsing transition; the regular splitSelection swap handles
+  // vocab↔morph as before.
+  const parsingTransition = prevMode === 'parsing' || nextMode === 'parsing';
+  if (runtime.splitSelection || parsingTransition) {
+    // When splitSelection is OFF and we're entering parsing, the current
+    // selection is shared by vocab+morph. Stash it under both slots so the
+    // user lands back on the right chapter regardless of which mode they
+    // return to first.
+    if (!runtime.splitSelection && nextMode === 'parsing' && (prevMode === 'vocab' || prevMode === 'morph')) {
+      saveModeSelection('vocab');
+      saveModeSelection('morph');
+    } else {
+      saveModeSelection(prevMode);
+    }
     restoreModeSelection(nextMode);
   }
   runtime.studyMode = nextMode;
+  // Entering parsing: the dropdown is the source of truth, so overwrite
+  // selectedKeys with [parsingChapter] (a chapter-keyed string, which
+  // deriveSelectionLevels reads as the max effective chapter). Any stale
+  // modeSelections.parsing entry from before this feature is overridden.
+  if (nextMode === 'parsing') {
+    const chapter = Number.isInteger(runtime.parsingChapter) && runtime.parsingChapter >= 1 && runtime.parsingChapter <= 36
+      ? runtime.parsingChapter
+      : 36;
+    runtime.parsingChapter = chapter;
+    runtime.selectedKeys = [String(chapter)];
+    runtime.currentSession = null;
+  }
   host.clearSpacedUndoSnapshot();
   host.resetMorphAnswerState();
   host.ensureDirectionalStores();

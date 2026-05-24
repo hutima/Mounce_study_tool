@@ -631,16 +631,20 @@ function resetMorphStepState() {
   runtime.morphStepState = { cardId: null, steps: [], stepIdx: 0, answers: [], completed: false };
 }
 
-// Union of selectedKeys from every mode (vocab, morph, parsing) so the
-// student's "max effective chapter" reflects their highest point in the
-// course anywhere in the app — not just their parsing-mode-local selection.
-// With split-selection on, a user who has Ch 1-24 picked in vocab/grammar
-// but only one ch-22 set checked in parsing would otherwise be gated at
-// ch 22, hiding the rest of the cumulative paradigm catalog.
+// Selection keys used for chapter-gating paradigm pools. In parsing mode
+// the dedicated "Current chapter" dropdown is the single source of truth
+// (runtime.parsingChapter), so we synthesize a one-element key array from
+// it and ignore vocab/grammar's selectedKeys. Everywhere else we fall
+// back to the union across modes so the student's "max effective chapter"
+// reflects their highest point in the course.
 function getAggregateSelectionKeys() {
+  if (isParsingMode()) {
+    return [String(getParsingChapter())];
+  }
   const union = new Set((runtime.selectedKeys || []).map(String));
   const ms = runtime.modeSelections || {};
   Object.keys(ms).forEach((mode) => {
+    if (mode === 'parsing') return; // parsing has its own gating; don't leak it into other modes
     const entry = ms[mode];
     if (entry && Array.isArray(entry.selectedKeys)) {
       entry.selectedKeys.forEach((k) => union.add(String(k)));
@@ -664,6 +668,61 @@ function ensureMorphFocusedParadigm() {
 function rebuildMorphDeckForStepMode() {
   if (!isParsingMode()) return;
   loadDeckFromKeys(runtime.selectedKeys, runtime.currentSession ? runtime.currentSession.id : null);
+}
+
+// Coerce runtime.parsingChapter to a valid 1..36 integer. Returns 36 as
+// the fallback (every Mounce chapter in scope).
+function getParsingChapter() {
+  const n = Number(runtime.parsingChapter);
+  if (Number.isFinite(n) && Number.isInteger(n) && n >= 1 && n <= 36) return n;
+  return 36;
+}
+
+// Handler for the parsing-mode redirect card. The stem-highlighted
+// stem-pair cards (e.g. W4_SECOND_AORIST_STEMS — "γινώσκω → ἔγνων") live
+// in Vocab mode as a supplemental set; parsing can't walk them
+// dimensionally. The card is a one-tap shortcut: switch to vocab mode,
+// replace the current vocab selection with just that supplemental set,
+// and rebuild the deck.
+function goToStemDrillFromParsing(setKey) {
+  if (typeof setKey !== 'string' || !setKey) return;
+  // The supplemental set must actually be registered — otherwise we'd
+  // switch the user into vocab mode with an empty deck for no visible
+  // reason. Both SETS (master vocab registry) and the supplemental-vocab
+  // registry get the same key when registerSupplementalVocabSet runs.
+  const vocabSets = (typeof window !== 'undefined' && window.SUPPLEMENTAL_VOCAB_SETS) || {};
+  if (!vocabSets[setKey]) return;
+  // setStudyMode handles the parsing→vocab save/restore of modeSelections
+  // (parsing's chapter key gets stashed under modeSelections.parsing so
+  // it survives the round trip). After the mode flip, loadDeckFromKeys
+  // overwrites whatever vocab selection was restored with just the
+  // supplemental set the user tapped on.
+  setStudyMode('vocab');
+  loadDeckFromKeys([setKey], null, { clearUnspacedMarks: true });
+}
+
+// Handler for the parsing-mode chapter dropdown. Updates runtime.parsingChapter,
+// resyncs the deck's gating, and lets the focused-paradigm dropdown pick a
+// new default if the previous lemma falls out of scope at the new chapter.
+function setParsingChapter(value) {
+  if (!isParsingMode()) return;
+  const n = Number(value);
+  if (!Number.isFinite(n) || !Number.isInteger(n) || n < 1 || n > 36) return;
+  if (n === runtime.parsingChapter) return;
+  runtime.parsingChapter = n;
+  runtime.selectedKeys = [String(n)];
+  runtime.currentSession = null;
+  // If the previously-focused paradigm isn't introduced until a later
+  // chapter, drop it so ensureMorphFocusedParadigm picks the first
+  // in-scope lemma on the next rebuild. Without this, loadDeckFromKeys
+  // builds an empty deck once before syncParadigmFocusUi corrects it.
+  if (runtime.morphFocusedParadigm) {
+    const available = listAvailableParadigms(getAggregateSelectionKeys());
+    if (!available.some((p) => p.lemma === runtime.morphFocusedParadigm)) {
+      runtime.morphFocusedParadigm = null;
+    }
+  }
+  loadDeckFromKeys(runtime.selectedKeys, null);
 }
 
 // Dynamically appends ungraded follow-up steps when the student's pick
@@ -941,6 +1000,24 @@ function initializeTextSize() {
   applyTextSize(runtime.textSize, false);
 }
 
+// Populate the parsing-mode chapter dropdown (1..36) and reflect the
+// current runtime.parsingChapter. Only relevant in parsing mode — the
+// row is hidden elsewhere by syncLayoutVisibility.
+function syncParsingChapterUi() {
+  const select = document.getElementById('parsingChapterSelect');
+  if (!select) return;
+  if (!isParsingMode()) return;
+  const chapter = getParsingChapter();
+  if (!select.options.length) {
+    const opts = [];
+    for (let ch = 1; ch <= 36; ch++) {
+      opts.push(`<option value="${ch}">Chapter ${ch}</option>`);
+    }
+    select.innerHTML = opts.join('');
+  }
+  select.value = String(chapter);
+}
+
 // Populate the primary focused-paradigm dropdown from the current selection
 // when parsing mode is active, and resync runtime.morphFocusedParadigm if
 // the current pick is no longer available (e.g. user changed chapters).
@@ -1067,6 +1144,7 @@ function syncToggleButtons() {
       if (t) t.setAttribute('aria-checked', on ? 'true' : 'false');
     });
   });
+  syncParsingChapterUi();
   syncParadigmFocusUi();
   if (dailyResetSwitch) dailyResetSwitch.classList.toggle('on', !!runtime.unspacedAutoResetEnabled);
   if (shuffleToggle)   shuffleToggle.setAttribute('aria-checked',   runtime.shuffled ? 'true' : 'false');
@@ -1152,8 +1230,13 @@ function syncLayoutVisibility() {
   if (directionToggle) directionToggle.style.display = (runtime.studyMode === 'vocab' || runtime.studyMode === 'morph') ? 'flex' : 'none';
   if (requiredToggle) requiredToggle.style.display = runtime.studyMode === 'vocab' ? 'flex' : 'none';
   if (hardReviewToggle) hardReviewToggle.style.display = runtime.studyMode === 'vocab' ? 'flex' : 'none';
-  if (splitSelectionToggle) splitSelectionToggle.style.display = canAccessGrammarUi() ? 'flex' : 'none';
+  // Split vocab/grammar selection only makes sense between vocab and morph;
+  // parsing mode owns its chapter via the dedicated dropdown, so hide the
+  // toggle there entirely.
+  if (splitSelectionToggle) splitSelectionToggle.style.display = (canAccessGrammarUi() && !isParsingMode()) ? 'flex' : 'none';
   if (selfCheckToggle) selfCheckToggle.style.display = (isMorphologyMode() && canAccessGrammarUi()) ? 'flex' : 'none';
+  const parsingChapterRow = document.getElementById('parsingChapterRow');
+  if (parsingChapterRow) parsingChapterRow.style.display = isParsingMode() ? 'flex' : 'none';
   const paradigmFocusRowPrimary = document.getElementById('paradigmFocusRowPrimary');
   if (paradigmFocusRowPrimary) paradigmFocusRowPrimary.style.display = isParsingMode() ? 'flex' : 'none';
   if (shuffleToggle) shuffleToggle.style.display = reviewDeckMode ? 'flex' : 'none';
@@ -2354,7 +2437,7 @@ const GLOBAL_CLICK_HANDLERS = {
   fastForwardOneDay, fastForwardOneWeek,
   restoreSpacedUndo, setAppProfile, setStudyMode, setThemeMode, setFontFamily, setTextSize,
   showDisclaimerModal, startStudying, toggleDirection, toggleMorphSelfCheck,
-  toggleMorphStepByStep, setMorphFocusedParadigm,
+  toggleMorphStepByStep, setMorphFocusedParadigm, setParsingChapter, goToStemDrillFromParsing,
   toggleRequiredOnly, toggleHardVocabReview, toggleShuffle, toggleSpacedRepetition, toggleSplitSelection, toggleAspectStep, toggleDimStep, toggleOptionalForms, toggleOptionalFormFilter, toggleDimValueFilter, toggleUnspacedDailyReset, triggerImportProgress,
   openReaderTab, selectReaderDrillChoice, advanceReaderDrill,
   closeWhatsNewV1_1Modal
@@ -2397,6 +2480,11 @@ if (cardArea) {
   cardArea.addEventListener('click', (event) => {
     const target = event.target;
     if (!target || !(target instanceof Element)) return;
+    // Parsing-mode stem-recall redirect button uses .empty-state for layout
+    // but has its own onclick that switches mode + loads the supplemental
+    // deck. Opening the study selector on top of that would be a confusing
+    // double-effect, so skip the delegate for it.
+    if (target.closest('.parsing-redirect-btn')) return;
     if (target.closest('.empty-state')) openStudySelector();
   });
 }

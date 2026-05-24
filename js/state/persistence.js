@@ -87,6 +87,15 @@ function sanitizeBucketList(input) {
       return { correct, total, at: Number(b.at) || 0 };
     });
 }
+// Parsing mode's chapter scope. Defaults to 36 (every Mounce chapter in
+// scope) when the saved value is missing, malformed, or out of the
+// supported 1..36 range.
+function sanitizeParsingChapter(input) {
+  const n = Number(input);
+  if (Number.isFinite(n) && Number.isInteger(n) && n >= 1 && n <= 36) return n;
+  return 36;
+}
+
 function sanitizeParadigmStepStats(input) {
   const out = { byLemma: {}, overall: { totalAttempts: 0, inProgress: { correct: 0, total: 0 }, buckets: [] } };
   if (!isPlainObject(input)) return out;
@@ -182,6 +191,7 @@ export function buildPersistedStatePayload(options = {}) {
     morphSelfCheck: runtime.morphSelfCheck,
     morphStepByStep: runtime.morphStepByStep,
     morphFocusedParadigm: runtime.morphFocusedParadigm,
+    parsingChapter: runtime.parsingChapter,
     paradigmStepStats: runtime.paradigmStepStats,
     aspectStep: runtime.aspectStep,
     dimToggles: runtime.dimToggles,
@@ -251,6 +261,7 @@ function sanitizeImportedState(candidate) {
   state.morphFocusedParadigm = typeof candidate.morphFocusedParadigm === 'string'
     ? candidate.morphFocusedParadigm
     : null;
+  state.parsingChapter = sanitizeParsingChapter(candidate.parsingChapter);
   state.paradigmStepStats = sanitizeParadigmStepStats(candidate.paradigmStepStats);
   // aspectStep defaults to true; only an explicit `false` flips it off.
   state.aspectStep = candidate.aspectStep !== false;
@@ -939,6 +950,15 @@ export function restoreState() {
     runtime.morphFocusedParadigm = typeof saved.morphFocusedParadigm === 'string'
       ? saved.morphFocusedParadigm
       : null;
+    runtime.parsingChapter = sanitizeParsingChapter(saved.parsingChapter);
+    // Parsing mode's deck is driven by runtime.parsingChapter, not the
+    // shared selectedKeys store. Seed selectedKeys from parsingChapter on
+    // restore so the deck rebuild fires (the early-return below skips
+    // when selectedKeys is empty) and so subsequent saves carry a chapter
+    // key — matching what setStudyMode('parsing') would have written.
+    if (runtime.studyMode === 'parsing') {
+      runtime.selectedKeys = [String(runtime.parsingChapter)];
+    }
     runtime.paradigmStepStats = sanitizeParadigmStepStats(saved.paradigmStepStats);
     runtime.aspectStep = saved.aspectStep !== false;
     const DIM_TOGGLE_KEYS = ['tense', 'voice', 'mood', 'person', 'number', 'case', 'gender'];

@@ -772,6 +772,23 @@
   /* ── Empty state ── */
   .empty-state { text-align: center; padding: 60px 20px; color: var(--muted); font-style: italic; }
   .empty-state .big { font-family: var(--font-greek); font-size: 40px; color: var(--border); margin-bottom: 16px; }
+  /* Parsing-mode redirect card — clickable empty-state. Hops into Vocab
+     mode with the matching stem-recall supplemental set preselected. */
+  button.parsing-redirect-btn {
+    display: block;
+    width: 100%;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    cursor: pointer;
+    font: inherit;
+  }
+  button.parsing-redirect-btn:hover,
+  button.parsing-redirect-btn:focus {
+    border-color: var(--gold-dim);
+    color: var(--cream);
+  }
+  button.parsing-redirect-btn u { color: var(--gold); text-underline-offset: 3px; }
 
   /* ── Ornament divider ── */
   .ornament { text-align: center; color: var(--gold-dim); font-size: 18px; margin: 4px 0 20px; opacity: 0.5; letter-spacing: 8px; }
