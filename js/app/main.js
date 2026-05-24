@@ -782,29 +782,18 @@ function skipMorphologyStep() {
   saveState();
 }
 
-// Pass on a step: advances without committing to a pick. Unlike
-// skipMorphologyStep ("I don't know", which counts as wrong), a passed
-// step contributes nothing to paradigm-step stats. Use for steps the
-// student wants to defer / not be penalized on (e.g. drilling a
-// dimension they're confident about but skipping unfamiliar ones).
-function passMorphologyStep() {
+// Pass on the WHOLE current morph card: drop the in-flight walk
+// without recording any per-dim stats, then advance to the next card.
+// Unlike "I don't know" (per-step, counts as wrong), passing the card
+// is fully off-stats — the student opted out before any grading could
+// settle. Only callable mid-walk; once the walk has completed,
+// finalizeMorphStepAttempt has already written the stats and Pass would
+// just duplicate the NEXT button.
+function passMorphologyCard() {
   if (!isParsingMode()) return;
-  const card = runtime.deck[runtime.currentIdx];
-  if (!card || !runtime.morphStepState || runtime.morphStepState.completed) return;
-  const state = runtime.morphStepState;
-  const step = state.steps[state.stepIdx];
-  if (!step) return;
-  state.answers[state.stepIdx] = { selectedIdx: -1, isCorrect: null, passed: true };
-  const answeredIdx = state.stepIdx;
-  if (step.inferred) noteInferredAnswerSatisfied(state, answeredIdx);
-  state.stepIdx += 1;
-  if (state.stepIdx >= state.steps.length) {
-    state.completed = true;
-    finalizeMorphStepAttempt(card, state);
-  }
-  renderCard();
-  renderProgress();
-  saveState();
+  if (runtime.morphStepState && runtime.morphStepState.completed) return;
+  runtime.morphStepState = { cardId: null, steps: [], stepIdx: 0, answers: [], completed: false };
+  navigate(1);
 }
 
 function finalizeMorphStepAttempt(card, state) {
@@ -817,8 +806,6 @@ function finalizeMorphStepAttempt(card, state) {
     // walk early aren't graded — the form doesn't exist, so person/number
     // couldn't have been asked.
     if (!ans) return;
-    // Passed steps are intentionally off-stats (the student opted out).
-    if (ans.passed) return;
     dims[step.key] = ans && ans.isCorrect ? 1 : 0;
   });
   if (!runtime.paradigmStepStats || typeof runtime.paradigmStepStats !== 'object') {
@@ -2252,7 +2239,7 @@ installKeyboardShortcuts({
 const GLOBAL_CLICK_HANDLERS = {
   flipCard, navigate, markCard, handleNavNext, answerMorphologyChoice,
   revealMorphologyAnswer, rateMorphologySelfCheck, passMorphologyChoice,
-  answerMorphologyStep, skipMorphologyStep, passMorphologyStep,
+  answerMorphologyStep, skipMorphologyStep, passMorphologyCard,
   returnSeenCardToDeck,
   closeAnalyticsOverlay, closeTransferModal, exportProgressJson,
   closeShortcutsModal, closeStudySelector,
