@@ -1026,15 +1026,26 @@ function syncParadigmFocusUi() {
   if (!select) return;
   if (!isParsingMode()) return;
   const aggregateKeys = getAggregateSelectionKeys();
-  const available = listAvailableParadigms(aggregateKeys);
+  // "Liquid-stem futures" is a stem-recall drill (no parse dimensions); in
+  // parsing mode we surface Mounce's parseable liquid-future paradigm
+  // ("κρίνω → κρινῶ") instead, which carries the liquid-future pattern
+  // dimensionally. Hide the stem-recall lemma from the dropdown so the
+  // user can't pick it back, and remap an already-focused selection
+  // forward to κρίνω → κρινῶ.
+  const PARSING_DROPDOWN_SUBSTITUTIONS = { 'Liquid-stem futures': 'κρίνω → κρινῶ' };
+  const isHiddenFromParsing = (lemma) => Object.prototype.hasOwnProperty.call(PARSING_DROPDOWN_SUBSTITUTIONS, lemma);
+  const available = listAvailableParadigms(aggregateKeys).filter((p) => !isHiddenFromParsing(p.lemma));
   if (!available.length) {
     select.innerHTML = '<option value="">No paradigms in current selection</option>';
     select.value = '';
     return;
   }
   const currentValue = runtime.morphFocusedParadigm;
-  const stillAvailable = currentValue && available.some((p) => p.lemma === currentValue);
-  const chosen = stillAvailable ? currentValue : available[0].lemma;
+  const substitutedCurrent = isHiddenFromParsing(currentValue)
+    ? PARSING_DROPDOWN_SUBSTITUTIONS[currentValue]
+    : currentValue;
+  const stillAvailable = substitutedCurrent && available.some((p) => p.lemma === substitutedCurrent);
+  const chosen = stillAvailable ? substitutedCurrent : available[0].lemma;
   if (chosen !== currentValue) {
     runtime.morphFocusedParadigm = chosen;
     rebuildMorphDeckForStepMode();
@@ -1042,7 +1053,9 @@ function syncParadigmFocusUi() {
   // Render with native <optgroup>s — categories like "Verbs · standard
   // ω-pattern (λύω)" head sections of lemmas, so the user can scan by
   // paradigm type instead of reading a flat alphabetical list.
-  const grouped = listAvailableParadigmsByCategory(aggregateKeys);
+  const grouped = listAvailableParadigmsByCategory(aggregateKeys)
+    .map((g) => ({ category: g.category, lemmas: g.lemmas.filter((p) => !isHiddenFromParsing(p.lemma)) }))
+    .filter((g) => g.lemmas.length);
   select.innerHTML = grouped.map((g) => {
     const opts = g.lemmas
       .map((p) => `<option value="${escapeHtml(p.lemma)}">${escapeHtml(p.displayLabel)}</option>`)
