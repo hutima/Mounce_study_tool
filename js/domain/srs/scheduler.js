@@ -78,33 +78,55 @@ export function getNextEasyIntervalDays(progress) {
     Number.isFinite(Number(progress?.intervalDays)) ? Math.max(0, Number(progress.intervalDays)) : 0
   );
   const proposedDays = previousDays * multiplier;
-  return Math.min(SRS_MAX_INTERVAL_DAYS, Math.max(Math.round(proposedDays), Math.ceil(previousDays + 1)));
+  const minNext = Math.ceil(previousDays + 1);
+  let cappedDays = Math.min(SRS_MAX_INTERVAL_DAYS, Math.max(Math.round(proposedDays), minNext));
+
+  // Recent-3-flip uncertain ceiling: any shaky flip in the last 3 caps the
+  // next 'easy' interval at 1 day × certainty, floored at 1 hour so a run
+  // of recent 'again's can't push the cap to immediately-due. Overrides
+  // the SRS_MAX_INTERVAL_DAYS cap when stricter.
+  const uncertainCeilingMs = getRecentUncertainCeilingMs(progress, { capDays: 1, floorMs: 60 * 60 * 1000 });
+  if (uncertainCeilingMs !== null) {
+    const uncertainCeilingDays = uncertainCeilingMs / SRS_DAY_MS;
+    cappedDays = Math.min(cappedDays, uncertainCeilingDays);
+  }
+  return cappedDays;
 }
 
 export function getEasyDelayMs(progress) {
   return msFromDays(getNextEasyIntervalDays(progress));
 }
 
+// If any of the last 3 flips were uncertain or unknown (sample < 1), the
+// card is treated as uncertain and its interval is capped at capDays ×
+// recent certainty (last-3 avg). Easy passes capDays:1 + floorMs:1h so the
+// next 'easy' lands between 1 h and 1 day; Pass/Uncertain use the default
+// capDays:7 (no floor — its own UNCERTAIN_MIN_MS handles the floor at the
+// call site). Returns null when the rule does not apply.
+export function getRecentUncertainCeilingMs(progress, { capDays = 7, floorMs = 0 } = {}) {
+  const history = Array.isArray(progress?.confidenceHistory)
+    ? progress.confidenceHistory.filter(Number.isFinite)
+    : [];
+  const last3 = history.slice(-3);
+  if (!last3.length) return null;
+  if (!last3.some(value => value < 1)) return null;
+  const certainty = last3.reduce((sum, value) => sum + value, 0) / last3.length;
+  return Math.max(floorMs, msFromDays(capDays * certainty));
+}
+
 export function getUncertainDelayMs(progress) {
   // Delay for an 'uncertain/pass' outcome:
-  //   <70% certainty → 1h floor
-  //   Otherwise → ½ previous interval, capped at SRS_MAX_INTERVAL_DAYS.
-  // Whenever any of the last 3 flips were uncertain or unknown, tighten the
-  // cap to 7 days × certainty% (e.g. 50% certainty → 3.5d max).
+  //   <70% confidence → 2h floor (SRS_UNCERTAIN_MIN_MS)
+  //   otherwise       → ½ previous interval, capped at 7 days × recent
+  //                     certainty (last-3-flip avg; falls back to the
+  //                     global max otherwise).
   const pct = getConfidencePct(progress);
   if (pct === null || pct < 70) return SRS_UNCERTAIN_MIN_MS;
   const prevIntervalDays = Number(progress?.intervalDays) || 0;
   if (prevIntervalDays <= 0) return SRS_UNCERTAIN_MIN_MS;
   const halfMs = msFromDays(prevIntervalDays * 0.5);
-
-  const history = Array.isArray(progress?.confidenceHistory)
-    ? progress.confidenceHistory.filter(Number.isFinite)
-    : [];
-  const hasRecentUncertainty = history.slice(-3).some(value => value < 1);
-
-  const ceiling = hasRecentUncertainty
-    ? msFromDays(7 * (pct / 100))
-    : msFromDays(SRS_MAX_INTERVAL_DAYS);
+  const rawCeiling = getRecentUncertainCeilingMs(progress) ?? msFromDays(SRS_MAX_INTERVAL_DAYS);
+  const ceiling = Math.max(rawCeiling, SRS_UNCERTAIN_MIN_MS);
   return clamp(halfMs, SRS_UNCERTAIN_MIN_MS, ceiling);
 }
 

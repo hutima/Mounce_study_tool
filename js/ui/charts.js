@@ -70,6 +70,31 @@ export function buildCumulativeConfirmationSeries(cards, marksStore, progressSto
   return { total, currentConfirmed, weeklyPct, series };
 }
 
+// Centered summary box rendered beneath each confirmation histogram in the
+// analytics overlay. Shows the current confirmed % alongside a 7-day delta so
+// the user can see at a glance how much fresh ground they've covered this
+// week. weeklyPct comes from buildCumulativeConfirmationSeries (percentage
+// points added in the last 7 days). Returns '' when total is 0 so the caller
+// can safely concatenate.
+export function buildConfidenceSummaryBox({ currentConfirmed, total, weeklyPct } = {}) {
+  const totalNum = Number(total) || 0;
+  const confirmedNum = Math.max(0, Number(currentConfirmed) || 0);
+  if (!totalNum) return '';
+  const pct = Math.round((confirmedNum / totalNum) * 100);
+  const delta = Number(weeklyPct) || 0;
+  const deltaRounded = delta >= 10 ? Math.round(delta) : Math.round(delta * 10) / 10;
+  const trendHtml = delta > 0
+    ? `<div class="analytics-confidence-summary-trend analytics-confidence-summary-trend-up" title="Percentage points added to confirmed share in the last 7 days">▲ +${deltaRounded}% this week</div>`
+    : `<div class="analytics-confidence-summary-trend analytics-confidence-summary-trend-flat" title="No newly confirmed cards in the last 7 days">No change this week</div>`;
+  return `
+    <div class="analytics-confidence-summary" role="status" aria-label="Confirmed: ${pct}% (${confirmedNum} of ${totalNum})">
+      <div class="analytics-confidence-summary-pct">${pct}%</div>
+      <div class="analytics-confidence-summary-meta">${confirmedNum.toLocaleString()} / ${totalNum.toLocaleString()} confirmed</div>
+      ${trendHtml}
+    </div>
+  `;
+}
+
 export function getCertaintyBucketForCard(card, marksStore, progressStore) {
   const progress = progressStore?.[card.id];
   const confidence = getConfidencePct(progress);

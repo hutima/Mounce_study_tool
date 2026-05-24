@@ -46,6 +46,7 @@ import {
   buildDailyCumulativeSeriesFromMap,
   buildCumulativeConfirmationSeries,
   buildConfirmationHistogram,
+  buildConfidenceSummaryBox,
   buildHistogramSvg,
   buildLineChartSvg,
   buildHeatmapSvg,
@@ -1618,6 +1619,7 @@ export function renderAnalyticsOverlay() {
   const reqCourseVocab = getAllVocabCards(true);
   const totalVocabCards = analyticsRequiredOnly ? reqCourseVocab : allCourseVocab;
   const totalVocabConfirmed = totalVocabCards.filter(isConfirmedFor(vocabProgressStore, vocabMarks)).length;
+  const totalVocabSeries = buildCumulativeConfirmationSeries(totalVocabCards, vocabMarks, vocabProgressStore);
 
   const totalVocabBarEl = document.getElementById('analyticsTotalVocabBar');
   if (totalVocabBarEl) {
@@ -1626,6 +1628,7 @@ export function renderAnalyticsOverlay() {
       <div class="analytics-chart-card">
         <div class="analytics-chart-title">${totalVocabConfirmed} / ${totalVocabCards.length} confirmed · ${escapeHtml(scopeLabel)} · ${escapeHtml(dirLabel)}</div>
         ${buildHistogramSvg(buckets, { title: 'Course vocabulary confirmation' })}
+        ${buildConfidenceSummaryBox({ currentConfirmed: totalVocabConfirmed, total: totalVocabCards.length, weeklyPct: totalVocabSeries.weeklyPct })}
       </div>
     `;
   }
@@ -1679,6 +1682,7 @@ export function renderAnalyticsOverlay() {
         <div class="analytics-chart-card">
           <div class="analytics-chart-title">Selected sets — ${vocabProgress.currentConfirmed} / ${vocabProgress.total || 0} confirmed (${escapeHtml(dirLabel)})</div>
           ${buildHistogramSvg(buckets, { title: 'Selected vocabulary confirmation' })}
+          ${buildConfidenceSummaryBox({ currentConfirmed: vocabProgress.currentConfirmed, total: vocabProgress.total, weeklyPct: vocabProgress.weeklyPct })}
         </div>
       `;
     }
@@ -1708,6 +1712,9 @@ export function renderAnalyticsOverlay() {
   // ── Total Grammar: top histogram, chapter mastery, progress inner ──
   const showGrammar = host.canAccessGrammarUi();
   const totalGrammarCards = showGrammar ? courseData.allGrammarCards : [];
+  const totalGrammarSeries = showGrammar
+    ? buildCumulativeConfirmationSeries(totalGrammarCards, grammarMarks, morphProgressStore)
+    : { weeklyPct: 0 };
   const totalGrammarBarEl = document.getElementById('analyticsTotalGrammarBar');
   if (totalGrammarBarEl) {
     if (!showGrammar || !totalGrammarCards.length) {
@@ -1718,6 +1725,7 @@ export function renderAnalyticsOverlay() {
         <div class="analytics-chart-card">
           <div class="analytics-chart-title">${courseData.allGrammarConfirmed} / ${courseData.allGrammarTotal} confirmed</div>
           ${buildHistogramSvg(buckets, { title: 'Course grammar confirmation' })}
+          ${buildConfidenceSummaryBox({ currentConfirmed: courseData.allGrammarConfirmed, total: courseData.allGrammarTotal, weeklyPct: totalGrammarSeries.weeklyPct })}
         </div>
       `;
     }
@@ -1762,6 +1770,7 @@ export function renderAnalyticsOverlay() {
         <div class="analytics-chart-card">
           <div class="analytics-chart-title">Selected sets — ${grammarProgress.currentConfirmed} / ${grammarProgress.total || 0} confirmed</div>
           ${buildHistogramSvg(buckets, { title: 'Selected grammar confirmation' })}
+          ${buildConfidenceSummaryBox({ currentConfirmed: grammarProgress.currentConfirmed, total: grammarProgress.total, weeklyPct: grammarProgress.weeklyPct })}
         </div>
       `;
     }

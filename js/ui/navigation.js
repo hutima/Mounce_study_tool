@@ -155,13 +155,14 @@ export function navigate(dir, options = {}) {
 
   if (runtime.spacedRepetition && runtime.currentIdx >= runtime.activeDeckCount) {
     // Active section drained. If middle has cards (timers expired during
-    // this session), dump them into active and reshuffle — keeps the user
-    // moving without burning time. Only when middle is empty too do we fall
-    // back to the existing scheduled-advance behaviour, which nudges the
-    // next-up deferred cards forward an hour so the deck isn't dead.
-    // For parsing mode, also forward the last-shown card's id as
-    // avoidHeadId so the reshuffled deck doesn't repeat that card first.
-    const avoidHeadId = host.isParsingMode() && runtime.deck[runtime.currentIdx - 1]
+    // this session, or 'again' marks routed cards here mid-pass), dump them
+    // into active and reshuffle — keeps the user moving without burning
+    // time. Only when middle is empty too do we fall back to the existing
+    // scheduled-advance behaviour, which nudges the next-up deferred cards
+    // forward an hour so the deck isn't dead. Forward the last-shown card's
+    // id as avoidHeadId so the reshuffled deck doesn't repeat that card
+    // first (covers both parsing and a fresh 'again'-routed middle-pile dump).
+    const avoidHeadId = runtime.deck[runtime.currentIdx - 1]
       ? runtime.deck[runtime.currentIdx - 1].id
       : undefined;
     if (runtime.middleDeckCount > 0) {
@@ -293,9 +294,12 @@ export function markCard(outcome) {
     if (runtime.activeDeckCount <= 0) {
       // Active drained on this very mark. If middle has waiting cards, dump
       // them in so the user keeps moving rather than landing on the
-      // empty-deck state and needing another Next press to recover.
+      // empty-deck state and needing another Next press to recover. Forward
+      // the just-marked card as avoidHeadId so an 'again' on the last
+      // active card doesn't immediately resurface at the head of the
+      // reshuffled deck.
       if (runtime.middleDeckCount > 0) {
-        runtime.deck = host.buildStudyDeck(runtime.originalDeck, { forceShuffle: true });
+        runtime.deck = host.buildStudyDeck(runtime.originalDeck, { forceShuffle: true, avoidHeadId: currentCard && currentCard.id });
         runtime.currentIdx = 0;
       } else {
         runtime.currentIdx = runtime.activeDeckCount;
@@ -588,9 +592,19 @@ export function toggleShuffle() {
     runtime.deck = host.buildStudyDeck(runtime.originalDeck, { forceShuffle: runtime.shuffled });
     runtime.currentIdx = Math.min(runtime.currentIdx, runtime.activeDeckCount);
   } else {
+    // Toggling shuffle (either direction) collapses the middle pile back
+    // into active so the deck order matches the partition state. Without
+    // this, unspacedMiddleIds keeps cards earmarked as middle even though
+    // they're now interleaved with active in runtime.deck, leaving
+    // activeDeckCount/unspacedMiddleCount out of sync with what the user sees.
+    runtime.unspacedMiddleIds = new Set();
+    runtime.unspacedMiddleCount = 0;
     const activeCards = host.getRemainingCards();
     const knownCards = runtime.deck.filter(card => runtime.marks[card.id] === 'known');
     runtime.deck = runtime.shuffled ? [...shuffleArray([...activeCards]), ...knownCards] : [...activeCards, ...knownCards];
+    runtime.activeDeckCount = activeCards.length;
+    runtime.unspacedRoundSize = activeCards.length;
+    runtime.unspacedRoundMarks = 0;
 
     if (runtime.currentIdx >= activeCards.length) {
       runtime.currentIdx = activeCards.length ? 0 : runtime.deck.length;
@@ -852,10 +866,17 @@ export function reshuffleEligible() {
     runtime.currentIdx = runtime.activeDeckCount ? 0 : runtime.currentIdx;
   } else {
     // Non-spaced: shuffle the still-active (not-yet-known) portion only;
-    // known cards stay pinned to the end of the cycle.
+    // known cards stay pinned to the end of the cycle. Equivalent to an
+    // end-of-round reshuffle — middle dumps back into active first so
+    // unspacedMiddleIds stays aligned with the visible deck order.
+    runtime.unspacedMiddleIds = new Set();
+    runtime.unspacedMiddleCount = 0;
     const activeCards = host.getRemainingCards();
     const knownCards = runtime.deck.filter(card => runtime.marks[card.id] === 'known');
     runtime.deck = [...shuffleArray([...activeCards]), ...knownCards];
+    runtime.activeDeckCount = activeCards.length;
+    runtime.unspacedRoundSize = activeCards.length;
+    runtime.unspacedRoundMarks = 0;
     runtime.currentIdx = activeCards.length ? 0 : runtime.deck.length;
   }
 
