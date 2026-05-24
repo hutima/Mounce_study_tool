@@ -99,33 +99,32 @@ export function renderReview() {
 
   // Bucket the deck by confidence so the progress frame stays focused on
   // certainty rather than raw activity counts. A card is "high" when its
-  // confidence reads above 75% (matches getHighConfidenceCount), "low" when
-  // it has been seen but hasn't reached that bar, and "unseen" when no
-  // review has been recorded yet.
+  // confidence reads above 75%; everything else (including unseen) is "low".
+  // Folding unseen into low keeps the two-row review stats consistent — the
+  // high/low totals always equal the deck size.
   let highCount = 0;
   let lowCount = 0;
-  let unseenCount = 0;
   runtime.originalDeck.forEach(card => {
     const progress = host.getWordProgress(card.id);
     const pct = getConfidencePct(progress);
-    if (pct !== null && pct > 75) {
-      highCount += 1;
-    } else if (progress && progress.seenCount > 0) {
-      lowCount += 1;
-    } else {
-      unseenCount += 1;
-    }
+    if (pct !== null && pct > 75) highCount += 1;
+    else lowCount += 1;
   });
-  // Combined "still in this session" count: active section + middle section
-  // (the cards waiting to dump into active). Equivalent to getDueCount in
-  // spaced and (total − known) in unspaced, but sourced from the three-deck
-  // bookkeeping so it stays consistent with the mid-session partitioning.
-  // Labelled "Due now" in spaced mode and "Unconfirmed" in unspaced; counts
-  // down on Easy/Pass in spaced and on Easy in unspaced.
-  const sessionDeckCount = runtime.activeDeckCount + (runtime.spacedRepetition
+  // Three-section partition: active (in deck right now), middle (waiting to
+  // dump in), and the rest (deferred in spaced / archived in unspaced).
+  // Two-row display: row 1 surfaces the deck partition; row 2 surfaces
+  // confidence. Row totals each equal the deck size.
+  const inDeckCount = runtime.activeDeckCount;
+  const middleCount = runtime.spacedRepetition
     ? (runtime.middleDeckCount || 0)
-    : (runtime.unspacedMiddleCount || 0));
-  const sessionDeckLabel = runtime.spacedRepetition ? 'Due now' : 'Unconfirmed';
+    : (runtime.unspacedMiddleCount || 0);
+  const sessionDueCount = inDeckCount + middleCount;
+  const totalCount = runtime.originalDeck.length;
+  const laterCount = runtime.spacedRepetition
+    ? Math.max(totalCount - sessionDueCount, 0)
+    : host.getKnownCount();
+  const sessionDueLabel = runtime.spacedRepetition ? 'Due now' : 'Unconfirmed';
+  const laterLabel = runtime.spacedRepetition ? 'Due later' : 'Archived';
 
   const deckTagEl = document.getElementById('reviewDeckTag');
   if (deckTagEl) {
@@ -135,10 +134,15 @@ export function renderReview() {
   }
 
   document.getElementById('reviewStats').innerHTML = `
-      <span class="stat-deck">▦ ${sessionDeckLabel}: ${sessionDeckCount}</span>
-      <span class="stat-known">✓ High confidence: ${highCount}</span>
-      <span class="stat-unsure">○ Low confidence: ${lowCount}</span>
-      <span class="stat-total">· Unseen: ${unseenCount}</span>`;
+      <div class="review-stats-row">
+        <span class="stat-deck">▦ In deck: ${inDeckCount}</span>
+        <span class="stat-deck">● ${sessionDueLabel}: ${sessionDueCount}</span>
+        <span class="stat-total">⌛ ${laterLabel}: ${laterCount}</span>
+      </div>
+      <div class="review-stats-row">
+        <span class="stat-known">✓ High confidence: ${highCount}</span>
+        <span class="stat-unsure">○ Low confidence: ${lowCount}</span>
+      </div>`;
 
   const sortMode = runtime.reviewSortMode === 'confidence' ? 'confidence' : 'alphabetical';
   const sortRowEl = document.getElementById('reviewSortRow');
@@ -242,8 +246,10 @@ function renderParsingReviewPanel() {
   const drilledCount = ordered.length;
 
   document.getElementById('reviewStats').innerHTML = `
-    <span class="stat-deck">▦ Paradigms drilled: ${drilledCount}</span>
-    <span class="stat-total">· Tap any row for the ${bucketHistory}-bucket chart (${attemptWindow} parses each)</span>`;
+    <div class="review-stats-row">
+      <span class="stat-deck">▦ Paradigms drilled: ${drilledCount}</span>
+      <span class="stat-total">· Tap any row for the ${bucketHistory}-bucket chart (${attemptWindow} parses each)</span>
+    </div>`;
 
   const sortRowEl = document.getElementById('reviewSortRow');
   if (sortRowEl) sortRowEl.innerHTML = '';

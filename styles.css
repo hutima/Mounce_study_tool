@@ -705,7 +705,8 @@
   .review-header { display: flex; justify-content: space-between; align-items: baseline; gap: 16px; margin-bottom: 14px; }
   .review-deck-tag { font-family: var(--font-display); font-size: 11px; letter-spacing: 1.5px; text-transform: uppercase; color: var(--muted); }
   .review-title { font-family: var(--font-display); font-size: 12px; letter-spacing: 2px; text-transform: uppercase; color: var(--gold-dim); }
-  .review-stats { display: flex; gap: 24px; margin-bottom: 16px; font-size: 14px; flex-wrap: wrap; }
+  .review-stats { display: flex; flex-direction: column; gap: 6px; margin-bottom: 16px; font-size: 14px; }
+  .review-stats-row { display: flex; gap: 24px; flex-wrap: wrap; }
   .review-sort-row { display: flex; align-items: center; gap: 12px; margin: 4px 0 14px; flex-wrap: wrap; }
   .review-sort-label { font-family: var(--font-display); font-size: 11px; letter-spacing: 1.5px; text-transform: uppercase; color: var(--muted); }
   .review-sort-group { display: inline-flex; gap: 6px; }

@@ -138,7 +138,7 @@ import { getStorage, isLikelyIOS } from '../utils/storage.js';
 import { compareGreekAlphabetical } from '../utils/greekSort.js';
 
 // Domain — SRS
-import { SRS_DAY_MS, SRS_AGAIN_MS, SRS_NEAR_WINDOW_MS, SRS_CYCLE_ADVANCE_MS, SESSION_IDLE_RESET_MS } from '../domain/srs/constants.js';
+import { SRS_DAY_MS, SRS_NEAR_WINDOW_MS, SRS_CYCLE_ADVANCE_MS, SESSION_IDLE_RESET_MS } from '../domain/srs/constants.js';
 import { msFromDays, setProgressDelay,
          getSrsEase, getSrsStage, getLastEasyIntervalDays, getNextEasyIntervalDays,
          getEasyDelayMs, getUncertainDelayMs, formatRemainingForTable } from '../domain/srs/scheduler.js';
@@ -2047,13 +2047,21 @@ function applySpacedReview(card, outcome) {
     setProgressDelay(progress, getUncertainDelayMs(progress), now);
     getDirectionalMarksStore()[card.id] = 'unsure';
   } else {
-    // 'again' (default for any unknown outcome)
+    // 'again' (default for any unknown outcome).
+    // No deferred timer: leave dueAt at now so the card stays eligible, and
+    // drop its id from spacedActiveIds so buildStudyDeck routes it to the
+    // middle pile (due AND not in the carry-over active set). It then
+    // resurfaces when active drains and middle dumps in — alongside any
+    // cards whose pass/uncertain timer happened to expire during the pass.
     progress.streak = 0;
     progress.easyStreak = 0;
     progress.srsStage = Math.max(0, getSrsStage(progress) - 1);
     progress.ease = clamp(getSrsEase(progress) - 0.2, 1.3, 3.0);
     progress.lastEasyIntervalDays = Math.max(getLastEasyIntervalDays(progress), progress.intervalDays || 0);
-    setProgressDelay(progress, SRS_AGAIN_MS, now);
+    setProgressDelay(progress, 0, now);
+    if (Array.isArray(runtime.spacedActiveIds)) {
+      runtime.spacedActiveIds = runtime.spacedActiveIds.filter(id => id !== card.id);
+    }
     getDirectionalMarksStore()[card.id] = 'unsure';
   }
 
@@ -2350,12 +2358,16 @@ function startNextCycle(mode = 'remaining', options = {}) {
       delete directionalMarks[card.id];
     });
     runtime.marks = directionalMarks;
-    const fullDeck = shuffleArray([...(runtime.originalDeck || [])]);
+    const fullDeck = runtime.shuffled
+      ? shuffleArray([...(runtime.originalDeck || [])])
+      : [...(runtime.originalDeck || [])];
     avoidHeadCollision(fullDeck, options.avoidHeadId);
     runtime.deck = fullDeck;
     runtime.currentIdx = fullDeck.length ? 0 : runtime.deck.length;
   } else {
-    const remaining = shuffleArray([...getRemainingCards()]);
+    const remaining = runtime.shuffled
+      ? shuffleArray([...getRemainingCards()])
+      : [...getRemainingCards()];
     avoidHeadCollision(remaining, options.avoidHeadId);
     const known = (runtime.originalDeck || []).filter(card => runtime.marks[card.id] === 'known');
     runtime.deck = [...remaining, ...known];
