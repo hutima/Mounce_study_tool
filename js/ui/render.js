@@ -40,10 +40,12 @@ export function configureRender(deps) {
 // of λαμβάνω?") rather than canonical paradigm forms. Parsing mode can't
 // dimension-walk them — they have no tense/voice/mood/case/etc. parse —
 // so we surface a redirect card that, when clicked, hops the student into
-// the matching stem-change Vocab supplemental (the cards with the
-// highlighted-letter stem-pair flip layout).
+// the matching stem-pair Vocab supplemental. Second-aorist gets the
+// stem-FLIP set (W3_SECOND_AORIST_FLIP, with diff-highlighted changing
+// letters); liquid futures route to W4_FUTURE_LIQUID_STEMS, the only
+// existing stem-pair set for that group (no diff-highlight variant yet).
 const PARSING_INCOMPATIBLE_LEMMAS = {
-  'Second-aorist stems': 'W4_SECOND_AORIST_STEMS',
+  'Second-aorist stems': 'W3_SECOND_AORIST_FLIP',
   'Liquid-stem futures': 'W4_FUTURE_LIQUID_STEMS'
 };
 
@@ -51,6 +53,14 @@ export function renderCard() {
   const area = document.getElementById('cardArea');
   host.saveState();
   host.syncLayoutVisibility();
+  // The stem-recall redirect path below hides navRow with inline display:
+  // none. Reset that here so the nav row reappears when the user switches
+  // off the redirect (e.g. picks a normal paradigm); inner button state
+  // is then re-synced by syncLayoutVisibility above.
+  const navRow = document.getElementById('navRow');
+  if (navRow && navRow.style.display === 'none' && !(host.isParsingMode() && runtime.morphFocusedParadigm && Object.prototype.hasOwnProperty.call(PARSING_INCOMPATIBLE_LEMMAS, runtime.morphFocusedParadigm))) {
+    navRow.style.display = '';
+  }
 
   if (host.isParsingMode() && runtime.morphFocusedParadigm && Object.prototype.hasOwnProperty.call(PARSING_INCOMPATIBLE_LEMMAS, runtime.morphFocusedParadigm)) {
     const lemma = runtime.morphFocusedParadigm;
@@ -62,6 +72,11 @@ export function renderCard() {
         paradigm — there are no tense / voice / mood / case dimensions to
         walk. <u>Tap to open the matching Vocabulary mode supplemental</u>.
       </button>`;
+    // The redirect card is the only action surface here — Prev/Reset/Next
+    // would just no-op against the empty deck, so hide the whole nav row
+    // until the user taps through (or switches paradigms).
+    const navRow = document.getElementById('navRow');
+    if (navRow) navRow.style.display = 'none';
     return;
   }
 

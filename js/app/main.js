@@ -1258,7 +1258,7 @@ function syncLayoutVisibility() {
     // button is functionally disabled (CSS keeps the Reset-like swatch
     // instead of greying out) when there's nothing to undo or step back.
     const atStart = !runtime.deck.length || runtime.currentIdx <= 0;
-    const hidePrev = isMorphologyMode() || (runtime.spacedRepetition && !isMorphologyMode());
+    const hidePrev = isMorphologyMode() || isParsingMode() || (runtime.spacedRepetition && !isMorphologyMode());
     prevBtn.style.display = hidePrev ? 'none' : '';
     const prevDisabled = unspacedVocab ? (!unspacedHasHistory && atStart) : atStart;
     prevBtn.disabled = prevDisabled;
@@ -1280,7 +1280,7 @@ function syncLayoutVisibility() {
     // Unspaced vocab keeps the inline Reset visible at all times so the
     // user has a one-tap escape from the all-archived "Session Confirmed"
     // state without Next having to morph.
-    navResetBtn.style.display = unspacedVocab && runtime.selectedKeys.length > 0 ? '' : 'none';
+    navResetBtn.style.display = unspacedVocab && !isParsingMode() && runtime.selectedKeys.length > 0 ? '' : 'none';
   }
   if (nextBtn) {
     if (isParsingMode()) {
