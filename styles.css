@@ -1042,9 +1042,28 @@
     background: rgba(201,168,76,0.08);
   }
 
+  .morph-dontknow-row {
+    display: flex;
+    justify-content: center;
+    gap: 8px;
+    flex-wrap: wrap;
+    margin: 8px 0 16px;
+  }
   .morph-dontknow-btn {
-    min-width: 180px;
+    min-width: 140px;
     font-style: italic;
+  }
+  .morph-pass-btn {
+    min-width: 140px;
+    background: rgba(80, 80, 90, 0.10);
+    border: 1px dashed var(--border);
+    color: var(--muted);
+    font-style: italic;
+  }
+  .morph-pass-btn:hover {
+    border-color: var(--gold-dim);
+    border-style: solid;
+    color: var(--cream);
   }
   /* Prev keeps the same Reset-like swatch when inactive — it's a constant
      anchor in the nav row, so a grey-out reads as "broken" rather than

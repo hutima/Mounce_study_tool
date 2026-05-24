@@ -430,11 +430,13 @@ function renderMorphStepBreadcrumb(state) {
     const answer = state.answers[idx];
     let cls = 'morph-step-dot';
     if (idx === state.stepIdx && !state.completed) cls += ' current';
-    // Inferred steps (ungraded follow-ups) and steps whose correctness
-    // is deferred pending a follow-up answer render as neutral — the
-    // student shouldn't see "wrong" on mood before they've committed
-    // to the dynamic person that completes their parse.
-    else if (answer && (step.inferred || answer.deferred)) cls += ' neutral';
+    // Inferred steps (ungraded follow-ups), steps whose correctness is
+    // deferred pending a follow-up answer, and passed steps (the student
+    // opted out, off-stats) all render as neutral — the student shouldn't
+    // see "wrong" on mood before they've committed to the dynamic person
+    // that completes their parse, and shouldn't see ✓/✗ on a step they
+    // explicitly passed on.
+    else if (answer && (step.inferred || answer.deferred || answer.passed)) cls += ' neutral';
     else if (answer && answer.isCorrect === true) cls += ' correct';
     else if (answer && answer.isCorrect === false) cls += ' incorrect';
     return `<span class="${cls}" title="${escapeHtml(step.label)}">${escapeHtml(step.label[0])}</span>`;
@@ -455,6 +457,7 @@ function renderMorphStepCurrent(state) {
       <div class="morph-choices">${choiceButtons}</div>
       <div class="morph-dontknow-row">
         <button class="ctrl-btn morph-dontknow-btn" type="button" onclick="skipMorphologyStep()">I don't know</button>
+        <button class="ctrl-btn morph-pass-btn" type="button" onclick="passMorphologyStep()" title="Skip this step without recording it in your paradigm stats">Pass</button>
       </div>
     </div>`;
 }
@@ -739,6 +742,17 @@ function renderMorphStepSummary(card, state) {
           <span class="morph-step-summary-pick">${escapeHtml(pickedLabel)}</span>
         </div>`;
     }
+    // Passed steps are off-stats — show the correct value for learning,
+    // but no ✓/✗ mark and no penalty.
+    if (answer && answer.passed) {
+      const acceptablePassed = Array.isArray(step.acceptable) ? step.acceptable : [step.correct];
+      const correctText = acceptablePassed.map((a) => escapeHtml(applyDisplaySuffixIfPerson(step.key, a))).join(' / ');
+      return `
+        <div class="morph-step-summary-row morph-step-inferred">
+          <span class="morph-step-summary-dim">${escapeHtml(step.label)}</span>
+          <span class="morph-step-summary-pick">passed → ${correctText}</span>
+        </div>`;
+    }
     const correct = answer && answer.isCorrect;
     const markClass = correct ? 'morph-step-correct' : 'morph-step-incorrect';
     const mark = correct ? '✓' : '✗';
@@ -769,8 +783,10 @@ function renderMorphStepSummary(card, state) {
 
   // X/N excludes inferred (ungraded) follow-up steps and steps that were
   // never asked because a structural impossibility ended the walk early.
-  const gradedCount = state.steps.filter((s, i) => !s.inferred && state.answers[i]).length;
-  const totalCorrect = state.answers.filter((a, i) => a && a.isCorrect && !state.steps[i].inferred).length;
+  // Exclude inferred follow-ups AND passed steps from the denominator —
+  // both are intentionally off-stats and shouldn't count toward "X/N correct".
+  const gradedCount = state.steps.filter((s, i) => !s.inferred && state.answers[i] && !state.answers[i].passed).length;
+  const totalCorrect = state.answers.filter((a, i) => a && a.isCorrect && !state.steps[i].inferred && !a.passed).length;
   const totalStr = `${totalCorrect}/${gradedCount} correct`;
 
   // Side-by-side "Your parse" vs "Correct parse" with the corresponding

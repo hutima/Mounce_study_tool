@@ -331,7 +331,12 @@ const STRUCTURAL_TENSE_MOOD_IMPOSSIBILITIES = [
   { tense: 'imperfect',  mood: 'infinitive',  why: 'no imperfect infinitive exists (imperfect is indicative-only)' },
   { tense: 'imperfect',  mood: 'participle',  why: 'no imperfect participle exists (imperfect is indicative-only)' },
   { tense: 'pluperfect', mood: 'subjunctive', why: 'no pluperfect subjunctive exists (pluperfect is indicative-only)' },
-  { tense: 'pluperfect', mood: 'imperative',  why: 'no pluperfect imperative exists (pluperfect is indicative-only)' }
+  { tense: 'pluperfect', mood: 'imperative',  why: 'no pluperfect imperative exists (pluperfect is indicative-only)' },
+  // The perfect infinitive (λελυκέναι) and perfect participle (λελυκώς) do
+  // double duty for both perfect and pluperfect aspect — Koine has no
+  // distinct pluperfect non-indicative forms.
+  { tense: 'pluperfect', mood: 'infinitive',  why: 'no pluperfect infinitive exists (the perfect infinitive covers both)' },
+  { tense: 'pluperfect', mood: 'participle',  why: 'no pluperfect participle exists (the perfect participle covers both)' }
 ];
 
 // Returns a short explanation when the picked (tense, mood) combo is
@@ -392,6 +397,21 @@ export function buildMorphSteps(card, accessiblePools = null, options = {}) {
   // populates every dimension the form actually carries.
   const dims = parseAnswerDimensions(card.parsedAnswer || card.answer);
   const includeAspect = options.includeAspect !== false;
+
+  // Chapter-gated mood default. When the card is a finite verb (tense +
+  // person/number, no case/gender) with no explicit mood in its parse,
+  // AND the student's accessible pool already contains a non-indicative
+  // mood (i.e. the curriculum has introduced something else to contrast
+  // against), inject mood='indicative' so the Mood step appears and the
+  // student commits explicitly rather than having indicative silently
+  // implied. Before the contrast exists (early chapters), the Mood step
+  // would be a no-info "pick indicative" — skipped.
+  if (!dims.mood && (dims.tense || dims.voice) && (dims.person || dims.number)
+      && !dims.case && !dims.gender) {
+    const accessibleMoods = (accessiblePools && Array.isArray(accessiblePools.mood)) ? accessiblePools.mood : [];
+    const hasContrast = accessibleMoods.some(m => m && m !== 'indicative');
+    if (hasContrast) dims.mood = 'indicative';
+  }
 
   // Determine the dimension order. Verbs lead with aspect → tense (Mounce's
   // aspect-first pedagogy), then voice → mood → person → number, with a

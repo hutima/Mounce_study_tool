@@ -10,6 +10,7 @@
 // underlying source is chapter-keyed or week-keyed.
 
 import { CHAPTER_TO_WEEK } from '../../data/setMeta.js';
+import { parseAnswerDimensions } from './morph_steps.js';
 
 // Categorical grouping for the focused-paradigm dropdown. Each lemma string
 // (matched verbatim against the lemma field in MORPHOLOGY_SETS items) maps
@@ -298,7 +299,48 @@ export function getCardsForFocusedParadigm(selectedKeys, focusedLemma) {
       if (allInB) superseded.add(srcA);
     });
   });
-  return cards.filter((c) => !superseded.has(c.sourceKey));
+
+  // Drop cards whose canonical parse has no extractable dimensions — those
+  // are concept questions (e.g. "what kind of verb is εἰμί syntactically?")
+  // that happen to live in a paradigm item; in parsing mode they collapse
+  // to a 0-step empty walk. Also drop sentence-shaped "forms" (translation
+  // exercises like "ὁ Ἰησοῦς ἐστιν ὁ Χριστός.") which leak through with
+  // multi-word "forms".
+  function hasParseableDims(card) {
+    const text = card.parsedAnswer || card.answer || '';
+    const dims = parseAnswerDimensions(text);
+    return !!(dims.tense || dims.voice || dims.mood || dims.person
+              || dims.case || dims.number || dims.gender);
+  }
+  function isSingleFormShape(form) {
+    if (!form) return false;
+    if (/\s/.test(String(form).trim())) return false; // multi-word ⇒ sentence/phrase
+    if (/[=→]/.test(form)) return false;              // marker / stem-pair shorthand
+    return true;
+  }
+  const filtered = cards
+    .filter((c) => !superseded.has(c.sourceKey))
+    .filter((c) => isSingleFormShape(c.form) && hasParseableDims(c));
+
+  // Per-form dedup. Multiple sources can carry the same form (e.g.
+  // grammar.js ch 5's εἰμί 1-sg question + a paradigm set's εἰμί entry).
+  // In parsing mode they all render the same step-by-step walk — keeping
+  // them all just makes the same Greek word repeat in the deck. Pick the
+  // single card with the richest canonical parse per form so the walk
+  // asks every dim the form carries.
+  function dimCount(card) {
+    const dims = parseAnswerDimensions(card.parsedAnswer || card.answer || '');
+    return ['tense', 'voice', 'mood', 'person', 'case', 'number', 'gender']
+      .filter(k => dims[k]).length;
+  }
+  const deduped = new Map();
+  filtered.forEach((card) => {
+    const key = normalizeFormForDedup(card.form);
+    if (!key) return;
+    const existing = deduped.get(key);
+    if (!existing || dimCount(card) > dimCount(existing)) deduped.set(key, card);
+  });
+  return [...deduped.values()];
 }
 
 export function chooseDefaultFocusedParadigm(selectedKeys) {
