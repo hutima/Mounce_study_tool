@@ -126,6 +126,7 @@ export function buildPersistedStatePayload(options = {}) {
     morphFocusedParadigm: runtime.morphFocusedParadigm,
     paradigmStepStats: runtime.paradigmStepStats,
     aspectStep: runtime.aspectStep,
+    dimToggles: runtime.dimToggles,
     analyticsVocabDirection: runtime.analyticsVocabDirection,
     analyticsVocabScope: runtime.analyticsVocabScope,
     analyticsCollapsed: runtime.analyticsCollapsed,
@@ -192,6 +193,14 @@ function sanitizeImportedState(candidate) {
   state.paradigmStepStats = sanitizeParadigmStepStats(candidate.paradigmStepStats);
   // aspectStep defaults to true; only an explicit `false` flips it off.
   state.aspectStep = candidate.aspectStep !== false;
+  // Per-dim toggles default to true. Missing keys (e.g. an older import
+  // predating this field) hydrate to true so existing decks keep
+  // drilling every dim as before.
+  const DIM_TOGGLE_KEYS = ['tense', 'voice', 'mood', 'person', 'number', 'case', 'gender'];
+  const dt = {};
+  const src = (candidate.dimToggles && typeof candidate.dimToggles === 'object') ? candidate.dimToggles : {};
+  DIM_TOGGLE_KEYS.forEach(k => { dt[k] = src[k] !== false; });
+  state.dimToggles = dt;
 
   // Older exports made while the user was in reader mode persist reader as the
   // top-level studyMode, with selectedKeys/currentSessionId left over from the
@@ -853,6 +862,10 @@ export function restoreState() {
       : null;
     runtime.paradigmStepStats = sanitizeParadigmStepStats(saved.paradigmStepStats);
     runtime.aspectStep = saved.aspectStep !== false;
+    const DIM_TOGGLE_KEYS = ['tense', 'voice', 'mood', 'person', 'number', 'case', 'gender'];
+    const savedDt = (saved.dimToggles && typeof saved.dimToggles === 'object') ? saved.dimToggles : {};
+    runtime.dimToggles = {};
+    DIM_TOGGLE_KEYS.forEach(k => { runtime.dimToggles[k] = savedDt[k] !== false; });
     runtime.analyticsVocabDirection = saved.analyticsVocabDirection === 'e2g' ? 'e2g' : 'g2e';
     runtime.analyticsVocabScope = saved.analyticsVocabScope === 'all' ? 'all' : 'required';
     if (saved.analyticsCollapsed && typeof saved.analyticsCollapsed === 'object') {

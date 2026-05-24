@@ -683,6 +683,25 @@ export function toggleAspectStep() {
   host.saveState();
 }
 
+const DIM_TOGGLE_KEYS = new Set(['tense', 'voice', 'mood', 'person', 'number', 'case', 'gender']);
+
+// Toggles the parsing walk's step for one dimension on or off. Off →
+// step skipped, dim doesn't count toward stats, omitted from the
+// final parse summary, and the form lookup silently auto-fills the
+// canonical correct value. Aspect has its own toggle (toggleAspectStep)
+// since it predates this generic mechanism.
+export function toggleDimStep(dimKey) {
+  if (!DIM_TOGGLE_KEYS.has(dimKey)) return;
+  if (!runtime.dimToggles || typeof runtime.dimToggles !== 'object') {
+    runtime.dimToggles = {};
+  }
+  runtime.dimToggles[dimKey] = runtime.dimToggles[dimKey] === false;
+  runtime.morphStepState = { cardId: null, steps: [], stepIdx: 0, answers: [], completed: false };
+  host.syncToggleButtons();
+  renderCard();
+  host.saveState();
+}
+
 export function reshuffleEligible() {
   if (!runtime.selectedKeys.length) return;
 

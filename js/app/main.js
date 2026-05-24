@@ -251,6 +251,7 @@ import {
   toggleSpacedRepetition,
   toggleSplitSelection,
   toggleAspectStep,
+  toggleDimStep,
   toggleUnspacedDailyReset,
   reshuffleEligible,
   fastForwardOneDay,
@@ -972,6 +973,9 @@ function syncToggleButtons() {
   const splitSelectionSwitch = document.getElementById('splitSelectionBtn');
   const selfCheckBtn    = document.getElementById('selfCheckBtn');
   const aspectStepSwitch = document.getElementById('aspectStepBtn');
+  const DIM_TOGGLE_KEYS = ['tense', 'voice', 'mood', 'person', 'number', 'case', 'gender'];
+  const dimStepSwitches = Object.fromEntries(DIM_TOGGLE_KEYS.map(k => [k, document.getElementById(`${k}StepBtn`)]));
+  const dimStepToggles = Object.fromEntries(DIM_TOGGLE_KEYS.map(k => [k, document.getElementById(`${k}StepToggle`)]));
   const dailyResetSwitch = document.getElementById('unspacedDailyResetBtn');
   const shuffleToggle   = document.getElementById('shuffleToggle');
   const requiredToggle  = document.getElementById('requiredToggle');
@@ -998,6 +1002,11 @@ function syncToggleButtons() {
   if (splitSelectionSwitch) splitSelectionSwitch.classList.toggle('on', !!runtime.splitSelection);
   if (selfCheckBtn)    selfCheckBtn.classList.toggle('on',    !!runtime.morphSelfCheck && isMorphologyMode());
   if (aspectStepSwitch) aspectStepSwitch.classList.toggle('on', runtime.aspectStep !== false);
+  DIM_TOGGLE_KEYS.forEach(k => {
+    const sw = dimStepSwitches[k];
+    const on = !runtime.dimToggles || runtime.dimToggles[k] !== false;
+    if (sw) sw.classList.toggle('on', on);
+  });
   syncParadigmFocusUi();
   if (dailyResetSwitch) dailyResetSwitch.classList.toggle('on', !!runtime.unspacedAutoResetEnabled);
   if (shuffleToggle)   shuffleToggle.setAttribute('aria-checked',   runtime.shuffled ? 'true' : 'false');
@@ -1008,6 +1017,11 @@ function syncToggleButtons() {
   if (splitSelectionToggle) splitSelectionToggle.setAttribute('aria-checked', runtime.splitSelection ? 'true' : 'false');
   if (selfCheckToggle) selfCheckToggle.setAttribute('aria-checked', (runtime.morphSelfCheck && isMorphologyMode()) ? 'true' : 'false');
   if (aspectStepToggle) aspectStepToggle.setAttribute('aria-checked', runtime.aspectStep !== false ? 'true' : 'false');
+  DIM_TOGGLE_KEYS.forEach(k => {
+    const t = dimStepToggles[k];
+    const on = !runtime.dimToggles || runtime.dimToggles[k] !== false;
+    if (t) t.setAttribute('aria-checked', on ? 'true' : 'false');
+  });
   if (dailyResetToggle) dailyResetToggle.setAttribute('aria-checked', runtime.unspacedAutoResetEnabled ? 'true' : 'false');
 
   if (directionToggle) {
@@ -2257,7 +2271,7 @@ const GLOBAL_CLICK_HANDLERS = {
   restoreSpacedUndo, setAppProfile, setStudyMode, setThemeMode, setFontFamily, setTextSize,
   showDisclaimerModal, startStudying, toggleDirection, toggleMorphSelfCheck,
   toggleMorphStepByStep, setMorphFocusedParadigm,
-  toggleRequiredOnly, toggleHardVocabReview, toggleShuffle, toggleSpacedRepetition, toggleSplitSelection, toggleAspectStep, toggleUnspacedDailyReset, triggerImportProgress,
+  toggleRequiredOnly, toggleHardVocabReview, toggleShuffle, toggleSpacedRepetition, toggleSplitSelection, toggleAspectStep, toggleDimStep, toggleUnspacedDailyReset, triggerImportProgress,
   openReaderTab, selectReaderDrillChoice, advanceReaderDrill,
   closeWhatsNewV1_1Modal
 };
@@ -2319,7 +2333,7 @@ function preventDoubleTapZoom(el) {
   }, false);
 }
 
-['shuffleToggle','requiredToggle','directionToggle','spacedToggle','splitSelectionToggle','selfCheckToggle','aspectStepToggle','unspacedDailyResetToggle','modeVocabBtn','modeMorphBtn','modeReaderBtn','modeShortcutVocabBtn','modeShortcutMorphBtn','modeShortcutReaderBtn','themeSystemBtn','themeDarkBtn','themeLightBtn'].forEach(id => {
+['shuffleToggle','requiredToggle','directionToggle','spacedToggle','splitSelectionToggle','selfCheckToggle','aspectStepToggle','tenseStepToggle','voiceStepToggle','moodStepToggle','personStepToggle','numberStepToggle','caseStepToggle','genderStepToggle','unspacedDailyResetToggle','modeVocabBtn','modeMorphBtn','modeReaderBtn','modeShortcutVocabBtn','modeShortcutMorphBtn','modeShortcutReaderBtn','themeSystemBtn','themeDarkBtn','themeLightBtn'].forEach(id => {
   const el = document.getElementById(id);
   if (el) preventDoubleTapZoom(el);
 });

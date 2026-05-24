@@ -151,6 +151,34 @@ update that doc in the same commit. Line numbers in the doc are approximate.
       <span class="toggle-text">Aspect step (parsing)</span>
       <span class="toggle-switch" id="aspectStepBtn" aria-hidden="true"></span>
     </button>
+    <button class="toggle-label" id="tenseStepToggle" type="button" role="switch" aria-checked="true" onclick="toggleDimStep('tense')" title="Ask Tense as a parsing step. Off: skipped silently, doesn't count toward stats, omitted from the parse summary.">
+      <span class="toggle-text">Tense step (parsing)</span>
+      <span class="toggle-switch" id="tenseStepBtn" aria-hidden="true"></span>
+    </button>
+    <button class="toggle-label" id="voiceStepToggle" type="button" role="switch" aria-checked="true" onclick="toggleDimStep('voice')" title="Ask Voice as a parsing step. Off: skipped silently, doesn't count toward stats, omitted from the parse summary. (Also chapter-gated: voice step only appears from ch 15+, or earlier for deponent verbs.)">
+      <span class="toggle-text">Voice step (parsing)</span>
+      <span class="toggle-switch" id="voiceStepBtn" aria-hidden="true"></span>
+    </button>
+    <button class="toggle-label" id="moodStepToggle" type="button" role="switch" aria-checked="true" onclick="toggleDimStep('mood')" title="Ask Mood as a parsing step. Off: skipped silently, doesn't count toward stats, omitted from the parse summary.">
+      <span class="toggle-text">Mood step (parsing)</span>
+      <span class="toggle-switch" id="moodStepBtn" aria-hidden="true"></span>
+    </button>
+    <button class="toggle-label" id="personStepToggle" type="button" role="switch" aria-checked="true" onclick="toggleDimStep('person')" title="Ask Person as a parsing step. Off: skipped silently, doesn't count toward stats, omitted from the parse summary.">
+      <span class="toggle-text">Person step (parsing)</span>
+      <span class="toggle-switch" id="personStepBtn" aria-hidden="true"></span>
+    </button>
+    <button class="toggle-label" id="numberStepToggle" type="button" role="switch" aria-checked="true" onclick="toggleDimStep('number')" title="Ask Number as a parsing step. Off: skipped silently, doesn't count toward stats, omitted from the parse summary.">
+      <span class="toggle-text">Number step (parsing)</span>
+      <span class="toggle-switch" id="numberStepBtn" aria-hidden="true"></span>
+    </button>
+    <button class="toggle-label" id="caseStepToggle" type="button" role="switch" aria-checked="true" onclick="toggleDimStep('case')" title="Ask Case as a parsing step. Off: skipped silently, doesn't count toward stats, omitted from the parse summary.">
+      <span class="toggle-text">Case step (parsing)</span>
+      <span class="toggle-switch" id="caseStepBtn" aria-hidden="true"></span>
+    </button>
+    <button class="toggle-label" id="genderStepToggle" type="button" role="switch" aria-checked="true" onclick="toggleDimStep('gender')" title="Ask Gender as a parsing step. Off: skipped silently, doesn't count toward stats, omitted from the parse summary.">
+      <span class="toggle-text">Gender step (parsing)</span>
+      <span class="toggle-switch" id="genderStepBtn" aria-hidden="true"></span>
+    </button>
     <div class="reset-actions-grid">
       <button class="ctrl-btn" type="button" onclick="reshuffleEligible()">Reshuffle</button>
       <button class="ctrl-btn" id="resetDeckBtn" type="button" onclick="resetCurrentDeck()">Reset deck</button>

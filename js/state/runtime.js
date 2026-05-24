@@ -87,6 +87,11 @@ export const runtime = {
   // aorist → undefined, etc.), so for students who don't want to drill the
   // composite-vs-single distinction it can be turned off. Default on.
   aspectStep: true,
+  // Per-dimension toggles for the parsing walk. Each key controls whether
+  // that dim's step is asked. Default-on; off → step skipped, dim doesn't
+  // contribute to stats, omitted from the final parse summary, and the
+  // form lookup silently auto-fills the canonical correct value.
+  dimToggles: { tense: true, voice: true, mood: true, person: true, number: true, case: true, gender: true },
 
   // ── Persisted directional stores (rebuilt from localStorage) ────────
   deckStates: {},
