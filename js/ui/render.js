@@ -348,7 +348,8 @@ function ensureStepStateForCard(card) {
   const steps = buildMorphSteps(card, accessiblePools, {
     includeAspect: runtime.aspectStep !== false,
     maxChapter: levels.maxEffectiveChapter,
-    dimToggles: runtime.dimToggles
+    dimToggles: runtime.dimToggles,
+    dimValueFilters: runtime.dimValueFilters
   });
   runtime.morphStepState = {
     cardId: card.id,
@@ -464,9 +465,6 @@ function renderMorphStepCurrent(state) {
       <div class="morph-choices">${choiceButtons}</div>
       <div class="morph-dontknow-row">
         <button class="ctrl-btn morph-dontknow-btn" type="button" onclick="skipMorphologyStep()">I don't know</button>
-      </div>
-      <div class="morph-pass-card-row">
-        <button class="ctrl-btn morph-pass-card-btn" type="button" onclick="passMorphologyCard()" title="Skip this whole card and move on. Nothing is recorded in your paradigm stats.">Skip card (no stats)</button>
       </div>
     </div>`;
 }

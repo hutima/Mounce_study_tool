@@ -233,7 +233,22 @@ function sortChoicesCanonically(dimensionKey, values) {
   });
 }
 
-function buildChoices(dimensionKey, correct, accessiblePool) {
+// True iff the given dim value should be visible / included given the
+// user's per-value filter map. Composite values (e.g. 'continuous/undefined',
+// 'middle/passive') pass when at least one slash-component is enabled;
+// aorist qualifiers ('first aorist' / 'second aorist') normalize to 'aorist'
+// for the lookup. A missing filter map (or missing dim entry) is treated as
+// "everything enabled" so the existing default-on behavior survives.
+export function dimValuePassesFilter(dimensionKey, value, dimValueFilters) {
+  if (!value || !dimValueFilters || typeof dimValueFilters !== 'object') return true;
+  const sub = dimValueFilters[dimensionKey];
+  if (!sub || typeof sub !== 'object') return true;
+  const normalized = String(value).replace(/^(first |second )/, '');
+  const parts = normalized.split('/');
+  return parts.some((p) => sub[p] !== false);
+}
+
+function buildChoices(dimensionKey, correct, accessiblePool, dimValueFilters) {
   // Prefer the chapter-gated accessible pool when provided (only values that
   // appear in morph cards the student has access to at their current point
   // in the course). Fall back to the full DIM_POOLS list if no pool was
@@ -243,6 +258,10 @@ function buildChoices(dimensionKey, correct, accessiblePool) {
   // learned for this dimension to date — rather than a 4-choice cap. As the
   // course progresses the choice list grows, mirroring expanding paradigm
   // recognition.
+  //
+  // Per-value filters prune distractors the user has opted out of — but the
+  // `correct` value is always kept regardless, so a step never becomes
+  // unanswerable just because the user disabled that value as a distractor.
   const sourcePool = accessiblePool && accessiblePool.length
     ? accessiblePool
     : (DIM_POOLS[dimensionKey] || []);
@@ -250,6 +269,7 @@ function buildChoices(dimensionKey, correct, accessiblePool) {
   const all = [correct];
   for (const candidate of sourcePool) {
     if (seen.has(candidate)) continue;
+    if (!dimValuePassesFilter(dimensionKey, candidate, dimValueFilters)) continue;
     seen.add(candidate);
     all.push(candidate);
   }
@@ -473,6 +493,7 @@ export function buildMorphSteps(card, accessiblePools = null, options = {}) {
   const skippedCorrect = {}; // dim → correct value for steps we silently skipped
   const maxChapter = Number.isFinite(options.maxChapter) ? options.maxChapter : Infinity;
   const dimToggles = (options.dimToggles && typeof options.dimToggles === 'object') ? options.dimToggles : null;
+  const dimValueFilters = (options.dimValueFilters && typeof options.dimValueFilters === 'object') ? options.dimValueFilters : null;
   for (const dimKey of order) {
     const correct = dims[dimKey];
     if (!correct) continue;
@@ -506,7 +527,7 @@ export function buildMorphSteps(card, accessiblePools = null, options = {}) {
       continue;
     }
     const pool = accessiblePools ? accessiblePools[dimKey] : null;
-    const choices = buildChoices(dimKey, correct, pool);
+    const choices = buildChoices(dimKey, correct, pool, dimValueFilters);
     const displayCorrect = applyDisplaySuffix(dimKey, correct);
     const displayChoices = choices.map((c) => applyDisplaySuffix(dimKey, c));
     // Each dimension has exactly one correct value per card. For aspect on

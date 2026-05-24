@@ -89,6 +89,31 @@ function sanitizeParadigmStepStats(input) {
   return out;
 }
 
+const DIM_VALUE_FILTER_VALUES = {
+  aspect: ['continuous', 'undefined', 'completed'],
+  tense:  ['present', 'future', 'imperfect', 'aorist', 'perfect', 'pluperfect'],
+  voice:  ['active', 'middle', 'passive'],
+  mood:   ['indicative', 'subjunctive', 'imperative', 'infinitive', 'participle'],
+  person: ['first', 'second', 'third'],
+  number: ['singular', 'plural'],
+  case:   ['nominative', 'accusative', 'genitive', 'dative', 'vocative'],
+  gender: ['masculine', 'feminine', 'neuter']
+};
+
+function sanitizeDimValueFilters(input) {
+  const src = (input && typeof input === 'object') ? input : {};
+  const out = {};
+  Object.keys(DIM_VALUE_FILTER_VALUES).forEach((dim) => {
+    const dimSrc = (src[dim] && typeof src[dim] === 'object') ? src[dim] : {};
+    const dimOut = {};
+    DIM_VALUE_FILTER_VALUES[dim].forEach((value) => {
+      dimOut[value] = dimSrc[value] !== false;
+    });
+    out[dim] = dimOut;
+  });
+  return out;
+}
+
 // ── Persisted-state payload + sanitization for import ────────────────────
 
 export function buildPersistedStatePayload(options = {}) {
@@ -127,6 +152,7 @@ export function buildPersistedStatePayload(options = {}) {
     paradigmStepStats: runtime.paradigmStepStats,
     aspectStep: runtime.aspectStep,
     dimToggles: runtime.dimToggles,
+    dimValueFilters: runtime.dimValueFilters,
     includeOptionalForms: runtime.includeOptionalForms,
     optionalFormFilters: runtime.optionalFormFilters,
     analyticsVocabDirection: runtime.analyticsVocabDirection,
@@ -203,6 +229,11 @@ function sanitizeImportedState(candidate) {
   const src = (candidate.dimToggles && typeof candidate.dimToggles === 'object') ? candidate.dimToggles : {};
   DIM_TOGGLE_KEYS.forEach(k => { dt[k] = src[k] !== false; });
   state.dimToggles = dt;
+  // Per-value sub-filters. Each dim defaults to "every value enabled" so a
+  // missing or partially-populated map (older exports) hydrates without
+  // accidentally hiding cards. Unknown dims/values in the candidate are
+  // dropped silently.
+  state.dimValueFilters = sanitizeDimValueFilters(candidate.dimValueFilters);
   // Optional-paradigm-forms toggle defaults to false (off). Older exports
   // predating this field hydrate to false too, so existing decks keep the
   // standard Mounce-aligned card set as their baseline.
@@ -881,6 +912,7 @@ export function restoreState() {
     const savedDt = (saved.dimToggles && typeof saved.dimToggles === 'object') ? saved.dimToggles : {};
     runtime.dimToggles = {};
     DIM_TOGGLE_KEYS.forEach(k => { runtime.dimToggles[k] = savedDt[k] !== false; });
+    runtime.dimValueFilters = sanitizeDimValueFilters(saved.dimValueFilters);
     // Optional paradigm extensions: rehydrate the toggle (default false).
     runtime.includeOptionalForms = !!saved.includeOptionalForms;
     // Per-category sub-filters: default each to true if missing.
