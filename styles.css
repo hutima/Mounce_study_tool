@@ -1046,23 +1046,6 @@
     min-width: 180px;
     font-style: italic;
   }
-  .morph-pass-card-row {
-    display: flex;
-    justify-content: center;
-    margin: 0 0 16px;
-  }
-  .morph-pass-card-btn {
-    min-width: 180px;
-    font-size: 13px;
-    background: transparent;
-    border: 1px dashed var(--border);
-    color: var(--muted);
-  }
-  .morph-pass-card-btn:hover {
-    border-color: var(--gold-dim);
-    border-style: solid;
-    color: var(--cream);
-  }
   /* Prev keeps the same Reset-like swatch when inactive — it's a constant
      anchor in the nav row, so a grey-out reads as "broken" rather than
      "nothing to do here right now". */
@@ -1662,16 +1645,18 @@
 
   /* Sub-filters nested under the "Optional paradigm extensions" toggle
      and under each per-dim parsing-step toggle.
-     Slight inset so the hierarchy reads visually; muted dashed border ties
-     each one to its parent toggle. The category-level toggles inside use
-     the standard .toggle-label style. `box-sizing: border-box` keeps the
-     padding inside the stretched cross-axis width — otherwise the nested
-     details overflows the parent .parsing-options-section by `padding-x`. */
+     Frame lines up with the parent dim toggle (no inset) so the
+     dashed-border block reads as "belongs to the dim toggle above it"
+     rather than "indented child". Bottom margin gives the next dim
+     toggle breathing room past the parent flex `gap`. `box-sizing:
+     border-box` keeps the padding inside the stretched cross-axis
+     width — otherwise the nested details overflows its container by
+     `padding-x`. */
   .parsing-options-subfilters {
     box-sizing: border-box;
-    margin-left: 16px;
-    margin-bottom: 0;
-    max-width: calc(100% - 16px);
+    margin-left: 0;
+    margin-bottom: 8px;
+    max-width: 100%;
     border-color: var(--border);
     border-style: dashed;
     background: transparent;

@@ -808,20 +808,6 @@ function skipMorphologyStep() {
   saveState();
 }
 
-// Pass on the WHOLE current morph card: drop the in-flight walk
-// without recording any per-dim stats, then advance to the next card.
-// Unlike "I don't know" (per-step, counts as wrong), passing the card
-// is fully off-stats — the student opted out before any grading could
-// settle. Only callable mid-walk; once the walk has completed,
-// finalizeMorphStepAttempt has already written the stats and Pass would
-// just duplicate the NEXT button.
-function passMorphologyCard() {
-  if (!isParsingMode()) return;
-  if (runtime.morphStepState && runtime.morphStepState.completed) return;
-  runtime.morphStepState = { cardId: null, steps: [], stepIdx: 0, answers: [], completed: false };
-  navigate(1);
-}
-
 function finalizeMorphStepAttempt(card, state) {
   if (!card || !card.lemma) return;
   const dims = {};
@@ -1198,9 +1184,19 @@ function syncLayoutVisibility() {
     navResetBtn.style.display = unspacedVocab && runtime.selectedKeys.length > 0 ? '' : 'none';
   }
   if (nextBtn) {
-    if (isMorphologyMode() || isParsingMode()) {
-      // Grammar and Parsing have no SRS/confidence writes, so the "Again →"
-      // semantic doesn't apply — Next is just "advance to the next card".
+    if (isParsingMode()) {
+      // Parsing has no SRS/confidence writes. Mid-walk, Next doubles as the
+      // "skip this card without recording stats" action (the standalone
+      // skip-card button was removed since pressing it had the same effect
+      // as advancing here). After the walk completes, stats are already
+      // written so the label reverts to plain Next.
+      const stepState = runtime.morphStepState;
+      const midWalk = !!(stepState && Array.isArray(stepState.steps) && stepState.steps.length > 0 && !stepState.completed);
+      nextBtn.textContent = midWalk ? 'Skip card →' : 'Next →';
+      nextBtn.classList.remove('spaced-again', 'nav-next-as-reset');
+    } else if (isMorphologyMode()) {
+      // Grammar has no SRS/confidence writes, so the "Again →" semantic
+      // doesn't apply — Next is just "advance to the next card".
       nextBtn.textContent = 'Next →';
       nextBtn.classList.remove('spaced-again', 'nav-next-as-reset');
     } else if (runtime.spacedRepetition) {
@@ -2325,7 +2321,7 @@ installKeyboardShortcuts({
 const GLOBAL_CLICK_HANDLERS = {
   flipCard, navigate, markCard, handleNavNext, answerMorphologyChoice,
   revealMorphologyAnswer, rateMorphologySelfCheck, passMorphologyChoice,
-  answerMorphologyStep, skipMorphologyStep, passMorphologyCard,
+  answerMorphologyStep, skipMorphologyStep,
   returnSeenCardToDeck,
   closeAnalyticsOverlay, closeTransferModal, exportProgressJson,
   closeShortcutsModal, closeStudySelector,

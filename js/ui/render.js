@@ -466,9 +466,6 @@ function renderMorphStepCurrent(state) {
       <div class="morph-dontknow-row">
         <button class="ctrl-btn morph-dontknow-btn" type="button" onclick="skipMorphologyStep()">I don't know</button>
       </div>
-      <div class="morph-pass-card-row">
-        <button class="ctrl-btn morph-pass-card-btn" type="button" onclick="passMorphologyCard()" title="Skip this whole card and move on. Nothing is recorded in your paradigm stats.">Skip card (no stats)</button>
-      </div>
     </div>`;
 }
 
