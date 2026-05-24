@@ -92,6 +92,26 @@ export const runtime = {
   // contribute to stats, omitted from the final parse summary, and the
   // form lookup silently auto-fills the canonical correct value.
   dimToggles: { tense: true, voice: true, mood: true, person: true, number: true, case: true, gender: true },
+  // Per-value sub-filters under each dim. A `false` excludes cards whose
+  // canonical parse for that dim resolves to that value AND prunes the
+  // value out of the walk's MC distractor pool. Composites are matched
+  // componentwise (e.g. 'continuous/undefined' passes if either
+  // 'continuous' or 'undefined' is enabled; 'first aorist' / 'second
+  // aorist' normalize to 'aorist'). The correct value is always kept in
+  // the walk's choices regardless of the filter, so a step never becomes
+  // unanswerable. Only exposes the primary canonical values per dim —
+  // aorist qualifiers and slash-composites are derived, not toggled
+  // independently.
+  dimValueFilters: {
+    aspect: { continuous: true, undefined: true, completed: true },
+    tense:  { present: true, future: true, imperfect: true, aorist: true, perfect: true, pluperfect: true },
+    voice:  { active: true, middle: true, passive: true },
+    mood:   { indicative: true, subjunctive: true, imperative: true, infinitive: true, participle: true },
+    person: { first: true, second: true, third: true },
+    number: { singular: true, plural: true },
+    case:   { nominative: true, accusative: true, genitive: true, dative: true, vocative: true },
+    gender: { masculine: true, feminine: true, neuter: true }
+  },
   // Opt-in to drilling morphologically real paradigm forms that Mounce
   // doesn't drill (e.g. εἰμί's future middle infinitive ἔσεσθαι and
   // future middle participle ἐσόμενος series). Sourced from

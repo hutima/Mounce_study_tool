@@ -1660,6 +1660,50 @@
     margin-bottom: 10px;
   }
 
+  /* Sub-filters nested under the "Optional paradigm extensions" toggle
+     and under each per-dim parsing-step toggle.
+     Slight inset so the hierarchy reads visually; muted dashed border ties
+     each one to its parent toggle. The category-level toggles inside use
+     the standard .toggle-label style. `box-sizing: border-box` keeps the
+     padding inside the stretched cross-axis width — otherwise the nested
+     details overflows the parent .parsing-options-section by `padding-x`. */
+  .parsing-options-subfilters {
+    box-sizing: border-box;
+    margin-left: 16px;
+    margin-bottom: 0;
+    max-width: calc(100% - 16px);
+    border-color: var(--border);
+    border-style: dashed;
+    background: transparent;
+  }
+  .parsing-options-subfilters[open] {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+  .parsing-options-subfilters summary {
+    color: var(--muted);
+    margin-bottom: 4px;
+    line-height: 1.3;
+  }
+  .parsing-options-subfilters-note {
+    color: var(--muted);
+    font-size: 12px;
+    margin-bottom: 4px;
+    line-height: 1.3;
+  }
+  /* Per-value subfilter blocks live directly underneath their parent
+     parsing-step toggle. Use the active gold-dim instead of the muted
+     summary color so the closed collapsible reads as "on" by default —
+     all values are included unless the user opts one out — instead of
+     looking disabled like the optional-forms subfilters do (which are
+     genuinely inert unless the parent toggle is on). */
+  .parsing-dim-value-subfilters > summary {
+    color: var(--gold-dim);
+  }
+  .parsing-dim-value-subfilters {
+    border-color: var(--gold-dim);
+  }
 
   .review-shell {
     margin-bottom: 12px;

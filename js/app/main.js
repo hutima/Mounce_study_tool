@@ -254,6 +254,7 @@ import {
   toggleDimStep,
   toggleOptionalForms,
   toggleOptionalFormFilter,
+  toggleDimValueFilter,
   toggleUnspacedDailyReset,
   reshuffleEligible,
   fastForwardOneDay,
@@ -374,7 +375,8 @@ configureProgress({
     lemma,
     {
       includeOptional: !!runtime.includeOptionalForms,
-      optionalFilters: runtime.optionalFormFilters
+      optionalFilters: runtime.optionalFormFilters,
+      dimValueFilters: runtime.dimValueFilters
     }
   )
 });
@@ -424,7 +426,8 @@ configureSelectors({
       runtime.morphFocusedParadigm,
       {
         includeOptional: !!runtime.includeOptionalForms,
-        optionalFilters: runtime.optionalFormFilters
+        optionalFilters: runtime.optionalFormFilters,
+        dimValueFilters: runtime.dimValueFilters
       }
     );
   }
@@ -1003,6 +1006,18 @@ function syncToggleButtons() {
   const OPTIONAL_FILTER_KEYS = ['imperative', 'subjunctive', 'infinitive', 'participle', 'thirdPerson', 'futureTense', 'perfectTense'];
   const optionalFilterSwitches = Object.fromEntries(OPTIONAL_FILTER_KEYS.map(k => [k, document.getElementById(`optionalFilter_${k}_Btn`)]));
   const optionalFilterToggles  = Object.fromEntries(OPTIONAL_FILTER_KEYS.map(k => [k, document.getElementById(`optionalFilter_${k}_Toggle`)]));
+  // Per-value sub-filters under each parsing dim. Keys mirror DIM_VALUE_FILTER_VALUES
+  // in navigation.js; the IDs are dimValueFilter_<dim>_<value>_Toggle/Btn.
+  const DIM_VALUE_FILTER_VALUES = {
+    aspect: ['continuous', 'undefined', 'completed'],
+    tense:  ['present', 'future', 'imperfect', 'aorist', 'perfect', 'pluperfect'],
+    voice:  ['active', 'middle', 'passive'],
+    mood:   ['indicative', 'subjunctive', 'imperative', 'infinitive', 'participle'],
+    person: ['first', 'second', 'third'],
+    number: ['singular', 'plural'],
+    case:   ['nominative', 'accusative', 'genitive', 'dative', 'vocative'],
+    gender: ['masculine', 'feminine', 'neuter']
+  };
   const dailyResetSwitch = document.getElementById('unspacedDailyResetBtn');
   const shuffleToggle   = document.getElementById('shuffleToggle');
   const requiredToggle  = document.getElementById('requiredToggle');
@@ -1039,6 +1054,16 @@ function syncToggleButtons() {
     const sw = optionalFilterSwitches[k];
     const on = !runtime.optionalFormFilters || runtime.optionalFormFilters[k] !== false;
     if (sw) sw.classList.toggle('on', on);
+  });
+  Object.keys(DIM_VALUE_FILTER_VALUES).forEach((dim) => {
+    DIM_VALUE_FILTER_VALUES[dim].forEach((value) => {
+      const sw = document.getElementById(`dimValueFilter_${dim}_${value}_Btn`);
+      const sub = runtime.dimValueFilters && runtime.dimValueFilters[dim];
+      const on = !sub || sub[value] !== false;
+      if (sw) sw.classList.toggle('on', on);
+      const t = document.getElementById(`dimValueFilter_${dim}_${value}_Toggle`);
+      if (t) t.setAttribute('aria-checked', on ? 'true' : 'false');
+    });
   });
   syncParadigmFocusUi();
   if (dailyResetSwitch) dailyResetSwitch.classList.toggle('on', !!runtime.unspacedAutoResetEnabled);
@@ -1418,7 +1443,8 @@ function getSelectedCards(keys) {
       runtime.morphFocusedParadigm,
       {
         includeOptional: !!runtime.includeOptionalForms,
-        optionalFilters: runtime.optionalFormFilters
+        optionalFilters: runtime.optionalFormFilters,
+        dimValueFilters: runtime.dimValueFilters
       }
     );
   }
@@ -2317,7 +2343,7 @@ const GLOBAL_CLICK_HANDLERS = {
   restoreSpacedUndo, setAppProfile, setStudyMode, setThemeMode, setFontFamily, setTextSize,
   showDisclaimerModal, startStudying, toggleDirection, toggleMorphSelfCheck,
   toggleMorphStepByStep, setMorphFocusedParadigm,
-  toggleRequiredOnly, toggleHardVocabReview, toggleShuffle, toggleSpacedRepetition, toggleSplitSelection, toggleAspectStep, toggleDimStep, toggleOptionalForms, toggleOptionalFormFilter, toggleUnspacedDailyReset, triggerImportProgress,
+  toggleRequiredOnly, toggleHardVocabReview, toggleShuffle, toggleSpacedRepetition, toggleSplitSelection, toggleAspectStep, toggleDimStep, toggleOptionalForms, toggleOptionalFormFilter, toggleDimValueFilter, toggleUnspacedDailyReset, triggerImportProgress,
   openReaderTab, selectReaderDrillChoice, advanceReaderDrill,
   closeWhatsNewV1_1Modal
 };

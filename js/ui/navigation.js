@@ -744,6 +744,52 @@ export function toggleOptionalFormFilter(filterKey) {
   loadDeckFromKeys(keysToLoad, runtime.currentSession ? runtime.currentSession.id : null);
 }
 
+// Canonical primary values for each dim's per-value sub-filter. Composite
+// values (e.g. 'continuous/undefined', 'middle/passive') and aorist
+// qualifiers ('first aorist'/'second aorist') aren't toggled independently
+// — they normalize to their primary component(s) for filter matching, so
+// disabling 'aorist' excludes both first- and second-aorist cards, and a
+// 'middle/passive' card stays in scope as long as 'middle' OR 'passive' is
+// enabled. Mirrors the structure of OPTIONAL_FILTER_KEYS but nested per
+// dim.
+const DIM_VALUE_FILTER_VALUES = {
+  aspect: ['continuous', 'undefined', 'completed'],
+  tense:  ['present', 'future', 'imperfect', 'aorist', 'perfect', 'pluperfect'],
+  voice:  ['active', 'middle', 'passive'],
+  mood:   ['indicative', 'subjunctive', 'imperative', 'infinitive', 'participle'],
+  person: ['first', 'second', 'third'],
+  number: ['singular', 'plural'],
+  case:   ['nominative', 'accusative', 'genitive', 'dative', 'vocative'],
+  gender: ['masculine', 'feminine', 'neuter']
+};
+
+// Per-value sub-filter under one parsing dim. Flipping a value off both
+// excludes cards whose parse resolves to that value (deck-pool) AND prunes
+// the value from the walk's MC distractor list (the correct value is
+// always kept regardless). Rebuilds the deck the same way
+// toggleOptionalFormFilter does so the change takes effect immediately
+// in parsing mode; outside parsing mode the rebuild is a no-op for the
+// dim filter but still re-syncs the UI.
+export function toggleDimValueFilter(dimKey, value) {
+  const allowed = DIM_VALUE_FILTER_VALUES[dimKey];
+  if (!allowed || !allowed.includes(value)) return;
+  if (!runtime.dimValueFilters || typeof runtime.dimValueFilters !== 'object') {
+    runtime.dimValueFilters = {};
+  }
+  if (!runtime.dimValueFilters[dimKey] || typeof runtime.dimValueFilters[dimKey] !== 'object') {
+    runtime.dimValueFilters[dimKey] = {};
+  }
+  runtime.dimValueFilters[dimKey][value] = runtime.dimValueFilters[dimKey][value] === false;
+  runtime.morphStepState = { cardId: null, steps: [], stepIdx: 0, answers: [], completed: false };
+  host.syncToggleButtons();
+  if (!runtime.selectedKeys.length) {
+    host.saveState();
+    return;
+  }
+  const keysToLoad = runtime.currentSession ? expandSessionSets(runtime.currentSession) : runtime.selectedKeys;
+  loadDeckFromKeys(keysToLoad, runtime.currentSession ? runtime.currentSession.id : null);
+}
+
 export function reshuffleEligible() {
   if (!runtime.selectedKeys.length) return;
 

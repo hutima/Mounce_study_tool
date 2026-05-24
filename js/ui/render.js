@@ -348,7 +348,8 @@ function ensureStepStateForCard(card) {
   const steps = buildMorphSteps(card, accessiblePools, {
     includeAspect: runtime.aspectStep !== false,
     maxChapter: levels.maxEffectiveChapter,
-    dimToggles: runtime.dimToggles
+    dimToggles: runtime.dimToggles,
+    dimValueFilters: runtime.dimValueFilters
   });
   runtime.morphStepState = {
     cardId: card.id,

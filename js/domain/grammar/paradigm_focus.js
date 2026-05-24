@@ -10,7 +10,24 @@
 // underlying source is chapter-keyed or week-keyed.
 
 import { CHAPTER_TO_WEEK } from '../../data/setMeta.js';
-import { parseAnswerDimensions } from './morph_steps.js';
+import { parseAnswerDimensions, dimValuePassesFilter } from './morph_steps.js';
+
+const DIM_VALUE_FILTER_KEYS = ['aspect', 'tense', 'voice', 'mood', 'person', 'number', 'case', 'gender'];
+
+// True iff every dim the card's parse populates passes the per-value
+// filter for that dim. Dims the card's parse leaves blank are ignored
+// (they don't constrain the filter). A null/empty filter map means
+// "everything enabled" and trivially passes.
+function cardPassesDimValueFilters(card, dimValueFilters) {
+  if (!dimValueFilters || typeof dimValueFilters !== 'object') return true;
+  const dims = parseAnswerDimensions(card.parsedAnswer || card.answer || '');
+  for (const dim of DIM_VALUE_FILTER_KEYS) {
+    const value = dims[dim];
+    if (!value) continue;
+    if (!dimValuePassesFilter(dim, value, dimValueFilters)) return false;
+  }
+  return true;
+}
 
 // Categorical grouping for the focused-paradigm dropdown. Each lemma string
 // (matched verbatim against the lemma field in MORPHOLOGY_SETS items) maps
@@ -435,9 +452,11 @@ export function getCardsForFocusedParadigm(selectedKeys, focusedLemma, options =
     if (/[=→]/.test(form)) return false;              // marker / stem-pair shorthand
     return true;
   }
+  const dimValueFilters = options.dimValueFilters || null;
   const filtered = cards
     .filter((c) => !superseded.has(c.sourceKey))
-    .filter((c) => isSingleFormShape(c.form) && hasParseableDims(c));
+    .filter((c) => isSingleFormShape(c.form) && hasParseableDims(c))
+    .filter((c) => cardPassesDimValueFilters(c, dimValueFilters));
 
   // Per-form dedup. Multiple sources can carry the same form (e.g.
   // grammar.js ch 5's εἰμί 1-sg question + a paradigm set's εἰμί entry).
