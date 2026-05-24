@@ -18,15 +18,45 @@ const DIM_VALUE_FILTER_KEYS = ['aspect', 'tense', 'voice', 'mood', 'person', 'nu
 // filter for that dim. Dims the card's parse leaves blank are ignored
 // (they don't constrain the filter). A null/empty filter map means
 // "everything enabled" and trivially passes.
-function cardPassesDimValueFilters(card, dimValueFilters) {
+//
+// `multiGenderLemmas` is the set of lemmas whose paradigm has cards in
+// more than one gender (articles, adjectives, pronouns). Lemmas not in
+// the set are single-gender (most nouns) and skip the gender filter —
+// excluding e.g. masculine shouldn't wipe out all of λόγος.
+// Gender-as-filter only meaningfully prunes within a multi-gender
+// paradigm where the student is identifying gender from form.
+function cardPassesDimValueFilters(card, dimValueFilters, multiGenderLemmas) {
   if (!dimValueFilters || typeof dimValueFilters !== 'object') return true;
   const dims = parseAnswerDimensions(card.parsedAnswer || card.answer || '');
+  const lemmaIsMultiGender = !!(multiGenderLemmas && card.lemma && multiGenderLemmas.has(card.lemma));
   for (const dim of DIM_VALUE_FILTER_KEYS) {
     const value = dims[dim];
     if (!value) continue;
+    if (dim === 'gender' && !lemmaIsMultiGender) continue;
     if (!dimValuePassesFilter(dim, value, dimValueFilters)) return false;
   }
   return true;
+}
+
+// Builds the set of lemmas that appear in more than one gender across
+// `cards`. Composite genders (e.g. "masculine/feminine/neuter") split
+// into their components so a tri-gender adjective registers as
+// multi-gender even if every individual card carries the composite.
+function buildMultiGenderLemmas(cards) {
+  const lemmaGenders = new Map();
+  cards.forEach((card) => {
+    if (!card || !card.lemma) return;
+    const dims = parseAnswerDimensions(card.parsedAnswer || card.answer || '');
+    if (!dims.gender) return;
+    if (!lemmaGenders.has(card.lemma)) lemmaGenders.set(card.lemma, new Set());
+    const genders = lemmaGenders.get(card.lemma);
+    String(dims.gender).split('/').forEach((g) => { if (g) genders.add(g); });
+  });
+  const result = new Set();
+  lemmaGenders.forEach((genders, lemma) => {
+    if (genders.size > 1) result.add(lemma);
+  });
+  return result;
 }
 
 // Categorical grouping for the focused-paradigm dropdown. Each lemma string
@@ -453,10 +483,16 @@ export function getCardsForFocusedParadigm(selectedKeys, focusedLemma, options =
     return true;
   }
   const dimValueFilters = options.dimValueFilters || null;
-  const filtered = cards
+  // Compute the multi-gender lemma set from the pre-gender-filter pool —
+  // including a lemma's full gender repertoire even if some of its cards
+  // would later be excluded by other dim filters. The gender filter is
+  // then a no-op for any single-gender (noun) lemma.
+  const preGenderFiltered = cards
     .filter((c) => !superseded.has(c.sourceKey))
-    .filter((c) => isSingleFormShape(c.form) && hasParseableDims(c))
-    .filter((c) => cardPassesDimValueFilters(c, dimValueFilters));
+    .filter((c) => isSingleFormShape(c.form) && hasParseableDims(c));
+  const multiGenderLemmas = buildMultiGenderLemmas(preGenderFiltered);
+  const filtered = preGenderFiltered
+    .filter((c) => cardPassesDimValueFilters(c, dimValueFilters, multiGenderLemmas));
 
   // Per-form dedup. Multiple sources can carry the same form (e.g.
   // grammar.js ch 5's εἰμί 1-sg question + a paradigm set's εἰμί entry).

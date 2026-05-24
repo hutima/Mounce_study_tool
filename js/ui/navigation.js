@@ -752,8 +752,13 @@ export function toggleOptionalFormFilter(filterKey) {
 // 'middle/passive' card stays in scope as long as 'middle' OR 'passive' is
 // enabled. Mirrors the structure of OPTIONAL_FILTER_KEYS but nested per
 // dim.
+//
+// Aspect's continuous + undefined are bundled behind a single
+// 'continuousUndefined' UI key (Mounce treats the two as a unit — present
+// and future forms are aspectually ambiguous between them — so a single
+// toggle that flips both halves at once matches the pedagogy).
 const DIM_VALUE_FILTER_VALUES = {
-  aspect: ['continuous', 'undefined', 'completed'],
+  aspect: ['continuousUndefined', 'completed'],
   tense:  ['present', 'future', 'imperfect', 'aorist', 'perfect', 'pluperfect'],
   voice:  ['active', 'middle', 'passive'],
   mood:   ['indicative', 'subjunctive', 'imperative', 'infinitive', 'participle'],
@@ -762,6 +767,17 @@ const DIM_VALUE_FILTER_VALUES = {
   case:   ['nominative', 'accusative', 'genitive', 'dative', 'vocative'],
   gender: ['masculine', 'feminine', 'neuter']
 };
+
+// Maps a UI filter key to the underlying canonical values it controls.
+// Most keys map 1:1; aspect's 'continuousUndefined' fans out to both
+// 'continuous' and 'undefined' so flipping the UI toggle once excludes
+// the whole imperfective/aoristic group together.
+function dimFilterUnderlyingValues(dimKey, value) {
+  if (dimKey === 'aspect' && value === 'continuousUndefined') {
+    return ['continuous', 'undefined'];
+  }
+  return [value];
+}
 
 // Per-value sub-filter under one parsing dim. Flipping a value off both
 // excludes cards whose parse resolves to that value (deck-pool) AND prunes
@@ -779,7 +795,14 @@ export function toggleDimValueFilter(dimKey, value) {
   if (!runtime.dimValueFilters[dimKey] || typeof runtime.dimValueFilters[dimKey] !== 'object') {
     runtime.dimValueFilters[dimKey] = {};
   }
-  runtime.dimValueFilters[dimKey][value] = runtime.dimValueFilters[dimKey][value] === false;
+  const underlying = dimFilterUnderlyingValues(dimKey, value);
+  // Determine the new combined state from the first underlying key, then
+  // mirror it onto every member of the group so the bundled toggle never
+  // splits halfway (e.g. 'continuous' off + 'undefined' on).
+  const newState = runtime.dimValueFilters[dimKey][underlying[0]] === false;
+  underlying.forEach((u) => {
+    runtime.dimValueFilters[dimKey][u] = newState;
+  });
   runtime.morphStepState = { cardId: null, steps: [], stepIdx: 0, answers: [], completed: false };
   host.syncToggleButtons();
   if (!runtime.selectedKeys.length) {

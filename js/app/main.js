@@ -994,8 +994,10 @@ function syncToggleButtons() {
   const optionalFilterToggles  = Object.fromEntries(OPTIONAL_FILTER_KEYS.map(k => [k, document.getElementById(`optionalFilter_${k}_Toggle`)]));
   // Per-value sub-filters under each parsing dim. Keys mirror DIM_VALUE_FILTER_VALUES
   // in navigation.js; the IDs are dimValueFilter_<dim>_<value>_Toggle/Btn.
+  // Aspect's 'continuousUndefined' is a UI-only key — flipping it sets BOTH
+  // dimValueFilters.aspect.continuous and .undefined to the same state.
   const DIM_VALUE_FILTER_VALUES = {
-    aspect: ['continuous', 'undefined', 'completed'],
+    aspect: ['continuousUndefined', 'completed'],
     tense:  ['present', 'future', 'imperfect', 'aorist', 'perfect', 'pluperfect'],
     voice:  ['active', 'middle', 'passive'],
     mood:   ['indicative', 'subjunctive', 'imperative', 'infinitive', 'participle'],
@@ -1004,6 +1006,13 @@ function syncToggleButtons() {
     case:   ['nominative', 'accusative', 'genitive', 'dative', 'vocative'],
     gender: ['masculine', 'feminine', 'neuter']
   };
+  // Same UI-key → underlying-canonical-value mapping as
+  // dimFilterUnderlyingValues in navigation.js. Kept inline rather than
+  // imported so syncToggleButtons doesn't pull in navigation.js's deck
+  // rebuild logic just to read a label.
+  const dimFilterUnderlying = (dim, value) => (
+    (dim === 'aspect' && value === 'continuousUndefined') ? ['continuous', 'undefined'] : [value]
+  );
   const dailyResetSwitch = document.getElementById('unspacedDailyResetBtn');
   const shuffleToggle   = document.getElementById('shuffleToggle');
   const requiredToggle  = document.getElementById('requiredToggle');
@@ -1041,11 +1050,18 @@ function syncToggleButtons() {
     const on = !runtime.optionalFormFilters || runtime.optionalFormFilters[k] !== false;
     if (sw) sw.classList.toggle('on', on);
   });
+  // The toggles read as "Exclude X" — ON in the UI means the value is
+  // excluded (sub[value] === false in the model). Default is all values
+  // included → all toggles OFF in the UI.
   Object.keys(DIM_VALUE_FILTER_VALUES).forEach((dim) => {
     DIM_VALUE_FILTER_VALUES[dim].forEach((value) => {
       const sw = document.getElementById(`dimValueFilter_${dim}_${value}_Btn`);
       const sub = runtime.dimValueFilters && runtime.dimValueFilters[dim];
-      const on = !sub || sub[value] !== false;
+      const underlying = dimFilterUnderlying(dim, value);
+      // For grouped UI keys (aspect's continuousUndefined → continuous +
+      // undefined) the toggle reads as ON when EVERY underlying value is
+      // excluded; a partial state shouldn't read as "fully excluded".
+      const on = !!sub && underlying.every((u) => sub[u] === false);
       if (sw) sw.classList.toggle('on', on);
       const t = document.getElementById(`dimValueFilter_${dim}_${value}_Toggle`);
       if (t) t.setAttribute('aria-checked', on ? 'true' : 'false');
