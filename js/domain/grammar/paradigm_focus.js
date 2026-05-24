@@ -160,6 +160,16 @@ function sourceLevel(sourceKey) {
     const firstCh = WEEK_FIRST_CHAPTER[wk];
     return { kind: 'week', week: wk, effectiveChapter: firstCh || (wk * 2 - 1) };
   }
+  // OPT_<chapter>[_<suffix>] — synthetic source key for optional paradigm
+  // forms injected from LEMMA_INVENTORY.optionalFormGroups when the user
+  // toggles "Optional paradigm extensions" on. The chapter component is
+  // the group's own `chapter` field, so the standard sourcePassesLevel
+  // gate naturally caps optional cards at the student's current scope.
+  const optMatch = str.match(/^OPT_(\d+)/);
+  if (optMatch) {
+    const ch = Number(optMatch[1]);
+    return { kind: 'optional', week: CHAPTER_TO_WEEK[ch] || null, effectiveChapter: ch };
+  }
   return { kind: 'other', week: null, effectiveChapter: 0 };
 }
 
@@ -182,6 +192,97 @@ function sourcePassesLevel(sourceKey, levels) {
   const lvl = sourceLevel(sourceKey);
   if (lvl.kind === 'other') return false;
   return lvl.effectiveChapter <= levels.maxEffectiveChapter;
+}
+
+// Synthesizes morph-shaped cards from LEMMA_INVENTORY[lemma].optionalFormGroups
+// for every group whose chapter gate is in scope at the student's current
+// max effective chapter. Returns [] when the lemma has no optional groups,
+// when no group is in scope, or when LEMMA_INVENTORY isn't loaded.
+//
+// Each synthesized card mirrors the shape buildMorphologyCardsForKeys
+// produces (kind: 'morph', sourceKey, parsedAnswer, formToAnswer, …) so
+// downstream consumers — the step builder, the form-lookup fallback, the
+// per-form dedup in getCardsForFocusedParadigm, the stats tracker — treat
+// them uniformly with Mounce-curriculum cards. supplemental: true tags
+// them as off-textbook (matters for any filter that splits curriculum vs
+// extension content). choices/reverseChoices are left as the single-item
+// arrays the form-lookup feedback uses; the parsing walk doesn't read
+// these.
+function buildOptionalMorphCardsForLemma(lemma, levels, filters) {
+  if (!lemma || !levels || levels.maxEffectiveChapter == null) return [];
+  const inv = (typeof window !== 'undefined' && window.LEMMA_INVENTORY)
+    ? window.LEMMA_INVENTORY[lemma]
+    : null;
+  if (!inv || !Array.isArray(inv.optionalFormGroups)) return [];
+
+  // Per-category filter: a card is dropped if any of its canonical-parse
+  // tokens corresponds to a filter that's been turned off. Filters
+  // default to "include" — only explicit `false` excludes. Empty/missing
+  // filters object means no filtering.
+  const filterCard = (parsedAnswer) => {
+    if (!filters || typeof filters !== 'object') return true;
+    const parse = String(parsedAnswer || '').toLowerCase();
+    if (filters.imperative === false   && /\bimperative\b/.test(parse))    return false;
+    if (filters.subjunctive === false  && /\bsubjunctive\b/.test(parse))   return false;
+    if (filters.infinitive === false   && /\binfinitive\b/.test(parse))    return false;
+    if (filters.participle === false   && /\bparticiple\b/.test(parse))    return false;
+    if (filters.thirdPerson === false  && /\bthird person\b/.test(parse))  return false;
+    if (filters.futureTense === false  && /\bfuture\b/.test(parse))        return false;
+    if (filters.perfectTense === false && /\bperfect\b/.test(parse))       return false;
+    return true;
+  };
+
+  const out = [];
+  inv.optionalFormGroups.forEach((group, groupIdx) => {
+    if (!group || !group.forms || typeof group.chapter !== 'number') return;
+    if (group.chapter > levels.maxEffectiveChapter) return;
+    const sourceKey = `OPT_${group.chapter}`;
+    const sourceLabel = group.family || `${lemma} — optional (ch ${group.chapter})`;
+    const entries = Object.entries(group.forms);
+    entries.forEach(([form, parsedAnswer], formIdx) => {
+      if (!form || !parsedAnswer) return;
+      if (!filterCard(parsedAnswer)) return;
+      out.push({
+        id: `morph-OPT-${stableOptMorphKey(lemma)}-${group.chapter}-${groupIdx}-${formIdx}-${stableOptMorphKey(form)}`,
+        kind: 'morph',
+        required: true,
+        sourceKey,
+        sourceLabel,
+        supplemental: true,
+        chapter: group.chapter,
+        family: group.family || `${lemma} — optional`,
+        lemma,
+        gloss: '',
+        lemmaGloss: '',
+        form,
+        prompt: 'Parse this form.',
+        dimensional: true,
+        context: '',
+        note: '',
+        answer: parsedAnswer,
+        parsedAnswer,
+        choices: [parsedAnswer],
+        reversible: false,
+        reversePrompt: 'Choose the correct Greek form.',
+        reverseChoices: [form],
+        formToAnswer: { [form]: parsedAnswer }
+      });
+    });
+  });
+  return out;
+}
+
+// Loose slugifier reused by the synthetic card id. Mirrors the
+// stableMorphKey defined inside morphology.js's IIFE so Greek and ASCII
+// keys both produce stable, collision-free strings. Kept in sync by
+// convention — if morphology.js's version evolves, update here too.
+function stableOptMorphKey(text) {
+  return String(text || '')
+    .normalize('NFD')
+    .replace(/\p{Diacritic}+/gu, '')
+    .replace(/[^\p{L}\p{N}]+/gu, '-')
+    .toLowerCase()
+    .replace(/^-+|-+$/g, '');
 }
 
 // Cumulative list of paradigm lemmas available to the user given their
@@ -254,7 +355,7 @@ function normalizeFormForDedup(form) {
 // Doing this at the source level (rather than per-form) preserves
 // legitimate within-source duplicates — e.g. λύω's imperfect ἔλυον is the
 // same Greek string for both 1sg and 3pl, and both cards must survive.
-export function getCardsForFocusedParadigm(selectedKeys, focusedLemma) {
+export function getCardsForFocusedParadigm(selectedKeys, focusedLemma, options = {}) {
   if (!focusedLemma) return [];
   if (typeof window === 'undefined' || typeof window.buildMorphologyCardsForKeys !== 'function') return [];
 
@@ -268,9 +369,25 @@ export function getCardsForFocusedParadigm(selectedKeys, focusedLemma) {
     return set.items.some((item) => item && item.lemma === focusedLemma);
   });
 
-  if (!eligibleSourceKeys.length) return [];
-  const cards = window.buildMorphologyCardsForKeys(eligibleSourceKeys)
-    .filter((card) => card && card.lemma === focusedLemma);
+  // Optional paradigm extensions: when the user has toggled them on in
+  // settings, append synthetic cards for any LEMMA_INVENTORY group whose
+  // chapter gate is in scope. Doing this BEFORE the per-form dedup means
+  // an extension form that happens to collide with a Mounce-curriculum
+  // form (rare — extensions exist precisely because the curriculum
+  // doesn't drill them) collapses to the richer-parse winner like any
+  // other duplicate. When the toggle is off, no extension cards are
+  // added — but the fallback form-lookup in render.js still consults
+  // LEMMA_INVENTORY.extraForms, so wrong-pick feedback stays canonical.
+  const optionalCards = options.includeOptional
+    ? buildOptionalMorphCardsForLemma(focusedLemma, levels, options.optionalFilters)
+    : [];
+
+  if (!eligibleSourceKeys.length && !optionalCards.length) return [];
+  const drilledCards = eligibleSourceKeys.length
+    ? window.buildMorphologyCardsForKeys(eligibleSourceKeys)
+        .filter((card) => card && card.lemma === focusedLemma)
+    : [];
+  const cards = drilledCards.concat(optionalCards);
 
   const cardsBySource = new Map();
   cards.forEach((card) => {

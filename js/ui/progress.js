@@ -20,6 +20,7 @@ let host = {
   getRemainingCards: () => [],
   getHighConfidenceCount: () => 0,
   getWordProgress: () => ({}),
+  getMorphCardsForLemma: () => [],
   isMorphologyMode: () => false,
   isParsingMode: () => false,
   renderAnalyticsOverlay: () => {},

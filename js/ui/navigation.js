@@ -702,6 +702,48 @@ export function toggleDimStep(dimKey) {
   host.saveState();
 }
 
+// Opt in/out of drilling LEMMA_INVENTORY.optionalFormGroups. Affects the
+// parsing card pool (not the fallback form-lookup, which always
+// consults extraForms). When the user is in parsing mode and has a
+// focused paradigm, the deck has to be reloaded so the newly-included
+// (or excluded) optional cards take effect; outside parsing mode the
+// flag still flips and persists but nothing visible changes until the
+// next parsing session.
+export function toggleOptionalForms() {
+  runtime.includeOptionalForms = !runtime.includeOptionalForms;
+  host.syncToggleButtons();
+  if (!runtime.selectedKeys.length) {
+    host.saveState();
+    return;
+  }
+  const keysToLoad = runtime.currentSession ? expandSessionSets(runtime.currentSession) : runtime.selectedKeys;
+  loadDeckFromKeys(keysToLoad, runtime.currentSession ? runtime.currentSession.id : null);
+}
+
+const OPTIONAL_FILTER_KEYS = new Set(['imperative', 'subjunctive', 'infinitive', 'participle', 'thirdPerson', 'futureTense', 'perfectTense']);
+
+// Per-category filter on the optional-form pool. Off → cards whose
+// canonical parse contains that category are excluded from the drill
+// deck. Filters do nothing when includeOptionalForms is off (no
+// optional cards in the pool to filter), and never affect the
+// always-on fallback form-lookup. Flipping a filter rebuilds the
+// deck so the change shows up immediately, mirroring how
+// toggleOptionalForms / toggleRequiredOnly behave.
+export function toggleOptionalFormFilter(filterKey) {
+  if (!OPTIONAL_FILTER_KEYS.has(filterKey)) return;
+  if (!runtime.optionalFormFilters || typeof runtime.optionalFormFilters !== 'object') {
+    runtime.optionalFormFilters = {};
+  }
+  runtime.optionalFormFilters[filterKey] = runtime.optionalFormFilters[filterKey] === false;
+  host.syncToggleButtons();
+  if (!runtime.selectedKeys.length) {
+    host.saveState();
+    return;
+  }
+  const keysToLoad = runtime.currentSession ? expandSessionSets(runtime.currentSession) : runtime.selectedKeys;
+  loadDeckFromKeys(keysToLoad, runtime.currentSession ? runtime.currentSession.id : null);
+}
+
 export function reshuffleEligible() {
   if (!runtime.selectedKeys.length) return;
 

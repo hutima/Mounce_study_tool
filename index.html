@@ -179,6 +179,42 @@ update that doc in the same commit. Line numbers in the doc are approximate.
       <span class="toggle-text">Gender step (parsing)</span>
       <span class="toggle-switch" id="genderStepBtn" aria-hidden="true"></span>
     </button>
+    <button class="toggle-label" id="optionalFormsToggle" type="button" role="switch" aria-checked="false" onclick="toggleOptionalForms()" title="Drill morphologically real paradigm forms Mounce doesn't drill (e.g. εἰμί's future middle infinitive ἔσεσθαι and present imperative ἴσθι/ἔστω). Off by default; the form-lookup feedback always consults these forms regardless.">
+      <span class="toggle-text">Optional paradigm extensions (parsing)</span>
+      <span class="toggle-switch" id="optionalFormsBtn" aria-hidden="true"></span>
+    </button>
+    <details class="utility-section parsing-options-subfilters" id="optionalFormsFiltersDetails">
+      <summary>Filter optional forms by category…</summary>
+      <div class="parsing-options-subfilters-note">Only applies when the parent toggle above is on. Off = exclude that category from the optional-form drill pool.</div>
+      <button class="toggle-label" id="optionalFilter_imperative_Toggle" type="button" role="switch" aria-checked="true" onclick="toggleOptionalFormFilter('imperative')" title="Include optional imperative forms (e.g. ἴσθι, λῦσαι, δός, στῆθι series) in the drill pool.">
+        <span class="toggle-text">Include imperatives</span>
+        <span class="toggle-switch" id="optionalFilter_imperative_Btn" aria-hidden="true"></span>
+      </button>
+      <button class="toggle-label" id="optionalFilter_subjunctive_Toggle" type="button" role="switch" aria-checked="true" onclick="toggleOptionalFormFilter('subjunctive')" title="Include optional subjunctive forms (e.g. λύω/λύσω paradigms, δῶ, θῶ, στῶ) in the drill pool.">
+        <span class="toggle-text">Include subjunctives</span>
+        <span class="toggle-switch" id="optionalFilter_subjunctive_Btn" aria-hidden="true"></span>
+      </button>
+      <button class="toggle-label" id="optionalFilter_infinitive_Toggle" type="button" role="switch" aria-checked="true" onclick="toggleOptionalFormFilter('infinitive')" title="Include optional infinitive forms (e.g. ἔσεσθαι, δοῦναι, θεῖναι, στῆναι, γενέσθαι) in the drill pool.">
+        <span class="toggle-text">Include infinitives</span>
+        <span class="toggle-switch" id="optionalFilter_infinitive_Btn" aria-hidden="true"></span>
+      </button>
+      <button class="toggle-label" id="optionalFilter_participle_Toggle" type="button" role="switch" aria-checked="true" onclick="toggleOptionalFormFilter('participle')" title="Include optional participle full declensions (e.g. βαλών, γενόμενος, λελυκώς, ἑστηκώς, the aorist passive participles) in the drill pool.">
+        <span class="toggle-text">Include participles</span>
+        <span class="toggle-switch" id="optionalFilter_participle_Btn" aria-hidden="true"></span>
+      </button>
+      <button class="toggle-label" id="optionalFilter_thirdPerson_Toggle" type="button" role="switch" aria-checked="true" onclick="toggleOptionalFormFilter('thirdPerson')" title="Include optional 3rd-person forms (e.g. ἔστω, ἔστωσαν, λυέσθω, the 3rd-person imperatives Mounce skips) in the drill pool.">
+        <span class="toggle-text">Include 3rd-person forms</span>
+        <span class="toggle-switch" id="optionalFilter_thirdPerson_Btn" aria-hidden="true"></span>
+      </button>
+      <button class="toggle-label" id="optionalFilter_futureTense_Toggle" type="button" role="switch" aria-checked="true" onclick="toggleOptionalFormFilter('futureTense')" title="Include optional future-tense forms (e.g. ἔσεσθαι, ἐσόμενος, future participles) in the drill pool.">
+        <span class="toggle-text">Include future-tense forms</span>
+        <span class="toggle-switch" id="optionalFilter_futureTense_Btn" aria-hidden="true"></span>
+      </button>
+      <button class="toggle-label" id="optionalFilter_perfectTense_Toggle" type="button" role="switch" aria-checked="true" onclick="toggleOptionalFormFilter('perfectTense')" title="Include optional perfect-tense forms (e.g. γέγονα series, λελυκώς, λελυμένος, δέδομαι) in the drill pool.">
+        <span class="toggle-text">Include perfect-tense forms</span>
+        <span class="toggle-switch" id="optionalFilter_perfectTense_Btn" aria-hidden="true"></span>
+      </button>
+    </details>
     <div class="reset-actions-grid">
       <button class="ctrl-btn" type="button" onclick="reshuffleEligible()">Reshuffle</button>
       <button class="ctrl-btn" id="resetDeckBtn" type="button" onclick="resetCurrentDeck()">Reset deck</button>

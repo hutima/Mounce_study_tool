@@ -92,6 +92,31 @@ export const runtime = {
   // contribute to stats, omitted from the final parse summary, and the
   // form lookup silently auto-fills the canonical correct value.
   dimToggles: { tense: true, voice: true, mood: true, person: true, number: true, case: true, gender: true },
+  // Opt-in to drilling morphologically real paradigm forms that Mounce
+  // doesn't drill (e.g. εἰμί's future middle infinitive ἔσεσθαι and
+  // future middle participle ἐσόμενος series). Sourced from
+  // LEMMA_INVENTORY[lemma].optionalFormGroups and chapter-gated by each
+  // group's own `chapter` value. Default off so the standard
+  // Mounce-aligned deck is the baseline; opting in expands the parsing
+  // pool with extension paradigms. The fallback form-lookup (extraForms)
+  // is always consulted regardless of this toggle.
+  includeOptionalForms: false,
+  // Per-category sub-filters on the optional-form drill pool. Each key
+  // defaults to true (the category is INCLUDED); flipping a key to false
+  // excludes any optional-form card whose canonical parse mentions the
+  // category. Only consulted when includeOptionalForms is on; never
+  // affects the always-on fallback form-lookup. Useful when the full
+  // optional set is too big and the student wants to drill, say, all
+  // optional forms EXCEPT 3rd-person imperatives.
+  optionalFormFilters: {
+    imperative: true,
+    subjunctive: true,
+    infinitive: true,
+    participle: true,
+    thirdPerson: true,
+    futureTense: true,
+    perfectTense: true
+  },
 
   // ── Persisted directional stores (rebuilt from localStorage) ────────
   deckStates: {},

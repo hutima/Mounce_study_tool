@@ -127,6 +127,8 @@ export function buildPersistedStatePayload(options = {}) {
     paradigmStepStats: runtime.paradigmStepStats,
     aspectStep: runtime.aspectStep,
     dimToggles: runtime.dimToggles,
+    includeOptionalForms: runtime.includeOptionalForms,
+    optionalFormFilters: runtime.optionalFormFilters,
     analyticsVocabDirection: runtime.analyticsVocabDirection,
     analyticsVocabScope: runtime.analyticsVocabScope,
     analyticsCollapsed: runtime.analyticsCollapsed,
@@ -201,6 +203,19 @@ function sanitizeImportedState(candidate) {
   const src = (candidate.dimToggles && typeof candidate.dimToggles === 'object') ? candidate.dimToggles : {};
   DIM_TOGGLE_KEYS.forEach(k => { dt[k] = src[k] !== false; });
   state.dimToggles = dt;
+  // Optional-paradigm-forms toggle defaults to false (off). Older exports
+  // predating this field hydrate to false too, so existing decks keep the
+  // standard Mounce-aligned card set as their baseline.
+  state.includeOptionalForms = !!candidate.includeOptionalForms;
+  // Sub-filters default to true (every category included) so toggling
+  // the parent on without touching filters reproduces the original
+  // "all optional forms" behavior. Missing keys from older exports
+  // hydrate to true.
+  const OPTIONAL_FILTER_KEYS = ['imperative', 'subjunctive', 'infinitive', 'participle', 'thirdPerson', 'futureTense', 'perfectTense'];
+  const filterSrc = (candidate.optionalFormFilters && typeof candidate.optionalFormFilters === 'object') ? candidate.optionalFormFilters : {};
+  const filterOut = {};
+  OPTIONAL_FILTER_KEYS.forEach((k) => { filterOut[k] = filterSrc[k] !== false; });
+  state.optionalFormFilters = filterOut;
 
   // Older exports made while the user was in reader mode persist reader as the
   // top-level studyMode, with selectedKeys/currentSessionId left over from the
@@ -866,6 +881,13 @@ export function restoreState() {
     const savedDt = (saved.dimToggles && typeof saved.dimToggles === 'object') ? saved.dimToggles : {};
     runtime.dimToggles = {};
     DIM_TOGGLE_KEYS.forEach(k => { runtime.dimToggles[k] = savedDt[k] !== false; });
+    // Optional paradigm extensions: rehydrate the toggle (default false).
+    runtime.includeOptionalForms = !!saved.includeOptionalForms;
+    // Per-category sub-filters: default each to true if missing.
+    const OPTIONAL_FILTER_KEYS = ['imperative', 'subjunctive', 'infinitive', 'participle', 'thirdPerson', 'futureTense', 'perfectTense'];
+    const savedFilters = (saved.optionalFormFilters && typeof saved.optionalFormFilters === 'object') ? saved.optionalFormFilters : {};
+    runtime.optionalFormFilters = {};
+    OPTIONAL_FILTER_KEYS.forEach((k) => { runtime.optionalFormFilters[k] = savedFilters[k] !== false; });
     runtime.analyticsVocabDirection = saved.analyticsVocabDirection === 'e2g' ? 'e2g' : 'g2e';
     runtime.analyticsVocabScope = saved.analyticsVocabScope === 'all' ? 'all' : 'required';
     if (saved.analyticsCollapsed && typeof saved.analyticsCollapsed === 'object') {
