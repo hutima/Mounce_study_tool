@@ -231,6 +231,12 @@ export function buildSupplementalSelector() {
   deselectBtn.onclick = () => deselectAllSupplementals();
   list.appendChild(deselectBtn);
 
+  // In split mode the selector is scoped to the active half: vocab mode hides
+  // grammar-only supplementals, morph mode hides vocab-only ones. Outside
+  // split (or in any other mode) both halves stay visible.
+  const splitVocabOnly = runtime.splitSelection && runtime.studyMode === 'vocab';
+  const splitGrammarOnly = runtime.splitSelection && runtime.studyMode === 'morph';
+
   const weekGroups = new Map();
   supplementalKeys.forEach(key => {
     const set = sets[key];
@@ -241,6 +247,8 @@ export function buildSupplementalSelector() {
     const studyCount = morphCount + grammarCount;
     if (!vocabCount && !studyCount) return;
     if (!host.canAccessGrammarUi() && !vocabCount) return;
+    if (splitVocabOnly && !vocabCount) return;
+    if (splitGrammarOnly && !studyCount) return;
 
     const weekNum = Number.isFinite(Number(set.week)) ? Number(set.week) : null;
     if (!weekGroups.has(weekNum)) weekGroups.set(weekNum, []);
