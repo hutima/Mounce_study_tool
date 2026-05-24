@@ -250,6 +250,11 @@ import {
   toggleDirection,
   toggleSpacedRepetition,
   toggleSplitSelection,
+  toggleAspectStep,
+  toggleDimStep,
+  toggleOptionalForms,
+  toggleOptionalFormFilter,
+  toggleDimValueFilter,
   toggleUnspacedDailyReset,
   reshuffleEligible,
   fastForwardOneDay,
@@ -359,7 +364,21 @@ configureProgress({
   moveCardToBackOfActivePile: (card) => moveCardToBackOfActivePile(card),
   buildStudyDeck: (cards, opts) => buildStudyDeck(cards, opts),
   renderCard: () => renderCard(),
-  saveState: () => saveState()
+  saveState: () => saveState(),
+  // Same pool the parsing drill uses for `lemma`: chapter-gated against
+  // the user's aggregate selection, and including optional paradigm
+  // extensions iff the user has toggled them on. Used by the parsing-
+  // review row expansion to list "testable forms" with last-attempt
+  // outcomes.
+  getMorphCardsForLemma: (lemma) => getCardsForFocusedParadigm(
+    getAggregateSelectionKeys(),
+    lemma,
+    {
+      includeOptional: !!runtime.includeOptionalForms,
+      optionalFilters: runtime.optionalFormFilters,
+      dimValueFilters: runtime.dimValueFilters
+    }
+  )
 });
 configureRender({
   saveState: () => saveState(),
@@ -402,7 +421,15 @@ configureSelectors({
     if (!isParsingMode()) return null;
     ensureMorphFocusedParadigm();
     if (!runtime.morphFocusedParadigm) return [];
-    return getCardsForFocusedParadigm(getAggregateSelectionKeys(), runtime.morphFocusedParadigm);
+    return getCardsForFocusedParadigm(
+      getAggregateSelectionKeys(),
+      runtime.morphFocusedParadigm,
+      {
+        includeOptional: !!runtime.includeOptionalForms,
+        optionalFilters: runtime.optionalFormFilters,
+        dimValueFilters: runtime.dimValueFilters
+      }
+    );
   }
 });
 configureNavigation({
@@ -604,16 +631,20 @@ function resetMorphStepState() {
   runtime.morphStepState = { cardId: null, steps: [], stepIdx: 0, answers: [], completed: false };
 }
 
-// Union of selectedKeys from every mode (vocab, morph, parsing) so the
-// student's "max effective chapter" reflects their highest point in the
-// course anywhere in the app — not just their parsing-mode-local selection.
-// With split-selection on, a user who has Ch 1-24 picked in vocab/grammar
-// but only one ch-22 set checked in parsing would otherwise be gated at
-// ch 22, hiding the rest of the cumulative paradigm catalog.
+// Selection keys used for chapter-gating paradigm pools. In parsing mode
+// the dedicated "Current chapter" dropdown is the single source of truth
+// (runtime.parsingChapter), so we synthesize a one-element key array from
+// it and ignore vocab/grammar's selectedKeys. Everywhere else we fall
+// back to the union across modes so the student's "max effective chapter"
+// reflects their highest point in the course.
 function getAggregateSelectionKeys() {
+  if (isParsingMode()) {
+    return [String(getParsingChapter())];
+  }
   const union = new Set((runtime.selectedKeys || []).map(String));
   const ms = runtime.modeSelections || {};
   Object.keys(ms).forEach((mode) => {
+    if (mode === 'parsing') return; // parsing has its own gating; don't leak it into other modes
     const entry = ms[mode];
     if (entry && Array.isArray(entry.selectedKeys)) {
       entry.selectedKeys.forEach((k) => union.add(String(k)));
@@ -637,6 +668,61 @@ function ensureMorphFocusedParadigm() {
 function rebuildMorphDeckForStepMode() {
   if (!isParsingMode()) return;
   loadDeckFromKeys(runtime.selectedKeys, runtime.currentSession ? runtime.currentSession.id : null);
+}
+
+// Coerce runtime.parsingChapter to a valid 1..36 integer. Returns 36 as
+// the fallback (every Mounce chapter in scope).
+function getParsingChapter() {
+  const n = Number(runtime.parsingChapter);
+  if (Number.isFinite(n) && Number.isInteger(n) && n >= 1 && n <= 36) return n;
+  return 36;
+}
+
+// Handler for the parsing-mode redirect card. The stem-highlighted
+// stem-pair cards (e.g. W4_SECOND_AORIST_STEMS — "γινώσκω → ἔγνων") live
+// in Vocab mode as a supplemental set; parsing can't walk them
+// dimensionally. The card is a one-tap shortcut: switch to vocab mode,
+// replace the current vocab selection with just that supplemental set,
+// and rebuild the deck.
+function goToStemDrillFromParsing(setKey) {
+  if (typeof setKey !== 'string' || !setKey) return;
+  // The supplemental set must actually be registered — otherwise we'd
+  // switch the user into vocab mode with an empty deck for no visible
+  // reason. Both SETS (master vocab registry) and the supplemental-vocab
+  // registry get the same key when registerSupplementalVocabSet runs.
+  const vocabSets = (typeof window !== 'undefined' && window.SUPPLEMENTAL_VOCAB_SETS) || {};
+  if (!vocabSets[setKey]) return;
+  // setStudyMode handles the parsing→vocab save/restore of modeSelections
+  // (parsing's chapter key gets stashed under modeSelections.parsing so
+  // it survives the round trip). After the mode flip, loadDeckFromKeys
+  // overwrites whatever vocab selection was restored with just the
+  // supplemental set the user tapped on.
+  setStudyMode('vocab');
+  loadDeckFromKeys([setKey], null, { clearUnspacedMarks: true });
+}
+
+// Handler for the parsing-mode chapter dropdown. Updates runtime.parsingChapter,
+// resyncs the deck's gating, and lets the focused-paradigm dropdown pick a
+// new default if the previous lemma falls out of scope at the new chapter.
+function setParsingChapter(value) {
+  if (!isParsingMode()) return;
+  const n = Number(value);
+  if (!Number.isFinite(n) || !Number.isInteger(n) || n < 1 || n > 36) return;
+  if (n === runtime.parsingChapter) return;
+  runtime.parsingChapter = n;
+  runtime.selectedKeys = [String(n)];
+  runtime.currentSession = null;
+  // If the previously-focused paradigm isn't introduced until a later
+  // chapter, drop it so ensureMorphFocusedParadigm picks the first
+  // in-scope lemma on the next rebuild. Without this, loadDeckFromKeys
+  // builds an empty deck once before syncParadigmFocusUi corrects it.
+  if (runtime.morphFocusedParadigm) {
+    const available = listAvailableParadigms(getAggregateSelectionKeys());
+    if (!available.some((p) => p.lemma === runtime.morphFocusedParadigm)) {
+      runtime.morphFocusedParadigm = null;
+    }
+  }
+  loadDeckFromKeys(runtime.selectedKeys, null);
 }
 
 // Dynamically appends ungraded follow-up steps when the student's pick
@@ -914,6 +1000,24 @@ function initializeTextSize() {
   applyTextSize(runtime.textSize, false);
 }
 
+// Populate the parsing-mode chapter dropdown (1..36) and reflect the
+// current runtime.parsingChapter. Only relevant in parsing mode — the
+// row is hidden elsewhere by syncLayoutVisibility.
+function syncParsingChapterUi() {
+  const select = document.getElementById('parsingChapterSelect');
+  if (!select) return;
+  if (!isParsingMode()) return;
+  const chapter = getParsingChapter();
+  if (!select.options.length) {
+    const opts = [];
+    for (let ch = 1; ch <= 36; ch++) {
+      opts.push(`<option value="${ch}">Chapter ${ch}</option>`);
+    }
+    select.innerHTML = opts.join('');
+  }
+  select.value = String(chapter);
+}
+
 // Populate the primary focused-paradigm dropdown from the current selection
 // when parsing mode is active, and resync runtime.morphFocusedParadigm if
 // the current pick is no longer available (e.g. user changed chapters).
@@ -956,6 +1060,36 @@ function syncToggleButtons() {
   const hardReviewSwitch = document.getElementById('hardReviewBtn');
   const splitSelectionSwitch = document.getElementById('splitSelectionBtn');
   const selfCheckBtn    = document.getElementById('selfCheckBtn');
+  const aspectStepSwitch = document.getElementById('aspectStepBtn');
+  const DIM_TOGGLE_KEYS = ['tense', 'voice', 'mood', 'person', 'number', 'case', 'gender'];
+  const dimStepSwitches = Object.fromEntries(DIM_TOGGLE_KEYS.map(k => [k, document.getElementById(`${k}StepBtn`)]));
+  const dimStepToggles = Object.fromEntries(DIM_TOGGLE_KEYS.map(k => [k, document.getElementById(`${k}StepToggle`)]));
+  const optionalFormsSwitch = document.getElementById('optionalFormsBtn');
+  const optionalFormsToggle = document.getElementById('optionalFormsToggle');
+  const OPTIONAL_FILTER_KEYS = ['imperative', 'subjunctive', 'infinitive', 'participle', 'thirdPerson', 'futureTense', 'perfectTense'];
+  const optionalFilterSwitches = Object.fromEntries(OPTIONAL_FILTER_KEYS.map(k => [k, document.getElementById(`optionalFilter_${k}_Btn`)]));
+  const optionalFilterToggles  = Object.fromEntries(OPTIONAL_FILTER_KEYS.map(k => [k, document.getElementById(`optionalFilter_${k}_Toggle`)]));
+  // Per-value sub-filters under each parsing dim. Keys mirror DIM_VALUE_FILTER_VALUES
+  // in navigation.js; the IDs are dimValueFilter_<dim>_<value>_Toggle/Btn.
+  // Aspect's 'continuousUndefined' is a UI-only key — flipping it sets BOTH
+  // dimValueFilters.aspect.continuous and .undefined to the same state.
+  const DIM_VALUE_FILTER_VALUES = {
+    aspect: ['continuousUndefined', 'completed'],
+    tense:  ['present', 'future', 'imperfect', 'aorist', 'perfect', 'pluperfect'],
+    voice:  ['active', 'middle', 'passive'],
+    mood:   ['indicative', 'subjunctive', 'imperative', 'infinitive', 'participle'],
+    person: ['first', 'second', 'third'],
+    number: ['singular', 'plural'],
+    case:   ['nominative', 'accusative', 'genitive', 'dative', 'vocative'],
+    gender: ['masculine', 'feminine', 'neuter']
+  };
+  // Same UI-key → underlying-canonical-value mapping as
+  // dimFilterUnderlyingValues in navigation.js. Kept inline rather than
+  // imported so syncToggleButtons doesn't pull in navigation.js's deck
+  // rebuild logic just to read a label.
+  const dimFilterUnderlying = (dim, value) => (
+    (dim === 'aspect' && value === 'continuousUndefined') ? ['continuous', 'undefined'] : [value]
+  );
   const dailyResetSwitch = document.getElementById('unspacedDailyResetBtn');
   const shuffleToggle   = document.getElementById('shuffleToggle');
   const requiredToggle  = document.getElementById('requiredToggle');
@@ -964,6 +1098,7 @@ function syncToggleButtons() {
   const hardReviewToggle = document.getElementById('hardReviewToggle');
   const splitSelectionToggle = document.getElementById('splitSelectionToggle');
   const selfCheckToggle = document.getElementById('selfCheckToggle');
+  const aspectStepToggle = document.getElementById('aspectStepToggle');
   const dailyResetToggle = document.getElementById('unspacedDailyResetToggle');
   const modeVocabBtn    = document.getElementById('modeVocabBtn');
   const modeMorphBtn    = document.getElementById('modeMorphBtn');
@@ -980,6 +1115,36 @@ function syncToggleButtons() {
   if (hardReviewSwitch) hardReviewSwitch.classList.toggle('on', !!runtime.hardVocabReviewMode);
   if (splitSelectionSwitch) splitSelectionSwitch.classList.toggle('on', !!runtime.splitSelection);
   if (selfCheckBtn)    selfCheckBtn.classList.toggle('on',    !!runtime.morphSelfCheck && isMorphologyMode());
+  if (aspectStepSwitch) aspectStepSwitch.classList.toggle('on', runtime.aspectStep !== false);
+  DIM_TOGGLE_KEYS.forEach(k => {
+    const sw = dimStepSwitches[k];
+    const on = !runtime.dimToggles || runtime.dimToggles[k] !== false;
+    if (sw) sw.classList.toggle('on', on);
+  });
+  if (optionalFormsSwitch) optionalFormsSwitch.classList.toggle('on', !!runtime.includeOptionalForms);
+  OPTIONAL_FILTER_KEYS.forEach((k) => {
+    const sw = optionalFilterSwitches[k];
+    const on = !runtime.optionalFormFilters || runtime.optionalFormFilters[k] !== false;
+    if (sw) sw.classList.toggle('on', on);
+  });
+  // The toggles read as "Exclude X" — ON in the UI means the value is
+  // excluded (sub[value] === false in the model). Default is all values
+  // included → all toggles OFF in the UI.
+  Object.keys(DIM_VALUE_FILTER_VALUES).forEach((dim) => {
+    DIM_VALUE_FILTER_VALUES[dim].forEach((value) => {
+      const sw = document.getElementById(`dimValueFilter_${dim}_${value}_Btn`);
+      const sub = runtime.dimValueFilters && runtime.dimValueFilters[dim];
+      const underlying = dimFilterUnderlying(dim, value);
+      // For grouped UI keys (aspect's continuousUndefined → continuous +
+      // undefined) the toggle reads as ON when EVERY underlying value is
+      // excluded; a partial state shouldn't read as "fully excluded".
+      const on = !!sub && underlying.every((u) => sub[u] === false);
+      if (sw) sw.classList.toggle('on', on);
+      const t = document.getElementById(`dimValueFilter_${dim}_${value}_Toggle`);
+      if (t) t.setAttribute('aria-checked', on ? 'true' : 'false');
+    });
+  });
+  syncParsingChapterUi();
   syncParadigmFocusUi();
   if (dailyResetSwitch) dailyResetSwitch.classList.toggle('on', !!runtime.unspacedAutoResetEnabled);
   if (shuffleToggle)   shuffleToggle.setAttribute('aria-checked',   runtime.shuffled ? 'true' : 'false');
@@ -989,6 +1154,18 @@ function syncToggleButtons() {
   if (hardReviewToggle) hardReviewToggle.setAttribute('aria-checked', runtime.hardVocabReviewMode ? 'true' : 'false');
   if (splitSelectionToggle) splitSelectionToggle.setAttribute('aria-checked', runtime.splitSelection ? 'true' : 'false');
   if (selfCheckToggle) selfCheckToggle.setAttribute('aria-checked', (runtime.morphSelfCheck && isMorphologyMode()) ? 'true' : 'false');
+  if (aspectStepToggle) aspectStepToggle.setAttribute('aria-checked', runtime.aspectStep !== false ? 'true' : 'false');
+  DIM_TOGGLE_KEYS.forEach(k => {
+    const t = dimStepToggles[k];
+    const on = !runtime.dimToggles || runtime.dimToggles[k] !== false;
+    if (t) t.setAttribute('aria-checked', on ? 'true' : 'false');
+  });
+  if (optionalFormsToggle) optionalFormsToggle.setAttribute('aria-checked', runtime.includeOptionalForms ? 'true' : 'false');
+  OPTIONAL_FILTER_KEYS.forEach((k) => {
+    const t = optionalFilterToggles[k];
+    const on = !runtime.optionalFormFilters || runtime.optionalFormFilters[k] !== false;
+    if (t) t.setAttribute('aria-checked', on ? 'true' : 'false');
+  });
   if (dailyResetToggle) dailyResetToggle.setAttribute('aria-checked', runtime.unspacedAutoResetEnabled ? 'true' : 'false');
 
   if (directionToggle) {
@@ -1053,8 +1230,13 @@ function syncLayoutVisibility() {
   if (directionToggle) directionToggle.style.display = (runtime.studyMode === 'vocab' || runtime.studyMode === 'morph') ? 'flex' : 'none';
   if (requiredToggle) requiredToggle.style.display = runtime.studyMode === 'vocab' ? 'flex' : 'none';
   if (hardReviewToggle) hardReviewToggle.style.display = runtime.studyMode === 'vocab' ? 'flex' : 'none';
-  if (splitSelectionToggle) splitSelectionToggle.style.display = canAccessGrammarUi() ? 'flex' : 'none';
+  // Split vocab/grammar selection only makes sense between vocab and morph;
+  // parsing mode owns its chapter via the dedicated dropdown, so hide the
+  // toggle there entirely.
+  if (splitSelectionToggle) splitSelectionToggle.style.display = (canAccessGrammarUi() && !isParsingMode()) ? 'flex' : 'none';
   if (selfCheckToggle) selfCheckToggle.style.display = (isMorphologyMode() && canAccessGrammarUi()) ? 'flex' : 'none';
+  const parsingChapterRow = document.getElementById('parsingChapterRow');
+  if (parsingChapterRow) parsingChapterRow.style.display = isParsingMode() ? 'flex' : 'none';
   const paradigmFocusRowPrimary = document.getElementById('paradigmFocusRowPrimary');
   if (paradigmFocusRowPrimary) paradigmFocusRowPrimary.style.display = isParsingMode() ? 'flex' : 'none';
   if (shuffleToggle) shuffleToggle.style.display = reviewDeckMode ? 'flex' : 'none';
@@ -1076,7 +1258,7 @@ function syncLayoutVisibility() {
     // button is functionally disabled (CSS keeps the Reset-like swatch
     // instead of greying out) when there's nothing to undo or step back.
     const atStart = !runtime.deck.length || runtime.currentIdx <= 0;
-    const hidePrev = isMorphologyMode() || (runtime.spacedRepetition && !isMorphologyMode());
+    const hidePrev = isMorphologyMode() || isParsingMode() || (runtime.spacedRepetition && !isMorphologyMode());
     prevBtn.style.display = hidePrev ? 'none' : '';
     const prevDisabled = unspacedVocab ? (!unspacedHasHistory && atStart) : atStart;
     prevBtn.disabled = prevDisabled;
@@ -1098,12 +1280,22 @@ function syncLayoutVisibility() {
     // Unspaced vocab keeps the inline Reset visible at all times so the
     // user has a one-tap escape from the all-archived "Session Confirmed"
     // state without Next having to morph.
-    navResetBtn.style.display = unspacedVocab && runtime.selectedKeys.length > 0 ? '' : 'none';
+    navResetBtn.style.display = unspacedVocab && !isParsingMode() && runtime.selectedKeys.length > 0 ? '' : 'none';
   }
   if (nextBtn) {
-    if (isMorphologyMode() || isParsingMode()) {
-      // Grammar and Parsing have no SRS/confidence writes, so the "Again →"
-      // semantic doesn't apply — Next is just "advance to the next card".
+    if (isParsingMode()) {
+      // Parsing has no SRS/confidence writes. Mid-walk, Next doubles as the
+      // "skip this card without recording stats" action (the standalone
+      // skip-card button was removed since pressing it had the same effect
+      // as advancing here). After the walk completes, stats are already
+      // written so the label reverts to plain Next.
+      const stepState = runtime.morphStepState;
+      const midWalk = !!(stepState && Array.isArray(stepState.steps) && stepState.steps.length > 0 && !stepState.completed);
+      nextBtn.textContent = midWalk ? 'Skip card →' : 'Next →';
+      nextBtn.classList.remove('spaced-again', 'nav-next-as-reset');
+    } else if (isMorphologyMode()) {
+      // Grammar has no SRS/confidence writes, so the "Again →" semantic
+      // doesn't apply — Next is just "advance to the next card".
       nextBtn.textContent = 'Next →';
       nextBtn.classList.remove('spaced-again', 'nav-next-as-reset');
     } else if (runtime.spacedRepetition) {
@@ -1341,7 +1533,15 @@ function getSelectedCards(keys) {
   if (isParsingMode()) {
     ensureMorphFocusedParadigm();
     if (!runtime.morphFocusedParadigm) return [];
-    return getCardsForFocusedParadigm(getAggregateSelectionKeys(), runtime.morphFocusedParadigm);
+    return getCardsForFocusedParadigm(
+      getAggregateSelectionKeys(),
+      runtime.morphFocusedParadigm,
+      {
+        includeOptional: !!runtime.includeOptionalForms,
+        optionalFilters: runtime.optionalFormFilters,
+        dimValueFilters: runtime.dimValueFilters
+      }
+    );
   }
   return getSelectedVocabCards(keys, false);
 }
@@ -2237,8 +2437,8 @@ const GLOBAL_CLICK_HANDLERS = {
   fastForwardOneDay, fastForwardOneWeek,
   restoreSpacedUndo, setAppProfile, setStudyMode, setThemeMode, setFontFamily, setTextSize,
   showDisclaimerModal, startStudying, toggleDirection, toggleMorphSelfCheck,
-  toggleMorphStepByStep, setMorphFocusedParadigm,
-  toggleRequiredOnly, toggleHardVocabReview, toggleShuffle, toggleSpacedRepetition, toggleSplitSelection, toggleUnspacedDailyReset, triggerImportProgress,
+  toggleMorphStepByStep, setMorphFocusedParadigm, setParsingChapter, goToStemDrillFromParsing,
+  toggleRequiredOnly, toggleHardVocabReview, toggleShuffle, toggleSpacedRepetition, toggleSplitSelection, toggleAspectStep, toggleDimStep, toggleOptionalForms, toggleOptionalFormFilter, toggleDimValueFilter, toggleUnspacedDailyReset, triggerImportProgress,
   openReaderTab, selectReaderDrillChoice, advanceReaderDrill,
   closeWhatsNewV1_1Modal
 };
@@ -2280,6 +2480,11 @@ if (cardArea) {
   cardArea.addEventListener('click', (event) => {
     const target = event.target;
     if (!target || !(target instanceof Element)) return;
+    // Parsing-mode stem-recall redirect button uses .empty-state for layout
+    // but has its own onclick that switches mode + loads the supplemental
+    // deck. Opening the study selector on top of that would be a confusing
+    // double-effect, so skip the delegate for it.
+    if (target.closest('.parsing-redirect-btn')) return;
     if (target.closest('.empty-state')) openStudySelector();
   });
 }
@@ -2300,7 +2505,7 @@ function preventDoubleTapZoom(el) {
   }, false);
 }
 
-['shuffleToggle','requiredToggle','directionToggle','spacedToggle','splitSelectionToggle','selfCheckToggle','unspacedDailyResetToggle','modeVocabBtn','modeMorphBtn','modeReaderBtn','modeShortcutVocabBtn','modeShortcutMorphBtn','modeShortcutReaderBtn','themeSystemBtn','themeDarkBtn','themeLightBtn'].forEach(id => {
+['shuffleToggle','requiredToggle','directionToggle','spacedToggle','splitSelectionToggle','selfCheckToggle','aspectStepToggle','tenseStepToggle','voiceStepToggle','moodStepToggle','personStepToggle','numberStepToggle','caseStepToggle','genderStepToggle','optionalFormsToggle','optionalFilter_imperative_Toggle','optionalFilter_subjunctive_Toggle','optionalFilter_infinitive_Toggle','optionalFilter_participle_Toggle','optionalFilter_thirdPerson_Toggle','optionalFilter_futureTense_Toggle','optionalFilter_perfectTense_Toggle','unspacedDailyResetToggle','modeVocabBtn','modeMorphBtn','modeReaderBtn','modeShortcutVocabBtn','modeShortcutMorphBtn','modeShortcutReaderBtn','themeSystemBtn','themeDarkBtn','themeLightBtn'].forEach(id => {
   const el = document.getElementById(id);
   if (el) preventDoubleTapZoom(el);
 });

@@ -9,7 +9,7 @@ import { runtime } from '../state/runtime.js';
 import { buildGrammarSupportHtml } from '../domain/grammar/explanations.js';
 import { renderProgress, renderReview } from './progress.js';
 import { buildMorphSteps, summarizeLemmaStats, getParadigmStepAttemptWindow, computeAccessibleDimensionPools, parseAnswerDimensions, aspectMistakeNote, isSecondPluralPresentMoodAmbiguity } from '../domain/grammar/morph_steps.js';
-import { getAccessibleMorphCards } from '../domain/grammar/paradigm_focus.js';
+import { getAccessibleMorphCards, deriveSelectionLevels } from '../domain/grammar/paradigm_focus.js';
 
 let host = {
   saveState: () => {},
@@ -36,10 +36,49 @@ export function configureRender(deps) {
   host = { ...host, ...deps };
 }
 
+// Focused-paradigm lemmas that are stem-recall prompts ("what is the aorist
+// of λαμβάνω?") rather than canonical paradigm forms. Parsing mode can't
+// dimension-walk them — they have no tense/voice/mood/case/etc. parse —
+// so we surface a redirect card that, when clicked, hops the student into
+// the matching stem-pair Vocab supplemental. Second-aorist gets the
+// stem-FLIP set (W3_SECOND_AORIST_FLIP, with diff-highlighted changing
+// letters); liquid futures route to W4_FUTURE_LIQUID_STEMS, the only
+// existing stem-pair set for that group (no diff-highlight variant yet).
+const PARSING_INCOMPATIBLE_LEMMAS = {
+  'Second-aorist stems': 'W3_SECOND_AORIST_FLIP',
+  'Liquid-stem futures': 'W4_FUTURE_LIQUID_STEMS'
+};
+
 export function renderCard() {
   const area = document.getElementById('cardArea');
   host.saveState();
   host.syncLayoutVisibility();
+  // The stem-recall redirect path below hides navRow with inline display:
+  // none. Reset that here so the nav row reappears when the user switches
+  // off the redirect (e.g. picks a normal paradigm); inner button state
+  // is then re-synced by syncLayoutVisibility above.
+  const navRow = document.getElementById('navRow');
+  if (navRow && navRow.style.display === 'none' && !(host.isParsingMode() && runtime.morphFocusedParadigm && Object.prototype.hasOwnProperty.call(PARSING_INCOMPATIBLE_LEMMAS, runtime.morphFocusedParadigm))) {
+    navRow.style.display = '';
+  }
+
+  if (host.isParsingMode() && runtime.morphFocusedParadigm && Object.prototype.hasOwnProperty.call(PARSING_INCOMPATIBLE_LEMMAS, runtime.morphFocusedParadigm)) {
+    const lemma = runtime.morphFocusedParadigm;
+    const drillKey = PARSING_INCOMPATIBLE_LEMMAS[lemma];
+    area.innerHTML = `
+      <button type="button" class="empty-state parsing-redirect-btn" onclick="goToStemDrillFromParsing('${drillKey}')">
+        <div class="big">↗</div>
+        <strong>${lemma}</strong> is a stem-recall drill, not a parseable
+        paradigm — there are no tense / voice / mood / case dimensions to
+        walk. <u>Tap to open the matching Vocabulary mode supplemental</u>.
+      </button>`;
+    // The redirect card is the only action surface here — Prev/Reset/Next
+    // would just no-op against the empty deck, so hide the whole nav row
+    // until the user taps through (or switches paradigms).
+    const navRow = document.getElementById('navRow');
+    if (navRow) navRow.style.display = 'none';
+    return;
+  }
 
   if (!runtime.deck.length) {
     let emptyMessage;
@@ -236,7 +275,16 @@ export function renderCard() {
   const advancedCountSuffix = (card.advanced && Number.isFinite(Number(card.count)))
     ? ` [${Number(card.count)}× in NT]`
     : '';
-  const sourceLabelDisplay = `${card.sourceLabel}${advancedCountSuffix}`;
+  // Supplemental paradigm set labels read "<lemma> — <sub-paradigm>" (e.g.
+  // "λύω — present active indicative"). Showing the sub-paradigm on the
+  // card front gives away the parse class of the form — knowing λύῃς is
+  // a subjunctive collapses the recall to a single form. Strip the tail
+  // for the on-card hint and show just the lemma side; the full label
+  // still appears in the session selector for browsing.
+  const onCardSourceLabel = card.supplemental
+    ? cardFaceLabelFromSourceLabel(card.sourceLabel)
+    : card.sourceLabel;
+  const sourceLabelDisplay = `${onCardSourceLabel}${advancedCountSuffix}`;
 
   // Prepositions that govern more than one case get a star on both faces as a
   // reminder that the meaning depends on the case of the object.
@@ -335,7 +383,13 @@ function ensureStepStateForCard(card) {
   // selected chapter (e.g. no "pluperfect" while Ch ≤ 24).
   const accessibleCards = getAccessibleMorphCards(runtime.selectedKeys);
   const accessiblePools = computeAccessibleDimensionPools(accessibleCards);
-  const steps = buildMorphSteps(card, accessiblePools);
+  const levels = deriveSelectionLevels(runtime.selectedKeys || []);
+  const steps = buildMorphSteps(card, accessiblePools, {
+    includeAspect: runtime.aspectStep !== false,
+    maxChapter: levels.maxEffectiveChapter,
+    dimToggles: runtime.dimToggles,
+    dimValueFilters: runtime.dimValueFilters
+  });
   runtime.morphStepState = {
     cardId: card.id,
     steps,
@@ -345,7 +399,11 @@ function ensureStepStateForCard(card) {
     // Kept on state so answerMorphologyStep can build ungraded follow-up
     // steps with the same chapter-gated MC choices the original steps
     // were drawn from (avoids re-computing on every answer).
-    accessiblePools
+    accessiblePools,
+    // Dims that were skipped (chapter-gated or user-toggled off) along
+    // with their canonical correct values, so the form lookup can fill
+    // them in silently. Survives across renders via the cached state.
+    autoFilledDims: steps.autoFilledDims || {}
   };
   return runtime.morphStepState;
 }
@@ -395,9 +453,29 @@ function diffHighlightPair(a, b) {
   return { aHtml: wrap(A, inLCS_A), bHtml: wrap(B, inLCS_B) };
 }
 
+// Supplemental set labels follow "<lemma(s)> — <sub-paradigm>" (e.g.
+// "λύω — present active indicative"). On a card face the sub-paradigm
+// half leaks the parse class — drop it. Labels without an em-dash
+// separator ("First and second personal pronouns") are returned as-is.
+// Selectors/analytics keep the full label by going through card.sourceLabel
+// directly instead of this helper.
+function cardFaceLabelFromSourceLabel(label) {
+  if (!label) return label;
+  const idx = label.indexOf(' — ');
+  return idx >= 0 ? label.slice(0, idx) : label;
+}
+
 function renderMorphStepBreadcrumb(state) {
   if (!state.steps.length) return '';
-  const dots = state.steps.map((step, idx) => {
+  // Reveal dots one step at a time. Showing the full breadcrumb upfront
+  // leaks the parse class — e.g. an A T M C N G tail on a verb form tells
+  // you it's a participle before you've answered the Mood step, because
+  // only participles carry case/number/gender. Render only the answered
+  // steps plus the current step until the walk completes.
+  const visibleCount = state.completed
+    ? state.steps.length
+    : Math.min(state.steps.length, state.stepIdx + 1);
+  const dots = state.steps.slice(0, visibleCount).map((step, idx) => {
     const answer = state.answers[idx];
     let cls = 'morph-step-dot';
     if (idx === state.stepIdx && !state.completed) cls += ' current';
@@ -421,7 +499,7 @@ function renderMorphStepCurrent(state) {
   }).join('');
   return `
     <div class="morph-step-current">
-      <div class="morph-step-progress">Step ${state.stepIdx + 1} of ${state.steps.length}</div>
+      <div class="morph-step-progress">Step ${state.stepIdx + 1}</div>
       <div class="morph-step-label">${escapeHtml(step.label)}?</div>
       <div class="morph-choices">${choiceButtons}</div>
       <div class="morph-dontknow-row">
@@ -493,12 +571,20 @@ function augmentAnswerWithLabel(answer, label) {
   const voiceMatch = t.match(/\b(middle\/passive|middle or passive|active|middle|passive)\b/);
   const moodMatch  = t.match(/\b(indicative|subjunctive|imperative|infinitive|participle)\b/);
   const lcAns = String(answer).toLowerCase();
+  // Only augment when the answer doesn't already carry its OWN mood/voice
+  // marker. Comparing against the label's first match (the previous logic)
+  // misfires on labels that mention multiple moods — e.g. "εἰμί —
+  // infinitive and participle" picks 'infinitive' and prepends it to every
+  // participle card, so ans.mood parses as 'infinitive' and the form
+  // lookup can no longer match the card on a participle pick.
+  const ansHasVoice = /\b(active|middle|passive|middle\/passive)\b/.test(lcAns);
+  const ansHasMood  = /\b(indicative|subjunctive|imperative|infinitive|participle)\b/.test(lcAns);
   let out = String(answer);
-  if (voiceMatch) {
+  if (voiceMatch && !ansHasVoice) {
     const v = voiceMatch[0].replace(/middle or passive/, 'middle/passive');
-    if (!lcAns.includes(v)) out = `${v} ${out}`;
+    out = `${v} ${out}`;
   }
-  if (moodMatch && !lcAns.includes(moodMatch[0])) {
+  if (moodMatch && !ansHasMood) {
     out = `${moodMatch[0]} ${out}`;
   }
   return out;
@@ -521,10 +607,14 @@ function buildLemmaFormToAnswerFromCards(lemma, cards) {
   if (!lemma) return {};
   const out = {};
   for (const c of (cards || [])) {
-    if (!c || c.lemma !== lemma || !c.form || !c.answer) continue;
+    if (!c || c.lemma !== lemma || !c.form) continue;
+    // Prefer the canonical parsed form when the card supplies one
+    // (grammar.js can ship a `parsed:` next to a sparse human answer).
+    const ans = c.parsedAnswer || c.answer;
+    if (!ans) continue;
     // Stem-pair study notes like 'βάλλω → ἔβαλον' aren't single forms.
     if (/→/.test(c.form)) continue;
-    if (out[c.form] === undefined) out[c.form] = augmentAnswerWithLabel(c.answer, c.sourceLabel || '');
+    if (out[c.form] === undefined) out[c.form] = augmentAnswerWithLabel(ans, c.sourceLabel || '');
   }
   return out;
 }
@@ -591,6 +681,21 @@ function isParseImpossibleForLemma(lemma, pickedDims) {
   return false;
 }
 
+// Mood is a structural class, not just another label: finite forms carry
+// a person; participles carry case + gender; infinitives carry none of
+// these. A candidate whose answer string omits an explicit mood marker
+// (Mounce's εἰμί cards say "Future: I will be (1sg.)" with no "indicative"
+// tag) can still be disqualified by its structural shape — without this,
+// picking mood=participle on εἰμί + future happily matches the finite
+// ἔσομαι because per-dim matching only checks tense + number.
+function structurallyCompatibleMood(pickedMood, ansDims) {
+  if (!pickedMood) return true;
+  const nonFinitePick = pickedMood === 'participle' || pickedMood === 'infinitive';
+  if (nonFinitePick && ansDims.person) return false;
+  if (!nonFinitePick && (ansDims.case || ansDims.gender) && !ansDims.person) return false;
+  return true;
+}
+
 // Resolves the student's picked dimensions to one of three outcomes:
 //   { kind: 'form', form }       — canonical Greek form matching the picks
 //   { kind: 'impossible' }       — inventory says this combo doesn't exist
@@ -603,13 +708,25 @@ function isParseImpossibleForLemma(lemma, pickedDims) {
 // "—" even if the picks happen not to match anything in the pool.
 // Then try the card's own paradigm subset (tightest context), broaden
 // to the lemma-wide pool, and pick a single canonical form.
-function resolveFormForPickedDims(card, steps, pickedValues) {
+function resolveFormForPickedDims(card, steps, pickedValues, autoFilledDims) {
   if (!card) return { kind: 'none' };
   const pickedDims = {};
   steps.forEach((step, idx) => {
     const v = pickedValues[idx];
     if (v && !FORM_LOOKUP_SKIP_DIMS.has(step.key)) pickedDims[step.key] = v;
   });
+  // Dims whose step was silently skipped (chapter-gated voice on active
+  // cards, or user-toggled-off dims) get auto-filled with the canonical
+  // correct value so the form lookup behaves as if the student had
+  // picked correctly. Without this, an off-toggle would orphan-skip
+  // every wrong-form candidate through the matchPool's missing-dim
+  // pass and the lookup would surface noise.
+  if (autoFilledDims && typeof autoFilledDims === 'object') {
+    Object.keys(autoFilledDims).forEach((k) => {
+      if (FORM_LOOKUP_SKIP_DIMS.has(k)) return;
+      if (!pickedDims[k] && autoFilledDims[k]) pickedDims[k] = autoFilledDims[k];
+    });
+  }
   const keys = Object.keys(pickedDims);
   if (keys.length === 0) return { kind: 'none' };
 
@@ -618,14 +735,18 @@ function resolveFormForPickedDims(card, steps, pickedValues) {
   // A dimension the candidate answer doesn't carry (infinitives have no
   // number; finite verbs have no case) shouldn't disqualify the
   // candidate — the orphan dimension is a category error against this
-  // candidate, not a disagreement.
+  // candidate, not a disagreement. Structural mood compatibility is
+  // checked separately so an unlabeled finite candidate can't satisfy a
+  // participle/infinitive pick.
   const matchPool = (pool) => {
     const out = [];
     for (const [form, answer] of Object.entries(pool || {})) {
       if (!form || !answer) continue;
       const ansDims = parseAnswerDimensions(answer);
       const ok = keys.every((k) => !ansDims[k] || dimsCompatible(pickedDims[k], ansDims[k]));
-      if (ok) out.push({ form, ansDims });
+      if (!ok) continue;
+      if (!structurallyCompatibleMood(pickedDims.mood, ansDims)) continue;
+      out.push({ form, ansDims });
     }
     return out;
   };
@@ -638,6 +759,15 @@ function resolveFormForPickedDims(card, steps, pickedValues) {
     // feedback for λύω.
     const accessibleCards = getAccessibleMorphCards(runtime.selectedKeys);
     candidates = matchPool(buildLemmaFormToAnswerFromCards(card.lemma, accessibleCards));
+  }
+  if (!candidates.length) {
+    // Final fallback: lemma_inventory's extraForms — morphologically real
+    // paradigms (εἰμί's future middle participle, etc.) that no card
+    // carries. Pure lookup augmentation; not part of any study deck.
+    const inv = (typeof window !== 'undefined' && window.LEMMA_INVENTORY)
+      ? window.LEMMA_INVENTORY[card.lemma]
+      : null;
+    if (inv && inv.extraForms) candidates = matchPool(inv.extraForms);
   }
   if (!candidates.length) return { kind: 'none' };
 
@@ -724,7 +854,7 @@ function renderMorphStepSummary(card, state) {
   if (structReason) {
     yourFormHtml = `<div class="morph-step-parse-match morph-step-parse-match-impossible">[${escapeHtml(structReason)}]</div>`;
   } else {
-    const lookup = resolveFormForPickedDims(card, state.steps, pickedValues);
+    const lookup = resolveFormForPickedDims(card, state.steps, pickedValues, state.autoFilledDims);
     if (lookup.kind === 'form') {
       yourFormHtml = `<div class="morph-step-parse-match">${escapeHtml(lookup.form)}</div>`;
     } else if (lookup.kind === 'impossible') {
@@ -804,7 +934,7 @@ function renderMorphStepCard(area, card) {
       ${lemmaGloss}
       <div class="morph-form">${escapeHtml(card.form)}</div>
       <div class="morph-hint">${escapeHtml(card.lemma)}</div>
-      <div class="morph-source">${escapeHtml(card.sourceLabel || '')} · Stats not affected · Use "continuous/undefined" when the form licenses either reading</div>
+      <div class="morph-source">${escapeHtml(card.sourceLabel || '')} · Use "continuous/undefined" when the form licenses either reading</div>
       ${renderMorphStepBreadcrumb(state)}
       ${body}
     </div>`;

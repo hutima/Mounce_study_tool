@@ -37,6 +37,13 @@ export const runtime = {
   analyticsGrammarExpandedConcept: null,
   analyticsGrammarExpandedCard: null,
   analyticsGrammarConceptSort: 'confidence', // 'confidence' | 'alphabetical'
+  // Inline-expansion state for the paradigm parsing rows on the analytics
+  // tile vs the in-study parsing review panel. Tracked separately so opening
+  // a row in analytics doesn't auto-open the same row at the bottom of the
+  // study screen. Value is a lemma string, or '__overall' for the
+  // all-paradigms summary row, or null when nothing is expanded.
+  analyticsParadigmExpanded: null,
+  parsingReviewExpanded: null,
   // Sort order of the per-deck progress card list. Defaults to alphabetical
   // because that's the predictable "find a word" lookup; confidence flips it
   // to lowest-raw-pct-first for the "what should I drill next" view.
@@ -80,8 +87,69 @@ export const runtime = {
   // — sliding window capped at 20 attempts per lemma (see morph_steps.js).
   morphStepByStep: false,
   morphFocusedParadigm: null,
+  // Parsing mode owns its chapter scope via this field — driven by the
+  // dedicated chapter dropdown above the focused paradigm. Replaces the
+  // shared `selectedKeys`-based gating used by vocab/grammar so picking
+  // chapters in those modes never widens or narrows the parsing pool.
+  // Default 36 = the last Mounce chapter (every paradigm in scope).
+  parsingChapter: 36,
   morphStepState: { cardId: null, steps: [], stepIdx: 0, answers: [], completed: false },
   paradigmStepStats: { byLemma: {} },
+  // Whether the parsing walk asks an explicit Aspect step before Tense.
+  // Aspect is derivable from tense (present/future → continuous/undefined,
+  // aorist → undefined, etc.), so for students who don't want to drill the
+  // composite-vs-single distinction it can be turned off. Default on.
+  aspectStep: true,
+  // Per-dimension toggles for the parsing walk. Each key controls whether
+  // that dim's step is asked. Default-on; off → step skipped, dim doesn't
+  // contribute to stats, omitted from the final parse summary, and the
+  // form lookup silently auto-fills the canonical correct value.
+  dimToggles: { tense: true, voice: true, mood: true, person: true, number: true, case: true, gender: true },
+  // Per-value sub-filters under each dim. A `false` excludes cards whose
+  // canonical parse for that dim resolves to that value AND prunes the
+  // value out of the walk's MC distractor pool. Composites are matched
+  // componentwise (e.g. 'continuous/undefined' passes if either
+  // 'continuous' or 'undefined' is enabled; 'first aorist' / 'second
+  // aorist' normalize to 'aorist'). The correct value is always kept in
+  // the walk's choices regardless of the filter, so a step never becomes
+  // unanswerable. Only exposes the primary canonical values per dim —
+  // aorist qualifiers and slash-composites are derived, not toggled
+  // independently.
+  dimValueFilters: {
+    aspect: { continuous: true, undefined: true, completed: true },
+    tense:  { present: true, future: true, imperfect: true, aorist: true, perfect: true, pluperfect: true },
+    voice:  { active: true, middle: true, passive: true },
+    mood:   { indicative: true, subjunctive: true, imperative: true, infinitive: true, participle: true },
+    person: { first: true, second: true, third: true },
+    number: { singular: true, plural: true },
+    case:   { nominative: true, accusative: true, genitive: true, dative: true, vocative: true },
+    gender: { masculine: true, feminine: true, neuter: true }
+  },
+  // Opt-in to drilling morphologically real paradigm forms that Mounce
+  // doesn't drill (e.g. εἰμί's future middle infinitive ἔσεσθαι and
+  // future middle participle ἐσόμενος series). Sourced from
+  // LEMMA_INVENTORY[lemma].optionalFormGroups and chapter-gated by each
+  // group's own `chapter` value. Default off so the standard
+  // Mounce-aligned deck is the baseline; opting in expands the parsing
+  // pool with extension paradigms. The fallback form-lookup (extraForms)
+  // is always consulted regardless of this toggle.
+  includeOptionalForms: false,
+  // Per-category sub-filters on the optional-form drill pool. Each key
+  // defaults to true (the category is INCLUDED); flipping a key to false
+  // excludes any optional-form card whose canonical parse mentions the
+  // category. Only consulted when includeOptionalForms is on; never
+  // affects the always-on fallback form-lookup. Useful when the full
+  // optional set is too big and the student wants to drill, say, all
+  // optional forms EXCEPT 3rd-person imperatives.
+  optionalFormFilters: {
+    imperative: true,
+    subjunctive: true,
+    infinitive: true,
+    participle: true,
+    thirdPerson: true,
+    futureTense: true,
+    perfectTense: true
+  },
 
   // ── Persisted directional stores (rebuilt from localStorage) ────────
   deckStates: {},

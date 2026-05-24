@@ -62,29 +62,96 @@ export function configurePersistence(deps) {
   host = { ...host, ...deps };
 }
 
-// Per-lemma sliding window of paradigm-parse attempts. Capped at 20 entries
-// per lemma; older attempts drop off the front. Sanitizer is forgiving on
-// import so a stat from a previous version (or a missing field) restores as
-// empty rather than wiping the rest of the save.
+// Per-lemma sliding window of paradigm-parse attempts plus the
+// disjoint-20-attempt buckets that feed the performance bar chart. Capped
+// per lemma at 20 raw attempts and 10 completed buckets; older entries drop
+// off the front. Sanitizer is forgiving on import so a stat from a previous
+// version (or a missing field) restores as empty rather than wiping the
+// rest of the save.
 const PARADIGM_STEP_ATTEMPT_CAP = 20;
+const PARADIGM_STEP_BUCKET_CAP = 10;
+function sanitizeInProgressBucket(input) {
+  if (!isPlainObject(input)) return { correct: 0, total: 0 };
+  const total = Math.max(0, Math.floor(Number(input.total) || 0));
+  const correct = Math.max(0, Math.min(total, Math.floor(Number(input.correct) || 0)));
+  return { correct, total };
+}
+function sanitizeBucketList(input) {
+  if (!Array.isArray(input)) return [];
+  return input
+    .filter((b) => isPlainObject(b))
+    .slice(-PARADIGM_STEP_BUCKET_CAP)
+    .map((b) => {
+      const total = Math.max(0, Math.floor(Number(b.total) || 0));
+      const correct = Math.max(0, Math.min(total, Math.floor(Number(b.correct) || 0)));
+      return { correct, total, at: Number(b.at) || 0 };
+    });
+}
+// Parsing mode's chapter scope. Defaults to 36 (every Mounce chapter in
+// scope) when the saved value is missing, malformed, or out of the
+// supported 1..36 range.
+function sanitizeParsingChapter(input) {
+  const n = Number(input);
+  if (Number.isFinite(n) && Number.isInteger(n) && n >= 1 && n <= 36) return n;
+  return 36;
+}
+
 function sanitizeParadigmStepStats(input) {
-  const out = { byLemma: {} };
+  const out = { byLemma: {}, overall: { totalAttempts: 0, inProgress: { correct: 0, total: 0 }, buckets: [] } };
   if (!isPlainObject(input)) return out;
   const lemmaBag = isPlainObject(input.byLemma) ? input.byLemma : null;
-  if (!lemmaBag) return out;
-  Object.keys(lemmaBag).forEach((lemma) => {
-    const entry = lemmaBag[lemma];
-    if (!isPlainObject(entry) || !Array.isArray(entry.attempts)) return;
-    const attempts = entry.attempts
-      .filter((a) => isPlainObject(a) && isPlainObject(a.dims))
-      .slice(-PARADIGM_STEP_ATTEMPT_CAP)
-      .map((a) => ({
-        at: Number(a.at) || 0,
-        dims: Object.fromEntries(
-          Object.entries(a.dims).map(([k, v]) => [String(k), v ? 1 : 0])
-        )
-      }));
-    if (attempts.length) out.byLemma[String(lemma)] = { attempts };
+  if (lemmaBag) {
+    Object.keys(lemmaBag).forEach((lemma) => {
+      const entry = lemmaBag[lemma];
+      if (!isPlainObject(entry) || !Array.isArray(entry.attempts)) return;
+      const attempts = entry.attempts
+        .filter((a) => isPlainObject(a) && isPlainObject(a.dims))
+        .slice(-PARADIGM_STEP_ATTEMPT_CAP)
+        .map((a) => ({
+          at: Number(a.at) || 0,
+          dims: Object.fromEntries(
+            Object.entries(a.dims).map(([k, v]) => [String(k), v ? 1 : 0])
+          )
+        }));
+      const buckets = sanitizeBucketList(entry.buckets);
+      const inProgress = sanitizeInProgressBucket(entry.inProgress);
+      const totalAttempts = Math.max(0, Math.floor(Number(entry.totalAttempts) || 0));
+      if (attempts.length || buckets.length || inProgress.total) {
+        out.byLemma[String(lemma)] = { attempts, totalAttempts, inProgress, buckets };
+      }
+    });
+  }
+  if (isPlainObject(input.overall)) {
+    out.overall = {
+      totalAttempts: Math.max(0, Math.floor(Number(input.overall.totalAttempts) || 0)),
+      inProgress: sanitizeInProgressBucket(input.overall.inProgress),
+      buckets: sanitizeBucketList(input.overall.buckets)
+    };
+  }
+  return out;
+}
+
+const DIM_VALUE_FILTER_VALUES = {
+  aspect: ['continuous', 'undefined', 'completed'],
+  tense:  ['present', 'future', 'imperfect', 'aorist', 'perfect', 'pluperfect'],
+  voice:  ['active', 'middle', 'passive'],
+  mood:   ['indicative', 'subjunctive', 'imperative', 'infinitive', 'participle'],
+  person: ['first', 'second', 'third'],
+  number: ['singular', 'plural'],
+  case:   ['nominative', 'accusative', 'genitive', 'dative', 'vocative'],
+  gender: ['masculine', 'feminine', 'neuter']
+};
+
+function sanitizeDimValueFilters(input) {
+  const src = (input && typeof input === 'object') ? input : {};
+  const out = {};
+  Object.keys(DIM_VALUE_FILTER_VALUES).forEach((dim) => {
+    const dimSrc = (src[dim] && typeof src[dim] === 'object') ? src[dim] : {};
+    const dimOut = {};
+    DIM_VALUE_FILTER_VALUES[dim].forEach((value) => {
+      dimOut[value] = dimSrc[value] !== false;
+    });
+    out[dim] = dimOut;
   });
   return out;
 }
@@ -124,7 +191,13 @@ export function buildPersistedStatePayload(options = {}) {
     morphSelfCheck: runtime.morphSelfCheck,
     morphStepByStep: runtime.morphStepByStep,
     morphFocusedParadigm: runtime.morphFocusedParadigm,
+    parsingChapter: runtime.parsingChapter,
     paradigmStepStats: runtime.paradigmStepStats,
+    aspectStep: runtime.aspectStep,
+    dimToggles: runtime.dimToggles,
+    dimValueFilters: runtime.dimValueFilters,
+    includeOptionalForms: runtime.includeOptionalForms,
+    optionalFormFilters: runtime.optionalFormFilters,
     analyticsVocabDirection: runtime.analyticsVocabDirection,
     analyticsVocabScope: runtime.analyticsVocabScope,
     analyticsCollapsed: runtime.analyticsCollapsed,
@@ -188,7 +261,36 @@ function sanitizeImportedState(candidate) {
   state.morphFocusedParadigm = typeof candidate.morphFocusedParadigm === 'string'
     ? candidate.morphFocusedParadigm
     : null;
+  state.parsingChapter = sanitizeParsingChapter(candidate.parsingChapter);
   state.paradigmStepStats = sanitizeParadigmStepStats(candidate.paradigmStepStats);
+  // aspectStep defaults to true; only an explicit `false` flips it off.
+  state.aspectStep = candidate.aspectStep !== false;
+  // Per-dim toggles default to true. Missing keys (e.g. an older import
+  // predating this field) hydrate to true so existing decks keep
+  // drilling every dim as before.
+  const DIM_TOGGLE_KEYS = ['tense', 'voice', 'mood', 'person', 'number', 'case', 'gender'];
+  const dt = {};
+  const src = (candidate.dimToggles && typeof candidate.dimToggles === 'object') ? candidate.dimToggles : {};
+  DIM_TOGGLE_KEYS.forEach(k => { dt[k] = src[k] !== false; });
+  state.dimToggles = dt;
+  // Per-value sub-filters. Each dim defaults to "every value enabled" so a
+  // missing or partially-populated map (older exports) hydrates without
+  // accidentally hiding cards. Unknown dims/values in the candidate are
+  // dropped silently.
+  state.dimValueFilters = sanitizeDimValueFilters(candidate.dimValueFilters);
+  // Optional-paradigm-forms toggle defaults to false (off). Older exports
+  // predating this field hydrate to false too, so existing decks keep the
+  // standard Mounce-aligned card set as their baseline.
+  state.includeOptionalForms = !!candidate.includeOptionalForms;
+  // Sub-filters default to true (every category included) so toggling
+  // the parent on without touching filters reproduces the original
+  // "all optional forms" behavior. Missing keys from older exports
+  // hydrate to true.
+  const OPTIONAL_FILTER_KEYS = ['imperative', 'subjunctive', 'infinitive', 'participle', 'thirdPerson', 'futureTense', 'perfectTense'];
+  const filterSrc = (candidate.optionalFormFilters && typeof candidate.optionalFormFilters === 'object') ? candidate.optionalFormFilters : {};
+  const filterOut = {};
+  OPTIONAL_FILTER_KEYS.forEach((k) => { filterOut[k] = filterSrc[k] !== false; });
+  state.optionalFormFilters = filterOut;
 
   // Older exports made while the user was in reader mode persist reader as the
   // top-level studyMode, with selectedKeys/currentSessionId left over from the
@@ -848,7 +950,29 @@ export function restoreState() {
     runtime.morphFocusedParadigm = typeof saved.morphFocusedParadigm === 'string'
       ? saved.morphFocusedParadigm
       : null;
+    runtime.parsingChapter = sanitizeParsingChapter(saved.parsingChapter);
+    // Parsing mode's deck is driven by runtime.parsingChapter, not the
+    // shared selectedKeys store. Seed selectedKeys from parsingChapter on
+    // restore so the deck rebuild fires (the early-return below skips
+    // when selectedKeys is empty) and so subsequent saves carry a chapter
+    // key — matching what setStudyMode('parsing') would have written.
+    if (runtime.studyMode === 'parsing') {
+      runtime.selectedKeys = [String(runtime.parsingChapter)];
+    }
     runtime.paradigmStepStats = sanitizeParadigmStepStats(saved.paradigmStepStats);
+    runtime.aspectStep = saved.aspectStep !== false;
+    const DIM_TOGGLE_KEYS = ['tense', 'voice', 'mood', 'person', 'number', 'case', 'gender'];
+    const savedDt = (saved.dimToggles && typeof saved.dimToggles === 'object') ? saved.dimToggles : {};
+    runtime.dimToggles = {};
+    DIM_TOGGLE_KEYS.forEach(k => { runtime.dimToggles[k] = savedDt[k] !== false; });
+    runtime.dimValueFilters = sanitizeDimValueFilters(saved.dimValueFilters);
+    // Optional paradigm extensions: rehydrate the toggle (default false).
+    runtime.includeOptionalForms = !!saved.includeOptionalForms;
+    // Per-category sub-filters: default each to true if missing.
+    const OPTIONAL_FILTER_KEYS = ['imperative', 'subjunctive', 'infinitive', 'participle', 'thirdPerson', 'futureTense', 'perfectTense'];
+    const savedFilters = (saved.optionalFormFilters && typeof saved.optionalFormFilters === 'object') ? saved.optionalFormFilters : {};
+    runtime.optionalFormFilters = {};
+    OPTIONAL_FILTER_KEYS.forEach((k) => { runtime.optionalFormFilters[k] = savedFilters[k] !== false; });
     runtime.analyticsVocabDirection = saved.analyticsVocabDirection === 'e2g' ? 'e2g' : 'g2e';
     runtime.analyticsVocabScope = saved.analyticsVocabScope === 'all' ? 'all' : 'required';
     if (saved.analyticsCollapsed && typeof saved.analyticsCollapsed === 'object') {

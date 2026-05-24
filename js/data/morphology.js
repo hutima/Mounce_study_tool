@@ -1003,8 +1003,14 @@
         const itemIdx = Number.isInteger(selection.itemIdx) ? selection.itemIdx : relativeItemIdx;
         const itemAnswers = item.questions.map((q) => q.answer);
         const itemForms = item.questions.map((q) => q.form);
+        // formToAnswer is consumed by the parsing-feedback form lookup
+        // (resolveFormForPickedDims). It needs the canonical parse string
+        // (q.parsed when supplied), not the human-friendly q.answer that
+        // grammar.js cards use for MC display. Falls back to q.answer when
+        // no separate canonical is given — that's already the canonical
+        // form for paradigm_morphology auto-generated cards.
         const formToAnswer = {};
-        item.questions.forEach((q) => { if (q && q.form) formToAnswer[q.form] = q.answer; });
+        item.questions.forEach((q) => { if (q && q.form) formToAnswer[q.form] = q.parsed || q.answer; });
         item.questions.forEach((q, qIdx) => {
           const distractors = pickDistractors(q.answer, itemAnswers, allAnswers);
           const choices = localShuffle([q.answer, ...distractors]);
@@ -1032,6 +1038,12 @@
             context: q.context || '',
             note: q.note || '',
             answer: q.answer,
+            // Canonical parse string used by parseAnswerDimensions for the
+            // step builder + form lookup. When a grammar.js question's
+            // human-friendly answer omits dimensions (e.g.
+            // "1st singular ('I am')" with no tense/voice/mood), supply a
+            // canonical `parsed:` next to it. Defaults to answer.
+            parsedAnswer: q.parsed || q.answer,
             choices,
             reversible: q.reversible !== false,
             reversePrompt: q.reversePrompt || 'Choose the correct Greek form.',

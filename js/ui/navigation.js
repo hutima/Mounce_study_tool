@@ -461,11 +461,40 @@ export function setStudyMode(mode) {
 
   const prevMode = runtime.studyMode;
   host.saveCurrentDeckStateToBank();
-  if (runtime.splitSelection) {
-    saveModeSelection(prevMode);
+  // Parsing mode owns its chapter scope via runtime.parsingChapter (the
+  // dropdown above the focused paradigm). It must never share selectedKeys
+  // with vocab/morph, regardless of splitSelection — otherwise entering
+  // parsing would clobber the vocab/morph chapter pick, and leaving would
+  // leak the parsing chapter back into them. So we always save/restore
+  // around any parsing transition; the regular splitSelection swap handles
+  // vocab↔morph as before.
+  const parsingTransition = prevMode === 'parsing' || nextMode === 'parsing';
+  if (runtime.splitSelection || parsingTransition) {
+    // When splitSelection is OFF and we're entering parsing, the current
+    // selection is shared by vocab+morph. Stash it under both slots so the
+    // user lands back on the right chapter regardless of which mode they
+    // return to first.
+    if (!runtime.splitSelection && nextMode === 'parsing' && (prevMode === 'vocab' || prevMode === 'morph')) {
+      saveModeSelection('vocab');
+      saveModeSelection('morph');
+    } else {
+      saveModeSelection(prevMode);
+    }
     restoreModeSelection(nextMode);
   }
   runtime.studyMode = nextMode;
+  // Entering parsing: the dropdown is the source of truth, so overwrite
+  // selectedKeys with [parsingChapter] (a chapter-keyed string, which
+  // deriveSelectionLevels reads as the max effective chapter). Any stale
+  // modeSelections.parsing entry from before this feature is overridden.
+  if (nextMode === 'parsing') {
+    const chapter = Number.isInteger(runtime.parsingChapter) && runtime.parsingChapter >= 1 && runtime.parsingChapter <= 36
+      ? runtime.parsingChapter
+      : 36;
+    runtime.parsingChapter = chapter;
+    runtime.selectedKeys = [String(chapter)];
+    runtime.currentSession = null;
+  }
   host.clearSpacedUndoSnapshot();
   host.resetMorphAnswerState();
   host.ensureDirectionalStores();
@@ -670,6 +699,147 @@ export function toggleSplitSelection() {
   }
   host.syncToggleButtons();
   host.saveState();
+}
+
+export function toggleAspectStep() {
+  runtime.aspectStep = !runtime.aspectStep;
+  // Reset any in-flight step state so the next render rebuilds the walk
+  // with the new step set (otherwise the cached state still has the old
+  // step list with/without aspect).
+  runtime.morphStepState = { cardId: null, steps: [], stepIdx: 0, answers: [], completed: false };
+  host.syncToggleButtons();
+  renderCard();
+  host.saveState();
+}
+
+const DIM_TOGGLE_KEYS = new Set(['tense', 'voice', 'mood', 'person', 'number', 'case', 'gender']);
+
+// Toggles the parsing walk's step for one dimension on or off. Off →
+// step skipped, dim doesn't count toward stats, omitted from the
+// final parse summary, and the form lookup silently auto-fills the
+// canonical correct value. Aspect has its own toggle (toggleAspectStep)
+// since it predates this generic mechanism.
+export function toggleDimStep(dimKey) {
+  if (!DIM_TOGGLE_KEYS.has(dimKey)) return;
+  if (!runtime.dimToggles || typeof runtime.dimToggles !== 'object') {
+    runtime.dimToggles = {};
+  }
+  runtime.dimToggles[dimKey] = runtime.dimToggles[dimKey] === false;
+  runtime.morphStepState = { cardId: null, steps: [], stepIdx: 0, answers: [], completed: false };
+  host.syncToggleButtons();
+  renderCard();
+  host.saveState();
+}
+
+// Opt in/out of drilling LEMMA_INVENTORY.optionalFormGroups. Affects the
+// parsing card pool (not the fallback form-lookup, which always
+// consults extraForms). When the user is in parsing mode and has a
+// focused paradigm, the deck has to be reloaded so the newly-included
+// (or excluded) optional cards take effect; outside parsing mode the
+// flag still flips and persists but nothing visible changes until the
+// next parsing session.
+export function toggleOptionalForms() {
+  runtime.includeOptionalForms = !runtime.includeOptionalForms;
+  host.syncToggleButtons();
+  if (!runtime.selectedKeys.length) {
+    host.saveState();
+    return;
+  }
+  const keysToLoad = runtime.currentSession ? expandSessionSets(runtime.currentSession) : runtime.selectedKeys;
+  loadDeckFromKeys(keysToLoad, runtime.currentSession ? runtime.currentSession.id : null);
+}
+
+const OPTIONAL_FILTER_KEYS = new Set(['imperative', 'subjunctive', 'infinitive', 'participle', 'thirdPerson', 'futureTense', 'perfectTense']);
+
+// Per-category filter on the optional-form pool. Off → cards whose
+// canonical parse contains that category are excluded from the drill
+// deck. Filters do nothing when includeOptionalForms is off (no
+// optional cards in the pool to filter), and never affect the
+// always-on fallback form-lookup. Flipping a filter rebuilds the
+// deck so the change shows up immediately, mirroring how
+// toggleOptionalForms / toggleRequiredOnly behave.
+export function toggleOptionalFormFilter(filterKey) {
+  if (!OPTIONAL_FILTER_KEYS.has(filterKey)) return;
+  if (!runtime.optionalFormFilters || typeof runtime.optionalFormFilters !== 'object') {
+    runtime.optionalFormFilters = {};
+  }
+  runtime.optionalFormFilters[filterKey] = runtime.optionalFormFilters[filterKey] === false;
+  host.syncToggleButtons();
+  if (!runtime.selectedKeys.length) {
+    host.saveState();
+    return;
+  }
+  const keysToLoad = runtime.currentSession ? expandSessionSets(runtime.currentSession) : runtime.selectedKeys;
+  loadDeckFromKeys(keysToLoad, runtime.currentSession ? runtime.currentSession.id : null);
+}
+
+// Canonical primary values for each dim's per-value sub-filter. Composite
+// values (e.g. 'continuous/undefined', 'middle/passive') and aorist
+// qualifiers ('first aorist'/'second aorist') aren't toggled independently
+// — they normalize to their primary component(s) for filter matching, so
+// disabling 'aorist' excludes both first- and second-aorist cards, and a
+// 'middle/passive' card stays in scope as long as 'middle' OR 'passive' is
+// enabled. Mirrors the structure of OPTIONAL_FILTER_KEYS but nested per
+// dim.
+//
+// Aspect's continuous + undefined are bundled behind a single
+// 'continuousUndefined' UI key (Mounce treats the two as a unit — present
+// and future forms are aspectually ambiguous between them — so a single
+// toggle that flips both halves at once matches the pedagogy).
+const DIM_VALUE_FILTER_VALUES = {
+  aspect: ['continuousUndefined', 'completed'],
+  tense:  ['present', 'future', 'imperfect', 'aorist', 'perfect', 'pluperfect'],
+  voice:  ['active', 'middle', 'passive'],
+  mood:   ['indicative', 'subjunctive', 'imperative', 'infinitive', 'participle'],
+  person: ['first', 'second', 'third'],
+  number: ['singular', 'plural'],
+  case:   ['nominative', 'accusative', 'genitive', 'dative', 'vocative'],
+  gender: ['masculine', 'feminine', 'neuter']
+};
+
+// Maps a UI filter key to the underlying canonical values it controls.
+// Most keys map 1:1; aspect's 'continuousUndefined' fans out to both
+// 'continuous' and 'undefined' so flipping the UI toggle once excludes
+// the whole imperfective/aoristic group together.
+function dimFilterUnderlyingValues(dimKey, value) {
+  if (dimKey === 'aspect' && value === 'continuousUndefined') {
+    return ['continuous', 'undefined'];
+  }
+  return [value];
+}
+
+// Per-value sub-filter under one parsing dim. Flipping a value off both
+// excludes cards whose parse resolves to that value (deck-pool) AND prunes
+// the value from the walk's MC distractor list (the correct value is
+// always kept regardless). Rebuilds the deck the same way
+// toggleOptionalFormFilter does so the change takes effect immediately
+// in parsing mode; outside parsing mode the rebuild is a no-op for the
+// dim filter but still re-syncs the UI.
+export function toggleDimValueFilter(dimKey, value) {
+  const allowed = DIM_VALUE_FILTER_VALUES[dimKey];
+  if (!allowed || !allowed.includes(value)) return;
+  if (!runtime.dimValueFilters || typeof runtime.dimValueFilters !== 'object') {
+    runtime.dimValueFilters = {};
+  }
+  if (!runtime.dimValueFilters[dimKey] || typeof runtime.dimValueFilters[dimKey] !== 'object') {
+    runtime.dimValueFilters[dimKey] = {};
+  }
+  const underlying = dimFilterUnderlyingValues(dimKey, value);
+  // Determine the new combined state from the first underlying key, then
+  // mirror it onto every member of the group so the bundled toggle never
+  // splits halfway (e.g. 'continuous' off + 'undefined' on).
+  const newState = runtime.dimValueFilters[dimKey][underlying[0]] === false;
+  underlying.forEach((u) => {
+    runtime.dimValueFilters[dimKey][u] = newState;
+  });
+  runtime.morphStepState = { cardId: null, steps: [], stepIdx: 0, answers: [], completed: false };
+  host.syncToggleButtons();
+  if (!runtime.selectedKeys.length) {
+    host.saveState();
+    return;
+  }
+  const keysToLoad = runtime.currentSession ? expandSessionSets(runtime.currentSession) : runtime.selectedKeys;
+  loadDeckFromKeys(keysToLoad, runtime.currentSession ? runtime.currentSession.id : null);
 }
 
 export function reshuffleEligible() {

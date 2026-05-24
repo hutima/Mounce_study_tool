@@ -1940,9 +1940,12 @@
         const itemReversibleForms = item.questions
           .filter(isReversibleQuestion)
           .map((q) => q.form);
+        // formToAnswer feeds the parsing-feedback form lookup; prefer the
+        // canonical q.parsed when supplied, since the human-friendly q.answer
+        // (e.g. "1st singular ('I am')") often omits tense/voice/mood.
         const formToAnswer = {};
         item.questions.forEach((q) => {
-          if (q && q.form && q.answer) formToAnswer[q.form] = q.answer;
+          if (q && q.form && q.answer) formToAnswer[q.form] = q.parsed || q.answer;
         });
         item.questions.forEach((q, qIdx) => {
           const rawChoices = Array.isArray(q.choices) ? q.choices : [];
@@ -1973,6 +1976,7 @@
             rationale: q.rationale || '',
             explanations: q.explanations || null,
             answer: q.answer,
+            parsedAnswer: q.parsed || q.answer,
             choices,
             reversible,
             reversePrompt: reversible ? 'Choose the correct Greek form.' : '',

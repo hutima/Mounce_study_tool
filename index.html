@@ -19,13 +19,13 @@ update that doc in the same commit. Line numbers in the doc are approximate.
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="Mounce Greek">
-<link rel="manifest" href="manifest.json?v=75">
-<link rel="apple-touch-icon" href="icons/apple-touch-icon.png?v=75">
-<link rel="icon" type="image/svg+xml" href="favicon.svg?v=75">
+<link rel="manifest" href="manifest.json?v=83">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png?v=83">
+<link rel="icon" type="image/svg+xml" href="favicon.svg?v=83">
 <title>Mounce BBG Greek — Flashcards</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700&family=EB+Garamond:ital,wght@0,400;0,500;1,400&family=Noto+Serif:ital,wght@0,400;1,400&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="styles.css?v=75">
+<link rel="stylesheet" href="styles.css?v=83">
 <script>
 (function(){
   try {
@@ -147,6 +147,215 @@ update that doc in the same commit. Line numbers in the doc are approximate.
       <span class="toggle-text">Self-check</span>
       <span class="toggle-switch" id="selfCheckBtn" aria-hidden="true"></span>
     </button>
+    <button class="toggle-label" id="aspectStepToggle" type="button" role="switch" aria-checked="true" onclick="toggleAspectStep()" title="Aspect is derivable from tense, so turning this off shortens the parsing walk by one step.">
+      <span class="toggle-text">Aspect step (parsing)</span>
+      <span class="toggle-switch" id="aspectStepBtn" aria-hidden="true"></span>
+    </button>
+    <details class="utility-section parsing-options-subfilters parsing-dim-value-subfilters" id="aspectValuesFiltersDetails">
+      <summary>Exclude aspect values…</summary>
+      <button class="toggle-label" id="dimValueFilter_aspect_continuousUndefined_Toggle" type="button" role="switch" aria-checked="false" onclick="toggleDimValueFilter('aspect','continuousUndefined')" title="Excludes cards whose aspect is continuous, undefined, or the present/future composite continuous/undefined.">
+        <span class="toggle-text">Continuous/undefined (Ch. 15)</span>
+        <span class="toggle-switch" id="dimValueFilter_aspect_continuousUndefined_Btn" aria-hidden="true"></span>
+      </button>
+      <button class="toggle-label" id="dimValueFilter_aspect_completed_Toggle" type="button" role="switch" aria-checked="false" onclick="toggleDimValueFilter('aspect','completed')">
+        <span class="toggle-text">Completed (Ch. 25)</span>
+        <span class="toggle-switch" id="dimValueFilter_aspect_completed_Btn" aria-hidden="true"></span>
+      </button>
+    </details>
+    <button class="toggle-label" id="tenseStepToggle" type="button" role="switch" aria-checked="true" onclick="toggleDimStep('tense')" title="Ask Tense as a parsing step. Off: skipped silently, doesn't count toward stats, omitted from the parse summary.">
+      <span class="toggle-text">Tense step (parsing)</span>
+      <span class="toggle-switch" id="tenseStepBtn" aria-hidden="true"></span>
+    </button>
+    <details class="utility-section parsing-options-subfilters parsing-dim-value-subfilters" id="tenseValuesFiltersDetails">
+      <summary>Exclude tense values…</summary>
+      <button class="toggle-label" id="dimValueFilter_tense_present_Toggle" type="button" role="switch" aria-checked="false" onclick="toggleDimValueFilter('tense','present')">
+        <span class="toggle-text">Present (Ch. 15)</span>
+        <span class="toggle-switch" id="dimValueFilter_tense_present_Btn" aria-hidden="true"></span>
+      </button>
+      <button class="toggle-label" id="dimValueFilter_tense_future_Toggle" type="button" role="switch" aria-checked="false" onclick="toggleDimValueFilter('tense','future')">
+        <span class="toggle-text">Future (Ch. 19)</span>
+        <span class="toggle-switch" id="dimValueFilter_tense_future_Btn" aria-hidden="true"></span>
+      </button>
+      <button class="toggle-label" id="dimValueFilter_tense_imperfect_Toggle" type="button" role="switch" aria-checked="false" onclick="toggleDimValueFilter('tense','imperfect')">
+        <span class="toggle-text">Imperfect (Ch. 21)</span>
+        <span class="toggle-switch" id="dimValueFilter_tense_imperfect_Btn" aria-hidden="true"></span>
+      </button>
+      <button class="toggle-label" id="dimValueFilter_tense_aorist_Toggle" type="button" role="switch" aria-checked="false" onclick="toggleDimValueFilter('tense','aorist')" title="Excludes both first-aorist and second-aorist cards (they normalize to 'aorist').">
+        <span class="toggle-text">Aorist (Ch. 22)</span>
+        <span class="toggle-switch" id="dimValueFilter_tense_aorist_Btn" aria-hidden="true"></span>
+      </button>
+      <button class="toggle-label" id="dimValueFilter_tense_perfect_Toggle" type="button" role="switch" aria-checked="false" onclick="toggleDimValueFilter('tense','perfect')">
+        <span class="toggle-text">Perfect (Ch. 25)</span>
+        <span class="toggle-switch" id="dimValueFilter_tense_perfect_Btn" aria-hidden="true"></span>
+      </button>
+      <button class="toggle-label" id="dimValueFilter_tense_pluperfect_Toggle" type="button" role="switch" aria-checked="false" onclick="toggleDimValueFilter('tense','pluperfect')">
+        <span class="toggle-text">Pluperfect (Ch. 25)</span>
+        <span class="toggle-switch" id="dimValueFilter_tense_pluperfect_Btn" aria-hidden="true"></span>
+      </button>
+    </details>
+    <button class="toggle-label" id="voiceStepToggle" type="button" role="switch" aria-checked="true" onclick="toggleDimStep('voice')" title="Ask Voice as a parsing step. Off: skipped silently, doesn't count toward stats, omitted from the parse summary. (Also chapter-gated: voice step only appears from ch 15+, or earlier for deponent verbs.)">
+      <span class="toggle-text">Voice step (parsing)</span>
+      <span class="toggle-switch" id="voiceStepBtn" aria-hidden="true"></span>
+    </button>
+    <details class="utility-section parsing-options-subfilters parsing-dim-value-subfilters" id="voiceValuesFiltersDetails">
+      <summary>Exclude voice values…</summary>
+      <button class="toggle-label" id="dimValueFilter_voice_active_Toggle" type="button" role="switch" aria-checked="false" onclick="toggleDimValueFilter('voice','active')">
+        <span class="toggle-text">Active (Ch. 15)</span>
+        <span class="toggle-switch" id="dimValueFilter_voice_active_Btn" aria-hidden="true"></span>
+      </button>
+      <button class="toggle-label" id="dimValueFilter_voice_middle_Toggle" type="button" role="switch" aria-checked="false" onclick="toggleDimValueFilter('voice','middle')" title="Middle/passive composite cards are excluded only when both middle AND passive are excluded.">
+        <span class="toggle-text">Middle (Ch. 18)</span>
+        <span class="toggle-switch" id="dimValueFilter_voice_middle_Btn" aria-hidden="true"></span>
+      </button>
+      <button class="toggle-label" id="dimValueFilter_voice_passive_Toggle" type="button" role="switch" aria-checked="false" onclick="toggleDimValueFilter('voice','passive')">
+        <span class="toggle-text">Passive (Ch. 18)</span>
+        <span class="toggle-switch" id="dimValueFilter_voice_passive_Btn" aria-hidden="true"></span>
+      </button>
+    </details>
+    <button class="toggle-label" id="moodStepToggle" type="button" role="switch" aria-checked="true" onclick="toggleDimStep('mood')" title="Ask Mood as a parsing step. Off: skipped silently, doesn't count toward stats, omitted from the parse summary.">
+      <span class="toggle-text">Mood step (parsing)</span>
+      <span class="toggle-switch" id="moodStepBtn" aria-hidden="true"></span>
+    </button>
+    <details class="utility-section parsing-options-subfilters parsing-dim-value-subfilters" id="moodValuesFiltersDetails">
+      <summary>Exclude mood values…</summary>
+      <button class="toggle-label" id="dimValueFilter_mood_indicative_Toggle" type="button" role="switch" aria-checked="false" onclick="toggleDimValueFilter('mood','indicative')">
+        <span class="toggle-text">Indicative (Ch. 15)</span>
+        <span class="toggle-switch" id="dimValueFilter_mood_indicative_Btn" aria-hidden="true"></span>
+      </button>
+      <button class="toggle-label" id="dimValueFilter_mood_subjunctive_Toggle" type="button" role="switch" aria-checked="false" onclick="toggleDimValueFilter('mood','subjunctive')">
+        <span class="toggle-text">Subjunctive (Ch. 31)</span>
+        <span class="toggle-switch" id="dimValueFilter_mood_subjunctive_Btn" aria-hidden="true"></span>
+      </button>
+      <button class="toggle-label" id="dimValueFilter_mood_imperative_Toggle" type="button" role="switch" aria-checked="false" onclick="toggleDimValueFilter('mood','imperative')">
+        <span class="toggle-text">Imperative (Ch. 33)</span>
+        <span class="toggle-switch" id="dimValueFilter_mood_imperative_Btn" aria-hidden="true"></span>
+      </button>
+      <button class="toggle-label" id="dimValueFilter_mood_infinitive_Toggle" type="button" role="switch" aria-checked="false" onclick="toggleDimValueFilter('mood','infinitive')">
+        <span class="toggle-text">Infinitive (Ch. 32)</span>
+        <span class="toggle-switch" id="dimValueFilter_mood_infinitive_Btn" aria-hidden="true"></span>
+      </button>
+      <button class="toggle-label" id="dimValueFilter_mood_participle_Toggle" type="button" role="switch" aria-checked="false" onclick="toggleDimValueFilter('mood','participle')">
+        <span class="toggle-text">Participle (Ch. 27)</span>
+        <span class="toggle-switch" id="dimValueFilter_mood_participle_Btn" aria-hidden="true"></span>
+      </button>
+    </details>
+    <button class="toggle-label" id="personStepToggle" type="button" role="switch" aria-checked="true" onclick="toggleDimStep('person')" title="Ask Person as a parsing step. Off: skipped silently, doesn't count toward stats, omitted from the parse summary.">
+      <span class="toggle-text">Person step (parsing)</span>
+      <span class="toggle-switch" id="personStepBtn" aria-hidden="true"></span>
+    </button>
+    <details class="utility-section parsing-options-subfilters parsing-dim-value-subfilters" id="personValuesFiltersDetails">
+      <summary>Exclude person values…</summary>
+      <button class="toggle-label" id="dimValueFilter_person_first_Toggle" type="button" role="switch" aria-checked="false" onclick="toggleDimValueFilter('person','first')">
+        <span class="toggle-text">1st person (Ch. 15)</span>
+        <span class="toggle-switch" id="dimValueFilter_person_first_Btn" aria-hidden="true"></span>
+      </button>
+      <button class="toggle-label" id="dimValueFilter_person_second_Toggle" type="button" role="switch" aria-checked="false" onclick="toggleDimValueFilter('person','second')">
+        <span class="toggle-text">2nd person (Ch. 15)</span>
+        <span class="toggle-switch" id="dimValueFilter_person_second_Btn" aria-hidden="true"></span>
+      </button>
+      <button class="toggle-label" id="dimValueFilter_person_third_Toggle" type="button" role="switch" aria-checked="false" onclick="toggleDimValueFilter('person','third')">
+        <span class="toggle-text">3rd person (Ch. 15)</span>
+        <span class="toggle-switch" id="dimValueFilter_person_third_Btn" aria-hidden="true"></span>
+      </button>
+    </details>
+    <button class="toggle-label" id="numberStepToggle" type="button" role="switch" aria-checked="true" onclick="toggleDimStep('number')" title="Ask Number as a parsing step. Off: skipped silently, doesn't count toward stats, omitted from the parse summary.">
+      <span class="toggle-text">Number step (parsing)</span>
+      <span class="toggle-switch" id="numberStepBtn" aria-hidden="true"></span>
+    </button>
+    <details class="utility-section parsing-options-subfilters parsing-dim-value-subfilters" id="numberValuesFiltersDetails">
+      <summary>Exclude number values…</summary>
+      <button class="toggle-label" id="dimValueFilter_number_singular_Toggle" type="button" role="switch" aria-checked="false" onclick="toggleDimValueFilter('number','singular')">
+        <span class="toggle-text">Singular (Ch. 6)</span>
+        <span class="toggle-switch" id="dimValueFilter_number_singular_Btn" aria-hidden="true"></span>
+      </button>
+      <button class="toggle-label" id="dimValueFilter_number_plural_Toggle" type="button" role="switch" aria-checked="false" onclick="toggleDimValueFilter('number','plural')">
+        <span class="toggle-text">Plural (Ch. 6)</span>
+        <span class="toggle-switch" id="dimValueFilter_number_plural_Btn" aria-hidden="true"></span>
+      </button>
+    </details>
+    <button class="toggle-label" id="caseStepToggle" type="button" role="switch" aria-checked="true" onclick="toggleDimStep('case')" title="Ask Case as a parsing step. Off: skipped silently, doesn't count toward stats, omitted from the parse summary.">
+      <span class="toggle-text">Case step (parsing)</span>
+      <span class="toggle-switch" id="caseStepBtn" aria-hidden="true"></span>
+    </button>
+    <details class="utility-section parsing-options-subfilters parsing-dim-value-subfilters" id="caseValuesFiltersDetails">
+      <summary>Exclude case values…</summary>
+      <button class="toggle-label" id="dimValueFilter_case_nominative_Toggle" type="button" role="switch" aria-checked="false" onclick="toggleDimValueFilter('case','nominative')" title="Nominative/accusative composite cards are excluded only when both nominative AND accusative are excluded.">
+        <span class="toggle-text">Nominative (Ch. 6)</span>
+        <span class="toggle-switch" id="dimValueFilter_case_nominative_Btn" aria-hidden="true"></span>
+      </button>
+      <button class="toggle-label" id="dimValueFilter_case_accusative_Toggle" type="button" role="switch" aria-checked="false" onclick="toggleDimValueFilter('case','accusative')">
+        <span class="toggle-text">Accusative (Ch. 6)</span>
+        <span class="toggle-switch" id="dimValueFilter_case_accusative_Btn" aria-hidden="true"></span>
+      </button>
+      <button class="toggle-label" id="dimValueFilter_case_genitive_Toggle" type="button" role="switch" aria-checked="false" onclick="toggleDimValueFilter('case','genitive')">
+        <span class="toggle-text">Genitive (Ch. 7)</span>
+        <span class="toggle-switch" id="dimValueFilter_case_genitive_Btn" aria-hidden="true"></span>
+      </button>
+      <button class="toggle-label" id="dimValueFilter_case_dative_Toggle" type="button" role="switch" aria-checked="false" onclick="toggleDimValueFilter('case','dative')">
+        <span class="toggle-text">Dative (Ch. 7)</span>
+        <span class="toggle-switch" id="dimValueFilter_case_dative_Btn" aria-hidden="true"></span>
+      </button>
+      <button class="toggle-label" id="dimValueFilter_case_vocative_Toggle" type="button" role="switch" aria-checked="false" onclick="toggleDimValueFilter('case','vocative')">
+        <span class="toggle-text">Vocative (Ch. 7)</span>
+        <span class="toggle-switch" id="dimValueFilter_case_vocative_Btn" aria-hidden="true"></span>
+      </button>
+    </details>
+    <button class="toggle-label" id="genderStepToggle" type="button" role="switch" aria-checked="true" onclick="toggleDimStep('gender')" title="Ask Gender as a parsing step. Off: skipped silently, doesn't count toward stats, omitted from the parse summary.">
+      <span class="toggle-text">Gender step (parsing)</span>
+      <span class="toggle-switch" id="genderStepBtn" aria-hidden="true"></span>
+    </button>
+    <details class="utility-section parsing-options-subfilters parsing-dim-value-subfilters" id="genderValuesFiltersDetails">
+      <summary>Exclude gender values…</summary>
+      <div class="parsing-options-subfilters-note">Single-gender lemmas (most nouns) ignore this filter — only adjectives, pronouns, and the article are excluded by it.</div>
+      <button class="toggle-label" id="dimValueFilter_gender_masculine_Toggle" type="button" role="switch" aria-checked="false" onclick="toggleDimValueFilter('gender','masculine')" title="Tri-gender composite cards (masculine/feminine/neuter) are excluded only when all three components are excluded.">
+        <span class="toggle-text">Masculine (Ch. 6)</span>
+        <span class="toggle-switch" id="dimValueFilter_gender_masculine_Btn" aria-hidden="true"></span>
+      </button>
+      <button class="toggle-label" id="dimValueFilter_gender_feminine_Toggle" type="button" role="switch" aria-checked="false" onclick="toggleDimValueFilter('gender','feminine')">
+        <span class="toggle-text">Feminine (Ch. 6)</span>
+        <span class="toggle-switch" id="dimValueFilter_gender_feminine_Btn" aria-hidden="true"></span>
+      </button>
+      <button class="toggle-label" id="dimValueFilter_gender_neuter_Toggle" type="button" role="switch" aria-checked="false" onclick="toggleDimValueFilter('gender','neuter')">
+        <span class="toggle-text">Neuter (Ch. 6)</span>
+        <span class="toggle-switch" id="dimValueFilter_gender_neuter_Btn" aria-hidden="true"></span>
+      </button>
+    </details>
+    <button class="toggle-label" id="optionalFormsToggle" type="button" role="switch" aria-checked="false" onclick="toggleOptionalForms()" title="Drill morphologically real paradigm forms Mounce doesn't drill (e.g. εἰμί's future middle infinitive ἔσεσθαι and present imperative ἴσθι/ἔστω). Off by default; the form-lookup feedback always consults these forms regardless.">
+      <span class="toggle-text">Optional paradigm extensions (parsing)</span>
+      <span class="toggle-switch" id="optionalFormsBtn" aria-hidden="true"></span>
+    </button>
+    <details class="utility-section parsing-options-subfilters" id="optionalFormsFiltersDetails">
+      <summary>Filter optional forms by category…</summary>
+      <div class="parsing-options-subfilters-note">Only applies when the parent toggle above is on. Off = exclude that category from the optional-form drill pool.</div>
+      <button class="toggle-label" id="optionalFilter_imperative_Toggle" type="button" role="switch" aria-checked="true" onclick="toggleOptionalFormFilter('imperative')" title="Include optional imperative forms (e.g. ἴσθι, λῦσαι, δός, στῆθι series) in the drill pool.">
+        <span class="toggle-text">Include imperatives</span>
+        <span class="toggle-switch" id="optionalFilter_imperative_Btn" aria-hidden="true"></span>
+      </button>
+      <button class="toggle-label" id="optionalFilter_subjunctive_Toggle" type="button" role="switch" aria-checked="true" onclick="toggleOptionalFormFilter('subjunctive')" title="Include optional subjunctive forms (e.g. λύω/λύσω paradigms, δῶ, θῶ, στῶ) in the drill pool.">
+        <span class="toggle-text">Include subjunctives</span>
+        <span class="toggle-switch" id="optionalFilter_subjunctive_Btn" aria-hidden="true"></span>
+      </button>
+      <button class="toggle-label" id="optionalFilter_infinitive_Toggle" type="button" role="switch" aria-checked="true" onclick="toggleOptionalFormFilter('infinitive')" title="Include optional infinitive forms (e.g. ἔσεσθαι, δοῦναι, θεῖναι, στῆναι, γενέσθαι) in the drill pool.">
+        <span class="toggle-text">Include infinitives</span>
+        <span class="toggle-switch" id="optionalFilter_infinitive_Btn" aria-hidden="true"></span>
+      </button>
+      <button class="toggle-label" id="optionalFilter_participle_Toggle" type="button" role="switch" aria-checked="true" onclick="toggleOptionalFormFilter('participle')" title="Include optional participle full declensions (e.g. βαλών, γενόμενος, λελυκώς, ἑστηκώς, the aorist passive participles) in the drill pool.">
+        <span class="toggle-text">Include participles</span>
+        <span class="toggle-switch" id="optionalFilter_participle_Btn" aria-hidden="true"></span>
+      </button>
+      <button class="toggle-label" id="optionalFilter_thirdPerson_Toggle" type="button" role="switch" aria-checked="true" onclick="toggleOptionalFormFilter('thirdPerson')" title="Include optional 3rd-person forms (e.g. ἔστω, ἔστωσαν, λυέσθω, the 3rd-person imperatives Mounce skips) in the drill pool.">
+        <span class="toggle-text">Include 3rd-person forms</span>
+        <span class="toggle-switch" id="optionalFilter_thirdPerson_Btn" aria-hidden="true"></span>
+      </button>
+      <button class="toggle-label" id="optionalFilter_futureTense_Toggle" type="button" role="switch" aria-checked="true" onclick="toggleOptionalFormFilter('futureTense')" title="Include optional future-tense forms (e.g. ἔσεσθαι, ἐσόμενος, future participles) in the drill pool.">
+        <span class="toggle-text">Include future-tense forms</span>
+        <span class="toggle-switch" id="optionalFilter_futureTense_Btn" aria-hidden="true"></span>
+      </button>
+      <button class="toggle-label" id="optionalFilter_perfectTense_Toggle" type="button" role="switch" aria-checked="true" onclick="toggleOptionalFormFilter('perfectTense')" title="Include optional perfect-tense forms (e.g. γέγονα series, λελυκώς, λελυμένος, δέδομαι) in the drill pool.">
+        <span class="toggle-text">Include perfect-tense forms</span>
+        <span class="toggle-switch" id="optionalFilter_perfectTense_Btn" aria-hidden="true"></span>
+      </button>
+    </details>
     <div class="reset-actions-grid">
       <button class="ctrl-btn" type="button" onclick="reshuffleEligible()">Reshuffle</button>
       <button class="ctrl-btn" id="resetDeckBtn" type="button" onclick="resetCurrentDeck()">Reset deck</button>
@@ -157,6 +366,11 @@ update that doc in the same commit. Line numbers in the doc are approximate.
   </details>
 
   <div id="readerView" class="reader-view" style="display:none"></div>
+
+  <div class="paradigm-focus-row paradigm-focus-row-primary" id="parsingChapterRow" style="display:none">
+    <label class="paradigm-focus-label" for="parsingChapterSelect">Current chapter</label>
+    <select id="parsingChapterSelect" class="paradigm-focus-select" onchange="setParsingChapter(this.value)"></select>
+  </div>
 
   <div class="paradigm-focus-row paradigm-focus-row-primary" id="paradigmFocusRowPrimary" style="display:none">
     <label class="paradigm-focus-label" for="paradigmFocusSelectPrimary">Focused paradigm</label>
@@ -349,7 +563,7 @@ update that doc in the same commit. Line numbers in the doc are approximate.
             <span class="analytics-collapse-caret" aria-hidden="true">▾</span>
             <div class="analytics-collapse-title-wrap">
               <h4>Paradigm parsing (step-by-step)</h4>
-              <p class="analytics-collapse-summary-status" id="analyticsParadigmStepStatsStatus">Off-the-record drill stats. Last 20 attempts per paradigm.</p>
+              <p class="analytics-collapse-summary-status" id="analyticsParadigmStepStatsStatus">Off-the-record drill stats. Tap a row for the bucket-of-20 performance chart.</p>
             </div>
           </summary>
           <div class="analytics-collapse-body">
@@ -640,46 +854,46 @@ update that doc in the same commit. Line numbers in the doc are approximate.
   </div>
 </div>
 
-<script defer src="js/data/words.js?v=75"></script>
-<script defer src="js/data/morphology.js?v=75"></script>
-<script defer src="js/data/lemma_inventory.js?v=75"></script>
-<script defer src="js/data/supplemental.js?v=75"></script>
-<script defer src="js/data/grammar.js?v=75"></script>
-<script defer src="js/data/supplementals/mounce_paradigms.js?v=75"></script>
-<script defer src="js/data/supplementals/stem_change_drills.js?v=75"></script>
-<script defer src="js/data/supplementals/second_aorist_flip.js?v=75"></script>
-<script defer src="js/data/supplementals/w3_aorist_passive_flip.js?v=75"></script>
-<script defer src="js/data/supplementals/w3_perfect_active_flip.js?v=75"></script>
-<script defer src="js/data/supplementals/w4_mi_verb_principal_parts_flip.js?v=75"></script>
-<script defer src="js/data/advanced/advanced_01.js?v=75"></script>
-<script defer src="js/data/advanced/advanced_02.js?v=75"></script>
-<script defer src="js/data/advanced/advanced_03.js?v=75"></script>
-<script defer src="js/data/advanced/advanced_04.js?v=75"></script>
-<script defer src="js/data/advanced/advanced_05.js?v=75"></script>
-<script defer src="js/data/advanced/advanced_06.js?v=75"></script>
-<script defer src="js/data/advanced/advanced_07.js?v=75"></script>
-<script defer src="js/data/advanced/advanced_08.js?v=75"></script>
-<script defer src="js/data/advanced/advanced_09.js?v=75"></script>
-<script defer src="js/data/advanced/advanced_10.js?v=75"></script>
-<script defer src="js/data/advanced/advanced_11.js?v=75"></script>
-<script defer src="js/data/advanced/advanced_12.js?v=75"></script>
-<script defer src="js/data/advanced/advanced_13.js?v=75"></script>
-<script defer src="js/data/advanced/advanced_14.js?v=75"></script>
-<script defer src="js/data/advanced/advanced_15.js?v=75"></script>
-<script defer src="js/data/advanced/advanced_16.js?v=75"></script>
-<script defer src="js/data/advanced/advanced_17.js?v=75"></script>
-<script defer src="js/data/advanced/advanced_18.js?v=75"></script>
-<script defer src="js/data/advanced/advanced_19.js?v=75"></script>
-<script defer src="js/data/advanced/advanced_20.js?v=75"></script>
-<script defer src="js/data/advanced/advanced_21.js?v=75"></script>
-<script defer src="js/data/advanced/advanced_22.js?v=75"></script>
-<script defer src="js/data/advanced/advanced_23.js?v=75"></script>
-<script defer src="js/data/advanced/advanced_24.js?v=75"></script>
-<script defer src="js/data/advanced/advanced_25.js?v=75"></script>
-<script defer src="js/data/reader.js?v=75"></script>
-<script defer src="js/data/reader_verse_literals.js?v=75"></script>
-<script defer src="js/data/reader_translations.js?v=75"></script>
-<script defer src="js/logic/pos_logic.js?v=75"></script>
-<script type="module" src="js/app/main.js?v=75"></script>
+<script defer src="js/data/words.js?v=83"></script>
+<script defer src="js/data/morphology.js?v=83"></script>
+<script defer src="js/data/lemma_inventory.js?v=83"></script>
+<script defer src="js/data/supplemental.js?v=83"></script>
+<script defer src="js/data/grammar.js?v=83"></script>
+<script defer src="js/data/supplementals/mounce_paradigms.js?v=83"></script>
+<script defer src="js/data/supplementals/stem_change_drills.js?v=83"></script>
+<script defer src="js/data/supplementals/second_aorist_flip.js?v=83"></script>
+<script defer src="js/data/supplementals/w3_aorist_passive_flip.js?v=83"></script>
+<script defer src="js/data/supplementals/w3_perfect_active_flip.js?v=83"></script>
+<script defer src="js/data/supplementals/w4_mi_verb_principal_parts_flip.js?v=83"></script>
+<script defer src="js/data/advanced/advanced_01.js?v=83"></script>
+<script defer src="js/data/advanced/advanced_02.js?v=83"></script>
+<script defer src="js/data/advanced/advanced_03.js?v=83"></script>
+<script defer src="js/data/advanced/advanced_04.js?v=83"></script>
+<script defer src="js/data/advanced/advanced_05.js?v=83"></script>
+<script defer src="js/data/advanced/advanced_06.js?v=83"></script>
+<script defer src="js/data/advanced/advanced_07.js?v=83"></script>
+<script defer src="js/data/advanced/advanced_08.js?v=83"></script>
+<script defer src="js/data/advanced/advanced_09.js?v=83"></script>
+<script defer src="js/data/advanced/advanced_10.js?v=83"></script>
+<script defer src="js/data/advanced/advanced_11.js?v=83"></script>
+<script defer src="js/data/advanced/advanced_12.js?v=83"></script>
+<script defer src="js/data/advanced/advanced_13.js?v=83"></script>
+<script defer src="js/data/advanced/advanced_14.js?v=83"></script>
+<script defer src="js/data/advanced/advanced_15.js?v=83"></script>
+<script defer src="js/data/advanced/advanced_16.js?v=83"></script>
+<script defer src="js/data/advanced/advanced_17.js?v=83"></script>
+<script defer src="js/data/advanced/advanced_18.js?v=83"></script>
+<script defer src="js/data/advanced/advanced_19.js?v=83"></script>
+<script defer src="js/data/advanced/advanced_20.js?v=83"></script>
+<script defer src="js/data/advanced/advanced_21.js?v=83"></script>
+<script defer src="js/data/advanced/advanced_22.js?v=83"></script>
+<script defer src="js/data/advanced/advanced_23.js?v=83"></script>
+<script defer src="js/data/advanced/advanced_24.js?v=83"></script>
+<script defer src="js/data/advanced/advanced_25.js?v=83"></script>
+<script defer src="js/data/reader.js?v=83"></script>
+<script defer src="js/data/reader_verse_literals.js?v=83"></script>
+<script defer src="js/data/reader_translations.js?v=83"></script>
+<script defer src="js/logic/pos_logic.js?v=83"></script>
+<script type="module" src="js/app/main.js?v=83"></script>
 </body>
 </html>

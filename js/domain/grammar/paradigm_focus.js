@@ -10,6 +10,54 @@
 // underlying source is chapter-keyed or week-keyed.
 
 import { CHAPTER_TO_WEEK } from '../../data/setMeta.js';
+import { parseAnswerDimensions, dimValuePassesFilter } from './morph_steps.js';
+
+const DIM_VALUE_FILTER_KEYS = ['aspect', 'tense', 'voice', 'mood', 'person', 'number', 'case', 'gender'];
+
+// True iff every dim the card's parse populates passes the per-value
+// filter for that dim. Dims the card's parse leaves blank are ignored
+// (they don't constrain the filter). A null/empty filter map means
+// "everything enabled" and trivially passes.
+//
+// `multiGenderLemmas` is the set of lemmas whose paradigm has cards in
+// more than one gender (articles, adjectives, pronouns). Lemmas not in
+// the set are single-gender (most nouns) and skip the gender filter —
+// excluding e.g. masculine shouldn't wipe out all of λόγος.
+// Gender-as-filter only meaningfully prunes within a multi-gender
+// paradigm where the student is identifying gender from form.
+function cardPassesDimValueFilters(card, dimValueFilters, multiGenderLemmas) {
+  if (!dimValueFilters || typeof dimValueFilters !== 'object') return true;
+  const dims = parseAnswerDimensions(card.parsedAnswer || card.answer || '');
+  const lemmaIsMultiGender = !!(multiGenderLemmas && card.lemma && multiGenderLemmas.has(card.lemma));
+  for (const dim of DIM_VALUE_FILTER_KEYS) {
+    const value = dims[dim];
+    if (!value) continue;
+    if (dim === 'gender' && !lemmaIsMultiGender) continue;
+    if (!dimValuePassesFilter(dim, value, dimValueFilters)) return false;
+  }
+  return true;
+}
+
+// Builds the set of lemmas that appear in more than one gender across
+// `cards`. Composite genders (e.g. "masculine/feminine/neuter") split
+// into their components so a tri-gender adjective registers as
+// multi-gender even if every individual card carries the composite.
+function buildMultiGenderLemmas(cards) {
+  const lemmaGenders = new Map();
+  cards.forEach((card) => {
+    if (!card || !card.lemma) return;
+    const dims = parseAnswerDimensions(card.parsedAnswer || card.answer || '');
+    if (!dims.gender) return;
+    if (!lemmaGenders.has(card.lemma)) lemmaGenders.set(card.lemma, new Set());
+    const genders = lemmaGenders.get(card.lemma);
+    String(dims.gender).split('/').forEach((g) => { if (g) genders.add(g); });
+  });
+  const result = new Set();
+  lemmaGenders.forEach((genders, lemma) => {
+    if (genders.size > 1) result.add(lemma);
+  });
+  return result;
+}
 
 // Categorical grouping for the focused-paradigm dropdown. Each lemma string
 // (matched verbatim against the lemma field in MORPHOLOGY_SETS items) maps
@@ -159,6 +207,16 @@ function sourceLevel(sourceKey) {
     const firstCh = WEEK_FIRST_CHAPTER[wk];
     return { kind: 'week', week: wk, effectiveChapter: firstCh || (wk * 2 - 1) };
   }
+  // OPT_<chapter>[_<suffix>] — synthetic source key for optional paradigm
+  // forms injected from LEMMA_INVENTORY.optionalFormGroups when the user
+  // toggles "Optional paradigm extensions" on. The chapter component is
+  // the group's own `chapter` field, so the standard sourcePassesLevel
+  // gate naturally caps optional cards at the student's current scope.
+  const optMatch = str.match(/^OPT_(\d+)/);
+  if (optMatch) {
+    const ch = Number(optMatch[1]);
+    return { kind: 'optional', week: CHAPTER_TO_WEEK[ch] || null, effectiveChapter: ch };
+  }
   return { kind: 'other', week: null, effectiveChapter: 0 };
 }
 
@@ -181,6 +239,97 @@ function sourcePassesLevel(sourceKey, levels) {
   const lvl = sourceLevel(sourceKey);
   if (lvl.kind === 'other') return false;
   return lvl.effectiveChapter <= levels.maxEffectiveChapter;
+}
+
+// Synthesizes morph-shaped cards from LEMMA_INVENTORY[lemma].optionalFormGroups
+// for every group whose chapter gate is in scope at the student's current
+// max effective chapter. Returns [] when the lemma has no optional groups,
+// when no group is in scope, or when LEMMA_INVENTORY isn't loaded.
+//
+// Each synthesized card mirrors the shape buildMorphologyCardsForKeys
+// produces (kind: 'morph', sourceKey, parsedAnswer, formToAnswer, …) so
+// downstream consumers — the step builder, the form-lookup fallback, the
+// per-form dedup in getCardsForFocusedParadigm, the stats tracker — treat
+// them uniformly with Mounce-curriculum cards. supplemental: true tags
+// them as off-textbook (matters for any filter that splits curriculum vs
+// extension content). choices/reverseChoices are left as the single-item
+// arrays the form-lookup feedback uses; the parsing walk doesn't read
+// these.
+function buildOptionalMorphCardsForLemma(lemma, levels, filters) {
+  if (!lemma || !levels || levels.maxEffectiveChapter == null) return [];
+  const inv = (typeof window !== 'undefined' && window.LEMMA_INVENTORY)
+    ? window.LEMMA_INVENTORY[lemma]
+    : null;
+  if (!inv || !Array.isArray(inv.optionalFormGroups)) return [];
+
+  // Per-category filter: a card is dropped if any of its canonical-parse
+  // tokens corresponds to a filter that's been turned off. Filters
+  // default to "include" — only explicit `false` excludes. Empty/missing
+  // filters object means no filtering.
+  const filterCard = (parsedAnswer) => {
+    if (!filters || typeof filters !== 'object') return true;
+    const parse = String(parsedAnswer || '').toLowerCase();
+    if (filters.imperative === false   && /\bimperative\b/.test(parse))    return false;
+    if (filters.subjunctive === false  && /\bsubjunctive\b/.test(parse))   return false;
+    if (filters.infinitive === false   && /\binfinitive\b/.test(parse))    return false;
+    if (filters.participle === false   && /\bparticiple\b/.test(parse))    return false;
+    if (filters.thirdPerson === false  && /\bthird person\b/.test(parse))  return false;
+    if (filters.futureTense === false  && /\bfuture\b/.test(parse))        return false;
+    if (filters.perfectTense === false && /\bperfect\b/.test(parse))       return false;
+    return true;
+  };
+
+  const out = [];
+  inv.optionalFormGroups.forEach((group, groupIdx) => {
+    if (!group || !group.forms || typeof group.chapter !== 'number') return;
+    if (group.chapter > levels.maxEffectiveChapter) return;
+    const sourceKey = `OPT_${group.chapter}`;
+    const sourceLabel = group.family || `${lemma} — optional (ch ${group.chapter})`;
+    const entries = Object.entries(group.forms);
+    entries.forEach(([form, parsedAnswer], formIdx) => {
+      if (!form || !parsedAnswer) return;
+      if (!filterCard(parsedAnswer)) return;
+      out.push({
+        id: `morph-OPT-${stableOptMorphKey(lemma)}-${group.chapter}-${groupIdx}-${formIdx}-${stableOptMorphKey(form)}`,
+        kind: 'morph',
+        required: true,
+        sourceKey,
+        sourceLabel,
+        supplemental: true,
+        chapter: group.chapter,
+        family: group.family || `${lemma} — optional`,
+        lemma,
+        gloss: '',
+        lemmaGloss: '',
+        form,
+        prompt: 'Parse this form.',
+        dimensional: true,
+        context: '',
+        note: '',
+        answer: parsedAnswer,
+        parsedAnswer,
+        choices: [parsedAnswer],
+        reversible: false,
+        reversePrompt: 'Choose the correct Greek form.',
+        reverseChoices: [form],
+        formToAnswer: { [form]: parsedAnswer }
+      });
+    });
+  });
+  return out;
+}
+
+// Loose slugifier reused by the synthetic card id. Mirrors the
+// stableMorphKey defined inside morphology.js's IIFE so Greek and ASCII
+// keys both produce stable, collision-free strings. Kept in sync by
+// convention — if morphology.js's version evolves, update here too.
+function stableOptMorphKey(text) {
+  return String(text || '')
+    .normalize('NFD')
+    .replace(/\p{Diacritic}+/gu, '')
+    .replace(/[^\p{L}\p{N}]+/gu, '-')
+    .toLowerCase()
+    .replace(/^-+|-+$/g, '');
 }
 
 // Cumulative list of paradigm lemmas available to the user given their
@@ -253,7 +402,7 @@ function normalizeFormForDedup(form) {
 // Doing this at the source level (rather than per-form) preserves
 // legitimate within-source duplicates — e.g. λύω's imperfect ἔλυον is the
 // same Greek string for both 1sg and 3pl, and both cards must survive.
-export function getCardsForFocusedParadigm(selectedKeys, focusedLemma) {
+export function getCardsForFocusedParadigm(selectedKeys, focusedLemma, options = {}) {
   if (!focusedLemma) return [];
   if (typeof window === 'undefined' || typeof window.buildMorphologyCardsForKeys !== 'function') return [];
 
@@ -267,9 +416,25 @@ export function getCardsForFocusedParadigm(selectedKeys, focusedLemma) {
     return set.items.some((item) => item && item.lemma === focusedLemma);
   });
 
-  if (!eligibleSourceKeys.length) return [];
-  const cards = window.buildMorphologyCardsForKeys(eligibleSourceKeys)
-    .filter((card) => card && card.lemma === focusedLemma);
+  // Optional paradigm extensions: when the user has toggled them on in
+  // settings, append synthetic cards for any LEMMA_INVENTORY group whose
+  // chapter gate is in scope. Doing this BEFORE the per-form dedup means
+  // an extension form that happens to collide with a Mounce-curriculum
+  // form (rare — extensions exist precisely because the curriculum
+  // doesn't drill them) collapses to the richer-parse winner like any
+  // other duplicate. When the toggle is off, no extension cards are
+  // added — but the fallback form-lookup in render.js still consults
+  // LEMMA_INVENTORY.extraForms, so wrong-pick feedback stays canonical.
+  const optionalCards = options.includeOptional
+    ? buildOptionalMorphCardsForLemma(focusedLemma, levels, options.optionalFilters)
+    : [];
+
+  if (!eligibleSourceKeys.length && !optionalCards.length) return [];
+  const drilledCards = eligibleSourceKeys.length
+    ? window.buildMorphologyCardsForKeys(eligibleSourceKeys)
+        .filter((card) => card && card.lemma === focusedLemma)
+    : [];
+  const cards = drilledCards.concat(optionalCards);
 
   const cardsBySource = new Map();
   cards.forEach((card) => {
@@ -298,7 +463,56 @@ export function getCardsForFocusedParadigm(selectedKeys, focusedLemma) {
       if (allInB) superseded.add(srcA);
     });
   });
-  return cards.filter((c) => !superseded.has(c.sourceKey));
+
+  // Drop cards whose canonical parse has no extractable dimensions — those
+  // are concept questions (e.g. "what kind of verb is εἰμί syntactically?")
+  // that happen to live in a paradigm item; in parsing mode they collapse
+  // to a 0-step empty walk. Also drop sentence-shaped "forms" (translation
+  // exercises like "ὁ Ἰησοῦς ἐστιν ὁ Χριστός.") which leak through with
+  // multi-word "forms".
+  function hasParseableDims(card) {
+    const text = card.parsedAnswer || card.answer || '';
+    const dims = parseAnswerDimensions(text);
+    return !!(dims.tense || dims.voice || dims.mood || dims.person
+              || dims.case || dims.number || dims.gender);
+  }
+  function isSingleFormShape(form) {
+    if (!form) return false;
+    if (/\s/.test(String(form).trim())) return false; // multi-word ⇒ sentence/phrase
+    if (/[=→]/.test(form)) return false;              // marker / stem-pair shorthand
+    return true;
+  }
+  const dimValueFilters = options.dimValueFilters || null;
+  // Compute the multi-gender lemma set from the pre-gender-filter pool —
+  // including a lemma's full gender repertoire even if some of its cards
+  // would later be excluded by other dim filters. The gender filter is
+  // then a no-op for any single-gender (noun) lemma.
+  const preGenderFiltered = cards
+    .filter((c) => !superseded.has(c.sourceKey))
+    .filter((c) => isSingleFormShape(c.form) && hasParseableDims(c));
+  const multiGenderLemmas = buildMultiGenderLemmas(preGenderFiltered);
+  const filtered = preGenderFiltered
+    .filter((c) => cardPassesDimValueFilters(c, dimValueFilters, multiGenderLemmas));
+
+  // Per-form dedup. Multiple sources can carry the same form (e.g.
+  // grammar.js ch 5's εἰμί 1-sg question + a paradigm set's εἰμί entry).
+  // In parsing mode they all render the same step-by-step walk — keeping
+  // them all just makes the same Greek word repeat in the deck. Pick the
+  // single card with the richest canonical parse per form so the walk
+  // asks every dim the form carries.
+  function dimCount(card) {
+    const dims = parseAnswerDimensions(card.parsedAnswer || card.answer || '');
+    return ['tense', 'voice', 'mood', 'person', 'case', 'number', 'gender']
+      .filter(k => dims[k]).length;
+  }
+  const deduped = new Map();
+  filtered.forEach((card) => {
+    const key = normalizeFormForDedup(card.form);
+    if (!key) return;
+    const existing = deduped.get(key);
+    if (!existing || dimCount(card) > dimCount(existing)) deduped.set(key, card);
+  });
+  return [...deduped.values()];
 }
 
 export function chooseDefaultFocusedParadigm(selectedKeys) {
