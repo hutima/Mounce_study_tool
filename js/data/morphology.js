@@ -1025,7 +1025,7 @@
             supplemental: !!selection.set.supplemental,
             chapter: Number(selection.baseKey),
             family: item.family,
-            lemma: item.lemma,
+            lemma: q.lemma || item.lemma,
             gloss: item.gloss,
             form: q.form,
             prompt: q.prompt || 'Parse this form.',

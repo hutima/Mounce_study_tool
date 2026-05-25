@@ -257,14 +257,39 @@ export function renderCard() {
         : `<div class="morph-result pending">${pendingLabel}</div>`;
     }
 
+    // Gloss + lemma-hint gating:
+    // - lemma-hint shows only when the lemma token actually appears in the
+    //   form. Family-level lemmas like "attributive vs predicate" describe
+    //   the concept being tested, not a Greek word, so showing them as a
+    //   hint next to ὁ ἀγαθὸς ἄνθρωπος would mislead.
+    // - gloss is held back on translate prompts until the student answers
+    //   (otherwise we hand them the translation), and held back whenever
+    //   the gloss text matches exactly one of the visible MC options.
+    const lemmaMatchesForm = familyLemmaAppearsInForm(card.lemma, card.form);
+    const isTranslatePrompt = /translate/i.test(card.prompt || '') && !reversed;
+    const glossText = String(card.gloss || card.lemmaGloss || '');
+    const glossSinglesOutChoice = !reversed && glossPointsAtSingleChoice(glossText, displayChoices);
+    const glossUnlocked = runtime.morphSelfCheck
+      ? runtime.morphAnswerState.revealed
+      : runtime.morphAnswerState.answered;
+    const showGloss = glossText
+      && lemmaMatchesForm
+      && (!isTranslatePrompt || glossUnlocked)
+      && (!glossSinglesOutChoice || glossUnlocked);
+    const glossHtml = showGloss
+      ? `<div class="morph-gloss">Gloss: “${glossText}”</div>`
+      : '';
+    const lemmaHintHtml = lemmaMatchesForm
+      ? `<div class="morph-hint">${card.lemma}</div>`
+      : '';
     area.innerHTML = `
       <div class="morph-card">
         <div class="morph-label">Grammar${reversed ? ' · English → Greek' : ''}</div>
         <div class="morph-prompt">${displayPrompt}</div>
-        ${card.lemmaGloss || card.gloss ? `<div class="morph-gloss">Gloss: “${card.lemmaGloss || card.gloss}”</div>` : ''}
+        ${glossHtml}
         <div class="${formClass}">${displayForm}</div>
         ${contextHtml}
-        <div class="morph-hint">${card.lemma}</div>
+        ${lemmaHintHtml}
         <div class="morph-source">${card.sourceLabel}${card.family ? ` · ${card.family}` : ''}${runtime.morphSelfCheck ? ' · Self-check' : ''}</div>
         ${interactionHtml}
         ${resultHtml}
@@ -417,6 +442,46 @@ function escapeHtml(s) {
     .replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;')
     .replace(/'/g, '&#39;');
+}
+
+// True iff the gloss text matches exactly one of the displayed multiple-choice
+// options. When a hint resolves to a single option, showing it before the
+// student answers is essentially giving them the answer — used on grammar
+// cards (translate prompts) to gate the gloss until the choice is locked in.
+function glossPointsAtSingleChoice(gloss, choices) {
+  if (!gloss || !Array.isArray(choices) || choices.length < 2) return false;
+  const strip = (s) => String(s).toLowerCase().replace(/[''""''""]/g, '').replace(/\s+/g, ' ').trim();
+  const g = strip(gloss);
+  if (g.length < 2) return false;
+  let hits = 0;
+  for (const c of choices) {
+    if (strip(c).includes(g)) hits++;
+    if (hits > 1) return false;
+  }
+  return hits === 1;
+}
+
+// True iff some token of the lemma string actually shows up (modulo
+// accents/diacritics) as a stem in the form. Used to suppress on-card lemma
+// hints when the family-level label ("attributive vs predicate") describes a
+// concept rather than a word that appears in the prompt — otherwise we'd be
+// showing the student "attributive vs predicate" next to a form like
+// ὁ ἀγαθὸς ἄνθρωπος and gold-stamping the wrong relationship.
+function familyLemmaAppearsInForm(lemma, form) {
+  if (!lemma || !form) return true;
+  const greek = /[Ͱ-Ͽἀ-῿]+/g;
+  const lemmaTokens = String(lemma).match(greek) || [];
+  const formTokens = String(form).match(greek) || [];
+  if (!lemmaTokens.length || !formTokens.length) return true;
+  const strip = (s) => String(s).normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
+  const formStems = formTokens.map(strip);
+  return lemmaTokens.some((lt) => {
+    const ls = strip(lt);
+    if (ls.length < 2) return false;
+    const stemLen = Math.max(3, ls.length - 2);
+    const stem = ls.slice(0, Math.min(ls.length, stemLen));
+    return formStems.some((fs) => fs.includes(stem) || stem.includes(fs));
+  });
 }
 
 // Diff-highlights two Greek strings via Longest Common Subsequence: shared
@@ -723,10 +788,24 @@ function resolveFormForPickedDims(card, steps, pickedValues, autoFilledDims) {
   // picked correctly. Without this, an off-toggle would orphan-skip
   // every wrong-form candidate through the matchPool's missing-dim
   // pass and the lookup would surface noise.
+  //
+  // Voice exception for suppletive verbs (εἰμί, ἔρχομαι): when the student
+  // picked a tense that differs from the card's canonical tense, the
+  // auto-filled voice belongs to the canonical tense's stem and won't apply
+  // to the picked tense (εἰμί is active in the present/imperfect but middle
+  // in the future). Skip the voice fill so the lookup can still resolve a
+  // form in the picked tense rather than collapsing to "no morph exists".
   if (autoFilledDims && typeof autoFilledDims === 'object') {
+    const cardDims = parseAnswerDimensions(card.parsedAnswer || card.answer || '');
+    const normalizeTense = (t) => String(t || '').replace(/^(first|second)\s+/, '');
     Object.keys(autoFilledDims).forEach((k) => {
       if (FORM_LOOKUP_SKIP_DIMS.has(k)) return;
-      if (!pickedDims[k] && autoFilledDims[k]) pickedDims[k] = autoFilledDims[k];
+      if (pickedDims[k] || !autoFilledDims[k]) return;
+      if (k === 'voice' && pickedDims.tense && cardDims.tense
+          && normalizeTense(pickedDims.tense) !== normalizeTense(cardDims.tense)) {
+        return;
+      }
+      pickedDims[k] = autoFilledDims[k];
     });
   }
   const keys = Object.keys(pickedDims);
@@ -921,13 +1000,25 @@ function renderMorphStepSummary(card, state) {
 
 function renderMorphStepCard(area, card) {
   const state = ensureStepStateForCard(card);
-  const lemmaGloss = card.lemmaGloss || card.gloss
-    ? `<div class="morph-gloss">Gloss: “${escapeHtml(card.lemmaGloss || card.gloss)}”</div>`
+  // Hide the gloss while the parse is in progress — seeing "to loose" next
+  // to ἔλυσας before picking tense/voice can leak the dimensions through
+  // English inference. Surfaces once the parse completes so the student
+  // still gets the lexical anchor on the summary screen.
+  const lemmaGloss = state.completed && (card.gloss || card.lemmaGloss)
+    ? `<div class="morph-gloss">Gloss: “${escapeHtml(card.gloss || card.lemmaGloss)}”</div>`
     : '';
 
   const body = state.completed
     ? renderMorphStepSummary(card, state)
     : renderMorphStepCurrent(state);
+
+  // Italicized line under the form is the transliteration of the form
+  // itself (not the lemma) so beginners can sound it out without leaking
+  // the dictionary form — which would short-circuit a tense/aspect pick.
+  const formTransliteration = host.transliterateGreek(card.form || '');
+  const hintHtml = formTransliteration
+    ? `<div class="morph-hint">${escapeHtml(formTransliteration)}</div>`
+    : '';
 
   area.innerHTML = `
     <div class="morph-card morph-step-card">
@@ -935,7 +1026,7 @@ function renderMorphStepCard(area, card) {
       <div class="morph-prompt">Parse this form one dimension at a time.</div>
       ${lemmaGloss}
       <div class="morph-form">${escapeHtml(card.form)}</div>
-      <div class="morph-hint">${escapeHtml(card.lemma)}</div>
+      ${hintHtml}
       <div class="morph-source">${escapeHtml(card.sourceLabel || '')} · Use "continuous/undefined" when the form licenses either reading</div>
       ${renderMorphStepBreadcrumb(state)}
       ${body}
