@@ -32,9 +32,8 @@ shown/hidden by JS — never nest a new overlay inside `.app`.
 - 2–6     Pointer comment to this structure doc
 - 10–16   Google Analytics tag
 - 17–24   PWA / icon / manifest meta (`?v=N` cache-bust param appears here and on every script/stylesheet)
-- 26–27   Google Fonts preconnect + stylesheet link
-- 28      `<link rel="stylesheet" href="styles.css?v=N">`
-- 29–51   **Pre-paint inline script.** Reads `localStorage` and sets
+- 26      `<link rel="stylesheet" href="styles.css?v=N">` — `styles.css` carries the bundled `@font-face` blocks for Gentium Plus (serif, `fonts/gentium-plus/`) and Noto Sans (sans, `fonts/noto-sans/`). No Google Fonts `<link>`: every woff2 ships with the app and is precached by `sw.js`. The sans variant also sets `font-size-adjust: 0.454` so Noto Sans's larger x-height visually matches Gentium Plus when the user toggles font family.
+- 27–49   **Pre-paint inline script.** Reads `localStorage` and sets
           `data-theme` / `data-font-family` / `data-text-size` on `<html>`
           before first paint to avoid flash-of-wrong-theme. Don't move this.
 
