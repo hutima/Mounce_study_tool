@@ -63,6 +63,41 @@
     unicode-range: U+1F00-1FFF;
   }
 
+  /* Bundled Noto Sans (SIL OFL 1.1 — see fonts/noto-sans/OFL.txt).
+     Variable font, subsetted to latin + greek + greek-ext (polytonic) per
+     style. `font-weight: 100 900` exposes the full variable axis so a
+     single file serves every weight without a separate download per cut. */
+  @font-face {
+    font-family: 'Noto Sans'; font-style: normal; font-weight: 100 900; font-display: swap;
+    src: url('fonts/noto-sans/noto-sans-n-latin.woff2') format('woff2');
+    unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+  }
+  @font-face {
+    font-family: 'Noto Sans'; font-style: normal; font-weight: 100 900; font-display: swap;
+    src: url('fonts/noto-sans/noto-sans-n-greek.woff2') format('woff2');
+    unicode-range: U+0370-0377, U+037A-037F, U+0384-038A, U+038C, U+038E-03A1, U+03A3-03FF;
+  }
+  @font-face {
+    font-family: 'Noto Sans'; font-style: normal; font-weight: 100 900; font-display: swap;
+    src: url('fonts/noto-sans/noto-sans-n-greek-ext.woff2') format('woff2');
+    unicode-range: U+1F00-1FFF;
+  }
+  @font-face {
+    font-family: 'Noto Sans'; font-style: italic; font-weight: 100 900; font-display: swap;
+    src: url('fonts/noto-sans/noto-sans-i-latin.woff2') format('woff2');
+    unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+  }
+  @font-face {
+    font-family: 'Noto Sans'; font-style: italic; font-weight: 100 900; font-display: swap;
+    src: url('fonts/noto-sans/noto-sans-i-greek.woff2') format('woff2');
+    unicode-range: U+0370-0377, U+037A-037F, U+0384-038A, U+038C, U+038E-03A1, U+03A3-03FF;
+  }
+  @font-face {
+    font-family: 'Noto Sans'; font-style: italic; font-weight: 100 900; font-display: swap;
+    src: url('fonts/noto-sans/noto-sans-i-greek-ext.woff2') format('woff2');
+    unicode-range: U+1F00-1FFF;
+  }
+
   :root {
     --bg: #0e0f14;
     --surface: #161820;
@@ -79,23 +114,28 @@
     --green: #4a7a5a;
     --radius: 12px;
     --shadow: 0 8px 40px rgba(0,0,0,0.6);
-    /* All three serif slots share Gentium Plus (SIL's polytonic-capable
-       serif), with Noto Serif as a fallback. The sans-serif preference
-       (below) swaps every slot for a system sans stack whose entries all
-       ship with polytonic Greek (SF Pro / Segoe UI / Roboto / Noto Sans /
-       DejaVu Sans / Helvetica) — no webfont download, fully offline. */
+    /* All three slots share bundled Gentium Plus (SIL's polytonic-capable
+       book serif), falling back to a system-installed Noto Serif and then
+       the generic serif. The sans-serif preference (below) swaps every
+       slot for bundled Noto Sans. */
     --font-body: 'Gentium Plus', 'Noto Serif', serif;
     --font-display: 'Gentium Plus', 'Noto Serif', serif;
     --font-greek: 'Gentium Plus', 'Noto Serif', serif;
   }
 
-  /* Sans-serif override: body/display switch to system sans, and Greek
-     text switches to a sans stack that still renders polytonic accents.
-     Fonts come from the OS so the PWA stays fully offline. */
+  /* Sans-serif override: all three slots use bundled Noto Sans (polytonic-
+     capable), falling back to a system sans stack on browsers that can't
+     load the woff2. Noto Sans has a larger x-height than Gentium Plus
+     (0.536em vs 0.454em), so the same nominal font-size renders visibly
+     bigger in sans mode. `font-size-adjust` rescales the rendered glyphs
+     so x-height matches Gentium's, keeping the optical size constant when
+     toggling between serif and sans. Browsers without font-size-adjust
+     support (older Safari/Chrome) just show the larger natural size. */
   html[data-font-family="sans"] {
-    --font-body: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
-    --font-display: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
-    --font-greek: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Helvetica Neue', 'Noto Sans', 'DejaVu Sans', 'Liberation Sans', Arial, sans-serif;
+    --font-body: 'Noto Sans', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+    --font-display: 'Noto Sans', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+    --font-greek: 'Noto Sans', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Helvetica Neue', 'DejaVu Sans', 'Liberation Sans', Arial, sans-serif;
+    font-size-adjust: 0.454;
   }
 
   /* Text size: uses `zoom` so padding scales with the text — buttons keep
