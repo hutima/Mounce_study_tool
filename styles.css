@@ -16,11 +16,12 @@
     --shadow: 0 8px 40px rgba(0,0,0,0.6);
     --font-body: 'EB Garamond', serif;
     --font-display: 'Cinzel', serif;
-    /* Greek text uses Noto Serif by default (polytonic-capable). The sans-
-       serif preference swaps it for a system sans stack whose entries all
-       ship with polytonic Greek (SF Pro / Segoe UI / Roboto / Noto Sans /
+    /* Greek text uses Gentium Plus by default (SIL's polytonic-capable
+       serif), with Noto Serif as a fallback. The sans-serif preference
+       swaps it for a system sans stack whose entries all ship with
+       polytonic Greek (SF Pro / Segoe UI / Roboto / Noto Sans /
        DejaVu Sans / Helvetica) — no webfont download, fully offline. */
-    --font-greek: var(--font-greek);
+    --font-greek: 'Gentium Plus', 'Noto Serif', serif;
   }
 
   /* Sans-serif override: body/display switch to system sans, and Greek
