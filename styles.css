@@ -2701,6 +2701,85 @@
   html[data-theme="light"] .consent-overlay {
     background: rgba(88, 72, 38, 0.38);
   }
+
+  /* ── Light mode: deepen parsing correct/incorrect colors ──
+     The dark-mode hues (#9ad0a7 / #e7a1a1) are tuned for a near-black
+     surface; on cream they wash out to near-illegible pastels. Strategy:
+       - Standalone red/green TEXT (parse summary rows, parse-line labels,
+         %-buckets, choice/result body copy) gets saturated oxblood /
+         forest hues so it reads cleanly against cream.
+       - Coloured CIRCLES + chip backgrounds (step dots, choice-btn /
+         morph-result tinted frames) stay in a softer pastel register so
+         they still feel light-mode appropriate, but with a *darker*
+         glyph inside so the C/N/G letter is readable. */
+  html[data-theme="light"] .choice-btn.correct {
+    border-color: #c5dccb;
+    background: rgba(58,106,74,0.06);
+    color: #3a6a4a;
+  }
+  html[data-theme="light"] .choice-btn.incorrect {
+    border-color: #e0c5c5;
+    background: rgba(140,58,58,0.05);
+    color: #8c3a3a;
+  }
+  html[data-theme="light"] .morph-result.correct {
+    background: rgba(58,106,74,0.06);
+    border-color: #c5dccb;
+    color: #3a6a4a;
+  }
+  html[data-theme="light"] .morph-result.incorrect {
+    background: rgba(140,58,58,0.05);
+    border-color: #e0c5c5;
+    color: #8c3a3a;
+  }
+  html[data-theme="light"] .morph-step-dot.correct {
+    border-color: #c5dccb;
+    color: #3a6a4a;
+    background: rgba(58,106,74,0.07);
+  }
+  html[data-theme="light"] .morph-step-dot.incorrect {
+    border-color: #e0c5c5;
+    color: #8c3a3a;
+    background: rgba(140,58,58,0.06);
+  }
+  html[data-theme="light"] .morph-step-summary-row.morph-step-correct .morph-step-summary-pick { color: #3a6a4a; }
+  html[data-theme="light"] .morph-step-summary-row.morph-step-incorrect .morph-step-summary-pick { color: #8c3a3a; }
+  html[data-theme="light"] .morph-step-aspect-note { color: #8c3a3a; }
+  html[data-theme="light"] .morph-step-parse-line-yours .morph-step-parse-label { color: #8c3a3a; }
+  html[data-theme="light"] .morph-step-parse-line-correct .morph-step-parse-label { color: #3a6a4a; }
+  html[data-theme="light"] .morph-step-parse-match-impossible { color: #8c3a3a; }
+  html[data-theme="light"] .morph-wrong-label { color: #8c3a3a; }
+  html[data-theme="light"] .parsing-review-pct-high { color: #3a6a4a; }
+  html[data-theme="light"] .parsing-review-pct-low  { color: #8c3a3a; }
+  html[data-theme="light"] .reader-choice-btn.correct {
+    border-color: #c5dccb;
+    background: rgba(58,106,74,0.06);
+    color: #3a6a4a;
+  }
+  html[data-theme="light"] .reader-choice-btn.incorrect {
+    border-color: #e0c5c5;
+    background: rgba(140,58,58,0.05);
+    color: #8c3a3a;
+  }
+  html[data-theme="light"] .reader-drill-result.correct { color: #3a6a4a; }
+  html[data-theme="light"] .reader-drill-result.incorrect { color: #8c3a3a; }
+
+  /* ── Light mode: outline OFF toggles ──
+     The default OFF track uses `background: var(--border)` (cream tan)
+     with a transparent border, which blends into the light page
+     background and reads as "no toggle here". Give the OFF state an
+     explicit gold-dim outline (matching the ON state's border weight)
+     so the track is visible even when not engaged. */
+  html[data-theme="light"] .toggle-switch {
+    border-color: var(--gold-dim);
+  }
+  html[data-theme="light"] .toggle-switch:not(.on) {
+    background: transparent;
+  }
+  html[data-theme="light"] .toggle-switch:not(.on)::after {
+    background: var(--gold-dim);
+  }
+
   @media (max-width: 600px) {
     .header-top { grid-template-columns: 1fr; }
     .theme-switcher { justify-self: center; }
