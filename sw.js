@@ -3,111 +3,109 @@
 // GitHub Pages note: all app-shell URLs are resolved relative to the
 // service worker registration scope so this works both at a domain root
 // and at a project path such as https://user.github.io/repository/.
-const CACHE_NAME = 'mounce-bbg-greek-pwa-v88';
+const CACHE_NAME = 'mounce-bbg-greek-pwa-v89';
 const BASE_URL = new URL('./', self.registration.scope);
-
-// Cross-origin hosts whose responses we want to keep in the runtime cache
-// so the app survives going offline after a single online load. Currently
-// just the Google Fonts CSS endpoint and the static font-file CDN it
-// references for @font-face URLs.
-const RUNTIME_CACHE_HOSTS = [
-  'https://fonts.googleapis.com/',
-  'https://fonts.gstatic.com/'
-];
-
-// CSS endpoint that the page's <link> tag requests. Adding it to the
-// install precache means even the very first offline navigation (after
-// the SW has installed online) can render with the intended typefaces;
-// the @font-face woff2 URLs inside it are then captured by the runtime
-// fetch handler the first time the browser resolves them.
-const FONT_STYLESHEET_URL = 'https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700&family=EB+Garamond:ital,wght@0,400;0,500;1,400&family=Gentium+Plus:ital,wght@0,400;0,700;1,400;1,700&family=Noto+Serif:ital,wght@0,400;1,400&display=swap';
 
 const APP_SHELL_PATHS = [
   './',
   'index.html',
   'pages/memorization.html',
-  'styles.css?v=88',
-  'manifest.json?v=88',
-  'favicon.svg?v=88',
-  'js/data/words.js?v=88',
-  'js/data/morphology.js?v=88',
-  'js/data/lemma_inventory.js?v=88',
-  'js/data/supplemental.js?v=88',
-  'js/data/grammar.js?v=88',
-  'js/data/parsing_examples.js?v=88',
-  'js/data/concept_examples.js?v=88',
-  'js/data/grammar_examples.js?v=88',
-  'js/data/setMeta.js?v=88',
-  'js/logic/pos_logic.js?v=88',
-  'js/data/reader.js?v=88',
-  'js/data/reader_verse_literals.js?v=88',
-  'js/data/reader_translations.js?v=88',
-  'js/data/supplementals/mounce_paradigms.js?v=88',
-  'js/data/supplementals/stem_change_drills.js?v=88',
-  'js/data/supplementals/second_aorist_flip.js?v=88',
-  'js/data/supplementals/w3_aorist_passive_flip.js?v=88',
-  'js/data/supplementals/w3_perfect_active_flip.js?v=88',
-  'js/data/supplementals/w4_mi_verb_principal_parts_flip.js?v=88',
-  'js/app/main.js?v=88',
-  'js/data/advanced/advanced_01.js?v=88',
-  'js/data/advanced/advanced_02.js?v=88',
-  'js/data/advanced/advanced_03.js?v=88',
-  'js/data/advanced/advanced_04.js?v=88',
-  'js/data/advanced/advanced_05.js?v=88',
-  'js/data/advanced/advanced_06.js?v=88',
-  'js/data/advanced/advanced_07.js?v=88',
-  'js/data/advanced/advanced_08.js?v=88',
-  'js/data/advanced/advanced_09.js?v=88',
-  'js/data/advanced/advanced_10.js?v=88',
-  'js/data/advanced/advanced_11.js?v=88',
-  'js/data/advanced/advanced_12.js?v=88',
-  'js/data/advanced/advanced_13.js?v=88',
-  'js/data/advanced/advanced_14.js?v=88',
-  'js/data/advanced/advanced_15.js?v=88',
-  'js/data/advanced/advanced_16.js?v=88',
-  'js/data/advanced/advanced_17.js?v=88',
-  'js/data/advanced/advanced_18.js?v=88',
-  'js/data/advanced/advanced_19.js?v=88',
-  'js/data/advanced/advanced_20.js?v=88',
-  'js/data/advanced/advanced_21.js?v=88',
-  'js/data/advanced/advanced_22.js?v=88',
-  'js/data/advanced/advanced_23.js?v=88',
-  'js/data/advanced/advanced_24.js?v=88',
-  'js/data/advanced/advanced_25.js?v=88',
-  'js/utils/helpers.js?v=88',
-  'js/utils/time.js?v=88',
-  'js/utils/storage.js?v=88',
-  'js/utils/greekSort.js?v=88',
-  'js/utils/clickShield.js?v=88',
-  'js/domain/srs/constants.js?v=88',
-  'js/domain/srs/scheduler.js?v=88',
-  'js/domain/srs/confidence.js?v=88',
-  'js/domain/gamification/levels.js?v=88',
-  'js/domain/gamification/usageStats.js?v=88',
-  'js/domain/deck/ordering.js?v=88',
-  'js/domain/deck/filters.js?v=88',
-  'js/domain/grammar/explanations.js?v=88',
-  'js/domain/grammar/morph_steps.js?v=88',
-  'js/domain/grammar/paradigm_focus.js?v=88',
-  'js/state/migrations.js?v=88',
-  'js/state/store.js?v=88',
-  'js/state/runtime.js?v=88',
-  'js/state/persistence.js?v=88',
-  'js/domain/gamification/xp.js?v=88',
-  'js/ui/analytics.js?v=88',
-  'js/ui/charts.js?v=88',
-  'js/ui/keyboard.js?v=88',
-  'js/ui/modals.js?v=88',
-  'js/ui/navigation.js?v=88',
-  'js/ui/progress.js?v=88',
-  'js/ui/reader.js?v=88',
-  'js/ui/render.js?v=88',
-  'js/ui/selectors.js?v=88',
-  'js/ui/toast.js?v=88',
-  'js/ui/touchTapBridge.js?v=88',
+  'styles.css?v=89',
+  'manifest.json?v=89',
+  'favicon.svg?v=89',
+  'js/data/words.js?v=89',
+  'js/data/morphology.js?v=89',
+  'js/data/lemma_inventory.js?v=89',
+  'js/data/supplemental.js?v=89',
+  'js/data/grammar.js?v=89',
+  'js/data/parsing_examples.js?v=89',
+  'js/data/concept_examples.js?v=89',
+  'js/data/grammar_examples.js?v=89',
+  'js/data/setMeta.js?v=89',
+  'js/logic/pos_logic.js?v=89',
+  'js/data/reader.js?v=89',
+  'js/data/reader_verse_literals.js?v=89',
+  'js/data/reader_translations.js?v=89',
+  'js/data/supplementals/mounce_paradigms.js?v=89',
+  'js/data/supplementals/stem_change_drills.js?v=89',
+  'js/data/supplementals/second_aorist_flip.js?v=89',
+  'js/data/supplementals/w3_aorist_passive_flip.js?v=89',
+  'js/data/supplementals/w3_perfect_active_flip.js?v=89',
+  'js/data/supplementals/w4_mi_verb_principal_parts_flip.js?v=89',
+  'js/app/main.js?v=89',
+  'js/data/advanced/advanced_01.js?v=89',
+  'js/data/advanced/advanced_02.js?v=89',
+  'js/data/advanced/advanced_03.js?v=89',
+  'js/data/advanced/advanced_04.js?v=89',
+  'js/data/advanced/advanced_05.js?v=89',
+  'js/data/advanced/advanced_06.js?v=89',
+  'js/data/advanced/advanced_07.js?v=89',
+  'js/data/advanced/advanced_08.js?v=89',
+  'js/data/advanced/advanced_09.js?v=89',
+  'js/data/advanced/advanced_10.js?v=89',
+  'js/data/advanced/advanced_11.js?v=89',
+  'js/data/advanced/advanced_12.js?v=89',
+  'js/data/advanced/advanced_13.js?v=89',
+  'js/data/advanced/advanced_14.js?v=89',
+  'js/data/advanced/advanced_15.js?v=89',
+  'js/data/advanced/advanced_16.js?v=89',
+  'js/data/advanced/advanced_17.js?v=89',
+  'js/data/advanced/advanced_18.js?v=89',
+  'js/data/advanced/advanced_19.js?v=89',
+  'js/data/advanced/advanced_20.js?v=89',
+  'js/data/advanced/advanced_21.js?v=89',
+  'js/data/advanced/advanced_22.js?v=89',
+  'js/data/advanced/advanced_23.js?v=89',
+  'js/data/advanced/advanced_24.js?v=89',
+  'js/data/advanced/advanced_25.js?v=89',
+  'js/utils/helpers.js?v=89',
+  'js/utils/time.js?v=89',
+  'js/utils/storage.js?v=89',
+  'js/utils/greekSort.js?v=89',
+  'js/utils/clickShield.js?v=89',
+  'js/domain/srs/constants.js?v=89',
+  'js/domain/srs/scheduler.js?v=89',
+  'js/domain/srs/confidence.js?v=89',
+  'js/domain/gamification/levels.js?v=89',
+  'js/domain/gamification/usageStats.js?v=89',
+  'js/domain/deck/ordering.js?v=89',
+  'js/domain/deck/filters.js?v=89',
+  'js/domain/grammar/explanations.js?v=89',
+  'js/domain/grammar/morph_steps.js?v=89',
+  'js/domain/grammar/paradigm_focus.js?v=89',
+  'js/state/migrations.js?v=89',
+  'js/state/store.js?v=89',
+  'js/state/runtime.js?v=89',
+  'js/state/persistence.js?v=89',
+  'js/domain/gamification/xp.js?v=89',
+  'js/ui/analytics.js?v=89',
+  'js/ui/charts.js?v=89',
+  'js/ui/keyboard.js?v=89',
+  'js/ui/modals.js?v=89',
+  'js/ui/navigation.js?v=89',
+  'js/ui/progress.js?v=89',
+  'js/ui/reader.js?v=89',
+  'js/ui/render.js?v=89',
+  'js/ui/selectors.js?v=89',
+  'js/ui/toast.js?v=89',
+  'js/ui/touchTapBridge.js?v=89',
   'icons/icon-192.png',
   'icons/icon-512.png',
-  'icons/apple-touch-icon.png?v=88'
+  'icons/apple-touch-icon.png?v=89',
+  // Bundled Gentium Plus woff2 subsets — referenced from styles.css
+  // @font-face declarations. Same-origin, so no runtime CDN fetches.
+  'fonts/gentium-plus/gentium-plus-400n-latin.woff2',
+  'fonts/gentium-plus/gentium-plus-400n-greek.woff2',
+  'fonts/gentium-plus/gentium-plus-400n-greek-ext.woff2',
+  'fonts/gentium-plus/gentium-plus-700n-latin.woff2',
+  'fonts/gentium-plus/gentium-plus-700n-greek.woff2',
+  'fonts/gentium-plus/gentium-plus-700n-greek-ext.woff2',
+  'fonts/gentium-plus/gentium-plus-400i-latin.woff2',
+  'fonts/gentium-plus/gentium-plus-400i-greek.woff2',
+  'fonts/gentium-plus/gentium-plus-400i-greek-ext.woff2',
+  'fonts/gentium-plus/gentium-plus-700i-latin.woff2',
+  'fonts/gentium-plus/gentium-plus-700i-greek.woff2',
+  'fonts/gentium-plus/gentium-plus-700i-greek-ext.woff2'
 ];
 
 const APP_SHELL = APP_SHELL_PATHS.map(path => new URL(path, BASE_URL).toString());
@@ -116,13 +114,7 @@ const INDEX_URL = new URL('index.html', BASE_URL).toString();
 self.addEventListener('install', event => {
   event.waitUntil(
     caches.open(CACHE_NAME)
-      .then(cache => cache.addAll(APP_SHELL).then(() => {
-        // Best-effort: prime the Google Fonts CSS so offline navigation
-        // still has the @font-face declarations. A network failure here
-        // must not abort the SW install or the whole app shell never
-        // becomes available offline.
-        return cache.add(new Request(FONT_STYLESHEET_URL, { mode: 'cors' })).catch(() => {});
-      }))
+      .then(cache => cache.addAll(APP_SHELL))
       .then(() => self.skipWaiting())
   );
 });
@@ -156,10 +148,8 @@ self.addEventListener('fetch', event => {
     caches.match(req).then(cached => {
       if (cached) return cached;
       return fetch(req).then(res => {
-        const copy = res.clone();
-        const sameOrigin = req.url.startsWith(BASE_URL.origin);
-        const isCacheableCrossOrigin = RUNTIME_CACHE_HOSTS.some(host => req.url.startsWith(host));
-        if (sameOrigin || isCacheableCrossOrigin) {
+        if (req.url.startsWith(BASE_URL.origin)) {
+          const copy = res.clone();
           caches.open(CACHE_NAME).then(cache => cache.put(req, copy));
         }
         return res;

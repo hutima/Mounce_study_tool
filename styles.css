@@ -1,3 +1,68 @@
+  /* Bundled Gentium Plus (SIL OFL 1.1 — see fonts/gentium-plus/OFL.txt).
+     Subsetted to latin + greek + greek-ext (polytonic) per weight/style.
+     Files ship with the PWA, so the app renders with the intended typeface
+     offline and without contacting a font CDN. */
+  @font-face {
+    font-family: 'Gentium Plus'; font-style: normal; font-weight: 400; font-display: swap;
+    src: url('fonts/gentium-plus/gentium-plus-400n-latin.woff2') format('woff2');
+    unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+  }
+  @font-face {
+    font-family: 'Gentium Plus'; font-style: normal; font-weight: 400; font-display: swap;
+    src: url('fonts/gentium-plus/gentium-plus-400n-greek.woff2') format('woff2');
+    unicode-range: U+0370-0377, U+037A-037F, U+0384-038A, U+038C, U+038E-03A1, U+03A3-03FF;
+  }
+  @font-face {
+    font-family: 'Gentium Plus'; font-style: normal; font-weight: 400; font-display: swap;
+    src: url('fonts/gentium-plus/gentium-plus-400n-greek-ext.woff2') format('woff2');
+    unicode-range: U+1F00-1FFF;
+  }
+  @font-face {
+    font-family: 'Gentium Plus'; font-style: normal; font-weight: 700; font-display: swap;
+    src: url('fonts/gentium-plus/gentium-plus-700n-latin.woff2') format('woff2');
+    unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+  }
+  @font-face {
+    font-family: 'Gentium Plus'; font-style: normal; font-weight: 700; font-display: swap;
+    src: url('fonts/gentium-plus/gentium-plus-700n-greek.woff2') format('woff2');
+    unicode-range: U+0370-0377, U+037A-037F, U+0384-038A, U+038C, U+038E-03A1, U+03A3-03FF;
+  }
+  @font-face {
+    font-family: 'Gentium Plus'; font-style: normal; font-weight: 700; font-display: swap;
+    src: url('fonts/gentium-plus/gentium-plus-700n-greek-ext.woff2') format('woff2');
+    unicode-range: U+1F00-1FFF;
+  }
+  @font-face {
+    font-family: 'Gentium Plus'; font-style: italic; font-weight: 400; font-display: swap;
+    src: url('fonts/gentium-plus/gentium-plus-400i-latin.woff2') format('woff2');
+    unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+  }
+  @font-face {
+    font-family: 'Gentium Plus'; font-style: italic; font-weight: 400; font-display: swap;
+    src: url('fonts/gentium-plus/gentium-plus-400i-greek.woff2') format('woff2');
+    unicode-range: U+0370-0377, U+037A-037F, U+0384-038A, U+038C, U+038E-03A1, U+03A3-03FF;
+  }
+  @font-face {
+    font-family: 'Gentium Plus'; font-style: italic; font-weight: 400; font-display: swap;
+    src: url('fonts/gentium-plus/gentium-plus-400i-greek-ext.woff2') format('woff2');
+    unicode-range: U+1F00-1FFF;
+  }
+  @font-face {
+    font-family: 'Gentium Plus'; font-style: italic; font-weight: 700; font-display: swap;
+    src: url('fonts/gentium-plus/gentium-plus-700i-latin.woff2') format('woff2');
+    unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+  }
+  @font-face {
+    font-family: 'Gentium Plus'; font-style: italic; font-weight: 700; font-display: swap;
+    src: url('fonts/gentium-plus/gentium-plus-700i-greek.woff2') format('woff2');
+    unicode-range: U+0370-0377, U+037A-037F, U+0384-038A, U+038C, U+038E-03A1, U+03A3-03FF;
+  }
+  @font-face {
+    font-family: 'Gentium Plus'; font-style: italic; font-weight: 700; font-display: swap;
+    src: url('fonts/gentium-plus/gentium-plus-700i-greek-ext.woff2') format('woff2');
+    unicode-range: U+1F00-1FFF;
+  }
+
   :root {
     --bg: #0e0f14;
     --surface: #161820;
@@ -14,13 +79,13 @@
     --green: #4a7a5a;
     --radius: 12px;
     --shadow: 0 8px 40px rgba(0,0,0,0.6);
-    --font-body: 'EB Garamond', serif;
-    --font-display: 'Cinzel', serif;
-    /* Greek text uses Gentium Plus by default (SIL's polytonic-capable
+    /* All three serif slots share Gentium Plus (SIL's polytonic-capable
        serif), with Noto Serif as a fallback. The sans-serif preference
-       swaps it for a system sans stack whose entries all ship with
-       polytonic Greek (SF Pro / Segoe UI / Roboto / Noto Sans /
+       (below) swaps every slot for a system sans stack whose entries all
+       ship with polytonic Greek (SF Pro / Segoe UI / Roboto / Noto Sans /
        DejaVu Sans / Helvetica) — no webfont download, fully offline. */
+    --font-body: 'Gentium Plus', 'Noto Serif', serif;
+    --font-display: 'Gentium Plus', 'Noto Serif', serif;
     --font-greek: 'Gentium Plus', 'Noto Serif', serif;
   }
 
