@@ -9,7 +9,7 @@ import { runtime } from '../state/runtime.js';
 import { buildGrammarSupportHtml } from '../domain/grammar/explanations.js';
 import { renderProgress, renderReview } from './progress.js';
 import { buildMorphSteps, summarizeLemmaStats, getParadigmStepAttemptWindow, computeAccessibleDimensionPools, parseAnswerDimensions, aspectMistakeNote, isSecondPluralPresentMoodAmbiguity } from '../domain/grammar/morph_steps.js';
-import { getAccessibleMorphCards, deriveSelectionLevels } from '../domain/grammar/paradigm_focus.js';
+import { getAccessibleMorphCards, deriveSelectionLevels, buildMultiGenderLemmas } from '../domain/grammar/paradigm_focus.js';
 
 let host = {
   saveState: () => {},
@@ -410,12 +410,14 @@ function ensureStepStateForCard(card) {
   // selected chapter (e.g. no "pluperfect" while Ch ≤ 24).
   const accessibleCards = getAccessibleMorphCards(runtime.selectedKeys);
   const accessiblePools = computeAccessibleDimensionPools(accessibleCards);
+  const multiGenderLemmas = buildMultiGenderLemmas(accessibleCards);
   const levels = deriveSelectionLevels(runtime.selectedKeys || []);
   const steps = buildMorphSteps(card, accessiblePools, {
     includeAspect: runtime.aspectStep !== false,
     maxChapter: levels.maxEffectiveChapter,
     dimToggles: runtime.dimToggles,
-    dimValueFilters: runtime.dimValueFilters
+    dimValueFilters: runtime.dimValueFilters,
+    multiGenderLemmas
   });
   runtime.morphStepState = {
     cardId: card.id,
@@ -430,7 +432,11 @@ function ensureStepStateForCard(card) {
     // Dims that were skipped (chapter-gated or user-toggled off) along
     // with their canonical correct values, so the form lookup can fill
     // them in silently. Survives across renders via the cached state.
-    autoFilledDims: steps.autoFilledDims || {}
+    autoFilledDims: steps.autoFilledDims || {},
+    // Dims skipped as steps but still rendered in the parse summary
+    // (single-gender gender skip: form doesn't change with gender, but
+    // the canonical label still names it). Empty when nothing applies.
+    impliedDims: steps.impliedDims || {}
   };
   return runtime.morphStepState;
 }
@@ -589,10 +595,16 @@ function applyDisplaySuffixIfPerson(dimKey, value) {
 // the canonical parse still reads "...imperative · second person ·
 // singular" — slot the implied 2nd-person token in after mood when no
 // Person step is present.
-function assembleParseLine(steps, values) {
+// `impliedDims` carries dimensions that weren't asked as a step but still
+// belong to the canonical parse — currently single-gender gender (λόγος
+// is always masculine, the step is skipped, but the label still reads
+// "...singular masculine"). Injected after the 'number' position so the
+// nominal order case → number → gender is preserved.
+function assembleParseLine(steps, values, impliedDims) {
   const parts = [];
   let moodImperativePos = -1;
   let hasPersonStep = false;
+  let postNumberPos = -1;
   steps.forEach((step, idx) => {
     if (step.key === 'person') hasPersonStep = true;
     const v = values[idx];
@@ -601,9 +613,15 @@ function assembleParseLine(steps, values) {
     if (step.key === 'mood' && String(v).toLowerCase() === 'imperative') {
       moodImperativePos = parts.length;
     }
+    if (step.key === 'number') postNumberPos = parts.length;
   });
   if (moodImperativePos >= 0 && !hasPersonStep) {
     parts.splice(moodImperativePos, 0, 'second person');
+    if (postNumberPos >= moodImperativePos) postNumberPos += 1;
+  }
+  if (impliedDims && impliedDims.gender) {
+    const insertAt = postNumberPos >= 0 ? postNumberPos : parts.length;
+    parts.splice(insertAt, 0, impliedDims.gender);
   }
   return parts.join(' · ');
 }
@@ -950,12 +968,12 @@ function renderMorphStepSummary(card, state) {
   const youParseLine = `<div class="morph-step-parse-compare">
        <div class="morph-step-parse-line morph-step-parse-line-yours">
          <span class="morph-step-parse-label">Your parse</span>
-         ${escapeHtml(assembleParseLine(state.steps, pickedValues) || '—')}
+         ${escapeHtml(assembleParseLine(state.steps, pickedValues, state.impliedDims) || '—')}
          ${yourFormHtml}
        </div>
        <div class="morph-step-parse-line morph-step-parse-line-correct">
          <span class="morph-step-parse-label">Correct parse</span>
-         ${escapeHtml(assembleParseLine(state.steps, correctValues))}
+         ${escapeHtml(assembleParseLine(state.steps, correctValues, state.impliedDims))}
          ${correctFormHtml}
        </div>
      </div>`;

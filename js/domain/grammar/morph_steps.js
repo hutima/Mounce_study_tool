@@ -491,9 +491,11 @@ export function buildMorphSteps(card, accessiblePools = null, options = {}) {
 
   const steps = [];
   const skippedCorrect = {}; // dim → correct value for steps we silently skipped
+  const impliedDims = {};    // dim → correct value for steps skipped but kept in parse summary
   const maxChapter = Number.isFinite(options.maxChapter) ? options.maxChapter : Infinity;
   const dimToggles = (options.dimToggles && typeof options.dimToggles === 'object') ? options.dimToggles : null;
   const dimValueFilters = (options.dimValueFilters && typeof options.dimValueFilters === 'object') ? options.dimValueFilters : null;
+  const multiGenderLemmas = options.multiGenderLemmas instanceof Set ? options.multiGenderLemmas : null;
   for (const dimKey of order) {
     const correct = dims[dimKey];
     if (!correct) continue;
@@ -524,6 +526,21 @@ export function buildMorphSteps(card, accessiblePools = null, options = {}) {
     // skippedCorrect below.
     if (dimToggles && dimKey !== 'aspect' && dimToggles[dimKey] === false) {
       skippedCorrect[dimKey] = correct;
+      continue;
+    }
+    // Single-gender lemma auto-skip. Asking "what gender?" for a noun
+    // like λόγος tests whether the student remembers the lemma's fixed
+    // gender, not whether they're parsing the form — the form λόγου is
+    // masculine because λόγος is, not because the genitive ending
+    // distinguishes a gender. Multi-gender paradigms (articles,
+    // adjectives, pronouns, participles) keep the step: there the form
+    // genuinely commits to a gender. The implied gender is auto-filled
+    // for form lookup AND surfaced in the final parse summary so the
+    // canonical label still reads e.g. "genitive singular masculine".
+    if (dimKey === 'gender' && multiGenderLemmas && card.lemma
+        && !multiGenderLemmas.has(card.lemma)) {
+      skippedCorrect[dimKey] = correct;
+      impliedDims[dimKey] = correct;
       continue;
     }
     const pool = accessiblePools ? accessiblePools[dimKey] : null;
@@ -568,6 +585,12 @@ export function buildMorphSteps(card, accessiblePools = null, options = {}) {
   // alongside the steps for the form-lookup augmentation, while
   // callers that just want the step list keep working.
   steps.autoFilledDims = skippedCorrect;
+  // `impliedDims` is a subset of skippedCorrect (currently just the
+  // single-gender gender skip) that should still appear in the rendered
+  // parse summary — the step wasn't asked, but the dim belongs to the
+  // form's canonical label. Caller renders these inline with the
+  // student-picked values.
+  steps.impliedDims = impliedDims;
   return steps;
 }
 
