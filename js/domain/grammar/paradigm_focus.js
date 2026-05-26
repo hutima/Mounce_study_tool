@@ -42,7 +42,7 @@ function cardPassesDimValueFilters(card, dimValueFilters, multiGenderLemmas) {
 // `cards`. Composite genders (e.g. "masculine/feminine/neuter") split
 // into their components so a tri-gender adjective registers as
 // multi-gender even if every individual card carries the composite.
-function buildMultiGenderLemmas(cards) {
+export function buildMultiGenderLemmas(cards) {
   const lemmaGenders = new Map();
   cards.forEach((card) => {
     if (!card || !card.lemma) return;
