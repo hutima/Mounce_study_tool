@@ -631,6 +631,7 @@ function ensureLemmaEntry(entry) {
   if (!Number.isFinite(entry.totalAttempts)) entry.totalAttempts = 0;
   if (!entry.inProgress || typeof entry.inProgress !== 'object') entry.inProgress = { correct: 0, total: 0 };
   if (!Array.isArray(entry.buckets)) entry.buckets = [];
+  if (!entry.forms || typeof entry.forms !== 'object') entry.forms = {};
   return entry;
 }
 
@@ -642,13 +643,27 @@ function accumulateDims(target, dimResults) {
 }
 
 // Record one attempt: a fully walked card with per-dimension correctness.
-// stats: { byLemma: { lemma: { attempts, totalAttempts, inProgress, buckets } },
+// stats: { byLemma: { lemma: { attempts, totalAttempts, inProgress, buckets,
+//                              forms: { [cardId]: { seen, lastCorrect, lastAt } } } },
 //          overall: { totalAttempts, inProgress, buckets } }
-export function recordParadigmAttempt(stats, lemma, dimResults) {
+// `formMeta` is optional: { cardId, allCorrect } records per-form last-attempt
+// outcome so the parsing-review "testable forms" list can dot each form red /
+// green / unseen. Independent of the per-dim sliding window above.
+export function recordParadigmAttempt(stats, lemma, dimResults, formMeta) {
   if (!lemma || !dimResults) return;
   ensureParadigmStepStats(stats);
   if (!stats.byLemma[lemma]) stats.byLemma[lemma] = {};
   const entry = ensureLemmaEntry(stats.byLemma[lemma]);
+
+  if (formMeta && formMeta.cardId) {
+    const prior = entry.forms[formMeta.cardId];
+    const prevSeen = prior && Number.isFinite(prior.seen) ? prior.seen : 0;
+    entry.forms[formMeta.cardId] = {
+      seen: prevSeen + 1,
+      lastCorrect: !!formMeta.allCorrect,
+      lastAt: Date.now()
+    };
+  }
 
   // 1) Sliding window of raw attempts (drives the header pct + per-dim chips).
   entry.attempts.push({ at: Date.now(), dims: { ...dimResults } });
@@ -714,6 +729,19 @@ export function getAllLemmaStats(stats) {
 
 export function getParadigmStepDimensionLabel(dimKey) {
   return DIM_LABEL[dimKey] || dimKey;
+}
+
+// Per-form last-attempt status for the parsing-review "testable forms" list.
+// Returns 'right' / 'wrong' / 'unseen'. Reads the disjoint per-card map kept
+// on each lemma entry — parsing mode doesn't write to the directional progress
+// store, so this is the canonical source for "have I attempted this form yet
+// and how did it go."
+export function getLemmaFormStatus(stats, lemma, cardId) {
+  if (!cardId) return 'unseen';
+  const entry = stats?.byLemma?.[lemma];
+  const form = entry?.forms && entry.forms[cardId];
+  if (!form || !Number.isFinite(form.seen) || form.seen <= 0) return 'unseen';
+  return form.lastCorrect ? 'right' : 'wrong';
 }
 
 export function getParadigmStepAttemptWindow() {

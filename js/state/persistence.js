@@ -87,6 +87,25 @@ function sanitizeBucketList(input) {
       return { correct, total, at: Number(b.at) || 0 };
     });
 }
+// Per-card "last attempt outcome" map. Lives next to attempts on a lemma
+// entry; used by the parsing-review testable-forms list to dot each form
+// red/green/unseen. Drop any entry that doesn't carry a usable seen count.
+function sanitizeLemmaForms(input) {
+  if (!isPlainObject(input)) return {};
+  const out = {};
+  Object.keys(input).forEach((cardId) => {
+    const f = input[cardId];
+    if (!isPlainObject(f)) return;
+    const seen = Math.max(0, Math.floor(Number(f.seen) || 0));
+    if (!seen) return;
+    out[String(cardId)] = {
+      seen,
+      lastCorrect: !!f.lastCorrect,
+      lastAt: Number(f.lastAt) || 0
+    };
+  });
+  return out;
+}
 // Parsing mode's chapter scope. Defaults to 36 (every Mounce chapter in
 // scope) when the saved value is missing, malformed, or out of the
 // supported 1..36 range.
@@ -116,8 +135,9 @@ function sanitizeParadigmStepStats(input) {
       const buckets = sanitizeBucketList(entry.buckets);
       const inProgress = sanitizeInProgressBucket(entry.inProgress);
       const totalAttempts = Math.max(0, Math.floor(Number(entry.totalAttempts) || 0));
-      if (attempts.length || buckets.length || inProgress.total) {
-        out.byLemma[String(lemma)] = { attempts, totalAttempts, inProgress, buckets };
+      const forms = sanitizeLemmaForms(entry.forms);
+      if (attempts.length || buckets.length || inProgress.total || Object.keys(forms).length) {
+        out.byLemma[String(lemma)] = { attempts, totalAttempts, inProgress, buckets, forms };
       }
     });
   }

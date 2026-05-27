@@ -882,7 +882,12 @@ function finalizeMorphStepAttempt(card, state) {
   if (!runtime.paradigmStepStats || typeof runtime.paradigmStepStats !== 'object') {
     runtime.paradigmStepStats = { byLemma: {} };
   }
-  recordParadigmAttempt(runtime.paradigmStepStats, card.lemma, dims);
+  const dimValues = Object.values(dims);
+  const allCorrect = dimValues.length > 0 && dimValues.every(v => v === 1);
+  recordParadigmAttempt(runtime.paradigmStepStats, card.lemma, dims, {
+    cardId: card.id,
+    allCorrect
+  });
 }
 
 function getModeDescription() {

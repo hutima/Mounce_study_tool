@@ -16,7 +16,8 @@ import {
   getParadigmBucketHistorySize,
   getLemmaBucketSeries,
   getOverallBucketSeries,
-  summarizeOverallRolling
+  summarizeOverallRolling,
+  getLemmaFormStatus
 } from '../domain/grammar/morph_steps.js';
 import { buildParadigmBucketBarsHtml } from './charts.js';
 
@@ -315,6 +316,7 @@ function renderParsingReviewPanel() {
           title: `${s.lemma} parsing performance`
         })
       : '';
+    const formsHtml = isExpanded ? buildLemmaTestableFormsHtml(s.lemma) : '';
     return `
       <div class="parsing-review-row${isExpanded ? ' parsing-review-row-active' : ''}"
            role="button"
@@ -328,7 +330,7 @@ function renderParsingReviewPanel() {
           <span class="parsing-review-attempts">${s.attempts}/${attemptWindow} attempts</span>
         </div>
         <div class="parsing-review-chips">${chips}</div>
-        ${isExpanded ? `<div class="parsing-review-chart">${chartHtml}</div>` : ''}
+        ${isExpanded ? `<div class="parsing-review-chart">${chartHtml}</div>${formsHtml}` : ''}
       </div>`;
   }).join('');
 
@@ -347,6 +349,9 @@ function bindParsingReviewInteractivity() {
     renderParsingReviewPanel();
   };
   list.addEventListener('click', (event) => {
+    // Inner per-form rows are non-interactive so a click on one shouldn't
+    // collapse the parent paradigm row.
+    if (event.target.closest('.parsing-review-form-row')) return;
     const row = event.target.closest('[data-parsing-row]');
     if (!row || !list.contains(row)) return;
     toggle(row.dataset.parsingRow || '');
@@ -358,6 +363,100 @@ function bindParsingReviewInteractivity() {
     event.preventDefault();
     toggle(row.dataset.parsingRow || '');
   });
+}
+
+// Compact parse-string formatter for the testable-forms list, where the
+// column is narrow and the canonical long-form ("present active indicative
+// first person singular") truncates with ellipsis on a phone. Maps every
+// canonical token to its short form (pres / act / ind / 1sg / nom / masc /
+// …) so the full parse fits in the column unabbreviated. Multi-word
+// person+number tokens collapse first ("first person singular" → "1sg")
+// before the single-word substitutions so they don't get half-replaced.
+const PARSE_PHRASE_ABBREVS = [
+  ['first person singular', '1sg'],
+  ['second person singular', '2sg'],
+  ['third person singular', '3sg'],
+  ['first person plural', '1pl'],
+  ['second person plural', '2pl'],
+  ['third person plural', '3pl'],
+  ['first person', '1'],
+  ['second person', '2'],
+  ['third person', '3'],
+  ['second aorist', '2aor'],
+  ['first aorist', '1aor'],
+  ['middle/passive', 'm/p'],
+  ['middle or passive', 'm/p']
+];
+const PARSE_WORD_ABBREVS = {
+  present: 'pres', future: 'fut', imperfect: 'impf',
+  aorist: 'aor', perfect: 'pf', pluperfect: 'plpf',
+  active: 'act', middle: 'mid', passive: 'pass',
+  indicative: 'ind', subjunctive: 'subj', imperative: 'impv',
+  infinitive: 'inf', participle: 'ptcp',
+  singular: 'sg', plural: 'pl',
+  nominative: 'nom', accusative: 'acc', genitive: 'gen', dative: 'dat', vocative: 'voc',
+  masculine: 'masc', feminine: 'fem', neuter: 'neut'
+};
+function abbreviateParse(text) {
+  if (!text) return '';
+  let out = String(text);
+  for (const [from, to] of PARSE_PHRASE_ABBREVS) {
+    const escaped = from.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    out = out.replace(new RegExp(`\\b${escaped}\\b`, 'gi'), to);
+  }
+  for (const [from, to] of Object.entries(PARSE_WORD_ABBREVS)) {
+    out = out.replace(new RegExp(`\\b${from}\\b`, 'gi'), to);
+  }
+  return out;
+}
+
+// Lists every form currently in scope for `lemma` (chapter-gated, and
+// including optional-extension forms iff the user has the toggle on)
+// under the expanded paradigm row. Each form is dotted with its last-
+// attempt outcome so the panel reads as "here's what I can drill for
+// εἰμί, and here's how I did the last time I saw each one." The pool
+// matches getCardsForFocusedParadigm exactly — same dedup/supersession,
+// same chapter cap — so the user's mental model of the deck aligns with
+// what's shown.
+function buildLemmaTestableFormsHtml(lemma) {
+  const cards = host.getMorphCardsForLemma(lemma) || [];
+  if (!cards.length) {
+    return `<div class="parsing-review-forms parsing-review-forms-empty">No forms in scope for this paradigm at your current chapter selection.</div>`;
+  }
+  const sorted = cards.slice().sort((a, b) => {
+    const af = String(a.form || '');
+    const bf = String(b.form || '');
+    return compareGreekAlphabetical(af, bf);
+  });
+  const stats = runtime.paradigmStepStats || {};
+  const counts = { right: 0, wrong: 0, unseen: 0 };
+  const rows = sorted.map((card) => {
+    const status = getLemmaFormStatus(stats, lemma, card.id);
+    counts[status] += 1;
+    const dotClass = status === 'right' ? 'parsing-review-form-dot-right'
+      : status === 'wrong' ? 'parsing-review-form-dot-wrong'
+      : 'parsing-review-form-dot-unseen';
+    const statusLabel = status === 'right' ? 'last attempt correct'
+      : status === 'wrong' ? 'last attempt incorrect'
+      : 'not yet attempted';
+    const parseFull = card.parsedAnswer || card.answer || '';
+    const parseShort = abbreviateParse(parseFull);
+    return `
+      <li class="parsing-review-form-row">
+        <span class="parsing-review-form-dot ${dotClass}" title="${escapeHtmlSmall(statusLabel)}" aria-label="${escapeHtmlSmall(statusLabel)}"></span>
+        <span class="parsing-review-form-greek">${escapeHtmlSmall(card.form || '')}</span>
+        <span class="parsing-review-form-parse" title="${escapeHtmlSmall(parseFull)}">${escapeHtmlSmall(parseShort)}</span>
+      </li>`;
+  }).join('');
+  const summary = `${counts.right} correct · ${counts.wrong} missed · ${counts.unseen} unseen`;
+  return `
+    <div class="parsing-review-forms">
+      <div class="parsing-review-forms-header">
+        <span class="parsing-review-forms-title">Testable forms (${sorted.length})</span>
+        <span class="parsing-review-forms-summary">${escapeHtmlSmall(summary)}</span>
+      </div>
+      <ul class="parsing-review-forms-list">${rows}</ul>
+    </div>`;
 }
 
 // Sort-mode toggle for the per-deck progress list. Lives in runtime only —
