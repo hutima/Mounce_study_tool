@@ -434,22 +434,39 @@
     'S32_INFINITIVE',
     'S33_IMPERATIVE_ACTIVE'
   ];
+  // Same pattern for δίδωμι (split into S34_DIDOMI_PRES + S34_DIDOMI_AORIST).
+  const DIDOMI_FAMILY_SOURCES = [
+    'S34_DIDOMI_PRES',
+    'S34_DIDOMI_AORIST'
+  ];
   const registry = window.SUPPLEMENTAL_VOCAB_SETS || {};
-  const luoFullCards = [];
-  LUO_FAMILY_SOURCES.forEach((sourceKey) => {
-    const src = registry[sourceKey];
-    if (!src || !Array.isArray(src.cards)) return;
-    const chapter = Number(src.week);
-    if (!Number.isFinite(chapter)) return;
-    src.cards.forEach((card) => {
-      luoFullCards.push({ ...card, chapter });
+  function buildCumulativeCards(sources) {
+    const out = [];
+    sources.forEach((sourceKey) => {
+      const src = registry[sourceKey];
+      if (!src || !Array.isArray(src.cards)) return;
+      const chapter = Number(src.week);
+      if (!Number.isFinite(chapter)) return;
+      src.cards.forEach((card) => {
+        out.push({ ...card, chapter });
+      });
     });
-  });
+    return out;
+  }
+  const luoFullCards = buildCumulativeCards(LUO_FAMILY_SOURCES);
   if (luoFullCards.length) {
     window.registerSupplementalVocabSet('S16_LUO_FULL', {
       label: 'λύω — full paradigm (cumulative, gated by chapter)',
       week: 16,
       cards: luoFullCards
+    });
+  }
+  const didomiFullCards = buildCumulativeCards(DIDOMI_FAMILY_SOURCES);
+  if (didomiFullCards.length) {
+    window.registerSupplementalVocabSet('S34_DIDOMI_FULL', {
+      label: 'δίδωμι — full paradigm (cumulative, gated by chapter)',
+      week: 34,
+      cards: didomiFullCards
     });
   }
 })();
