@@ -84,6 +84,23 @@
     ]
   });
 
+  // -ης masculine: nom-sg keeps the -ς, gen-sg borrows -ου from the 2nd decl.
+  // ("mixed" 1st-decl. masc.), but the rest follows γραφή.
+  window.registerSupplementalVocabSet('S07_MATHETES', {
+    label: 'μαθητής — 1st decl. masculine (-ης pattern)',
+    week: 7,
+    cards: [
+      { g: 'μαθητής', e: 'nominative singular masculine', required: true },
+      { g: 'μαθητοῦ', e: 'genitive singular masculine', required: true },
+      { g: 'μαθητῇ', e: 'dative singular masculine', required: true },
+      { g: 'μαθητήν', e: 'accusative singular masculine', required: true },
+      { g: 'μαθηταί', e: 'nominative plural masculine', required: true },
+      { g: 'μαθητῶν', e: 'genitive plural masculine', required: true },
+      { g: 'μαθηταῖς', e: 'dative plural masculine', required: true },
+      { g: 'μαθητάς', e: 'accusative plural masculine', required: true }
+    ]
+  });
+
   // ── ἀγαθός 2-1-2 adjective (Ch 9) ─────────────────────────────────
   window.registerSupplementalVocabSet('S09_AGATHOS', {
     label: 'ἀγαθός — 2-1-2 adjective (full)',
@@ -394,4 +411,62 @@
       { g: 'τιθέασι(ν)', e: '3pl present active', required: true }
     ]
   });
+
+  // ── λύω cumulative deck ────────────────────────────────────────────
+  // Pools every λύω-family form from the broken-out sets above into a
+  // single deck, with each card carrying the chapter where its form is
+  // introduced. The vocab card builder in domain/deck/filters.js gates
+  // these per-card against the max numeric chapter the user has
+  // selected — so paired with chapters 1..N the deck always exposes
+  // exactly the λύω forms taught through Ch N. Selected alone (no
+  // chapter keys), the deck shows every form.
+  const LUO_FAMILY_SOURCES = [
+    'S16_LUO_PRESENT_ACTIVE',
+    'S18_LUO_MIDPAS',
+    'S21_IMPERFECT_ACTIVE',
+    'S23_AORIST_ACTIVE',
+    'S24_AORIST_PASSIVE',
+    'S25_PERFECT_ACTIVE',
+    'S25_PERFECT_MIDPAS',
+    'S27_PRES_PTC_ACT',
+    'S27_PRES_PTC_MIDPAS',
+    'S28_AOR_PAS_PTC',
+    'S32_INFINITIVE',
+    'S33_IMPERATIVE_ACTIVE'
+  ];
+  // Same pattern for δίδωμι (split into S34_DIDOMI_PRES + S34_DIDOMI_AORIST).
+  const DIDOMI_FAMILY_SOURCES = [
+    'S34_DIDOMI_PRES',
+    'S34_DIDOMI_AORIST'
+  ];
+  const registry = window.SUPPLEMENTAL_VOCAB_SETS || {};
+  function buildCumulativeCards(sources) {
+    const out = [];
+    sources.forEach((sourceKey) => {
+      const src = registry[sourceKey];
+      if (!src || !Array.isArray(src.cards)) return;
+      const chapter = Number(src.week);
+      if (!Number.isFinite(chapter)) return;
+      src.cards.forEach((card) => {
+        out.push({ ...card, chapter });
+      });
+    });
+    return out;
+  }
+  const luoFullCards = buildCumulativeCards(LUO_FAMILY_SOURCES);
+  if (luoFullCards.length) {
+    window.registerSupplementalVocabSet('S16_LUO_FULL', {
+      label: 'λύω — full paradigm (cumulative, gated by chapter)',
+      week: 16,
+      cards: luoFullCards
+    });
+  }
+  const didomiFullCards = buildCumulativeCards(DIDOMI_FAMILY_SOURCES);
+  if (didomiFullCards.length) {
+    window.registerSupplementalVocabSet('S34_DIDOMI_FULL', {
+      label: 'δίδωμι — full paradigm (cumulative, gated by chapter)',
+      week: 34,
+      cards: didomiFullCards
+    });
+  }
 })();

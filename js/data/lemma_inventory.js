@@ -36,6 +36,18 @@
 // keeps the two consumers in sync — adding a form means it appears in
 // fallback AND becomes drillable on opt-in.
 //
+// Mounce chapter intros referenced for gate selection (the gate for each
+// group is max(tense-intro, voice-intro, mood-intro)):
+//   - present active   : 16     | present mid/pas  : 18
+//   - imperfect        : 21     | future act/mid   : 19
+//   - future passive   : 24     | 2nd aorist act   : 22
+//   - 1st aorist act   : 23     | aorist passive   : 24
+//   - perfect          : 25     | subjunctive      : 31
+//   - infinitive       : 32     | imperative       : 33
+//   - present ptc      : 27     | aorist ptc       : 28
+//   - perfect ptc      : 30     | δίδωμι intro     : 34 (ind) / 35 (non-ind)
+//   - τίθημι/ἵστημι intro: 36
+//
 // Lemmas not listed default to "all standard combinations possible."
 // Add entries here as new defective lemmas show up in the paradigm
 // data, and add `optionalFormGroups` entries for any paradigm exemplar
@@ -75,21 +87,14 @@
     'ἐσόμενα':   'future middle participle nominative/accusative plural neuter'
   };
 
-  // εἰμί's future middle infinitive. Mounce drills only the present
-  // infinitive (εἶναι), but ἔσεσθαι is real Koine, so a student picking
-  // "future infinitive" on εἰμί should see it instead of falling through
-  // to "—". Voice is middle for the same reason as the future participle:
-  // εἰμί's future is deponent.
   const EIMI_FUTURE_MIDDLE_INFINITIVE = {
     'ἔσεσθαι': 'future middle infinitive'
   };
 
   // εἰμί's present active imperative. Mounce introduces the imperative
-  // mood mid-curriculum but doesn't drill εἰμί's imperative paradigm —
-  // students who pick "imperative" for εἰμί otherwise see blank (no form
-  // lookup matched). ἔστων is the older classical alternate for 3pl
-  // alongside the standard Koine ἔστωσαν; both are real and should
-  // resolve cleanly.
+  // mood in Ch 33; until then the imperative paradigm of εἰμί is
+  // off-scope. ἔστων is the older classical alternate for 3pl alongside
+  // the standard Koine ἔστωσαν.
   const EIMI_PRESENT_ACTIVE_IMPERATIVE = {
     'ἴσθι':     'present active imperative second person singular',
     'ἔστω':     'present active imperative third person singular',
@@ -98,54 +103,1154 @@
     'ἔστων':    'present active imperative third person plural'
   };
 
-  // εἰμί's optional-drill groups. Chapter gates use Mounce chapter
-  // numbers (which match duff at this scope):
-  //   - Ch 7: imperative mood is introduced in this chapter, so εἰμί's
-  //     present imperative becomes drillable here.
-  //   - Ch 8: future tense paradigms; future middle infinitive and
-  //     future middle participle become drillable.
+  // εἰμί gate map: future infinitive/participle once future + non-finite
+  // moods are in scope; imperative once Mounce introduces the mood.
   const EIMI_OPTIONAL_GROUPS = [
-    { chapter: 7, family: 'εἰμί — present active imperative (optional)',
-      forms: EIMI_PRESENT_ACTIVE_IMPERATIVE },
-    { chapter: 8, family: 'εἰμί — future middle infinitive (optional)',
+    { chapter: 27, family: 'εἰμί — future middle participle (optional)',
+      forms: EIMI_FUTURE_MIDDLE_PARTICIPLE },
+    { chapter: 32, family: 'εἰμί — future middle infinitive (optional)',
       forms: EIMI_FUTURE_MIDDLE_INFINITIVE },
-    { chapter: 8, family: 'εἰμί — future middle participle (optional)',
-      forms: EIMI_FUTURE_MIDDLE_PARTICIPLE }
+    { chapter: 33, family: 'εἰμί — present active imperative (optional)',
+      forms: EIMI_PRESENT_ACTIVE_IMPERATIVE }
   ];
+
+  // ─── λύω (model regular ω-verb) ────────────────────────────────────
+  //
+  // Mounce drills the indicative active/middle/passive across present,
+  // imperfect, future, aorist, and perfect (Ch 16–25), the present + 1st
+  // aorist active participles + the aorist passive participle (Ch 27–28),
+  // the present infinitives + 1st aorist infinitives (Ch 32), and the
+  // present active imperative (Ch 33). Gaps: subjunctive (introduced at
+  // Ch 31, with only a few hand-written grammar.js examples), non-present
+  // infinitives (future act/mid/pas, perfect act + m/p, aor middle), the
+  // 3rd-person present m/p imperative, the aorist middle imperative
+  // paradigm, the perfect active + perfect m/p participle declensions,
+  // the 1st aorist active participle full declension (only the masc-nom
+  // is drilled), and the future participles. These fill those gaps.
+  //
+  // Syncretic forms (λύῃ = 3sg pres act subj AND 2sg pres m/p subj/imp,
+  // λύσῃ across aor act subj 3sg + aor mid subj 2sg + fut ind 2sg/3sg,
+  // λῦσαι across aor act inf + aor mid imp 2sg) get assigned the most
+  // pedagogically prominent reading; other readings fall to the data
+  // gap or to drilled-card matches in other pools.
+
+  const LUO_PRESENT_ACTIVE_SUBJUNCTIVE = {
+    'λύω':      'present active subjunctive first person singular',
+    'λύῃς':     'present active subjunctive second person singular',
+    'λύῃ':      'present active subjunctive third person singular',
+    'λύωμεν':   'present active subjunctive first person plural',
+    'λύητε':    'present active subjunctive second person plural',
+    'λύωσι':    'present active subjunctive third person plural',
+    'λύωσιν':   'present active subjunctive third person plural'
+  };
+
+  const LUO_AORIST_ACTIVE_SUBJUNCTIVE = {
+    'λύσω':     'aorist active subjunctive first person singular',
+    'λύσῃς':    'aorist active subjunctive second person singular',
+    'λύσῃ':     'aorist active subjunctive third person singular',
+    'λύσωμεν':  'aorist active subjunctive first person plural',
+    'λύσητε':   'aorist active subjunctive second person plural',
+    'λύσωσι':   'aorist active subjunctive third person plural',
+    'λύσωσιν':  'aorist active subjunctive third person plural'
+  };
+
+  const LUO_AORIST_MIDDLE_SUBJUNCTIVE = {
+    'λύσωμαι':   'aorist middle subjunctive first person singular',
+    // 'λύσῃ' 2sg collides with the aorist active subjunctive 3sg key
+    // above; the active reading is more pedagogically prominent.
+    'λύσηται':   'aorist middle subjunctive third person singular',
+    'λυσώμεθα':  'aorist middle subjunctive first person plural',
+    'λύσησθε':   'aorist middle subjunctive second person plural',
+    'λύσωνται':  'aorist middle subjunctive third person plural'
+  };
+
+  const LUO_AORIST_PASSIVE_SUBJUNCTIVE = {
+    'λυθῶ':     'aorist passive subjunctive first person singular',
+    'λυθῇς':    'aorist passive subjunctive second person singular',
+    'λυθῇ':     'aorist passive subjunctive third person singular',
+    'λυθῶμεν':  'aorist passive subjunctive first person plural',
+    'λυθῆτε':   'aorist passive subjunctive second person plural',
+    'λυθῶσι':   'aorist passive subjunctive third person plural',
+    'λυθῶσιν':  'aorist passive subjunctive third person plural'
+  };
+
+  const LUO_PRESENT_MIDDLE_PASSIVE_SUBJUNCTIVE = {
+    'λύωμαι':   'present middle/passive subjunctive first person singular',
+    'λύηται':   'present middle/passive subjunctive third person singular',
+    'λυώμεθα':  'present middle/passive subjunctive first person plural',
+    'λύησθε':   'present middle/passive subjunctive second person plural',
+    'λύωνται':  'present middle/passive subjunctive third person plural'
+  };
+
+  // Non-present infinitives. λύειν (pres act) / λύεσθαι (pres m/p) /
+  // λῦσαι (1aor act) / λυθῆναι (aor pas) are drilled in S32_INFINITIVE;
+  // future + perfect + aor middle aren't.
+  const LUO_NONPRESENT_INFINITIVES = {
+    'λύσειν':       'future active infinitive',
+    'λύσεσθαι':     'future middle infinitive',
+    'λυθήσεσθαι':   'future passive infinitive',
+    'λελυκέναι':    'perfect active infinitive',
+    'λελύσθαι':     'perfect middle/passive infinitive',
+    'λύσασθαι':     'aorist middle infinitive'
+  };
+
+  // Present middle/passive imperative 3rd person. The 2sg/2pl forms
+  // aren't drilled for λύω in mounce either — adding the 3rd-person
+  // here completes the present m/p imperative paradigm.
+  const LUO_PRESENT_MP_IMPERATIVE = {
+    'λύου':       'present middle/passive imperative second person singular',
+    'λυέσθω':     'present middle/passive imperative third person singular',
+    'λύεσθε':     'present middle/passive imperative second person plural',
+    'λυέσθωσαν':  'present middle/passive imperative third person plural'
+  };
+
+  // Present active imperative 3rd-person & 3rd-plural completions —
+  // S33_IMPERATIVE_ACTIVE has only 4 cards (λῦε / λυέτω / λύετε /
+  // λυέτωσαν), which is actually the full paradigm. No gap here.
+
+  // Aorist active imperative — not drilled at all for λύω in mounce.
+  const LUO_AORIST_ACTIVE_IMPERATIVE = {
+    'λῦσον':       'aorist active imperative second person singular',
+    'λυσάτω':      'aorist active imperative third person singular',
+    'λύσατε':      'aorist active imperative second person plural',
+    'λυσάτωσαν':   'aorist active imperative third person plural'
+  };
+
+  // Aorist middle imperative — not drilled. 2sg λῦσαι overlaps with the
+  // drilled aorist active infinitive λῦσαι; the drilled card wins for
+  // the infinitive parse.
+  const LUO_AORIST_MIDDLE_IMPERATIVE = {
+    'λῦσαι':       'aorist middle imperative second person singular',
+    'λυσάσθω':     'aorist middle imperative third person singular',
+    'λύσασθε':     'aorist middle imperative second person plural',
+    'λυσάσθωσαν':  'aorist middle imperative third person plural'
+  };
+
+  // Aorist passive imperative — not drilled. 2sg/3sg/2pl/3pl all real.
+  const LUO_AORIST_PASSIVE_IMPERATIVE = {
+    'λύθητι':      'aorist passive imperative second person singular',
+    'λυθήτω':      'aorist passive imperative third person singular',
+    'λύθητε':      'aorist passive imperative second person plural',
+    'λυθήτωσαν':   'aorist passive imperative third person plural'
+  };
+
+  const LUO_OPTIONAL_GROUPS = [
+    { chapter: 32, family: 'λύω — future active infinitive (optional)',
+      forms: { 'λύσειν': 'future active infinitive' } },
+    { chapter: 32, family: 'λύω — future middle/passive + perfect + aor middle infinitives (optional)',
+      forms: {
+        'λύσεσθαι':    'future middle infinitive',
+        'λυθήσεσθαι':  'future passive infinitive',
+        'λελυκέναι':   'perfect active infinitive',
+        'λελύσθαι':    'perfect middle/passive infinitive',
+        'λύσασθαι':    'aorist middle infinitive'
+      } },
+    { chapter: 33, family: 'λύω — present middle/passive imperative (optional)',
+      forms: LUO_PRESENT_MP_IMPERATIVE },
+    { chapter: 33, family: 'λύω — aorist active imperative λῦσον (optional)',
+      forms: LUO_AORIST_ACTIVE_IMPERATIVE },
+    { chapter: 33, family: 'λύω — aorist middle imperative (optional)',
+      forms: LUO_AORIST_MIDDLE_IMPERATIVE },
+    { chapter: 33, family: 'λύω — aorist passive imperative λύθητι (optional)',
+      forms: LUO_AORIST_PASSIVE_IMPERATIVE },
+    { chapter: 31, family: 'λύω — present active subjunctive (optional)',
+      forms: LUO_PRESENT_ACTIVE_SUBJUNCTIVE },
+    { chapter: 31, family: 'λύω — aorist active subjunctive (optional)',
+      forms: LUO_AORIST_ACTIVE_SUBJUNCTIVE },
+    { chapter: 31, family: 'λύω — aorist middle subjunctive (optional)',
+      forms: LUO_AORIST_MIDDLE_SUBJUNCTIVE },
+    { chapter: 31, family: 'λύω — aorist passive subjunctive (optional)',
+      forms: LUO_AORIST_PASSIVE_SUBJUNCTIVE },
+    { chapter: 31, family: 'λύω — present middle/passive subjunctive (optional)',
+      forms: LUO_PRESENT_MIDDLE_PASSIVE_SUBJUNCTIVE }
+  ];
+
+  const LUO_EXTRA_FORMS = {
+    ...LUO_AORIST_MIDDLE_SUBJUNCTIVE,
+    ...LUO_PRESENT_MIDDLE_PASSIVE_SUBJUNCTIVE,
+    ...LUO_AORIST_PASSIVE_SUBJUNCTIVE,
+    ...LUO_NONPRESENT_INFINITIVES,
+    ...LUO_PRESENT_MP_IMPERATIVE,
+    ...LUO_AORIST_ACTIVE_IMPERATIVE,
+    ...LUO_AORIST_MIDDLE_IMPERATIVE,
+    ...LUO_AORIST_PASSIVE_IMPERATIVE,
+    // Active subjunctive last so λύῃ resolves to "pres act subj 3sg"
+    // (and λύσῃ to "aor act subj 3sg") — the most common single-form
+    // readings for those Greek strings.
+    ...LUO_PRESENT_ACTIVE_SUBJUNCTIVE,
+    ...LUO_AORIST_ACTIVE_SUBJUNCTIVE
+  };
+
+  // ─── γίνομαι (second-aorist deponent — ubiquitous in NT) ──────────
+  //
+  // Mounce drills γίνομαι in the principal-parts focused-paradigm
+  // (γίνομαι → ἐγενόμην for the 2nd aorist) but the full indicative
+  // paradigm — present mid/pas, imperfect, future, aorist mid, aorist
+  // pas, perfect — and the participles aren't fully fleshed out.
+  // Filling these gaps is one of the highest-pedagogical-value
+  // additions for the optional drill.
+
+  const GINOMAI_PRESENT_MIDDLE_INDICATIVE = {
+    'γίνομαι':   'present middle indicative first person singular',
+    'γίνῃ':      'present middle indicative second person singular',
+    'γίνεται':   'present middle indicative third person singular',
+    'γινόμεθα':  'present middle indicative first person plural',
+    'γίνεσθε':   'present middle indicative second person plural',
+    'γίνονται':  'present middle indicative third person plural'
+  };
+
+  const GINOMAI_IMPERFECT_MIDDLE_INDICATIVE = {
+    'ἐγινόμην':  'imperfect middle indicative first person singular',
+    'ἐγίνου':    'imperfect middle indicative second person singular',
+    'ἐγίνετο':   'imperfect middle indicative third person singular',
+    'ἐγινόμεθα': 'imperfect middle indicative first person plural',
+    'ἐγίνεσθε':  'imperfect middle indicative second person plural',
+    'ἐγίνοντο':  'imperfect middle indicative third person plural'
+  };
+
+  const GINOMAI_FUTURE_MIDDLE_INDICATIVE = {
+    'γενήσομαι':  'future middle indicative first person singular',
+    'γενήσῃ':     'future middle indicative second person singular',
+    'γενήσεται':  'future middle indicative third person singular',
+    'γενησόμεθα': 'future middle indicative first person plural',
+    'γενήσεσθε':  'future middle indicative second person plural',
+    'γενήσονται': 'future middle indicative third person plural'
+  };
+
+  const GINOMAI_AORIST_MIDDLE_INDICATIVE = {
+    'ἐγενόμην':   'aorist middle indicative first person singular',
+    'ἐγένου':     'aorist middle indicative second person singular',
+    'ἐγένετο':    'aorist middle indicative third person singular',
+    'ἐγενόμεθα':  'aorist middle indicative first person plural',
+    'ἐγένεσθε':   'aorist middle indicative second person plural',
+    'ἐγένοντο':   'aorist middle indicative third person plural'
+  };
+
+  const GINOMAI_AORIST_PASSIVE_INDICATIVE = {
+    'ἐγενήθην':   'aorist passive indicative first person singular',
+    'ἐγενήθης':   'aorist passive indicative second person singular',
+    'ἐγενήθη':    'aorist passive indicative third person singular',
+    'ἐγενήθημεν': 'aorist passive indicative first person plural',
+    'ἐγενήθητε':  'aorist passive indicative second person plural',
+    'ἐγενήθησαν': 'aorist passive indicative third person plural'
+  };
+
+  const GINOMAI_PERFECT_ACTIVE_INDICATIVE = {
+    'γέγονα':    'perfect active indicative first person singular',
+    'γέγονας':   'perfect active indicative second person singular',
+    'γέγονε':    'perfect active indicative third person singular',
+    'γέγονεν':   'perfect active indicative third person singular',
+    'γεγόναμεν': 'perfect active indicative first person plural',
+    'γεγόνατε':  'perfect active indicative second person plural',
+    'γεγόνασι':  'perfect active indicative third person plural',
+    'γεγόνασιν': 'perfect active indicative third person plural'
+  };
+
+  const GINOMAI_AORIST_MIDDLE_INFINITIVE = {
+    'γενέσθαι': 'aorist middle infinitive'
+  };
+
+  const GINOMAI_PRESENT_MIDDLE_INFINITIVE = {
+    'γίνεσθαι': 'present middle infinitive'
+  };
+
+  const GINOMAI_AORIST_MIDDLE_IMPERATIVE = {
+    'γενοῦ':       'aorist middle imperative second person singular',
+    'γενέσθω':     'aorist middle imperative third person singular',
+    'γένεσθε':     'aorist middle imperative second person plural',
+    'γενέσθωσαν':  'aorist middle imperative third person plural'
+  };
+
+  const GINOMAI_OPTIONAL_GROUPS = [
+    { chapter: 18, family: 'γίνομαι — present middle indicative (optional)',
+      forms: GINOMAI_PRESENT_MIDDLE_INDICATIVE },
+    { chapter: 21, family: 'γίνομαι — imperfect middle indicative (optional)',
+      forms: GINOMAI_IMPERFECT_MIDDLE_INDICATIVE },
+    { chapter: 19, family: 'γίνομαι — future middle indicative (optional)',
+      forms: GINOMAI_FUTURE_MIDDLE_INDICATIVE },
+    { chapter: 32, family: 'γίνομαι — present middle infinitive (optional)',
+      forms: GINOMAI_PRESENT_MIDDLE_INFINITIVE },
+    { chapter: 22, family: 'γίνομαι — aorist middle indicative (2nd aorist, optional)',
+      forms: GINOMAI_AORIST_MIDDLE_INDICATIVE },
+    { chapter: 32, family: 'γίνομαι — aorist middle infinitive γενέσθαι (optional)',
+      forms: GINOMAI_AORIST_MIDDLE_INFINITIVE },
+    { chapter: 33, family: 'γίνομαι — aorist middle imperative (optional)',
+      forms: GINOMAI_AORIST_MIDDLE_IMPERATIVE },
+    { chapter: 24, family: 'γίνομαι — aorist passive indicative (optional)',
+      forms: GINOMAI_AORIST_PASSIVE_INDICATIVE },
+    { chapter: 25, family: 'γίνομαι — perfect active indicative γέγονα (optional)',
+      forms: GINOMAI_PERFECT_ACTIVE_INDICATIVE }
+  ];
+
+  const GINOMAI_EXTRA_FORMS = {
+    ...GINOMAI_PRESENT_MIDDLE_INDICATIVE,
+    ...GINOMAI_IMPERFECT_MIDDLE_INDICATIVE,
+    ...GINOMAI_FUTURE_MIDDLE_INDICATIVE,
+    ...GINOMAI_AORIST_MIDDLE_INDICATIVE,
+    ...GINOMAI_AORIST_PASSIVE_INDICATIVE,
+    ...GINOMAI_PERFECT_ACTIVE_INDICATIVE,
+    ...GINOMAI_AORIST_MIDDLE_INFINITIVE,
+    ...GINOMAI_PRESENT_MIDDLE_INFINITIVE,
+    ...GINOMAI_AORIST_MIDDLE_IMPERATIVE
+  };
+
+  // ─── δίδωμι (μι-verb, "to give") ──────────────────────────────────
+  //
+  // Mounce drills present + aorist active indicative for δίδωμι in
+  // Ch 34. The aorist active subjunctive/imperative/infinitive (δῶ /
+  // δός / δοῦναι), aorist passive (ἐδόθην), and the participles are
+  // either single-form stems or absent. These fill the non-indicative
+  // gaps. δίδωμι's aorist is the κ-aorist ἔδωκα (athematic) — non-
+  // indicative forms use the bare δο- stem (δῶ, δός, δοῦναι).
+
+  const DIDOMI_AORIST_ACTIVE_SUBJUNCTIVE = {
+    'δῶ':      'aorist active subjunctive first person singular',
+    'δῷς':     'aorist active subjunctive second person singular',
+    'δῷ':      'aorist active subjunctive third person singular',
+    'δῶμεν':   'aorist active subjunctive first person plural',
+    'δῶτε':    'aorist active subjunctive second person plural',
+    'δῶσι':    'aorist active subjunctive third person plural',
+    'δῶσιν':   'aorist active subjunctive third person plural'
+  };
+
+  const DIDOMI_AORIST_ACTIVE_IMPERATIVE = {
+    'δός':       'aorist active imperative second person singular',
+    'δότω':      'aorist active imperative third person singular',
+    'δότε':      'aorist active imperative second person plural',
+    'δότωσαν':   'aorist active imperative third person plural'
+  };
+
+  const DIDOMI_AORIST_ACTIVE_INFINITIVE = {
+    'δοῦναι': 'aorist active infinitive'
+  };
+
+  const DIDOMI_AORIST_PASSIVE_INDICATIVE = {
+    'ἐδόθην':    'aorist passive indicative first person singular',
+    'ἐδόθης':    'aorist passive indicative second person singular',
+    'ἐδόθη':     'aorist passive indicative third person singular',
+    'ἐδόθημεν':  'aorist passive indicative first person plural',
+    'ἐδόθητε':   'aorist passive indicative second person plural',
+    'ἐδόθησαν':  'aorist passive indicative third person plural'
+  };
+
+  const DIDOMI_OPTIONAL_GROUPS = [
+    { chapter: 35, family: 'δίδωμι — aorist active infinitive δοῦναι (optional)',
+      forms: DIDOMI_AORIST_ACTIVE_INFINITIVE },
+    { chapter: 35, family: 'δίδωμι — aorist active imperative δός (optional)',
+      forms: DIDOMI_AORIST_ACTIVE_IMPERATIVE },
+    { chapter: 35, family: 'δίδωμι — aorist active subjunctive δῶ (optional)',
+      forms: DIDOMI_AORIST_ACTIVE_SUBJUNCTIVE },
+    { chapter: 34, family: 'δίδωμι — aorist passive indicative ἐδόθην (optional)',
+      forms: DIDOMI_AORIST_PASSIVE_INDICATIVE }
+  ];
+
+  const DIDOMI_EXTRA_FORMS = {
+    ...DIDOMI_AORIST_ACTIVE_INFINITIVE,
+    ...DIDOMI_AORIST_ACTIVE_IMPERATIVE,
+    ...DIDOMI_AORIST_ACTIVE_SUBJUNCTIVE,
+    ...DIDOMI_AORIST_PASSIVE_INDICATIVE
+  };
+
+  // ─── τίθημι (μι-verb, "to put/place") ─────────────────────────────
+  //
+  // Mounce drills only the present active system (Ch 36). Adds
+  // imperfect/future/aorist active indicative, the aorist active
+  // subjunctive/imperative/infinitive (θεῖναι, θές, θῶ), and the
+  // aorist passive. τίθημι's aorist is ἔθηκα (κ-aorist) but the non-
+  // indicative forms use the bare θε- stem (θῶ, θές, θεῖναι). Aorist
+  // passive ἐτέθην uses θε- + the standard passive marker -θη-.
+
+  const TITHEMI_IMPERFECT_ACTIVE_INDICATIVE = {
+    'ἐτίθην':   'imperfect active indicative first person singular',
+    'ἐτίθεις':  'imperfect active indicative second person singular',
+    'ἐτίθει':   'imperfect active indicative third person singular',
+    'ἐτίθεμεν': 'imperfect active indicative first person plural',
+    'ἐτίθετε':  'imperfect active indicative second person plural',
+    'ἐτίθεσαν': 'imperfect active indicative third person plural'
+  };
+
+  const TITHEMI_FUTURE_ACTIVE_INDICATIVE = {
+    'θήσω':     'future active indicative first person singular',
+    'θήσεις':   'future active indicative second person singular',
+    'θήσει':    'future active indicative third person singular',
+    'θήσομεν':  'future active indicative first person plural',
+    'θήσετε':   'future active indicative second person plural',
+    'θήσουσι':  'future active indicative third person plural',
+    'θήσουσιν': 'future active indicative third person plural'
+  };
+
+  const TITHEMI_AORIST_ACTIVE_INDICATIVE = {
+    'ἔθηκα':    'aorist active indicative first person singular',
+    'ἔθηκας':   'aorist active indicative second person singular',
+    'ἔθηκε':    'aorist active indicative third person singular',
+    'ἔθηκεν':   'aorist active indicative third person singular',
+    'ἐθήκαμεν': 'aorist active indicative first person plural',
+    'ἐθήκατε':  'aorist active indicative second person plural',
+    'ἔθηκαν':   'aorist active indicative third person plural'
+  };
+
+  const TITHEMI_AORIST_ACTIVE_SUBJUNCTIVE = {
+    'θῶ':     'aorist active subjunctive first person singular',
+    'θῇς':    'aorist active subjunctive second person singular',
+    'θῇ':     'aorist active subjunctive third person singular',
+    'θῶμεν':  'aorist active subjunctive first person plural',
+    'θῆτε':   'aorist active subjunctive second person plural',
+    'θῶσι':   'aorist active subjunctive third person plural',
+    'θῶσιν':  'aorist active subjunctive third person plural'
+  };
+
+  const TITHEMI_AORIST_ACTIVE_IMPERATIVE = {
+    'θές':       'aorist active imperative second person singular',
+    'θέτω':      'aorist active imperative third person singular',
+    'θέτε':      'aorist active imperative second person plural',
+    'θέτωσαν':   'aorist active imperative third person plural'
+  };
+
+  const TITHEMI_AORIST_ACTIVE_INFINITIVE = {
+    'θεῖναι': 'aorist active infinitive'
+  };
+
+  const TITHEMI_AORIST_PASSIVE_INDICATIVE = {
+    'ἐτέθην':    'aorist passive indicative first person singular',
+    'ἐτέθης':    'aorist passive indicative second person singular',
+    'ἐτέθη':     'aorist passive indicative third person singular',
+    'ἐτέθημεν':  'aorist passive indicative first person plural',
+    'ἐτέθητε':   'aorist passive indicative second person plural',
+    'ἐτέθησαν':  'aorist passive indicative third person plural'
+  };
+
+  const TITHEMI_OPTIONAL_GROUPS = [
+    { chapter: 36, family: 'τίθημι — imperfect active indicative (optional)',
+      forms: TITHEMI_IMPERFECT_ACTIVE_INDICATIVE },
+    { chapter: 36, family: 'τίθημι — future active indicative (optional)',
+      forms: TITHEMI_FUTURE_ACTIVE_INDICATIVE },
+    { chapter: 36, family: 'τίθημι — aorist active indicative ἔθηκα (optional)',
+      forms: TITHEMI_AORIST_ACTIVE_INDICATIVE },
+    { chapter: 36, family: 'τίθημι — aorist active infinitive θεῖναι (optional)',
+      forms: TITHEMI_AORIST_ACTIVE_INFINITIVE },
+    { chapter: 36, family: 'τίθημι — aorist active imperative θές (optional)',
+      forms: TITHEMI_AORIST_ACTIVE_IMPERATIVE },
+    { chapter: 36, family: 'τίθημι — aorist active subjunctive θῶ (optional)',
+      forms: TITHEMI_AORIST_ACTIVE_SUBJUNCTIVE },
+    { chapter: 36, family: 'τίθημι — aorist passive indicative ἐτέθην (optional)',
+      forms: TITHEMI_AORIST_PASSIVE_INDICATIVE }
+  ];
+
+  const TITHEMI_EXTRA_FORMS = {
+    ...TITHEMI_IMPERFECT_ACTIVE_INDICATIVE,
+    ...TITHEMI_FUTURE_ACTIVE_INDICATIVE,
+    ...TITHEMI_AORIST_ACTIVE_INDICATIVE,
+    ...TITHEMI_AORIST_ACTIVE_INFINITIVE,
+    ...TITHEMI_AORIST_ACTIVE_IMPERATIVE,
+    ...TITHEMI_AORIST_ACTIVE_SUBJUNCTIVE,
+    ...TITHEMI_AORIST_PASSIVE_INDICATIVE
+  };
+
+  // ─── ἵστημι (μι-verb, "to stand/cause to stand") ──────────────────
+  //
+  // ἵστημι is the trickiest μι-verb because it has two distinct aorist
+  // formations with different meanings:
+  //   - 1st aorist ἔστησα (transitive: "I caused to stand / I set up")
+  //   - 2nd aorist ἔστην (intransitive: "I stood")
+  // Both are real Koine. Mounce drills only the present active system
+  // (Ch 36); both aorist paradigms are absent. The intransitive 2nd
+  // aorist is statistically more common in the NT.
+
+  const HISTEMI_IMPERFECT_ACTIVE_INDICATIVE = {
+    'ἵστην':   'imperfect active indicative first person singular',
+    'ἵστης':   'imperfect active indicative second person singular',
+    'ἵστη':    'imperfect active indicative third person singular',
+    'ἵσταμεν': 'imperfect active indicative first person plural',
+    'ἵστατε':  'imperfect active indicative second person plural',
+    'ἵστασαν': 'imperfect active indicative third person plural'
+  };
+
+  const HISTEMI_FUTURE_ACTIVE_INDICATIVE = {
+    'στήσω':     'future active indicative first person singular',
+    'στήσεις':   'future active indicative second person singular',
+    'στήσει':    'future active indicative third person singular',
+    'στήσομεν':  'future active indicative first person plural',
+    'στήσετε':   'future active indicative second person plural',
+    'στήσουσι':  'future active indicative third person plural',
+    'στήσουσιν': 'future active indicative third person plural'
+  };
+
+  const HISTEMI_FIRST_AORIST_ACTIVE_INDICATIVE = {
+    'ἔστησα':    'aorist active indicative first person singular',
+    'ἔστησας':   'aorist active indicative second person singular',
+    'ἔστησε':    'aorist active indicative third person singular',
+    'ἔστησεν':   'aorist active indicative third person singular',
+    'ἐστήσαμεν': 'aorist active indicative first person plural',
+    'ἐστήσατε':  'aorist active indicative second person plural',
+    'ἔστησαν':   'aorist active indicative third person plural'
+  };
+
+  const HISTEMI_SECOND_AORIST_ACTIVE_INDICATIVE = {
+    'ἔστην':    'aorist active indicative first person singular',
+    'ἔστης':    'aorist active indicative second person singular',
+    'ἔστη':     'aorist active indicative third person singular',
+    'ἔστημεν':  'aorist active indicative first person plural',
+    'ἔστητε':   'aorist active indicative second person plural'
+    // 'ἔστησαν' 3pl collides with the 1st aorist 3pl above (1st & 2nd
+    // syncretize at 3pl); the 1st aorist reading takes the key.
+  };
+
+  const HISTEMI_AORIST_INFINITIVES = {
+    'στῆσαι': 'aorist active infinitive',  // 1st aorist (transitive)
+    'στῆναι': 'aorist active infinitive'   // 2nd aorist (intransitive)
+  };
+
+  const HISTEMI_SECOND_AORIST_SUBJUNCTIVE = {
+    'στῶ':    'aorist active subjunctive first person singular',
+    'στῇς':   'aorist active subjunctive second person singular',
+    'στῇ':    'aorist active subjunctive third person singular',
+    'στῶμεν': 'aorist active subjunctive first person plural',
+    'στῆτε':  'aorist active subjunctive second person plural',
+    'στῶσι':  'aorist active subjunctive third person plural',
+    'στῶσιν': 'aorist active subjunctive third person plural'
+  };
+
+  const HISTEMI_SECOND_AORIST_IMPERATIVE = {
+    'στῆθι':     'aorist active imperative second person singular',
+    'στήτω':     'aorist active imperative third person singular',
+    'στῆτε':     'aorist active imperative second person plural',
+    'στήτωσαν':  'aorist active imperative third person plural'
+  };
+
+  const HISTEMI_AORIST_PASSIVE_INDICATIVE = {
+    'ἐστάθην':   'aorist passive indicative first person singular',
+    'ἐστάθης':   'aorist passive indicative second person singular',
+    'ἐστάθη':    'aorist passive indicative third person singular',
+    'ἐστάθημεν': 'aorist passive indicative first person plural',
+    'ἐστάθητε':  'aorist passive indicative second person plural',
+    'ἐστάθησαν': 'aorist passive indicative third person plural'
+  };
+
+  // Perfect active (ἕστηκα, with present meaning "I am standing" — a
+  // distinctive ἵστημι quirk).
+  const HISTEMI_PERFECT_ACTIVE_INDICATIVE = {
+    'ἕστηκα':    'perfect active indicative first person singular',
+    'ἕστηκας':   'perfect active indicative second person singular',
+    'ἕστηκε':    'perfect active indicative third person singular',
+    'ἕστηκεν':   'perfect active indicative third person singular',
+    'ἑστήκαμεν': 'perfect active indicative first person plural',
+    'ἑστήκατε':  'perfect active indicative second person plural',
+    'ἑστήκασι':  'perfect active indicative third person plural',
+    'ἑστήκασιν': 'perfect active indicative third person plural'
+  };
+
+  const HISTEMI_OPTIONAL_GROUPS = [
+    { chapter: 36, family: 'ἵστημι — imperfect active indicative (optional)',
+      forms: HISTEMI_IMPERFECT_ACTIVE_INDICATIVE },
+    { chapter: 36, family: 'ἵστημι — future active indicative στήσω (optional)',
+      forms: HISTEMI_FUTURE_ACTIVE_INDICATIVE },
+    { chapter: 36, family: 'ἵστημι — 1st aorist active ἔστησα (transitive, optional)',
+      forms: HISTEMI_FIRST_AORIST_ACTIVE_INDICATIVE },
+    { chapter: 36, family: 'ἵστημι — 2nd aorist active ἔστην (intransitive, optional)',
+      forms: HISTEMI_SECOND_AORIST_ACTIVE_INDICATIVE },
+    { chapter: 36, family: 'ἵστημι — aorist active infinitives στῆσαι / στῆναι (optional)',
+      forms: HISTEMI_AORIST_INFINITIVES },
+    { chapter: 36, family: 'ἵστημι — 2nd aorist active subjunctive στῶ (optional)',
+      forms: HISTEMI_SECOND_AORIST_SUBJUNCTIVE },
+    { chapter: 36, family: 'ἵστημι — 2nd aorist active imperative στῆθι (optional)',
+      forms: HISTEMI_SECOND_AORIST_IMPERATIVE },
+    { chapter: 36, family: 'ἵστημι — aorist passive indicative ἐστάθην (optional)',
+      forms: HISTEMI_AORIST_PASSIVE_INDICATIVE },
+    { chapter: 36, family: 'ἵστημι — perfect active indicative ἕστηκα (optional)',
+      forms: HISTEMI_PERFECT_ACTIVE_INDICATIVE }
+  ];
+
+  const HISTEMI_EXTRA_FORMS = {
+    ...HISTEMI_IMPERFECT_ACTIVE_INDICATIVE,
+    ...HISTEMI_FUTURE_ACTIVE_INDICATIVE,
+    ...HISTEMI_FIRST_AORIST_ACTIVE_INDICATIVE,
+    ...HISTEMI_SECOND_AORIST_ACTIVE_INDICATIVE,
+    ...HISTEMI_AORIST_INFINITIVES,
+    ...HISTEMI_SECOND_AORIST_SUBJUNCTIVE,
+    ...HISTEMI_SECOND_AORIST_IMPERATIVE,
+    ...HISTEMI_AORIST_PASSIVE_INDICATIVE,
+    ...HISTEMI_PERFECT_ACTIVE_INDICATIVE
+  };
 
   // ─── Distinct vocative singulars for noun paradigm exemplars ──────
   //
-  // Audit finding: Mounce intentionally skips vocatives across the noun
-  // paradigms. For most nouns the vocative singular is syncretic with
-  // the nominative singular (1st-decl fem, 2nd-decl neut, most 3rd-decl
+  // Mounce intentionally skips vocatives across the noun paradigms.
+  // For most nouns the vocative singular is syncretic with the
+  // nominative singular (1st-decl fem, 2nd-decl neut, most 3rd-decl
   // stems), so a "vocative singular" pick on the drilled paradigm
-  // resolves via the same Greek string under a different label — worth
+  // resolves via the same Greek string under a different label. Worth
   // adding to extraForms only where the syncretism would confuse a
   // student looking for explicit confirmation.
-  //
-  // λόγος has a DISTINCT vocative singular that appears in the NT as
-  // direct address. Added to extraForms only — no optionalFormGroups —
-  // because synthesizing a single-form drill card for a vocative would
-  // clutter the deck. Picks of "vocative singular" hit the fallback
-  // and resolve cleanly.
+
   const LOGOS_VOCATIVE = {
     'λόγε': 'vocative singular masculine'
   };
+  // 1st-decl masc. -ης nouns: vocative singular shortens to bare -α
+  // (Mt 8:8-style κύριε ἐγὼ μαθητά … attested in NT). Not drilled in
+  // the curriculum but appears in NT direct address — surface as an
+  // extra form so a "vocative singular" pick resolves cleanly.
+  const MATHETES_VOCATIVE = {
+    'μαθητά': 'vocative singular masculine'
+  };
+  const MATHETES_VOC_PL_EXTRAS = {
+    'μαθηταί': 'vocative plural masculine'
+  };
+
+  // ─── Participle full declensions ──────────────────────────────────
+  //
+  // Mounce drills full declensions for λύω's present + aorist active
+  // participles, the present mid/pas participle (λυόμενος), and the
+  // aorist passive participle λυθείς. Several gaps remain: 1st-aorist
+  // active participle λύσας (only masc-nom drilled in S* sets), the
+  // perfect active/middle-passive participles, future participles, and
+  // the μι-verb participles (only single forms drilled). γίνομαι's
+  // aorist middle γενόμενος is one of the most frequent participles in
+  // the NT corpus.
+  //
+  // Form patterns: every participle paradigm declines on one of three
+  // templates:
+  //   - Regular -ος/-η/-ον (m/p participles, future middle): like
+  //     λυόμενος — 2nd-decl masc/neut, 1st-decl fem.
+  //   - 3rd-decl ντ-stem masc/neut + 1st-decl fem in -ουσα/-ασα/
+  //     -εῖσα/-υῖα: active participles. Masc gen sg in -οντος, dat pl
+  //     in -ουσι(ν) etc. (with stem-specific vowel).
+  //   - 3rd-decl κ-stem masc/neut + 1st-decl fem in -υῖα: perfect
+  //     active participles (λελυκώς-type).
+  //
+  // Each declension below names every unique form once; truly
+  // syncretic slots (masc acc sg = neut nom/acc sg for ντ-stems;
+  // gen sg masc = gen sg neut, etc.) get a single entry with the
+  // composite parse string ("masculine/neuter").
+
+  // λύω 1st aorist active participle λύσας — ντ-stem masc/neut + 1st-
+  // decl -ασα fem. Mounce drills only the masc-nom forms (in the
+  // λύω → λύσας paradigm card group); the full case/number declension
+  // is real and common in the NT.
+  const LUO_AORIST_ACTIVE_PARTICIPLE = {
+    'λύσας':      'aorist active participle nominative singular masculine',
+    'λύσαντος':   'aorist active participle genitive singular masculine/neuter',
+    'λύσαντι':    'aorist active participle dative singular masculine/neuter',
+    'λύσαντα':    'aorist active participle accusative singular masculine',
+    'λύσαντες':   'aorist active participle nominative plural masculine',
+    'λυσάντων':   'aorist active participle genitive plural masculine/feminine/neuter',
+    'λύσασι':     'aorist active participle dative plural masculine/neuter',
+    'λύσασιν':    'aorist active participle dative plural masculine/neuter',
+    'λύσαντας':   'aorist active participle accusative plural masculine',
+    'λύσασα':     'aorist active participle nominative singular feminine',
+    'λυσάσης':    'aorist active participle genitive singular feminine',
+    'λυσάσῃ':     'aorist active participle dative singular feminine',
+    'λύσασαν':    'aorist active participle accusative singular feminine',
+    'λύσασαι':    'aorist active participle nominative plural feminine',
+    'λυσασῶν':    'aorist active participle genitive plural feminine',
+    'λυσάσαις':   'aorist active participle dative plural feminine',
+    'λυσάσας':    'aorist active participle accusative plural feminine',
+    'λῦσαν':      'aorist active participle nominative/accusative singular neuter'
+  };
+
+  // λύω perfect active participle λελυκώς — 3rd-decl κ-stem masc/neut
+  // + 1st-decl -υῖα fem.
+  const LUO_PERFECT_ACTIVE_PARTICIPLE = {
+    'λελυκώς':    'perfect active participle nominative singular masculine',
+    'λελυκότος':  'perfect active participle genitive singular masculine/neuter',
+    'λελυκότι':   'perfect active participle dative singular masculine/neuter',
+    'λελυκότα':   'perfect active participle accusative singular masculine',
+    'λελυκότες':  'perfect active participle nominative plural masculine',
+    'λελυκότων':  'perfect active participle genitive plural masculine/feminine/neuter',
+    'λελυκόσι':   'perfect active participle dative plural masculine/neuter',
+    'λελυκόσιν':  'perfect active participle dative plural masculine/neuter',
+    'λελυκότας':  'perfect active participle accusative plural masculine',
+    'λελυκυῖα':   'perfect active participle nominative singular feminine',
+    'λελυκυίας':  'perfect active participle genitive singular feminine',
+    'λελυκυίᾳ':   'perfect active participle dative singular feminine',
+    'λελυκυῖαν':  'perfect active participle accusative singular feminine',
+    'λελυκυῖαι':  'perfect active participle nominative plural feminine',
+    'λελυκυιῶν':  'perfect active participle genitive plural feminine',
+    'λελυκυίαις': 'perfect active participle dative plural feminine',
+    'λελυκός':    'perfect active participle nominative/accusative singular neuter'
+  };
+
+  // λύω perfect middle/passive participle λελυμένος — regular -ος/-η/
+  // -ον adjectival, like λυόμενος.
+  const LUO_PERFECT_MP_PARTICIPLE = {
+    'λελυμένος':  'perfect middle/passive participle nominative singular masculine',
+    'λελυμένου':  'perfect middle/passive participle genitive singular masculine/neuter',
+    'λελυμένῳ':   'perfect middle/passive participle dative singular masculine/neuter',
+    'λελυμένον':  'perfect middle/passive participle accusative singular masculine/neuter',
+    'λελυμένε':   'perfect middle/passive participle vocative singular masculine',
+    'λελυμένοι':  'perfect middle/passive participle nominative plural masculine',
+    'λελυμένους': 'perfect middle/passive participle accusative plural masculine',
+    'λελυμένων':  'perfect middle/passive participle genitive plural masculine/feminine/neuter',
+    'λελυμένοις': 'perfect middle/passive participle dative plural masculine/neuter',
+    'λελυμένη':   'perfect middle/passive participle nominative singular feminine',
+    'λελυμένης':  'perfect middle/passive participle genitive singular feminine',
+    'λελυμένῃ':   'perfect middle/passive participle dative singular feminine',
+    'λελυμένην':  'perfect middle/passive participle accusative singular feminine',
+    'λελυμέναι':  'perfect middle/passive participle nominative plural feminine',
+    'λελυμέναις': 'perfect middle/passive participle dative plural feminine',
+    'λελυμένας':  'perfect middle/passive participle accusative plural feminine',
+    'λελυμένα':   'perfect middle/passive participle nominative/accusative plural neuter'
+  };
+
+  // γίνομαι aorist middle participle γενόμενος — declines like
+  // λυόμενος (regular -ος/-η/-ον adjectival). Extremely common in NT.
+  const GINOMAI_AORIST_MIDDLE_PARTICIPLE = {
+    'γενόμενος':  'aorist middle participle nominative singular masculine',
+    'γενομένου':  'aorist middle participle genitive singular masculine/neuter',
+    'γενομένῳ':   'aorist middle participle dative singular masculine/neuter',
+    'γενόμενον':  'aorist middle participle accusative singular masculine/neuter',
+    'γενόμενε':   'aorist middle participle vocative singular masculine',
+    'γενόμενοι':  'aorist middle participle nominative plural masculine',
+    'γενομένους': 'aorist middle participle accusative plural masculine',
+    'γενομένων':  'aorist middle participle genitive plural masculine/feminine/neuter',
+    'γενομένοις': 'aorist middle participle dative plural masculine/neuter',
+    'γενομένη':   'aorist middle participle nominative singular feminine',
+    'γενομένης':  'aorist middle participle genitive singular feminine',
+    'γενομένῃ':   'aorist middle participle dative singular feminine',
+    'γενομένην':  'aorist middle participle accusative singular feminine',
+    'γενόμεναι':  'aorist middle participle nominative plural feminine',
+    'γενομέναις': 'aorist middle participle dative plural feminine',
+    'γενομένας':  'aorist middle participle accusative plural feminine',
+    'γενόμενα':   'aorist middle participle nominative/accusative plural neuter'
+  };
+
+  // γίνομαι perfect active participle γεγονώς — declines like λελυκώς
+  // (3rd-decl κ-stem masc/neut, 1st-decl fem in -υῖα).
+  const GINOMAI_PERFECT_ACTIVE_PARTICIPLE = {
+    'γεγονώς':    'perfect active participle nominative singular masculine',
+    'γεγονότος':  'perfect active participle genitive singular masculine/neuter',
+    'γεγονότι':   'perfect active participle dative singular masculine/neuter',
+    'γεγονότα':   'perfect active participle accusative singular masculine',
+    'γεγονότες':  'perfect active participle nominative plural masculine',
+    'γεγονότων':  'perfect active participle genitive plural masculine/feminine/neuter',
+    'γεγονόσι':   'perfect active participle dative plural masculine/neuter',
+    'γεγονόσιν':  'perfect active participle dative plural masculine/neuter',
+    'γεγονότας':  'perfect active participle accusative plural masculine',
+    'γεγονυῖα':   'perfect active participle nominative singular feminine',
+    'γεγονυίας':  'perfect active participle genitive singular feminine',
+    'γεγονυίᾳ':   'perfect active participle dative singular feminine',
+    'γεγονυῖαν':  'perfect active participle accusative singular feminine',
+    'γεγονυῖαι':  'perfect active participle nominative plural feminine',
+    'γεγονυιῶν':  'perfect active participle genitive plural feminine',
+    'γεγονυίαις': 'perfect active participle dative plural feminine',
+    'γεγονός':    'perfect active participle nominative/accusative singular neuter'
+  };
+
+  // ─── μι-verb participle full declensions ──────────────────────────
+  //
+  // Mounce drills only the bare stem form (masc nom sg, sometimes
+  // gender alternates) for each μι-verb participle. Full case/number
+  // declensions exist and are common in the NT. All follow the same
+  // ντ-stem pattern as λύων but with stem-specific vowel: ο/ου for
+  // δίδωμι, ε/ει for τίθημι, α for ἵστημι.
+
+  const DIDOMI_PRESENT_ACTIVE_PARTICIPLE = {
+    'διδούς':     'present active participle nominative singular masculine',
+    'διδόντος':   'present active participle genitive singular masculine/neuter',
+    'διδόντι':    'present active participle dative singular masculine/neuter',
+    'διδόντα':    'present active participle accusative singular masculine',
+    'διδόντες':   'present active participle nominative plural masculine',
+    'διδόντων':   'present active participle genitive plural masculine/feminine/neuter',
+    'διδοῦσι':    'present active participle dative plural masculine/neuter',
+    'διδοῦσιν':   'present active participle dative plural masculine/neuter',
+    'διδόντας':   'present active participle accusative plural masculine',
+    'διδοῦσα':    'present active participle nominative singular feminine',
+    'διδούσης':   'present active participle genitive singular feminine',
+    'διδούσῃ':    'present active participle dative singular feminine',
+    'διδοῦσαν':   'present active participle accusative singular feminine',
+    'διδοῦσαι':   'present active participle nominative plural feminine',
+    'διδουσῶν':   'present active participle genitive plural feminine',
+    'διδούσαις':  'present active participle dative plural feminine',
+    'διδούσας':   'present active participle accusative plural feminine',
+    'διδόν':      'present active participle nominative/accusative singular neuter'
+  };
+
+  const DIDOMI_AORIST_ACTIVE_PARTICIPLE = {
+    'δούς':     'aorist active participle nominative singular masculine',
+    'δόντος':   'aorist active participle genitive singular masculine/neuter',
+    'δόντι':    'aorist active participle dative singular masculine/neuter',
+    'δόντα':    'aorist active participle accusative singular masculine',
+    'δόντες':   'aorist active participle nominative plural masculine',
+    'δόντων':   'aorist active participle genitive plural masculine/feminine/neuter',
+    'δοῦσι':    'aorist active participle dative plural masculine/neuter',
+    'δοῦσιν':   'aorist active participle dative plural masculine/neuter',
+    'δόντας':   'aorist active participle accusative plural masculine',
+    'δοῦσα':    'aorist active participle nominative singular feminine',
+    'δούσης':   'aorist active participle genitive singular feminine',
+    'δούσῃ':    'aorist active participle dative singular feminine',
+    'δοῦσαν':   'aorist active participle accusative singular feminine',
+    'δοῦσαι':   'aorist active participle nominative plural feminine',
+    'δουσῶν':   'aorist active participle genitive plural feminine',
+    'δούσαις':  'aorist active participle dative plural feminine',
+    'δούσας':   'aorist active participle accusative plural feminine',
+    'δόν':      'aorist active participle nominative/accusative singular neuter'
+  };
+
+  const TITHEMI_PRESENT_ACTIVE_PARTICIPLE = {
+    'τιθείς':     'present active participle nominative singular masculine',
+    'τιθέντος':   'present active participle genitive singular masculine/neuter',
+    'τιθέντι':    'present active participle dative singular masculine/neuter',
+    'τιθέντα':    'present active participle accusative singular masculine',
+    'τιθέντες':   'present active participle nominative plural masculine',
+    'τιθέντων':   'present active participle genitive plural masculine/feminine/neuter',
+    'τιθεῖσι':    'present active participle dative plural masculine/neuter',
+    'τιθεῖσιν':   'present active participle dative plural masculine/neuter',
+    'τιθέντας':   'present active participle accusative plural masculine',
+    'τιθεῖσα':    'present active participle nominative singular feminine',
+    'τιθείσης':   'present active participle genitive singular feminine',
+    'τιθείσῃ':    'present active participle dative singular feminine',
+    'τιθεῖσαν':   'present active participle accusative singular feminine',
+    'τιθεῖσαι':   'present active participle nominative plural feminine',
+    'τιθεισῶν':   'present active participle genitive plural feminine',
+    'τιθείσαις':  'present active participle dative plural feminine',
+    'τιθείσας':   'present active participle accusative plural feminine',
+    'τιθέν':      'present active participle nominative/accusative singular neuter'
+  };
+
+  const TITHEMI_AORIST_ACTIVE_PARTICIPLE = {
+    'θείς':     'aorist active participle nominative singular masculine',
+    'θέντος':   'aorist active participle genitive singular masculine/neuter',
+    'θέντι':    'aorist active participle dative singular masculine/neuter',
+    'θέντα':    'aorist active participle accusative singular masculine',
+    'θέντες':   'aorist active participle nominative plural masculine',
+    'θέντων':   'aorist active participle genitive plural masculine/feminine/neuter',
+    'θεῖσι':    'aorist active participle dative plural masculine/neuter',
+    'θεῖσιν':   'aorist active participle dative plural masculine/neuter',
+    'θέντας':   'aorist active participle accusative plural masculine',
+    'θεῖσα':    'aorist active participle nominative singular feminine',
+    'θείσης':   'aorist active participle genitive singular feminine',
+    'θείσῃ':    'aorist active participle dative singular feminine',
+    'θεῖσαν':   'aorist active participle accusative singular feminine',
+    'θεῖσαι':   'aorist active participle nominative plural feminine',
+    'θεισῶν':   'aorist active participle genitive plural feminine',
+    'θείσαις':  'aorist active participle dative plural feminine',
+    'θείσας':   'aorist active participle accusative plural feminine',
+    'θέν':      'aorist active participle nominative/accusative singular neuter'
+  };
+
+  const HISTEMI_PRESENT_ACTIVE_PARTICIPLE = {
+    'ἱστάς':     'present active participle nominative singular masculine',
+    'ἱστάντος':  'present active participle genitive singular masculine/neuter',
+    'ἱστάντι':   'present active participle dative singular masculine/neuter',
+    'ἱστάντα':   'present active participle accusative singular masculine',
+    'ἱστάντες':  'present active participle nominative plural masculine',
+    'ἱστάντων':  'present active participle genitive plural masculine/feminine/neuter',
+    'ἱστᾶσι':    'present active participle dative plural masculine/neuter',
+    'ἱστᾶσιν':   'present active participle dative plural masculine/neuter',
+    'ἱστάντας':  'present active participle accusative plural masculine',
+    'ἱστᾶσα':    'present active participle nominative singular feminine',
+    'ἱστάσης':   'present active participle genitive singular feminine',
+    'ἱστάσῃ':    'present active participle dative singular feminine',
+    'ἱστᾶσαν':   'present active participle accusative singular feminine',
+    'ἱστᾶσαι':   'present active participle nominative plural feminine',
+    'ἱστασῶν':   'present active participle genitive plural feminine',
+    'ἱστάσαις':  'present active participle dative plural feminine',
+    'ἱστάσας':   'present active participle accusative plural feminine',
+    'ἱστάν':     'present active participle nominative/accusative singular neuter'
+  };
+
+  // ἵστημι 2nd aorist active participle στάς (intransitive — having
+  // stood). Statistically more common in the NT than the 1st-aorist
+  // στήσας (transitive — having set up).
+  const HISTEMI_SECOND_AORIST_ACTIVE_PARTICIPLE = {
+    'στάς':     'aorist active participle nominative singular masculine',
+    'στάντος':  'aorist active participle genitive singular masculine/neuter',
+    'στάντι':   'aorist active participle dative singular masculine/neuter',
+    'στάντα':   'aorist active participle accusative singular masculine',
+    'στάντες':  'aorist active participle nominative plural masculine',
+    'στάντων':  'aorist active participle genitive plural masculine/feminine/neuter',
+    'στᾶσι':    'aorist active participle dative plural masculine/neuter',
+    'στᾶσιν':   'aorist active participle dative plural masculine/neuter',
+    'στάντας':  'aorist active participle accusative plural masculine',
+    'στᾶσα':    'aorist active participle nominative singular feminine',
+    'στάσης':   'aorist active participle genitive singular feminine',
+    'στάσῃ':    'aorist active participle dative singular feminine',
+    'στᾶσαν':   'aorist active participle accusative singular feminine',
+    'στᾶσαι':   'aorist active participle nominative plural feminine',
+    'στασῶν':   'aorist active participle genitive plural feminine',
+    'στάσαις':  'aorist active participle dative plural feminine',
+    'στάσας':   'aorist active participle accusative plural feminine',
+    'στάν':     'aorist active participle nominative/accusative singular neuter'
+  };
+
+  // ἵστημι perfect active participle ἑστηκώς (standing — with present
+  // meaning, matching ἕστηκα).
+  const HISTEMI_PERFECT_ACTIVE_PARTICIPLE = {
+    'ἑστηκώς':    'perfect active participle nominative singular masculine',
+    'ἑστηκότος':  'perfect active participle genitive singular masculine/neuter',
+    'ἑστηκότι':   'perfect active participle dative singular masculine/neuter',
+    'ἑστηκότα':   'perfect active participle accusative singular masculine',
+    'ἑστηκότες':  'perfect active participle nominative plural masculine',
+    'ἑστηκότων':  'perfect active participle genitive plural masculine/feminine/neuter',
+    'ἑστηκόσι':   'perfect active participle dative plural masculine/neuter',
+    'ἑστηκόσιν':  'perfect active participle dative plural masculine/neuter',
+    'ἑστηκότας':  'perfect active participle accusative plural masculine',
+    'ἑστηκυῖα':   'perfect active participle nominative singular feminine',
+    'ἑστηκυίας':  'perfect active participle genitive singular feminine',
+    'ἑστηκυίᾳ':   'perfect active participle dative singular feminine',
+    'ἑστηκυῖαν':  'perfect active participle accusative singular feminine',
+    'ἑστηκυῖαι':  'perfect active participle nominative plural feminine',
+    'ἑστηκυιῶν':  'perfect active participle genitive plural feminine',
+    'ἑστηκυίαις': 'perfect active participle dative plural feminine',
+    'ἑστηκός':    'perfect active participle nominative/accusative singular neuter'
+  };
+
+  // ─── λύω future participles (rare in NT but morphologically real) ─
+
+  const LUO_FUTURE_ACTIVE_PARTICIPLE = {
+    'λύσων':      'future active participle nominative singular masculine',
+    'λύσοντος':   'future active participle genitive singular masculine/neuter',
+    'λύσοντι':    'future active participle dative singular masculine/neuter',
+    'λύσοντα':    'future active participle accusative singular masculine',
+    'λύσοντες':   'future active participle nominative plural masculine',
+    'λυσόντων':   'future active participle genitive plural masculine/feminine/neuter',
+    'λύσουσι':    'future active participle dative plural masculine/neuter',
+    'λύσουσιν':   'future active participle dative plural masculine/neuter',
+    'λύσοντας':   'future active participle accusative plural masculine',
+    'λύσουσα':    'future active participle nominative singular feminine',
+    'λυσούσης':   'future active participle genitive singular feminine',
+    'λυσούσῃ':    'future active participle dative singular feminine',
+    'λύσουσαν':   'future active participle accusative singular feminine',
+    'λύσουσαι':   'future active participle nominative plural feminine',
+    'λυσουσῶν':   'future active participle genitive plural feminine',
+    'λυσούσαις':  'future active participle dative plural feminine',
+    'λυσούσας':   'future active participle accusative plural feminine',
+    'λῦσον':      'future active participle nominative/accusative singular neuter'
+  };
+
+  const LUO_FUTURE_MIDDLE_PARTICIPLE = {
+    'λυσόμενος':  'future middle participle nominative singular masculine',
+    'λυσομένου':  'future middle participle genitive singular masculine/neuter',
+    'λυσομένῳ':   'future middle participle dative singular masculine/neuter',
+    'λυσόμενον':  'future middle participle accusative singular masculine/neuter',
+    'λυσόμενοι':  'future middle participle nominative plural masculine',
+    'λυσομένους': 'future middle participle accusative plural masculine',
+    'λυσομένων':  'future middle participle genitive plural masculine/feminine/neuter',
+    'λυσομένοις': 'future middle participle dative plural masculine/neuter',
+    'λυσομένη':   'future middle participle nominative singular feminine',
+    'λυσομένης':  'future middle participle genitive singular feminine',
+    'λυσομένῃ':   'future middle participle dative singular feminine',
+    'λυσομένην':  'future middle participle accusative singular feminine',
+    'λυσόμεναι':  'future middle participle nominative plural feminine',
+    'λυσομέναις': 'future middle participle dative plural feminine',
+    'λυσομένας':  'future middle participle accusative plural feminine',
+    'λυσόμενα':   'future middle participle nominative/accusative plural neuter'
+  };
+
+  const LUO_FUTURE_PASSIVE_PARTICIPLE = {
+    'λυθησόμενος':  'future passive participle nominative singular masculine',
+    'λυθησομένου':  'future passive participle genitive singular masculine/neuter',
+    'λυθησομένῳ':   'future passive participle dative singular masculine/neuter',
+    'λυθησόμενον':  'future passive participle accusative singular masculine/neuter',
+    'λυθησόμενοι':  'future passive participle nominative plural masculine',
+    'λυθησομένους': 'future passive participle accusative plural masculine',
+    'λυθησομένων':  'future passive participle genitive plural masculine/feminine/neuter',
+    'λυθησομένοις': 'future passive participle dative plural masculine/neuter',
+    'λυθησομένη':   'future passive participle nominative singular feminine',
+    'λυθησομένης':  'future passive participle genitive singular feminine',
+    'λυθησομένῃ':   'future passive participle dative singular feminine',
+    'λυθησομένην':  'future passive participle accusative singular feminine',
+    'λυθησόμεναι':  'future passive participle nominative plural feminine',
+    'λυθησομέναις': 'future passive participle dative plural feminine',
+    'λυθησομένας':  'future passive participle accusative plural feminine',
+    'λυθησόμενα':   'future passive participle nominative/accusative plural neuter'
+  };
+
+  // Participle optional groups, gated by max(tense-intro, ptc-intro).
+  const LUO_PARTICIPLE_OPTIONAL = [
+    { chapter: 28, family: 'λύω — 1st aorist active participle λύσας full declension (optional)',
+      forms: LUO_AORIST_ACTIVE_PARTICIPLE },
+    { chapter: 30, family: 'λύω — perfect active participle λελυκώς (optional)',
+      forms: LUO_PERFECT_ACTIVE_PARTICIPLE },
+    { chapter: 30, family: 'λύω — perfect middle/passive participle λελυμένος (optional)',
+      forms: LUO_PERFECT_MP_PARTICIPLE },
+    { chapter: 27, family: 'λύω — future active participle λύσων (optional, rare)',
+      forms: LUO_FUTURE_ACTIVE_PARTICIPLE },
+    { chapter: 27, family: 'λύω — future middle participle λυσόμενος (optional, rare)',
+      forms: LUO_FUTURE_MIDDLE_PARTICIPLE },
+    { chapter: 28, family: 'λύω — future passive participle λυθησόμενος (optional, rare)',
+      forms: LUO_FUTURE_PASSIVE_PARTICIPLE }
+  ];
+
+  const GINOMAI_PARTICIPLE_OPTIONAL = [
+    { chapter: 28, family: 'γίνομαι — aorist middle participle γενόμενος (optional)',
+      forms: GINOMAI_AORIST_MIDDLE_PARTICIPLE },
+    { chapter: 30, family: 'γίνομαι — perfect active participle γεγονώς (optional)',
+      forms: GINOMAI_PERFECT_ACTIVE_PARTICIPLE }
+  ];
+
+  const DIDOMI_PARTICIPLE_OPTIONAL = [
+    { chapter: 35, family: 'δίδωμι — present active participle διδούς full declension (optional)',
+      forms: DIDOMI_PRESENT_ACTIVE_PARTICIPLE },
+    { chapter: 35, family: 'δίδωμι — aorist active participle δούς full declension (optional)',
+      forms: DIDOMI_AORIST_ACTIVE_PARTICIPLE }
+  ];
+
+  const TITHEMI_PARTICIPLE_OPTIONAL = [
+    { chapter: 36, family: 'τίθημι — present active participle τιθείς full declension (optional)',
+      forms: TITHEMI_PRESENT_ACTIVE_PARTICIPLE },
+    { chapter: 36, family: 'τίθημι — aorist active participle θείς full declension (optional)',
+      forms: TITHEMI_AORIST_ACTIVE_PARTICIPLE }
+  ];
+
+  const HISTEMI_PARTICIPLE_OPTIONAL = [
+    { chapter: 36, family: 'ἵστημι — present active participle ἱστάς full declension (optional)',
+      forms: HISTEMI_PRESENT_ACTIVE_PARTICIPLE },
+    { chapter: 36, family: 'ἵστημι — 2nd aorist active participle στάς full declension (optional)',
+      forms: HISTEMI_SECOND_AORIST_ACTIVE_PARTICIPLE },
+    { chapter: 36, family: 'ἵστημι — perfect active participle ἑστηκώς full declension (optional)',
+      forms: HISTEMI_PERFECT_ACTIVE_PARTICIPLE }
+  ];
+
+  // ─── Aorist passive participles ───────────────────────────────────
+  //
+  // Each major verb has an aorist passive participle following the
+  // λυθείς paradigm (3rd-decl ντ-stem masc/neut with -θεις/-θεντος;
+  // 1st-decl -θεῖσα fem). Stems shift per the verb's principal-part
+  // formation: γενη-θ-, δο-θ-, τε-θ-, στα-θ-. All are real Koine and
+  // common in the NT (γενηθεὶς "having become", δοθείς "having been
+  // given", σταθείς "having been placed/stood"). Gated at the chapter
+  // the lemma's aor passive is introduced (γίνομαι: 24, δίδωμι: 34,
+  // τίθημι/ἵστημι: 36).
+
+  function aoristPassiveParticipleParadigm(stem) {
+    const s = stem;
+    return {
+      [`${s}θείς`]:     'aorist passive participle nominative singular masculine',
+      [`${s}θέντος`]:   'aorist passive participle genitive singular masculine/neuter',
+      [`${s}θέντι`]:    'aorist passive participle dative singular masculine/neuter',
+      [`${s}θέντα`]:    'aorist passive participle accusative singular masculine',
+      [`${s}θέντες`]:   'aorist passive participle nominative plural masculine',
+      [`${s}θέντων`]:   'aorist passive participle genitive plural masculine/feminine/neuter',
+      [`${s}θεῖσι`]:    'aorist passive participle dative plural masculine/neuter',
+      [`${s}θεῖσιν`]:   'aorist passive participle dative plural masculine/neuter',
+      [`${s}θέντας`]:   'aorist passive participle accusative plural masculine',
+      [`${s}θεῖσα`]:    'aorist passive participle nominative singular feminine',
+      [`${s}θείσης`]:   'aorist passive participle genitive singular feminine',
+      [`${s}θείσῃ`]:    'aorist passive participle dative singular feminine',
+      [`${s}θεῖσαν`]:   'aorist passive participle accusative singular feminine',
+      [`${s}θεῖσαι`]:   'aorist passive participle nominative plural feminine',
+      [`${s}θεισῶν`]:   'aorist passive participle genitive plural feminine',
+      [`${s}θείσαις`]:  'aorist passive participle dative plural feminine',
+      [`${s}θείσας`]:   'aorist passive participle accusative plural feminine',
+      [`${s}θέν`]:      'aorist passive participle nominative/accusative singular neuter'
+    };
+  }
+
+  const GINOMAI_AORIST_PASSIVE_PARTICIPLE = aoristPassiveParticipleParadigm('γενη');
+  const DIDOMI_AORIST_PASSIVE_PARTICIPLE  = aoristPassiveParticipleParadigm('δο');
+  const TITHEMI_AORIST_PASSIVE_PARTICIPLE = aoristPassiveParticipleParadigm('τε');
+  const HISTEMI_AORIST_PASSIVE_PARTICIPLE = aoristPassiveParticipleParadigm('στα');
+
+  // ─── Lemma → entry composition ────────────────────────────────────
+  //
+  // Mounce splits some verbs across multiple principal-part lemma keys
+  // (e.g. 'λύω' for the present system, 'λύω → ἔλυσα' for 1st aorist,
+  // 'λύω → λέλυκα' for perfect …). The focused-paradigm dropdown lets
+  // the student pick ANY of those variants. `buildOptionalMorphCardsForLemma`
+  // looks up the inventory by exact lemma key — so for the full
+  // paradigm to surface no matter which variant the student focuses
+  // on, we have to register the same extras + optional groups under
+  // every variant key in the family. The chapter gate on each group
+  // still scopes what's actually drilled (e.g. perfect-participle
+  // forms stay hidden until Ch 30 even if the focused variant is the
+  // present-tense 'λύω' at Ch 16).
+  //
+  // Variant lists match the lemma strings emitted by morphology.js.
+  const LUO_VARIANTS = [
+    'λύω',
+    'λύω → λύσω',
+    'λύω → ἔλυσα',
+    'λύω → ἔλυον',
+    'λύω → λέλυκα',
+    'λύω → λύομαι',
+    'λύομαι → ἐλυόμην',
+    'λύω → ἐλυσάμην',
+    'λύω → ἐλύθην',
+    'λύω → λυθήσομαι',
+    'λύω → λέλυμαι',
+    'λύω → λυθείς',
+    'λύω → λύσας',
+    'λύω → λῦσον',
+    'λύω infinitive forms'
+  ];
+  const DIDOMI_VARIANTS = ['δίδωμι', 'δίδωμι → ἔδωκα'];
+  const GINOMAI_VARIANTS = ['γίνομαι → ἐγενόμην'];
+  const TITHEMI_VARIANTS = ['τίθημι (root *θε-)'];
+  const HISTEMI_VARIANTS = ['ἵστημι (root *στα-)'];
+
+  const LUO_FULL_EXTRA_FORMS = {
+    ...LUO_EXTRA_FORMS,
+    ...LUO_AORIST_ACTIVE_PARTICIPLE,
+    ...LUO_PERFECT_ACTIVE_PARTICIPLE,
+    ...LUO_PERFECT_MP_PARTICIPLE,
+    ...LUO_FUTURE_ACTIVE_PARTICIPLE,
+    ...LUO_FUTURE_MIDDLE_PARTICIPLE,
+    ...LUO_FUTURE_PASSIVE_PARTICIPLE
+  };
+  const LUO_FULL_OPTIONAL_GROUPS = [
+    ...LUO_OPTIONAL_GROUPS,
+    ...LUO_PARTICIPLE_OPTIONAL
+  ];
+
+  const GINOMAI_FULL_EXTRA_FORMS = {
+    ...GINOMAI_EXTRA_FORMS,
+    ...GINOMAI_AORIST_MIDDLE_PARTICIPLE,
+    ...GINOMAI_PERFECT_ACTIVE_PARTICIPLE,
+    ...GINOMAI_AORIST_PASSIVE_PARTICIPLE
+  };
+  const GINOMAI_FULL_OPTIONAL_GROUPS = [
+    ...GINOMAI_OPTIONAL_GROUPS,
+    ...GINOMAI_PARTICIPLE_OPTIONAL,
+    { chapter: 28, family: 'γίνομαι — aorist passive participle γενηθείς (optional)',
+      forms: GINOMAI_AORIST_PASSIVE_PARTICIPLE }
+  ];
+
+  const DIDOMI_FULL_EXTRA_FORMS = {
+    ...DIDOMI_EXTRA_FORMS,
+    ...DIDOMI_PRESENT_ACTIVE_PARTICIPLE,
+    ...DIDOMI_AORIST_ACTIVE_PARTICIPLE,
+    ...DIDOMI_AORIST_PASSIVE_PARTICIPLE
+  };
+  const DIDOMI_FULL_OPTIONAL_GROUPS = [
+    ...DIDOMI_OPTIONAL_GROUPS,
+    ...DIDOMI_PARTICIPLE_OPTIONAL,
+    { chapter: 34, family: 'δίδωμι — aorist passive participle δοθείς (optional)',
+      forms: DIDOMI_AORIST_PASSIVE_PARTICIPLE }
+  ];
+
+  const TITHEMI_FULL_EXTRA_FORMS = {
+    ...TITHEMI_EXTRA_FORMS,
+    ...TITHEMI_PRESENT_ACTIVE_PARTICIPLE,
+    ...TITHEMI_AORIST_ACTIVE_PARTICIPLE,
+    ...TITHEMI_AORIST_PASSIVE_PARTICIPLE
+  };
+  const TITHEMI_FULL_OPTIONAL_GROUPS = [
+    ...TITHEMI_OPTIONAL_GROUPS,
+    ...TITHEMI_PARTICIPLE_OPTIONAL,
+    { chapter: 36, family: 'τίθημι — aorist passive participle τεθείς (optional)',
+      forms: TITHEMI_AORIST_PASSIVE_PARTICIPLE }
+  ];
+
+  const HISTEMI_FULL_EXTRA_FORMS = {
+    ...HISTEMI_EXTRA_FORMS,
+    ...HISTEMI_PRESENT_ACTIVE_PARTICIPLE,
+    ...HISTEMI_SECOND_AORIST_ACTIVE_PARTICIPLE,
+    ...HISTEMI_PERFECT_ACTIVE_PARTICIPLE,
+    ...HISTEMI_AORIST_PASSIVE_PARTICIPLE
+  };
+  const HISTEMI_FULL_OPTIONAL_GROUPS = [
+    ...HISTEMI_OPTIONAL_GROUPS,
+    ...HISTEMI_PARTICIPLE_OPTIONAL,
+    { chapter: 36, family: 'ἵστημι — aorist passive participle σταθείς (optional)',
+      forms: HISTEMI_AORIST_PASSIVE_PARTICIPLE }
+  ];
 
   const LEMMA_INVENTORY = {
+    // εἰμί has no morphology.js cards yet in mounce — kept here so the
+    // optional-extension drill (future participle, future infinitive,
+    // present imperative) and the fallback form-lookup are ready the
+    // moment εἰμί gets paradigm data. Suppletive: no aorist/perfect.
     'εἰμί': {
-      // εἰμί is suppletive: it has no aorist or perfect family — Greek
-      // uses other roots (γέγονα, ἐγενόμην) for those senses. Tenses
-      // εἰμί does have: present, future, imperfect (and a rarely-
-      // attested perfect that classical/Koine pedagogy treats as
-      // absent). Voice: εἰμί is active in the present/imperfect but
-      // deponent middle in the future (ἔσομαι, ἐσόμενος, ἔσεσθαι) — so
-      // we can't blanket-block middle/passive at the lemma level; it'd
-      // wrongly tag every future-middle pick as impossible. Until the
-      // inventory shape supports tense-conditional voice gating, leave
-      // voice open. Moods exist for some tenses (subjunctive ὦ,
-      // imperative ἴσθι, infinitive εἶναι/ἔσεσθαι, participle ὤν/
-      // ἐσόμενος) so don't blanket-mark moods here either.
       impossibleTenses: ['aorist', 'first aorist', 'second aorist', 'perfect', 'pluperfect'],
       extraForms: {
         ...EIMI_FUTURE_MIDDLE_PARTICIPLE,
@@ -156,15 +1261,56 @@
     },
     'λόγος': {
       extraForms: LOGOS_VOCATIVE
+    },
+    'μαθητής': {
+      extraForms: { ...MATHETES_VOCATIVE, ...MATHETES_VOC_PL_EXTRAS }
     }
-    // Add more defective lemmas here (e.g. οἶδα — no present form, the
-    // perfect serves as present; χρή — only third singular, etc.) when
-    // the data grows to include them. For paradigm exemplars (λύω,
-    // λόγος, ἀγαθός, …) whose paradigms have undrilled corners, add
-    // both `extraForms` (always-on fallback) and `optionalFormGroups`
-    // (toggle-gated drill cards) — reference a shared `forms` map so
-    // the two stay in sync.
   };
+
+  // Register the shared verb entries under every principal-part variant
+  // key so the optional extension surfaces no matter which lemma the
+  // student focuses on.
+  function registerVariants(keys, entry) {
+    keys.forEach((key) => { LEMMA_INVENTORY[key] = entry; });
+  }
+  registerVariants(LUO_VARIANTS, {
+    extraForms: LUO_FULL_EXTRA_FORMS,
+    optionalFormGroups: LUO_FULL_OPTIONAL_GROUPS
+  });
+  registerVariants(GINOMAI_VARIANTS, {
+    extraForms: GINOMAI_FULL_EXTRA_FORMS,
+    optionalFormGroups: GINOMAI_FULL_OPTIONAL_GROUPS
+  });
+  registerVariants(DIDOMI_VARIANTS, {
+    extraForms: DIDOMI_FULL_EXTRA_FORMS,
+    optionalFormGroups: DIDOMI_FULL_OPTIONAL_GROUPS
+  });
+  registerVariants(TITHEMI_VARIANTS, {
+    extraForms: TITHEMI_FULL_EXTRA_FORMS,
+    optionalFormGroups: TITHEMI_FULL_OPTIONAL_GROUPS
+  });
+  registerVariants(HISTEMI_VARIANTS, {
+    extraForms: HISTEMI_FULL_EXTRA_FORMS,
+    optionalFormGroups: HISTEMI_FULL_OPTIONAL_GROUPS
+  });
+
+  // Lemmas Mounce drills that don't yet have optional extensions (next
+  // candidates for the same treatment):
+  //   - ἀγαπάω / ποιέω / πληρόω : contract verbs (α-, ε-, ο-contract);
+  //     need their own subjunctive/imperative/infinitive/participle
+  //     tables. Mirror the φιλέω-style pattern with the right contract
+  //     vowel rules.
+  //   - λαμβάνω / λείπω / γράφω : 2nd-aorist active/passive verbs;
+  //     full indicative + non-indicative paradigms beyond principal-
+  //     part recall.
+  //   - κρίνω : liquid future; full future paradigm.
+  //   - πορεύομαι : middle deponent; full middle paradigm.
+  //   - δείκνυμι : μι-verb; full present + aorist + non-indicative.
+  //   - αὐτός / οὗτος / ὅς / ἐκεῖνος / ἐγώ / σύ : pronouns are
+  //     already drilled in full; no obvious gaps.
+  //   - λόγος / γραφή / ὥρα / ἔργον / σάρξ / πνεῦμα / ἀγαθός :
+  //     nouns + adjective; the only standard gap is the vocative
+  //     singular (already handled for λόγος).
 
   if (typeof window !== 'undefined') window.LEMMA_INVENTORY = LEMMA_INVENTORY;
 })();
