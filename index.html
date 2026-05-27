@@ -19,11 +19,11 @@ update that doc in the same commit. Line numbers in the doc are approximate.
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="Mounce Greek">
-<link rel="manifest" href="manifest.json?v=96">
-<link rel="apple-touch-icon" href="icons/apple-touch-icon.png?v=96">
-<link rel="icon" type="image/svg+xml" href="favicon.svg?v=96">
+<link rel="manifest" href="manifest.json?v=98">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png?v=98">
+<link rel="icon" type="image/svg+xml" href="favicon.svg?v=98">
 <title>Mounce BBG Greek — Flashcards</title>
-<link rel="stylesheet" href="styles.css?v=96">
+<link rel="stylesheet" href="styles.css?v=98">
 <script>
 (function(){
   try {
@@ -694,60 +694,54 @@ update that doc in the same commit. Line numbers in the doc are approximate.
     <div class="consent-label">User guide</div>
     <h2 id="shortcutsTitle">How to use this app</h2>
     <div class="consent-copy user-guide-copy">
-      <p>An unofficial study aid for William D. Mounce, <em>Basics of Biblical Greek</em> (BBG3). Flip cards, mark how confident you felt, and the app schedules what comes back next. Vocabulary is sourced from Paul Denisowski's BBG3 chapter lists; grammar concepts and paradigm order follow Mounce's published overheads.</p>
+      <p>An unofficial study aid for Mounce, <em>Basics of Biblical Greek</em> (BBG3). Flip a card, mark how confident you were, and the app schedules what returns next. Vocab from Paul Denisowski's BBG3 lists; grammar and paradigm order follow Mounce's overheads.</p>
 
-      <h3 class="user-guide-heading">Home screen tabs</h3>
-      <p><strong>Choose session.</strong> Pre-built sessions (the four BBG Parts plus cumulative-through-Ch milestones), manual chapter selection, supplemental paradigm decks, and an Advanced vocabulary section with rare NT lemmas grouped in buckets of 200.</p>
-      <p><strong>Start studying.</strong> Begins (or resumes) a session for whatever you have selected.</p>
-      <p><strong>Vocab / Grammar / Translate / Memorization.</strong> The mode strip switches what kind of card you study or jumps to a separate page:</p>
+      <h3 class="user-guide-heading">Home screen</h3>
+      <p><strong>Choose session</strong> — Mounce's four Parts, cumulative milestones, manual chapters, supplemental paradigm decks, and Advanced vocabulary buckets.</p>
+      <p><strong>Mode strip</strong> picks what kind of card you study:</p>
       <ul class="user-guide-list">
-        <li><strong>Vocab</strong> — Greek headword on the front, English gloss on the back.</li>
-        <li><strong>Grammar</strong> — multiple‑choice parsing and concept drills aligned to Mounce's Noun Rules, Five Rules of Contraction, Five Rules of μι Verbs, and the Master Verb Chart.</li>
-        <li><strong>Translate</strong> — short author‑written Greek phrases per chapter, restricted to vocabulary and grammar introduced through that point. (The Mounce variant ships without NT‑verse curation.)</li>
-        <li><strong>Memorization</strong> — separate page with full paradigm reference tables (article, nouns, pronouns, adjectives, verbs by tense). Use the toolbar to hide Greek, English, or notes for self‑testing.</li>
+        <li><strong>Vocab</strong> — Greek ↔ English flashcards.</li>
+        <li><strong>Grammar</strong> — multiple-choice parsing and concept drills (Noun Rules, Five Rules of Contraction / μι Verbs, Master Verb Chart).</li>
+        <li><strong>Parsing</strong> — walk the parse of a real inflected form one step at a time (aspect, tense, voice, mood, person, number, case, gender). Each step is chapter-gated so values appear only after Mounce introduces them. Wrong answers show <em>your parse</em> vs <em>correct</em> with the Greek form; stem-recall dead-ends redirect to the matching FLIP set.</li>
+        <li><strong>Translate</strong> — graded NT reader. Each chapter lists every verse whose lemmas are all in your cumulative vocab through that chapter (Robinson-Pierpont 2005 Byzantine text, joined on Strong's). Tap a verse for a literal gloss.</li>
+        <li><strong>Memorization</strong> — separate page with full paradigm tables; toolbar hides Greek, English, or notes for self-testing.</li>
       </ul>
-      <p><strong>Progress.</strong> Opens an analytics overlay with your study streak, level/title, daily activity heatmap, course‑completion bars, achievements, cumulative active study time, session history, and per‑deck vocabulary and grammar progress.</p>
-      <p><strong>User guide.</strong> This screen.</p>
+      <p><strong>Progress</strong> — analytics overlay: streak, level, heatmap, course completion, achievements, study-time ledger, plus separate <em>Selected</em> and <em>Total</em> breakdowns. The Paradigm parsing section logs per-step accuracy with a tappable bucket-of-20 chart per row.</p>
 
       <h3 class="user-guide-heading">Advanced review settings</h3>
-      <p>Tucked under <em>Advanced review settings</em> on the home screen. All toggles persist across sessions.</p>
+      <p>All toggles persist across sessions.</p>
       <ul class="user-guide-list">
-        <li><strong>Shuffle</strong> — randomize card order in the current deck.</li>
-        <li><strong>Required only</strong> — hide optional / supplemental words and study only course‑required vocabulary. On by default.</li>
-        <li><strong>Eng → Gk</strong> — flip the prompt direction (English shown first, you recall the Greek). Works in both vocab and grammar modes.</li>
-        <li><strong>Spaced review</strong> — turn spaced repetition on or off. On by default.</li>
-        <li><strong>Self‑check</strong> (grammar mode only) — hide the answer until you tap to reveal, then rate yourself.</li>
-        <li><strong>Reshuffle</strong> — re‑order whatever cards are currently due/eligible without changing your progress.</li>
-        <li><strong>Reset deck</strong> — clear marks and progress for the currently selected sets only.</li>
-        <li><strong>Reset stats</strong> — wipe all study statistics globally. There is no undo.</li>
+        <li><strong>Font</strong> — Serif (Gentium Plus) or Sans (Noto Sans), both bundled locally. <strong>Text size</strong> — Medium / Large / X-Large.</li>
+        <li><strong>Shuffle</strong>, <strong>Required only</strong>, <strong>Eng → Gk</strong>, <strong>Spaced review</strong>.</li>
+        <li><strong>Hard review</strong> — drill only vocab you've missed 10+ times and are still under 40% on.</li>
+        <li><strong>Daily archive reset</strong> — clear archived (Easy) cards around 5 AM so unspaced decks start fresh each day.</li>
+        <li><strong>Split vocab/grammar selection</strong> — keep separate chapter selections for the two modes.</li>
+        <li><strong>Self-check</strong> (grammar) — hide the answer until you tap to reveal.</li>
+        <li><strong>Parsing-step toggles</strong> (parsing mode) — turn any of the eight dimensions off, or open the nested "Exclude … values" panel to skip individual values (e.g. drill aorist only). Each label notes the chapter where the value enters.</li>
+        <li><strong>Optional paradigm extensions</strong> (parsing) — include or exclude imperatives, subjunctives, infinitives, participles, 3rd-person forms, and future / perfect tense forms by category.</li>
+        <li><strong>Reshuffle</strong> / <strong>Reset deck</strong> / <strong>Reset required</strong> / <strong>Reset stats</strong>. The spaced-reset prompt also offers "Set all to now" (keep progress, make every card due) and can be scoped to required cards only.</li>
       </ul>
 
       <h3 class="user-guide-heading">How spaced repetition works</h3>
-      <p>Each card has its own schedule. When you mark a card the app adjusts both <em>when</em> it returns and an <em>ease</em> factor that scales future intervals:</p>
       <ul class="user-guide-list">
-        <li><strong>✗ Hard</strong> — comes back within minutes, drops ease and steps the card back one stage.</li>
-        <li><strong>~ Uncertain</strong> — comes back at roughly half its previous interval (capped between 1 hour and 1 week), small ease decrease.</li>
-        <li><strong>✓ Easy</strong> — advances to the next ramp step (~1 → 3 → 7 → 14 days, then growing), increases ease, and recent accuracy further multiplies the gap.</li>
+        <li><strong>✗ Hard</strong> — back within minutes; ease drops.</li>
+        <li><strong>~ Uncertain</strong> — back at ~half the previous interval (1h–1wk).</li>
+        <li><strong>✓ Easy</strong> — advances ~1 → 3 → 7 → 14 days, then grows.</li>
       </ul>
-      <p>With <strong>Spaced review off</strong>, the deck behaves as a simple flip deck: <em>Hard</em> and <em>Uncertain</em> shuffle the card to the back of the active pile (it'll reappear later in the same pass), and <em>Easy</em> archives the card. When every card in the current pass has been marked, the still-active cards reshuffle into a fresh pass. Archived cards stay archived until you press <strong>↻ Reset</strong> (mid-deck the button asks for confirmation; at the end of a deck the <strong>Next</strong> arrow itself becomes a one-tap Reset) or pick a new session. All three marks still contribute to your confidence/analytics. Use the <strong>↶ Undo</strong> button under the card to reverse your last mark in spaced mode.</p>
+      <p>With <strong>Spaced review off</strong>, Hard / Uncertain shuffle the card back into the active pile; Easy archives it. The deck reshuffles when the pass ends; archived cards stay until you tap <strong>↻ Reset</strong> or pick a new session. Use <strong>↶ Undo</strong> to reverse your last spaced mark.</p>
 
       <h3 class="user-guide-heading">Progress tools and notice</h3>
-      <p><strong>Progress tools</strong> (collapsible on the home screen) export your full progress as JSON or import a saved file — useful for moving between devices or backing up before a reset.</p>
-      <p><strong>Study aid notice</strong> re‑opens the AI / unofficial‑content disclaimer at any time.</p>
+      <p><strong>Progress tools</strong> export/import your progress as JSON. <strong>Study aid notice</strong> re-opens the disclaimer.</p>
 
       <h3 class="user-guide-heading">Keyboard shortcuts (while studying)</h3>
-      <p>Flip card: <strong>Space</strong> / <strong>Enter</strong></p>
-      <p>Navigate: <strong>←</strong> <strong>→</strong> (or <strong>↑</strong> <strong>↓</strong>)</p>
-      <p>Mark confidence: <strong>1</strong> Hard, <strong>2</strong> Uncertain, <strong>3</strong> Easy</p>
-      <p>Quick marks: <strong>R</strong> = Hard, <strong>K</strong> = Easy</p>
-      <p>Grammar options: <strong>1–4</strong> chooses an answer, <strong>0</strong> / <strong>5</strong> = "I don't know" (pass), <strong>←</strong> = Undo last answer</p>
+      <p>Flip: <strong>Space</strong> / <strong>Enter</strong>. Navigate: <strong>← →</strong> (or <strong>↑ ↓</strong>). Mark: <strong>1</strong> Hard, <strong>2</strong> Uncertain, <strong>3</strong> Easy. Quick: <strong>R</strong>=Hard, <strong>K</strong>=Easy. Grammar / Parsing: <strong>1–4</strong> picks an answer, <strong>0</strong>/<strong>5</strong>=pass, <strong>←</strong>=Undo.</p>
 
       <h3 class="user-guide-heading">Tips</h3>
       <ul class="user-guide-list">
-        <li>Be honest with <em>Hard</em> / <em>Uncertain</em> / <em>Easy</em> — the schedule only helps if it reflects what you actually knew.</li>
-        <li>Switch to the <strong>Memorization</strong> page when you want to study paradigm tables side‑by‑side rather than one card at a time.</li>
-        <li>The <strong>Translate</strong> drills are short author‑written sentences that use only vocab/grammar through that chapter — the easiest bridge from flashcards to real syntax.</li>
-        <li>Theme (System / Dark / Light) is in the top‑right of the header.</li>
+        <li>Be honest with Hard / Uncertain / Easy — the schedule only helps if it reflects what you actually knew.</li>
+        <li>Use <strong>Parsing</strong> after a paradigm is fresh in your head — it tests recognition of inflected forms, not table memory.</li>
+        <li>Switch to <strong>Memorization</strong> for side-by-side paradigm review.</li>
+        <li>Theme, font, and text size are in the header / advanced settings.</li>
       </ul>
     </div>
     <div class="consent-actions">
@@ -852,46 +846,52 @@ update that doc in the same commit. Line numbers in the doc are approximate.
   </div>
 </div>
 
-<script defer src="js/data/words.js?v=96"></script>
-<script defer src="js/data/morphology.js?v=96"></script>
-<script defer src="js/data/lemma_inventory.js?v=96"></script>
-<script defer src="js/data/supplemental.js?v=96"></script>
-<script defer src="js/data/grammar.js?v=96"></script>
-<script defer src="js/data/supplementals/mounce_paradigms.js?v=96"></script>
-<script defer src="js/data/supplementals/stem_change_drills.js?v=96"></script>
-<script defer src="js/data/supplementals/second_aorist_flip.js?v=96"></script>
-<script defer src="js/data/supplementals/w3_aorist_passive_flip.js?v=96"></script>
-<script defer src="js/data/supplementals/w3_perfect_active_flip.js?v=96"></script>
-<script defer src="js/data/supplementals/w4_mi_verb_principal_parts_flip.js?v=96"></script>
-<script defer src="js/data/advanced/advanced_01.js?v=96"></script>
-<script defer src="js/data/advanced/advanced_02.js?v=96"></script>
-<script defer src="js/data/advanced/advanced_03.js?v=96"></script>
-<script defer src="js/data/advanced/advanced_04.js?v=96"></script>
-<script defer src="js/data/advanced/advanced_05.js?v=96"></script>
-<script defer src="js/data/advanced/advanced_06.js?v=96"></script>
-<script defer src="js/data/advanced/advanced_07.js?v=96"></script>
-<script defer src="js/data/advanced/advanced_08.js?v=96"></script>
-<script defer src="js/data/advanced/advanced_09.js?v=96"></script>
-<script defer src="js/data/advanced/advanced_10.js?v=96"></script>
-<script defer src="js/data/advanced/advanced_11.js?v=96"></script>
-<script defer src="js/data/advanced/advanced_12.js?v=96"></script>
-<script defer src="js/data/advanced/advanced_13.js?v=96"></script>
-<script defer src="js/data/advanced/advanced_14.js?v=96"></script>
-<script defer src="js/data/advanced/advanced_15.js?v=96"></script>
-<script defer src="js/data/advanced/advanced_16.js?v=96"></script>
-<script defer src="js/data/advanced/advanced_17.js?v=96"></script>
-<script defer src="js/data/advanced/advanced_18.js?v=96"></script>
-<script defer src="js/data/advanced/advanced_19.js?v=96"></script>
-<script defer src="js/data/advanced/advanced_20.js?v=96"></script>
-<script defer src="js/data/advanced/advanced_21.js?v=96"></script>
-<script defer src="js/data/advanced/advanced_22.js?v=96"></script>
-<script defer src="js/data/advanced/advanced_23.js?v=96"></script>
-<script defer src="js/data/advanced/advanced_24.js?v=96"></script>
-<script defer src="js/data/advanced/advanced_25.js?v=96"></script>
-<script defer src="js/data/reader.js?v=96"></script>
-<script defer src="js/data/reader_verse_literals.js?v=96"></script>
-<script defer src="js/data/reader_translations.js?v=96"></script>
-<script defer src="js/logic/pos_logic.js?v=96"></script>
-<script type="module" src="js/app/main.js?v=96"></script>
+<div class="update-banner" id="updateAvailableBanner" role="status" aria-live="polite" hidden>
+  <span class="update-banner-text">A new version is available.</span>
+  <button class="ctrl-btn update-banner-btn" type="button" onclick="applyAppUpdate()">Refresh</button>
+  <button class="update-banner-dismiss" type="button" onclick="dismissAppUpdate()" aria-label="Dismiss">×</button>
+</div>
+
+<script defer src="js/data/words.js?v=98"></script>
+<script defer src="js/data/morphology.js?v=98"></script>
+<script defer src="js/data/lemma_inventory.js?v=98"></script>
+<script defer src="js/data/supplemental.js?v=98"></script>
+<script defer src="js/data/grammar.js?v=98"></script>
+<script defer src="js/data/supplementals/mounce_paradigms.js?v=98"></script>
+<script defer src="js/data/supplementals/stem_change_drills.js?v=98"></script>
+<script defer src="js/data/supplementals/second_aorist_flip.js?v=98"></script>
+<script defer src="js/data/supplementals/w3_aorist_passive_flip.js?v=98"></script>
+<script defer src="js/data/supplementals/w3_perfect_active_flip.js?v=98"></script>
+<script defer src="js/data/supplementals/w4_mi_verb_principal_parts_flip.js?v=98"></script>
+<script defer src="js/data/advanced/advanced_01.js?v=98"></script>
+<script defer src="js/data/advanced/advanced_02.js?v=98"></script>
+<script defer src="js/data/advanced/advanced_03.js?v=98"></script>
+<script defer src="js/data/advanced/advanced_04.js?v=98"></script>
+<script defer src="js/data/advanced/advanced_05.js?v=98"></script>
+<script defer src="js/data/advanced/advanced_06.js?v=98"></script>
+<script defer src="js/data/advanced/advanced_07.js?v=98"></script>
+<script defer src="js/data/advanced/advanced_08.js?v=98"></script>
+<script defer src="js/data/advanced/advanced_09.js?v=98"></script>
+<script defer src="js/data/advanced/advanced_10.js?v=98"></script>
+<script defer src="js/data/advanced/advanced_11.js?v=98"></script>
+<script defer src="js/data/advanced/advanced_12.js?v=98"></script>
+<script defer src="js/data/advanced/advanced_13.js?v=98"></script>
+<script defer src="js/data/advanced/advanced_14.js?v=98"></script>
+<script defer src="js/data/advanced/advanced_15.js?v=98"></script>
+<script defer src="js/data/advanced/advanced_16.js?v=98"></script>
+<script defer src="js/data/advanced/advanced_17.js?v=98"></script>
+<script defer src="js/data/advanced/advanced_18.js?v=98"></script>
+<script defer src="js/data/advanced/advanced_19.js?v=98"></script>
+<script defer src="js/data/advanced/advanced_20.js?v=98"></script>
+<script defer src="js/data/advanced/advanced_21.js?v=98"></script>
+<script defer src="js/data/advanced/advanced_22.js?v=98"></script>
+<script defer src="js/data/advanced/advanced_23.js?v=98"></script>
+<script defer src="js/data/advanced/advanced_24.js?v=98"></script>
+<script defer src="js/data/advanced/advanced_25.js?v=98"></script>
+<script defer src="js/data/reader.js?v=98"></script>
+<script defer src="js/data/reader_verse_literals.js?v=98"></script>
+<script defer src="js/data/reader_translations.js?v=98"></script>
+<script defer src="js/logic/pos_logic.js?v=98"></script>
+<script type="module" src="js/app/main.js?v=98"></script>
 </body>
 </html>

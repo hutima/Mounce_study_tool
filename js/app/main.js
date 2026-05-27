@@ -2470,7 +2470,8 @@ const GLOBAL_CLICK_HANDLERS = {
   toggleMorphStepByStep, setMorphFocusedParadigm, setParsingChapter, goToStemDrillFromParsing,
   toggleRequiredOnly, toggleHardVocabReview, toggleShuffle, toggleSpacedRepetition, toggleSplitSelection, toggleAspectStep, toggleDimStep, toggleOptionalForms, toggleOptionalFormFilter, toggleDimValueFilter, toggleUnspacedDailyReset, triggerImportProgress,
   openReaderTab, selectReaderDrillChoice, advanceReaderDrill,
-  closeWhatsNewV1_1Modal
+  closeWhatsNewV1_1Modal,
+  applyAppUpdate, dismissAppUpdate
 };
 if (typeof globalThis !== 'undefined') Object.assign(globalThis, GLOBAL_CLICK_HANDLERS);
 if (typeof window !== 'undefined' && window !== globalThis) Object.assign(window, GLOBAL_CLICK_HANDLERS);
@@ -2540,10 +2541,63 @@ function preventDoubleTapZoom(el) {
   if (el) preventDoubleTapZoom(el);
 });
 
+let __pendingSwUpdate = null;
+let __swExpectingReload = false;
+
+function showAppUpdateBanner(worker) {
+  __pendingSwUpdate = worker;
+  const banner = document.getElementById('updateAvailableBanner');
+  if (banner) banner.hidden = false;
+}
+
+function applyAppUpdate() {
+  if (__swExpectingReload) return;
+  __swExpectingReload = true;
+  if (!__pendingSwUpdate) {
+    window.location.reload();
+    return;
+  }
+  try {
+    __pendingSwUpdate.postMessage({ type: 'SKIP_WAITING' });
+  } catch (_) {
+    window.location.reload();
+  }
+}
+
+function dismissAppUpdate() {
+  const banner = document.getElementById('updateAvailableBanner');
+  if (banner) banner.hidden = true;
+}
+
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
     navigator.serviceWorker.register('./sw.js', { updateViaCache: 'none' })
-      .then(reg => { try { reg.update(); } catch (_) {} })
+      .then(reg => {
+        try { reg.update(); } catch (_) {}
+
+        // A new SW already finished installing before we got here.
+        if (reg.waiting && navigator.serviceWorker.controller) {
+          showAppUpdateBanner(reg.waiting);
+        }
+
+        reg.addEventListener('updatefound', () => {
+          const installing = reg.installing;
+          if (!installing) return;
+          installing.addEventListener('statechange', () => {
+            if (installing.state === 'installed' && navigator.serviceWorker.controller) {
+              showAppUpdateBanner(installing);
+            }
+          });
+        });
+      })
       .catch(() => {});
+
+    // Only reload on controllerchange if we triggered it ourselves
+    // via applyAppUpdate(). Skips the spurious reload that fires when
+    // the very first SW takes control of an uncontrolled page.
+    navigator.serviceWorker.addEventListener('controllerchange', () => {
+      if (!__swExpectingReload) return;
+      window.location.reload();
+    });
   });
 }

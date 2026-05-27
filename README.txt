@@ -164,7 +164,12 @@ App shell
   `mounceBbgFlashcardsMounceVariantSeen`).
 - Disclaimer / consent modal ("unofficial student-made AI study aid").
 - Service-worker caching with a versioned `CACHE_NAME` and per-asset
-  `?v=` query strings so deployments invalidate cleanly.
+  `?v=` query strings so deployments invalidate cleanly. When a new
+  service worker finishes installing on a returning visitor, the page
+  shows a non-modal "A new version is available — Refresh" banner;
+  clicking Refresh tells the waiting SW to `skipWaiting()` and
+  reloads the page so the user gets the fresh assets without having
+  to know about the update.
 
 
 REPOSITORY LAYOUT

@@ -3,95 +3,95 @@
 // GitHub Pages note: all app-shell URLs are resolved relative to the
 // service worker registration scope so this works both at a domain root
 // and at a project path such as https://user.github.io/repository/.
-const CACHE_NAME = 'mounce-bbg-greek-pwa-v96';
+const CACHE_NAME = 'mounce-bbg-greek-pwa-v98';
 const BASE_URL = new URL('./', self.registration.scope);
 
 const APP_SHELL_PATHS = [
   './',
   'index.html',
   'pages/memorization.html',
-  'styles.css?v=96',
-  'manifest.json?v=96',
-  'favicon.svg?v=96',
-  'js/data/words.js?v=96',
-  'js/data/morphology.js?v=96',
-  'js/data/lemma_inventory.js?v=96',
-  'js/data/supplemental.js?v=96',
-  'js/data/grammar.js?v=96',
-  'js/data/parsing_examples.js?v=96',
-  'js/data/concept_examples.js?v=96',
-  'js/data/grammar_examples.js?v=96',
-  'js/data/setMeta.js?v=96',
-  'js/logic/pos_logic.js?v=96',
-  'js/data/reader.js?v=96',
-  'js/data/reader_verse_literals.js?v=96',
-  'js/data/reader_translations.js?v=96',
-  'js/data/supplementals/mounce_paradigms.js?v=96',
-  'js/data/supplementals/stem_change_drills.js?v=96',
-  'js/data/supplementals/second_aorist_flip.js?v=96',
-  'js/data/supplementals/w3_aorist_passive_flip.js?v=96',
-  'js/data/supplementals/w3_perfect_active_flip.js?v=96',
-  'js/data/supplementals/w4_mi_verb_principal_parts_flip.js?v=96',
-  'js/app/main.js?v=96',
-  'js/data/advanced/advanced_01.js?v=96',
-  'js/data/advanced/advanced_02.js?v=96',
-  'js/data/advanced/advanced_03.js?v=96',
-  'js/data/advanced/advanced_04.js?v=96',
-  'js/data/advanced/advanced_05.js?v=96',
-  'js/data/advanced/advanced_06.js?v=96',
-  'js/data/advanced/advanced_07.js?v=96',
-  'js/data/advanced/advanced_08.js?v=96',
-  'js/data/advanced/advanced_09.js?v=96',
-  'js/data/advanced/advanced_10.js?v=96',
-  'js/data/advanced/advanced_11.js?v=96',
-  'js/data/advanced/advanced_12.js?v=96',
-  'js/data/advanced/advanced_13.js?v=96',
-  'js/data/advanced/advanced_14.js?v=96',
-  'js/data/advanced/advanced_15.js?v=96',
-  'js/data/advanced/advanced_16.js?v=96',
-  'js/data/advanced/advanced_17.js?v=96',
-  'js/data/advanced/advanced_18.js?v=96',
-  'js/data/advanced/advanced_19.js?v=96',
-  'js/data/advanced/advanced_20.js?v=96',
-  'js/data/advanced/advanced_21.js?v=96',
-  'js/data/advanced/advanced_22.js?v=96',
-  'js/data/advanced/advanced_23.js?v=96',
-  'js/data/advanced/advanced_24.js?v=96',
-  'js/data/advanced/advanced_25.js?v=96',
-  'js/utils/helpers.js?v=96',
-  'js/utils/time.js?v=96',
-  'js/utils/storage.js?v=96',
-  'js/utils/greekSort.js?v=96',
-  'js/utils/clickShield.js?v=96',
-  'js/domain/srs/constants.js?v=96',
-  'js/domain/srs/scheduler.js?v=96',
-  'js/domain/srs/confidence.js?v=96',
-  'js/domain/gamification/levels.js?v=96',
-  'js/domain/gamification/usageStats.js?v=96',
-  'js/domain/deck/ordering.js?v=96',
-  'js/domain/deck/filters.js?v=96',
-  'js/domain/grammar/explanations.js?v=96',
-  'js/domain/grammar/morph_steps.js?v=96',
-  'js/domain/grammar/paradigm_focus.js?v=96',
-  'js/state/migrations.js?v=96',
-  'js/state/store.js?v=96',
-  'js/state/runtime.js?v=96',
-  'js/state/persistence.js?v=96',
-  'js/domain/gamification/xp.js?v=96',
-  'js/ui/analytics.js?v=96',
-  'js/ui/charts.js?v=96',
-  'js/ui/keyboard.js?v=96',
-  'js/ui/modals.js?v=96',
-  'js/ui/navigation.js?v=96',
-  'js/ui/progress.js?v=96',
-  'js/ui/reader.js?v=96',
-  'js/ui/render.js?v=96',
-  'js/ui/selectors.js?v=96',
-  'js/ui/toast.js?v=96',
-  'js/ui/touchTapBridge.js?v=96',
+  'styles.css?v=98',
+  'manifest.json?v=98',
+  'favicon.svg?v=98',
+  'js/data/words.js?v=98',
+  'js/data/morphology.js?v=98',
+  'js/data/lemma_inventory.js?v=98',
+  'js/data/supplemental.js?v=98',
+  'js/data/grammar.js?v=98',
+  'js/data/parsing_examples.js?v=98',
+  'js/data/concept_examples.js?v=98',
+  'js/data/grammar_examples.js?v=98',
+  'js/data/setMeta.js?v=98',
+  'js/logic/pos_logic.js?v=98',
+  'js/data/reader.js?v=98',
+  'js/data/reader_verse_literals.js?v=98',
+  'js/data/reader_translations.js?v=98',
+  'js/data/supplementals/mounce_paradigms.js?v=98',
+  'js/data/supplementals/stem_change_drills.js?v=98',
+  'js/data/supplementals/second_aorist_flip.js?v=98',
+  'js/data/supplementals/w3_aorist_passive_flip.js?v=98',
+  'js/data/supplementals/w3_perfect_active_flip.js?v=98',
+  'js/data/supplementals/w4_mi_verb_principal_parts_flip.js?v=98',
+  'js/app/main.js?v=98',
+  'js/data/advanced/advanced_01.js?v=98',
+  'js/data/advanced/advanced_02.js?v=98',
+  'js/data/advanced/advanced_03.js?v=98',
+  'js/data/advanced/advanced_04.js?v=98',
+  'js/data/advanced/advanced_05.js?v=98',
+  'js/data/advanced/advanced_06.js?v=98',
+  'js/data/advanced/advanced_07.js?v=98',
+  'js/data/advanced/advanced_08.js?v=98',
+  'js/data/advanced/advanced_09.js?v=98',
+  'js/data/advanced/advanced_10.js?v=98',
+  'js/data/advanced/advanced_11.js?v=98',
+  'js/data/advanced/advanced_12.js?v=98',
+  'js/data/advanced/advanced_13.js?v=98',
+  'js/data/advanced/advanced_14.js?v=98',
+  'js/data/advanced/advanced_15.js?v=98',
+  'js/data/advanced/advanced_16.js?v=98',
+  'js/data/advanced/advanced_17.js?v=98',
+  'js/data/advanced/advanced_18.js?v=98',
+  'js/data/advanced/advanced_19.js?v=98',
+  'js/data/advanced/advanced_20.js?v=98',
+  'js/data/advanced/advanced_21.js?v=98',
+  'js/data/advanced/advanced_22.js?v=98',
+  'js/data/advanced/advanced_23.js?v=98',
+  'js/data/advanced/advanced_24.js?v=98',
+  'js/data/advanced/advanced_25.js?v=98',
+  'js/utils/helpers.js?v=98',
+  'js/utils/time.js?v=98',
+  'js/utils/storage.js?v=98',
+  'js/utils/greekSort.js?v=98',
+  'js/utils/clickShield.js?v=98',
+  'js/domain/srs/constants.js?v=98',
+  'js/domain/srs/scheduler.js?v=98',
+  'js/domain/srs/confidence.js?v=98',
+  'js/domain/gamification/levels.js?v=98',
+  'js/domain/gamification/usageStats.js?v=98',
+  'js/domain/deck/ordering.js?v=98',
+  'js/domain/deck/filters.js?v=98',
+  'js/domain/grammar/explanations.js?v=98',
+  'js/domain/grammar/morph_steps.js?v=98',
+  'js/domain/grammar/paradigm_focus.js?v=98',
+  'js/state/migrations.js?v=98',
+  'js/state/store.js?v=98',
+  'js/state/runtime.js?v=98',
+  'js/state/persistence.js?v=98',
+  'js/domain/gamification/xp.js?v=98',
+  'js/ui/analytics.js?v=98',
+  'js/ui/charts.js?v=98',
+  'js/ui/keyboard.js?v=98',
+  'js/ui/modals.js?v=98',
+  'js/ui/navigation.js?v=98',
+  'js/ui/progress.js?v=98',
+  'js/ui/reader.js?v=98',
+  'js/ui/render.js?v=98',
+  'js/ui/selectors.js?v=98',
+  'js/ui/toast.js?v=98',
+  'js/ui/touchTapBridge.js?v=98',
   'icons/icon-192.png',
   'icons/icon-512.png',
-  'icons/apple-touch-icon.png?v=96',
+  'icons/apple-touch-icon.png?v=98',
   // Bundled webfonts — referenced from styles.css @font-face declarations.
   // Same-origin, so no runtime CDN fetches. Gentium Plus is the serif
   // (regular/bold × upright/italic × 3 subsets = 12 files); Noto Sans is
@@ -121,10 +121,12 @@ const APP_SHELL = APP_SHELL_PATHS.map(path => new URL(path, BASE_URL).toString()
 const INDEX_URL = new URL('index.html', BASE_URL).toString();
 
 self.addEventListener('install', event => {
+  // No self.skipWaiting() here — we let the new SW sit in the "waiting"
+  // state so the page can show the user a "Refresh to update" banner.
+  // The page posts {type:'SKIP_WAITING'} (see handler below) when the
+  // user clicks the banner.
   event.waitUntil(
-    caches.open(CACHE_NAME)
-      .then(cache => cache.addAll(APP_SHELL))
-      .then(() => self.skipWaiting())
+    caches.open(CACHE_NAME).then(cache => cache.addAll(APP_SHELL))
   );
 });
 
@@ -134,6 +136,12 @@ self.addEventListener('activate', event => {
       keys.filter(key => key !== CACHE_NAME).map(key => caches.delete(key))
     )).then(() => self.clients.claim())
   );
+});
+
+self.addEventListener('message', event => {
+  if (event.data && event.data.type === 'SKIP_WAITING') {
+    self.skipWaiting();
+  }
 });
 
 self.addEventListener('fetch', event => {
