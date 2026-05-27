@@ -62,6 +62,22 @@ export function getSelectedVocabCards(keys, requiredFlag = false) {
   // exclusion; this dedup is the safety net for imported state or future
   // call paths that don't.)
   const seenVocabBases = new Set();
+  // Cumulative supplemental decks (e.g. "λύω — full paradigm") tag each
+  // card with its own chapter so a single deck can carry forms introduced
+  // across many chapters. When the selection contains numeric chapter keys
+  // we cap those tagged cards at the max selected chapter, so the
+  // cumulative deck only exposes forms the student has reached. Cards
+  // without a card-level chapter are unaffected. With no numeric chapter
+  // selected the cap is null and tagged cards all pass through.
+  let maxSelectedChapter = 0;
+  (keys || []).forEach(key => {
+    const raw = String(key);
+    if (isChapterKey(raw)) {
+      const n = Number(raw);
+      if (n > maxSelectedChapter) maxSelectedChapter = n;
+    }
+  });
+  const chapterCap = maxSelectedChapter || null;
   (keys || []).forEach(key => {
     const rawKey = String(key);
     const sub = parseSubKey(rawKey);
@@ -81,12 +97,15 @@ export function getSelectedVocabCards(keys, requiredFlag = false) {
     setCards.forEach((card, idx) => {
       if (requiredFlag && !card.required) return;
       if (sub && String(card?.sub || '') !== sub.sub) return;
+      const cardChapterRaw = Number(card?.chapter);
+      const cardChapter = Number.isFinite(cardChapterRaw) ? cardChapterRaw : null;
+      if (cardChapter && chapterCap && cardChapter > chapterCap) return;
       cards.push({
         ...card,
         kind: 'vocab',
         sourceKey: lookupKey,
         sourceLabel: sourceHint(lookupKey),
-        chapter: getChapterForKey(lookupKey),
+        chapter: cardChapter || getChapterForKey(lookupKey),
         week: getWeekForKey(lookupKey),
         supplemental: !!(set.supplemental || set.type === 'supplemental'),
         advanced: setIsAdvanced || !!card.advanced,
