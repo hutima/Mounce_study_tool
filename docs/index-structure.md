@@ -83,6 +83,7 @@ All use `class="consent-overlay"` + an `aria-hidden` toggle. Most use
 |  591–605   | `#resetStatsOverlay`          | Confirm reset of stats |
 |  607–625   | `#resetUnspacedOverlay`       | Confirm reset of current (unspaced) deck |
 |  627–641   | `#whatsNewV1_1Overlay`        | **Mounce-variant intro modal** — NOT a release announcement. Storage key `mounceBbgFlashcardsMounceVariantSeen`. Different role from duff's `#whatsNewVX_YOverlay` (which is a per-release "What's new" popup). When Mounce eventually does releases, decide whether to keep the variant intro and add a separate release modal, or repurpose this one. |
+|  ~849      | `#updateAvailableBanner`      | Non-modal floating banner (class `update-banner`, NOT `consent-overlay`) shown when a new service worker has finished installing and is in the `waiting` state. Two buttons: Refresh (`applyAppUpdate()` → posts `{type:'SKIP_WAITING'}` to the waiting SW) and dismiss (`dismissAppUpdate()`). Wired up by the SW-registration block at the bottom of `js/app/main.js`. Starts with the `hidden` attribute. |
 
 ---
 
