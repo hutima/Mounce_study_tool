@@ -37,7 +37,8 @@ let host = {
   moveCardToBackOfActivePile: () => {},
   buildStudyDeck: () => [],
   renderCard: () => {},
-  saveState: () => {}
+  saveState: () => {},
+  getEnabledParsingDims: () => null
 };
 
 export function configureProgress(deps) {
@@ -233,7 +234,8 @@ function renderParsingReviewPanel() {
 
   const focused = runtime.morphFocusedParadigm || '';
   const stats = runtime.paradigmStepStats || {};
-  const allStats = getAllLemmaStats(stats);
+  const enabledDims = host.getEnabledParsingDims();
+  const allStats = getAllLemmaStats(stats, enabledDims);
 
   // Pull out the currently-focused paradigm so it always reads at the top,
   // even if other paradigms have more attempts.
@@ -260,7 +262,7 @@ function renderParsingReviewPanel() {
   // Overall row (always rendered, even when no paradigms have been drilled,
   // so the user can see the empty-state of the chart). When ordered is
   // empty, only the overall row + empty hint appear.
-  const overallSummary = summarizeOverallRolling(stats);
+  const overallSummary = summarizeOverallRolling(stats, enabledDims);
   const overallBucketSeries = getOverallBucketSeries(stats);
   const overallPct = Math.round(100 * overallSummary.correct / Math.max(1, overallSummary.total));
   const overallPctClass = !overallSummary.total ? 'parsing-review-pct-mid'
@@ -429,15 +431,18 @@ function buildLemmaTestableFormsHtml(lemma) {
     return compareGreekAlphabetical(af, bf);
   });
   const stats = runtime.paradigmStepStats || {};
-  const counts = { right: 0, wrong: 0, unseen: 0 };
+  const enabledDims = host.getEnabledParsingDims();
+  const counts = { right: 0, wrong: 0, uncertain: 0, unseen: 0 };
   const rows = sorted.map((card) => {
-    const status = getLemmaFormStatus(stats, lemma, card.id);
+    const status = getLemmaFormStatus(stats, lemma, card.id, enabledDims);
     counts[status] += 1;
     const dotClass = status === 'right' ? 'parsing-review-form-dot-right'
       : status === 'wrong' ? 'parsing-review-form-dot-wrong'
+      : status === 'uncertain' ? 'parsing-review-form-dot-uncertain'
       : 'parsing-review-form-dot-unseen';
-    const statusLabel = status === 'right' ? 'last attempt correct'
-      : status === 'wrong' ? 'last attempt incorrect'
+    const statusLabel = status === 'right' ? 'recent attempts all correct'
+      : status === 'wrong' ? 'recent attempts all wrong'
+      : status === 'uncertain' ? '1 of last 2 attempts correct'
       : 'not yet attempted';
     const parseFull = card.parsedAnswer || card.answer || '';
     const parseShort = abbreviateParse(parseFull);
@@ -448,7 +453,7 @@ function buildLemmaTestableFormsHtml(lemma) {
         <span class="parsing-review-form-parse" title="${escapeHtmlSmall(parseFull)}">${escapeHtmlSmall(parseShort)}</span>
       </li>`;
   }).join('');
-  const summary = `${counts.right} correct · ${counts.wrong} missed · ${counts.unseen} unseen`;
+  const summary = `${counts.right} correct · ${counts.uncertain} uncertain · ${counts.wrong} missed · ${counts.unseen} unseen`;
   return `
     <div class="parsing-review-forms">
       <div class="parsing-review-forms-header">

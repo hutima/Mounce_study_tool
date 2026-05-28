@@ -134,6 +134,11 @@ export const runtime = {
   // pool with extension paradigms. The fallback form-lookup (extraForms)
   // is always consulted regardless of this toggle.
   includeOptionalForms: false,
+  // When on, parsing mode filters out any form whose last 2 attempts are
+  // both correct (the strict 2/2 "known" threshold — 1/1 stays in the
+  // deck so the user still verifies it). Default off so the full
+  // focused-paradigm pool is the baseline.
+  excludeKnownMorphs: false,
   // Per-category sub-filters on the optional-form drill pool. Each key
   // defaults to true (the category is INCLUDED); flipping a key to false
   // excludes any optional-form card whose canonical parse mentions the

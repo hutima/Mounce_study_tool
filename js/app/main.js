@@ -166,7 +166,7 @@ import { getSelectedVocabCards, getSelectedGrammarCards, getAllVocabKeys, getAll
 
 // Domain — Grammar
 import { buildGrammarSupportHtml } from '../domain/grammar/explanations.js';
-import { recordParadigmAttempt, inferredFollowupDims, buildInferredStep, structuralImpossibilityReason } from '../domain/grammar/morph_steps.js';
+import { recordParadigmAttempt, inferredFollowupDims, buildInferredStep, structuralImpossibilityReason, isLemmaFormKnown } from '../domain/grammar/morph_steps.js';
 import { listAvailableParadigms, listAvailableParadigmsByCategory, getCardsForFocusedParadigm } from '../domain/grammar/paradigm_focus.js';
 
 // UI
@@ -255,12 +255,14 @@ import {
   toggleOptionalForms,
   toggleOptionalFormFilter,
   toggleDimValueFilter,
+  toggleExcludeKnownMorphs,
   toggleUnspacedDailyReset,
   reshuffleEligible,
   fastForwardOneDay,
   fastForwardOneWeek,
   resetCurrentDeck,
   resetRequiredOnly,
+  resetKnownMorphs,
   closeResetSpacedModal,
   confirmResetSpacedTimingOnly,
   confirmResetSpacedProgress,
@@ -365,11 +367,14 @@ configureProgress({
   buildStudyDeck: (cards, opts) => buildStudyDeck(cards, opts),
   renderCard: () => renderCard(),
   saveState: () => saveState(),
+  getEnabledParsingDims: () => getEnabledParsingDims(),
   // Same pool the parsing drill uses for `lemma`: chapter-gated against
   // the user's aggregate selection, and including optional paradigm
   // extensions iff the user has toggled them on. Used by the parsing-
   // review row expansion to list "testable forms" with last-attempt
-  // outcomes.
+  // outcomes. Excludes known morphs only when the user has the toggle on;
+  // otherwise lists the full focused-paradigm pool so the panel always
+  // shows everything in scope (including 2/2-known forms).
   getMorphCardsForLemma: (lemma) => getCardsForFocusedParadigm(
     getAggregateSelectionKeys(),
     lemma,
@@ -396,7 +401,8 @@ configureRender({
   formatGreekHeadword: (g) => typeof window !== 'undefined' && typeof window.formatGreekHeadword === 'function' ? window.formatGreekHeadword(g) : (g || '—'),
   transliterateGreek: (s) => typeof window !== 'undefined' && typeof window.transliterateGreek === 'function' ? window.transliterateGreek(s) : s,
   detectPartOfSpeech: (card) => typeof window !== 'undefined' && typeof window.detectPartOfSpeech === 'function' ? window.detectPartOfSpeech(card) : '',
-  isMultiCasePreposition: (card) => typeof window !== 'undefined' && typeof window.isMultiCasePreposition === 'function' ? window.isMultiCasePreposition(card) : false
+  isMultiCasePreposition: (card) => typeof window !== 'undefined' && typeof window.isMultiCasePreposition === 'function' ? window.isMultiCasePreposition(card) : false,
+  getEnabledParsingDims: () => getEnabledParsingDims()
 });
 configureSelectors({
   getSessions: () => getSessions(),
@@ -421,7 +427,7 @@ configureSelectors({
     if (!isParsingMode()) return null;
     ensureMorphFocusedParadigm();
     if (!runtime.morphFocusedParadigm) return [];
-    return getCardsForFocusedParadigm(
+    return applyExcludeKnownMorphsFilter(getCardsForFocusedParadigm(
       getAggregateSelectionKeys(),
       runtime.morphFocusedParadigm,
       {
@@ -429,7 +435,7 @@ configureSelectors({
         optionalFilters: runtime.optionalFormFilters,
         dimValueFilters: runtime.dimValueFilters
       }
-    );
+    ));
   }
 });
 configureNavigation({
@@ -477,7 +483,8 @@ configureAnalytics({
   ensureUsageStats: () => ensureUsageStats(),
   accumulateActiveStudyTime: () => accumulateActiveStudyTime(),
   canAccessGrammarUi: () => canAccessGrammarUi(),
-  saveState: () => saveState()
+  saveState: () => saveState(),
+  getEnabledParsingDims: () => getEnabledParsingDims()
 });
 configurePersistence({
   ensureUsageStats: (stats) => ensureUsageStats(stats),
@@ -581,6 +588,25 @@ function isMorphologyMode() {
 // dimensional walk against the focused paradigm.
 function isParsingMode() {
   return runtime.studyMode === 'parsing';
+}
+
+// Map of parsing dims the user currently has enabled — used to filter
+// per-dim values out of stats/forms reads when the user has toggled the
+// corresponding step off. Aspect lives on its own toggle (predates the
+// dimToggles bag) so it's surfaced explicitly here. Returned object is
+// reused as a plain { dim: bool } lookup; missing keys count as enabled.
+function getEnabledParsingDims() {
+  const dt = (runtime.dimToggles && typeof runtime.dimToggles === 'object') ? runtime.dimToggles : {};
+  return {
+    aspect: runtime.aspectStep !== false,
+    tense:  dt.tense  !== false,
+    voice:  dt.voice  !== false,
+    mood:   dt.mood   !== false,
+    person: dt.person !== false,
+    number: dt.number !== false,
+    case:   dt.case   !== false,
+    gender: dt.gender !== false
+  };
 }
 
 function isReaderMode() {
@@ -882,11 +908,8 @@ function finalizeMorphStepAttempt(card, state) {
   if (!runtime.paradigmStepStats || typeof runtime.paradigmStepStats !== 'object') {
     runtime.paradigmStepStats = { byLemma: {} };
   }
-  const dimValues = Object.values(dims);
-  const allCorrect = dimValues.length > 0 && dimValues.every(v => v === 1);
   recordParadigmAttempt(runtime.paradigmStepStats, card.lemma, dims, {
-    cardId: card.id,
-    allCorrect
+    cardId: card.id
   });
 }
 
@@ -1145,6 +1168,10 @@ function syncToggleButtons() {
     const on = !runtime.optionalFormFilters || runtime.optionalFormFilters[k] !== false;
     if (sw) sw.classList.toggle('on', on);
   });
+  const excludeKnownMorphsSwitch = document.getElementById('excludeKnownMorphsBtn');
+  if (excludeKnownMorphsSwitch) excludeKnownMorphsSwitch.classList.toggle('on', !!runtime.excludeKnownMorphs);
+  const excludeKnownMorphsToggle = document.getElementById('excludeKnownMorphsToggle');
+  if (excludeKnownMorphsToggle) excludeKnownMorphsToggle.setAttribute('aria-checked', runtime.excludeKnownMorphs ? 'true' : 'false');
   // The toggles read as "Exclude X" — ON in the UI means the value is
   // excluded (sub[value] === false in the model). Default is all values
   // included → all toggles OFF in the UI.
@@ -1209,6 +1236,16 @@ function syncToggleButtons() {
       ? 'Choose to set every card due now or fully reset SRS progress for this deck'
       : 'Reset unspaced marks for this deck only';
   }
+  // Reset deck/required don't apply in parsing mode (no SRS, no
+  // required/supplemental split — parsing's record is the per-form recent
+  // attempts). Swap both for a single "Reset known" that drops every
+  // form's per-form tally back to 0/2 (per-paradigm history kept).
+  const resetRequiredBtn = document.getElementById('resetRequiredBtn');
+  const resetKnownBtn = document.getElementById('resetKnownBtn');
+  const parsing = isParsingMode();
+  if (resetDeckBtn) resetDeckBtn.style.display = parsing ? 'none' : '';
+  if (resetRequiredBtn) resetRequiredBtn.style.display = parsing ? 'none' : '';
+  if (resetKnownBtn) resetKnownBtn.style.display = parsing ? '' : 'none';
 
   const subtitle = document.getElementById('appSubtitle');
   if (subtitle) subtitle.textContent = getModeDescription();
@@ -1258,6 +1295,11 @@ function syncLayoutVisibility() {
   const paradigmFocusRowPrimary = document.getElementById('paradigmFocusRowPrimary');
   if (paradigmFocusRowPrimary) paradigmFocusRowPrimary.style.display = isParsingMode() ? 'flex' : 'none';
   if (shuffleToggle) shuffleToggle.style.display = reviewDeckMode ? 'flex' : 'none';
+  // Exclude-known-morphs is a parsing-only filter on the deck pool —
+  // promoted from inside Parsing options to a top-level toggle next to
+  // Shuffle so it's reachable without expanding the per-dim section.
+  const excludeKnownMorphsToggle = document.getElementById('excludeKnownMorphsToggle');
+  if (excludeKnownMorphsToggle) excludeKnownMorphsToggle.style.display = isParsingMode() ? 'flex' : 'none';
   // Spaced repetition writes confidence stats — parsing mode is explicitly
   // off-the-record, so the toggle is irrelevant there and gets hidden.
   if (spacedToggle) spacedToggle.style.display = (reviewDeckMode && !isParsingMode()) ? 'flex' : 'none';
@@ -1551,7 +1593,7 @@ function getSelectedCards(keys) {
   if (isParsingMode()) {
     ensureMorphFocusedParadigm();
     if (!runtime.morphFocusedParadigm) return [];
-    return getCardsForFocusedParadigm(
+    return applyExcludeKnownMorphsFilter(getCardsForFocusedParadigm(
       getAggregateSelectionKeys(),
       runtime.morphFocusedParadigm,
       {
@@ -1559,9 +1601,23 @@ function getSelectedCards(keys) {
         optionalFilters: runtime.optionalFormFilters,
         dimValueFilters: runtime.dimValueFilters
       }
-    );
+    ));
   }
   return getSelectedVocabCards(keys, false);
+}
+
+// When the "Exclude known morphs" toggle is on, drop any card that already
+// passes the strict 2/2 "known" threshold under the user's current dim
+// toggles. If the filter would empty the deck (every form is known), keep
+// the full pool — an empty parsing deck would just print the empty-state
+// instead of letting the user verify the wins are real.
+function applyExcludeKnownMorphsFilter(cards) {
+  if (!Array.isArray(cards) || !cards.length) return cards || [];
+  if (!runtime.excludeKnownMorphs) return cards;
+  const stats = runtime.paradigmStepStats || {};
+  const enabledDims = getEnabledParsingDims();
+  const filtered = cards.filter((c) => !isLemmaFormKnown(stats, c.lemma, c.id, enabledDims));
+  return filtered.length ? filtered : cards;
 }
 
 
@@ -2468,7 +2524,7 @@ const GLOBAL_CLICK_HANDLERS = {
   restoreSpacedUndo, setAppProfile, setStudyMode, setThemeMode, setFontFamily, setTextSize,
   showDisclaimerModal, startStudying, toggleDirection, toggleMorphSelfCheck,
   toggleMorphStepByStep, setMorphFocusedParadigm, setParsingChapter, goToStemDrillFromParsing,
-  toggleRequiredOnly, toggleHardVocabReview, toggleShuffle, toggleSpacedRepetition, toggleSplitSelection, toggleAspectStep, toggleDimStep, toggleOptionalForms, toggleOptionalFormFilter, toggleDimValueFilter, toggleUnspacedDailyReset, triggerImportProgress,
+  toggleRequiredOnly, toggleHardVocabReview, toggleShuffle, toggleSpacedRepetition, toggleSplitSelection, toggleAspectStep, toggleDimStep, toggleOptionalForms, toggleOptionalFormFilter, toggleDimValueFilter, toggleExcludeKnownMorphs, resetKnownMorphs, toggleUnspacedDailyReset, triggerImportProgress,
   openReaderTab, selectReaderDrillChoice, advanceReaderDrill,
   closeWhatsNewV1_1Modal,
   applyAppUpdate, dismissAppUpdate
