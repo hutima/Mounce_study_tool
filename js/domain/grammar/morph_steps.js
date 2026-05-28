@@ -714,28 +714,49 @@ function isDimEnabled(enabledDims, dim) {
   return enabledDims[dim] !== false;
 }
 
+// Half-credit for an incomplete parse in the headline accuracy %. A parse
+// where the student missed at least one (enabled) dimension contributes its
+// correct dimensions at this weight, so completing a parse counts for more
+// than a partially-right one. Only the weighted accuracy (`weightedCorrect`)
+// uses this — the raw `correct`/`total` per-dimension counts are untouched,
+// so the per-card "X/Y dimensions correct" readout stays literal.
+const WRONG_PARSE_CREDIT = 0.5;
+
 // Aggregate accuracy for a single lemma's recent attempts. When
 // `enabledDims` is provided, per-dim values whose dim is currently
 // toggled off are skipped — they don't contribute to the totals or to
 // the per-dim chips, matching the user's current parsing scope.
+//
+// Returns raw `correct`/`total` (per-dimension hit counts) plus
+// `weightedCorrect`, which discounts the correct dimensions of any
+// not-fully-correct parse by WRONG_PARSE_CREDIT. Callers showing the
+// headline accuracy % divide weightedCorrect / total; callers reporting a
+// literal dimension tally use correct / total.
 export function summarizeLemmaStats(stats, lemma, enabledDims) {
-  const empty = { total: 0, correct: 0, perDim: {}, attempts: 0 };
+  const empty = { total: 0, correct: 0, weightedCorrect: 0, perDim: {}, attempts: 0 };
   if (!stats || !stats.byLemma || !stats.byLemma[lemma]) return empty;
   const attempts = stats.byLemma[lemma].attempts || [];
-  let total = 0, correct = 0;
+  let total = 0, correct = 0, weightedCorrect = 0;
   const perDim = {};
   for (const a of attempts) {
     if (!a || !a.dims) continue;
+    let attemptTotal = 0, attemptCorrect = 0;
     for (const [dim, val] of Object.entries(a.dims)) {
       if (!isDimEnabled(enabledDims, dim)) continue;
       if (!perDim[dim]) perDim[dim] = { seen: 0, correct: 0 };
       perDim[dim].seen += 1;
       if (val) perDim[dim].correct += 1;
-      total += 1;
-      if (val) correct += 1;
+      attemptTotal += 1;
+      if (val) attemptCorrect += 1;
     }
+    if (!attemptTotal) continue;
+    total += attemptTotal;
+    correct += attemptCorrect;
+    weightedCorrect += attemptCorrect === attemptTotal
+      ? attemptCorrect
+      : attemptCorrect * WRONG_PARSE_CREDIT;
   }
-  return { total, correct, perDim, attempts: attempts.length };
+  return { total, correct, weightedCorrect, perDim, attempts: attempts.length };
 }
 
 export function getAllLemmaStats(stats, enabledDims) {
@@ -783,10 +804,13 @@ export function countLemmaFormRecent(stats, lemma, cardId, enabledDims) {
 }
 
 // Per-form recent-attempt status for the parsing-review "testable forms"
-// list. Returns 'right' / 'wrong' / 'uncertain' / 'unseen' based on the
-// out-of-2 tally:
+// list. Returns 'known' / 'right' / 'wrong' / 'uncertain' / 'unseen' based
+// on the out-of-2 tally:
 //   0/0 → unseen (grey)
-//   1/1, 2/2 → right (green)
+//   1/1 → right (green)
+//   2/2 → known (blue) — both recent attempts correct; the same threshold
+//         isLemmaFormKnown uses for the exclude-known-morphs filter, so a
+//         blue dot is exactly a form "skip confident" mode would drop.
 //   1/2 → uncertain (yellow)
 //   0/1, 0/2 → wrong (red)
 // Parsing mode doesn't write to the directional progress store, so this is
@@ -794,9 +818,23 @@ export function countLemmaFormRecent(stats, lemma, cardId, enabledDims) {
 export function getLemmaFormStatus(stats, lemma, cardId, enabledDims) {
   const { correct, total } = countLemmaFormRecent(stats, lemma, cardId, enabledDims);
   if (!total) return 'unseen';
-  if (correct === total) return 'right';
+  if (correct === total) return total >= FORM_RECENT_CAP ? 'known' : 'right';
   if (correct === 0) return 'wrong';
   return 'uncertain';
+}
+
+// Clears one form's per-form recent tally — drops it from the lemma's forms
+// map so it reads as 'unseen' again and re-enters the deck when the
+// exclude-known-morphs ("skip confident") filter is on. The per-paradigm
+// rolling %, completed buckets, in-progress counters, and the cross-paradigm
+// overall are intentionally left alone (same scoping as resetKnownMorphs, but
+// for a single form). Returns true when something was actually cleared.
+export function clearLemmaFormRecent(stats, lemma, cardId) {
+  if (!stats || !stats.byLemma || !lemma || !cardId) return false;
+  const entry = stats.byLemma[lemma];
+  if (!entry || !entry.forms || !entry.forms[cardId]) return false;
+  delete entry.forms[cardId];
+  return true;
 }
 
 // Stricter "known" check for the exclude-known-morphs deck filter: the
@@ -852,9 +890,9 @@ export function getOverallBucketSeries(stats) {
 // `enabledDims` filters out toggled-off dims so the % reflects the user's
 // current parsing scope.
 export function summarizeOverallRolling(stats, enabledDims) {
-  const empty = { total: 0, correct: 0, perDim: {}, attempts: 0, paradigms: 0 };
+  const empty = { total: 0, correct: 0, weightedCorrect: 0, perDim: {}, attempts: 0, paradigms: 0 };
   if (!stats?.byLemma) return empty;
-  let total = 0, correct = 0, attempts = 0, paradigms = 0;
+  let total = 0, correct = 0, weightedCorrect = 0, attempts = 0, paradigms = 0;
   const perDim = {};
   for (const lemma of Object.keys(stats.byLemma)) {
     const entry = stats.byLemma[lemma];
@@ -864,14 +902,21 @@ export function summarizeOverallRolling(stats, enabledDims) {
     attempts += list.length;
     for (const a of list) {
       if (!a || !a.dims) continue;
+      let attemptTotal = 0, attemptCorrect = 0;
       for (const [dim, val] of Object.entries(a.dims)) {
         if (!isDimEnabled(enabledDims, dim)) continue;
         if (!perDim[dim]) perDim[dim] = { seen: 0, correct: 0 };
         perDim[dim].seen += 1;
-        total += 1;
-        if (val) { perDim[dim].correct += 1; correct += 1; }
+        attemptTotal += 1;
+        if (val) { perDim[dim].correct += 1; attemptCorrect += 1; }
       }
+      if (!attemptTotal) continue;
+      total += attemptTotal;
+      correct += attemptCorrect;
+      weightedCorrect += attemptCorrect === attemptTotal
+        ? attemptCorrect
+        : attemptCorrect * WRONG_PARSE_CREDIT;
     }
   }
-  return { total, correct, perDim, attempts, paradigms };
+  return { total, correct, weightedCorrect, perDim, attempts, paradigms };
 }

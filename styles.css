@@ -1442,7 +1442,7 @@
   }
   .parsing-review-form-row {
     display: grid;
-    grid-template-columns: 12px minmax(60px, 1fr) minmax(0, 2fr);
+    grid-template-columns: 12px minmax(60px, 1fr) minmax(0, 2fr) 22px;
     align-items: center;
     gap: 8px;
     padding: 4px 6px;
@@ -1465,6 +1465,7 @@
     border-radius: 3px;
     display: inline-block;
   }
+  .parsing-review-form-dot-known     { background: rgba( 70, 142, 218, 0.88); }
   .parsing-review-form-dot-right     { background: rgba(102, 164, 120, 0.85); }
   .parsing-review-form-dot-uncertain { background: rgba(201, 168,  76, 0.85); }
   .parsing-review-form-dot-wrong     { background: rgba(166,  88,  88, 0.85); }
@@ -1472,6 +1473,30 @@
   html[data-theme="light"] .parsing-review-form-dot-unseen {
     background: rgba(0,0,0,0.06);
     border-color: rgba(0,0,0,0.15);
+  }
+  .parsing-review-form-clear {
+    width: 22px;
+    height: 22px;
+    justify-self: end;
+    background: transparent;
+    border: 1px solid var(--border);
+    color: var(--muted);
+    border-radius: 4px;
+    padding: 0;
+    font-size: 12px;
+    line-height: 1;
+    cursor: pointer;
+    font-family: inherit;
+    transition: color 0.08s, border-color 0.08s, background 0.08s;
+  }
+  .parsing-review-form-clear:hover {
+    color: var(--gold);
+    border-color: var(--gold-dim);
+    background: rgba(201,168,76,0.08);
+  }
+  .parsing-review-form-clear.placeholder {
+    visibility: hidden;
+    pointer-events: none;
   }
   .parsing-review-form-greek {
     font-family: 'Times New Roman', 'GFS Didot', serif;

@@ -211,7 +211,8 @@ import {
   renderProgress,
   renderReview,
   returnSeenCardToDeck,
-  setReviewSortMode
+  setReviewSortMode,
+  clearParsingMorph
 } from '../ui/progress.js';
 import { configureRender, renderCard, flipCard } from '../ui/render.js';
 import {
@@ -368,6 +369,10 @@ configureProgress({
   renderCard: () => renderCard(),
   saveState: () => saveState(),
   getEnabledParsingDims: () => getEnabledParsingDims(),
+  // Rebuild the parsing deck after a single form's tally is cleared via the
+  // review panel's ✕ — needed so a freshly-cleared form re-enters the deck
+  // when "skip confident" (exclude-known-morphs) is on. Re-renders + persists.
+  rebuildParsingDeck: () => rebuildMorphDeckForStepMode(),
   // Same pool the parsing drill uses for `lemma`: chapter-gated against
   // the user's aggregate selection, and including optional paradigm
   // extensions iff the user has toggled them on. Used by the parsing-
@@ -2507,7 +2512,7 @@ const GLOBAL_CLICK_HANDLERS = {
   flipCard, navigate, markCard, handleNavNext, answerMorphologyChoice,
   revealMorphologyAnswer, rateMorphologySelfCheck, passMorphologyChoice,
   answerMorphologyStep, skipMorphologyStep,
-  returnSeenCardToDeck,
+  returnSeenCardToDeck, clearParsingMorph,
   closeAnalyticsOverlay, closeTransferModal, exportProgressJson,
   closeShortcutsModal, closeStudySelector,
   deselectAllChapters, deselectAllSupplementals, deselectAllAdvanced, deselectAll,

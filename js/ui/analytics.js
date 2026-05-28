@@ -814,8 +814,8 @@ function renderParadigmStepStatsSection() {
     return;
   }
   lemmaSummaries.sort((a, b) => {
-    const pa = a.correct / Math.max(1, a.total);
-    const pb = b.correct / Math.max(1, b.total);
+    const pa = a.weightedCorrect / Math.max(1, a.total);
+    const pb = b.weightedCorrect / Math.max(1, b.total);
     return pa - pb;
   });
 
@@ -826,7 +826,7 @@ function renderParadigmStepStatsSection() {
   // user can spot trend changes without scrolling per-lemma.
   const overallSummary = summarizeOverallRolling(stats, enabledDims);
   const overallBucketSeries = getOverallBucketSeries(stats);
-  const overallPct = Math.round(100 * overallSummary.correct / Math.max(1, overallSummary.total));
+  const overallPct = Math.round(100 * overallSummary.weightedCorrect / Math.max(1, overallSummary.total));
   const overallExpanded = expandedKey === '__overall';
   const overallChartHtml = overallExpanded
     ? buildParadigmBucketBarsHtml(
@@ -849,7 +849,7 @@ function renderParadigmStepStatsSection() {
     </div>`;
 
   const lemmaRows = lemmaSummaries.map((s) => {
-    const pct = Math.round(100 * s.correct / Math.max(1, s.total));
+    const pct = Math.round(100 * s.weightedCorrect / Math.max(1, s.total));
     const perDimChips = Object.entries(s.perDim).map(([dim, agg]) => {
       const dpct = Math.round(100 * agg.correct / Math.max(1, agg.seen));
       return `<span class="paradigm-stat-chip">${escapeHtml(getParadigmStepDimensionLabel(dim))} ${dpct}%</span>`;

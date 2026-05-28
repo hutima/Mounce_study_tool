@@ -17,7 +17,9 @@ import {
   getLemmaBucketSeries,
   getOverallBucketSeries,
   summarizeOverallRolling,
-  getLemmaFormStatus
+  getLemmaFormStatus,
+  clearLemmaFormRecent,
+  isLemmaFormKnown
 } from '../domain/grammar/morph_steps.js';
 import { buildParadigmBucketBarsHtml } from './charts.js';
 
@@ -38,7 +40,8 @@ let host = {
   buildStudyDeck: () => [],
   renderCard: () => {},
   saveState: () => {},
-  getEnabledParsingDims: () => null
+  getEnabledParsingDims: () => null,
+  rebuildParsingDeck: () => {}
 };
 
 export function configureProgress(deps) {
@@ -264,7 +267,7 @@ function renderParsingReviewPanel() {
   // empty, only the overall row + empty hint appear.
   const overallSummary = summarizeOverallRolling(stats, enabledDims);
   const overallBucketSeries = getOverallBucketSeries(stats);
-  const overallPct = Math.round(100 * overallSummary.correct / Math.max(1, overallSummary.total));
+  const overallPct = Math.round(100 * overallSummary.weightedCorrect / Math.max(1, overallSummary.total));
   const overallPctClass = !overallSummary.total ? 'parsing-review-pct-mid'
     : overallPct >= 80 ? 'parsing-review-pct-high'
     : overallPct >= 50 ? 'parsing-review-pct-mid'
@@ -300,7 +303,7 @@ function renderParsingReviewPanel() {
   }
 
   const lemmaRows = ordered.map((s) => {
-    const pct = Math.round(100 * s.correct / Math.max(1, s.total));
+    const pct = Math.round(100 * s.weightedCorrect / Math.max(1, s.total));
     const pctClass = pct >= 80 ? 'parsing-review-pct-high' : pct >= 50 ? 'parsing-review-pct-mid' : 'parsing-review-pct-low';
     const chips = Object.entries(s.perDim).map(([dim, agg]) => {
       const dpct = Math.round(100 * agg.correct / Math.max(1, agg.seen));
@@ -432,28 +435,38 @@ function buildLemmaTestableFormsHtml(lemma) {
   });
   const stats = runtime.paradigmStepStats || {};
   const enabledDims = host.getEnabledParsingDims();
-  const counts = { right: 0, wrong: 0, uncertain: 0, unseen: 0 };
+  const counts = { known: 0, right: 0, wrong: 0, uncertain: 0, unseen: 0 };
   const rows = sorted.map((card) => {
     const status = getLemmaFormStatus(stats, lemma, card.id, enabledDims);
     counts[status] += 1;
-    const dotClass = status === 'right' ? 'parsing-review-form-dot-right'
+    const dotClass = status === 'known' ? 'parsing-review-form-dot-known'
+      : status === 'right' ? 'parsing-review-form-dot-right'
       : status === 'wrong' ? 'parsing-review-form-dot-wrong'
       : status === 'uncertain' ? 'parsing-review-form-dot-uncertain'
       : 'parsing-review-form-dot-unseen';
-    const statusLabel = status === 'right' ? 'recent attempts all correct'
+    const statusLabel = status === 'known' ? 'both recent attempts correct'
+      : status === 'right' ? 'recent attempt correct'
       : status === 'wrong' ? 'recent attempts all wrong'
       : status === 'uncertain' ? '1 of last 2 attempts correct'
       : 'not yet attempted';
     const parseFull = card.parsedAnswer || card.answer || '';
     const parseShort = abbreviateParse(parseFull);
+    // A ✕ that drops this form's recent tally so it re-enters the deck under
+    // "skip confident" (exclude-known-morphs). Unseen forms have no tally to
+    // clear, so they get an invisible placeholder that keeps the grid column
+    // aligned without offering a no-op button.
+    const clearBtn = status === 'unseen'
+      ? '<span class="parsing-review-form-clear placeholder" aria-hidden="true">✕</span>'
+      : `<button type="button" class="parsing-review-form-clear" title="Clear this form's recent tally so it re-enters the deck" aria-label="Clear recent tally for ${escapeHtmlSmall(card.form || '')}" onclick="clearParsingMorph('${encodeURIComponent(lemma)}','${encodeURIComponent(card.id)}')">✕</button>`;
     return `
       <li class="parsing-review-form-row">
         <span class="parsing-review-form-dot ${dotClass}" title="${escapeHtmlSmall(statusLabel)}" aria-label="${escapeHtmlSmall(statusLabel)}"></span>
         <span class="parsing-review-form-greek">${escapeHtmlSmall(card.form || '')}</span>
         <span class="parsing-review-form-parse" title="${escapeHtmlSmall(parseFull)}">${escapeHtmlSmall(parseShort)}</span>
+        ${clearBtn}
       </li>`;
   }).join('');
-  const summary = `${counts.right} correct · ${counts.uncertain} uncertain · ${counts.wrong} missed · ${counts.unseen} unseen`;
+  const summary = `${counts.known} known · ${counts.right} correct · ${counts.uncertain} uncertain · ${counts.wrong} missed · ${counts.unseen} unseen`;
   return `
     <div class="parsing-review-forms">
       <div class="parsing-review-forms-header">
@@ -462,6 +475,29 @@ function buildLemmaTestableFormsHtml(lemma) {
       </div>
       <ul class="parsing-review-forms-list">${rows}</ul>
     </div>`;
+}
+
+// ✕ handler for a single testable form. Drops that form's recent tally so it
+// reads as 'unseen' again (its per-paradigm rolling %, buckets, and the
+// overall aggregate are left intact — same scoping as resetKnownMorphs but
+// for one form). A full deck rebuild is only needed when the form was
+// actually being excluded by "skip confident" (exclude-known-morphs on AND
+// the form was 2/2 known): clearing it re-admits it to the deck. For any
+// other form the membership doesn't change, so we just refresh the review
+// panel + persist — rebuilding would needlessly reset the user's deck cursor.
+export function clearParsingMorph(encodedLemma, encodedCardId) {
+  const lemma = decodeURIComponent(encodedLemma);
+  const cardId = decodeURIComponent(encodedCardId);
+  const stats = runtime.paradigmStepStats;
+  const wasExcluded = !!runtime.excludeKnownMorphs
+    && isLemmaFormKnown(stats, lemma, cardId, host.getEnabledParsingDims());
+  if (!clearLemmaFormRecent(stats, lemma, cardId)) return;
+  if (wasExcluded) {
+    host.rebuildParsingDeck();
+    return;
+  }
+  renderReview();
+  host.saveState();
 }
 
 // Sort-mode toggle for the per-deck progress list. Lives in runtime only —
