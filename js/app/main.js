@@ -211,7 +211,8 @@ import {
   renderProgress,
   renderReview,
   returnSeenCardToDeck,
-  setReviewSortMode
+  setReviewSortMode,
+  clearParsingMorph
 } from '../ui/progress.js';
 import { configureRender, renderCard, flipCard } from '../ui/render.js';
 import {
@@ -263,6 +264,7 @@ import {
   resetCurrentDeck,
   resetRequiredOnly,
   resetKnownMorphs,
+  clearParsingStats,
   closeResetSpacedModal,
   confirmResetSpacedTimingOnly,
   confirmResetSpacedProgress,
@@ -368,6 +370,10 @@ configureProgress({
   renderCard: () => renderCard(),
   saveState: () => saveState(),
   getEnabledParsingDims: () => getEnabledParsingDims(),
+  // Rebuild the parsing deck after a single form's tally is cleared via the
+  // review panel's ✕ — needed so a freshly-cleared form re-enters the deck
+  // when "skip confident" (exclude-known-morphs) is on. Re-renders + persists.
+  rebuildParsingDeck: () => rebuildMorphDeckForStepMode(),
   // Same pool the parsing drill uses for `lemma`: chapter-gated against
   // the user's aggregate selection, and including optional paradigm
   // extensions iff the user has toggled them on. Used by the parsing-
@@ -484,7 +490,19 @@ configureAnalytics({
   accumulateActiveStudyTime: () => accumulateActiveStudyTime(),
   canAccessGrammarUi: () => canAccessGrammarUi(),
   saveState: () => saveState(),
-  getEnabledParsingDims: () => getEnabledParsingDims()
+  getEnabledParsingDims: () => getEnabledParsingDims(),
+  // Chapter-gated in-scope forms for a paradigm (same pool the deck + the
+  // review panel use), so the analytics breakdown only shows values the
+  // student's current chapter scope has unlocked.
+  getMorphCardsForLemma: (lemma) => getCardsForFocusedParadigm(
+    getAggregateSelectionKeys(),
+    lemma,
+    {
+      includeOptional: !!runtime.includeOptionalForms,
+      optionalFilters: runtime.optionalFormFilters,
+      dimValueFilters: runtime.dimValueFilters
+    }
+  )
 });
 configurePersistence({
   ensureUsageStats: (stats) => ensureUsageStats(stats),
@@ -1242,10 +1260,14 @@ function syncToggleButtons() {
   // form's per-form tally back to 0/2 (per-paradigm history kept).
   const resetRequiredBtn = document.getElementById('resetRequiredBtn');
   const resetKnownBtn = document.getElementById('resetKnownBtn');
+  const clearParsingStatsBtn = document.getElementById('clearParsingStatsBtn');
   const parsing = isParsingMode();
   if (resetDeckBtn) resetDeckBtn.style.display = parsing ? 'none' : '';
   if (resetRequiredBtn) resetRequiredBtn.style.display = parsing ? 'none' : '';
   if (resetKnownBtn) resetKnownBtn.style.display = parsing ? '' : 'none';
+  // "Clear parsing stats" is parsing-mode-only — it wipes runtime.paradigmStepStats
+  // and nothing else, so it's meaningless (and hidden) in vocab/morph/reader.
+  if (clearParsingStatsBtn) clearParsingStatsBtn.style.display = parsing ? '' : 'none';
 
   const subtitle = document.getElementById('appSubtitle');
   if (subtitle) subtitle.textContent = getModeDescription();
@@ -1608,16 +1630,25 @@ function getSelectedCards(keys) {
 
 // When the "Exclude known morphs" toggle is on, drop any card that already
 // passes the strict 2/2 "known" threshold under the user's current dim
-// toggles. If the filter would empty the deck (every form is known), keep
-// the full pool — an empty parsing deck would just print the empty-state
-// instead of letting the user verify the wins are real.
+// toggles. When every form in the focused paradigm is known the deck goes
+// empty on purpose — renderCard then shows the "paradigm mastered" empty
+// state (see js/ui/render.js) instead of silently re-admitting the known
+// forms, which is what made the toggle look broken: a fully-mastered
+// paradigm kept surfacing its blue 2/2 cards.
+//
+// `runtime.parsingAllMastered` records whether this emptying was the
+// known-filter draining a non-empty pool (genuine mastery) rather than the
+// pool already being empty for another reason (chapter gating, value/optional
+// filters); render.js gates the mastery message on it so it can't
+// false-positive.
 function applyExcludeKnownMorphsFilter(cards) {
-  if (!Array.isArray(cards) || !cards.length) return cards || [];
-  if (!runtime.excludeKnownMorphs) return cards;
+  if (!Array.isArray(cards) || !cards.length) { runtime.parsingAllMastered = false; return cards || []; }
+  if (!runtime.excludeKnownMorphs) { runtime.parsingAllMastered = false; return cards; }
   const stats = runtime.paradigmStepStats || {};
   const enabledDims = getEnabledParsingDims();
   const filtered = cards.filter((c) => !isLemmaFormKnown(stats, c.lemma, c.id, enabledDims));
-  return filtered.length ? filtered : cards;
+  runtime.parsingAllMastered = filtered.length === 0;
+  return filtered;
 }
 
 
@@ -2507,7 +2538,7 @@ const GLOBAL_CLICK_HANDLERS = {
   flipCard, navigate, markCard, handleNavNext, answerMorphologyChoice,
   revealMorphologyAnswer, rateMorphologySelfCheck, passMorphologyChoice,
   answerMorphologyStep, skipMorphologyStep,
-  returnSeenCardToDeck,
+  returnSeenCardToDeck, clearParsingMorph,
   closeAnalyticsOverlay, closeTransferModal, exportProgressJson,
   closeShortcutsModal, closeStudySelector,
   deselectAllChapters, deselectAllSupplementals, deselectAllAdvanced, deselectAll,
@@ -2524,7 +2555,7 @@ const GLOBAL_CLICK_HANDLERS = {
   restoreSpacedUndo, setAppProfile, setStudyMode, setThemeMode, setFontFamily, setTextSize,
   showDisclaimerModal, startStudying, toggleDirection, toggleMorphSelfCheck,
   toggleMorphStepByStep, setMorphFocusedParadigm, setParsingChapter, goToStemDrillFromParsing,
-  toggleRequiredOnly, toggleHardVocabReview, toggleShuffle, toggleSpacedRepetition, toggleSplitSelection, toggleAspectStep, toggleDimStep, toggleOptionalForms, toggleOptionalFormFilter, toggleDimValueFilter, toggleExcludeKnownMorphs, resetKnownMorphs, toggleUnspacedDailyReset, triggerImportProgress,
+  toggleRequiredOnly, toggleHardVocabReview, toggleShuffle, toggleSpacedRepetition, toggleSplitSelection, toggleAspectStep, toggleDimStep, toggleOptionalForms, toggleOptionalFormFilter, toggleDimValueFilter, toggleExcludeKnownMorphs, resetKnownMorphs, clearParsingStats, toggleUnspacedDailyReset, triggerImportProgress,
   openReaderTab, selectReaderDrillChoice, advanceReaderDrill,
   closeWhatsNewV1_1Modal,
   applyAppUpdate, dismissAppUpdate

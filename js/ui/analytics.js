@@ -35,12 +35,10 @@ import {
 } from '../domain/gamification/xp.js';
 import {
   getAllLemmaStats,
-  getParadigmStepDimensionLabel,
-  getParadigmStepAttemptWindow,
-  getParadigmBucketHistorySize,
-  getLemmaBucketSeries,
-  getOverallBucketSeries,
-  summarizeOverallRolling
+  createValueBreakdownAcc,
+  accumulateValueBreakdown,
+  finalizeValueBreakdown,
+  summarizeLemmaValueBreakdown
 } from '../domain/grammar/morph_steps.js';
 import {
   buildDailyCumulativeSeriesFromMap,
@@ -54,7 +52,7 @@ import {
   buildLevelBarHtml,
   buildTitleLadderHtml,
   buildWordStatCardHtml,
-  buildParadigmBucketBarsHtml
+  buildDimValueBarsHtml
 } from './charts.js';
 import { showLevelToast, showBadgeToast } from './toast.js';
 
@@ -63,7 +61,8 @@ let host = {
   accumulateActiveStudyTime: () => {},
   canAccessGrammarUi: () => true,
   saveState: () => {},
-  getEnabledParsingDims: () => null
+  getEnabledParsingDims: () => null,
+  getMorphCardsForLemma: () => []
 };
 
 export function configureAnalytics(deps) {
@@ -792,49 +791,84 @@ function renderGrammarReviewSection() {
   setupGrammarReviewInteractivity(el);
 }
 
-// Render the rolling per-lemma stats from the step-by-step drill. Doesn't
-// touch any other stat surface — this is a separate, opt-in record.
-//
-// Each row is tappable: tapping expands an inline performance bar chart
-// (up to 10 disjoint 20-attempt buckets + an in-progress trailing column).
-// The "All paradigms" row at the top aggregates buckets across every
-// drilled paradigm; per-lemma rows show that paradigm's own buckets.
+// A "weakest: <value> <pct>%" pointer for a collapsed row — the headline
+// pct can read healthy while one mood/tense lags, so this surfaces the worst
+// seen value up front. Dot colour tracks the same 5-band gradient as the bars.
+function weakestValueTagHtml(weakest) {
+  if (!weakest) return '';
+  const band = weakest.pct < 20 ? 'stacked-seg-b0'
+    : weakest.pct < 40 ? 'stacked-seg-b20'
+    : weakest.pct < 60 ? 'stacked-seg-b40'
+    : weakest.pct < 80 ? 'stacked-seg-b60'
+    : 'stacked-seg-b80';
+  return `<span class="paradigm-stat-weakest"><span class="paradigm-stat-weakest-dot ${band}"></span>weakest: ${escapeHtml(weakest.label)} ${weakest.pct}%</span>`;
+}
+
+// Render the per-paradigm drill stats. Doesn't touch any other stat surface —
+// this is a separate, opt-in record. Each row is tappable: tapping expands the
+// per-value (mood / tense / voice …) proficiency breakdown for that paradigm,
+// so weakness in a specific value shows instead of averaging into one bar. The
+// "All paradigms" row aggregates the breakdown across every drilled paradigm.
 function renderParadigmStepStatsSection() {
   const body = document.getElementById('analyticsParadigmStepStatsBody');
   const status = document.getElementById('analyticsParadigmStepStatsStatus');
   if (!body) return;
   const stats = runtime.paradigmStepStats || {};
   const enabledDims = host.getEnabledParsingDims();
-  const lemmaSummaries = getAllLemmaStats(stats, enabledDims);
-  const attemptWindow = getParadigmStepAttemptWindow();
-  const bucketHistory = getParadigmBucketHistorySize();
-  if (!lemmaSummaries.length) {
-    body.innerHTML = `<p class="analytics-empty">Turn on “Parse step-by-step” in Grammar mode and complete a parse to start seeing rolling per-paradigm accuracy here.</p>`;
-    if (status) status.textContent = `No drill attempts yet. Tap a row to see its performance history (up to ${bucketHistory} buckets of ${attemptWindow}).`;
+  const drilled = getAllLemmaStats(stats, enabledDims);
+  if (!drilled.length) {
+    body.innerHTML = `<p class="analytics-empty">Turn on “Parse step-by-step” in Grammar mode and complete a parse to start seeing per-paradigm accuracy here.</p>`;
+    if (status) status.textContent = 'No drill attempts yet. Tap a row to break a paradigm down by mood, tense, and voice.';
     return;
   }
-  lemmaSummaries.sort((a, b) => {
-    const pa = a.correct / Math.max(1, a.total);
-    const pb = b.correct / Math.max(1, b.total);
-    return pa - pb;
-  });
 
   const expandedKey = runtime.analyticsParadigmExpanded;
 
-  // Overall row: aggregates the sliding-window dims across every lemma plus
-  // the cross-paradigm bucket series. Always rendered at the top so the
-  // user can spot trend changes without scrolling per-lemma.
-  const overallSummary = summarizeOverallRolling(stats, enabledDims);
-  const overallBucketSeries = getOverallBucketSeries(stats);
-  const overallPct = Math.round(100 * overallSummary.correct / Math.max(1, overallSummary.total));
+  // Build each paradigm's breakdown from its in-scope forms (up to two recent
+  // attempts per form), folding the same pool into the cross-paradigm
+  // accumulator so the "All paradigms" row matches the per-lemma rows. The
+  // headline % is now this per-form tally — not a capped rolling window — so
+  // it covers every form, consistent with the bars.
+  const overallAcc = createValueBreakdownAcc();
+  const rows = drilled.map((s) => {
+    const cards = host.getMorphCardsForLemma(s.lemma) || [];
+    accumulateValueBreakdown(overallAcc, stats, s.lemma, cards, enabledDims);
+    return { lemma: s.lemma, breakdown: summarizeLemmaValueBreakdown(stats, s.lemma, cards, enabledDims) };
+  });
+  // Worst-first: lowest per-form accuracy on top; paradigms with nothing seen
+  // yet (no recent attempts) sink to the bottom.
+  rows.sort((a, b) => {
+    const pa = a.breakdown.totals.pct, pb = b.breakdown.totals.pct;
+    if (pa == null && pb == null) return 0;
+    if (pa == null) return 1;
+    if (pb == null) return -1;
+    return pa - pb;
+  });
+
+  const lemmaRows = rows.map(({ lemma, breakdown }) => {
+    const { groups, weakest, totals } = breakdown;
+    const isExpanded = expandedKey === lemma;
+    const breakdownHtml = isExpanded ? buildDimValueBarsHtml(groups) : '';
+    return `
+      <div class="paradigm-stat-row${isExpanded ? ' paradigm-stat-row-active' : ''}"
+           role="button"
+           tabindex="0"
+           aria-expanded="${isExpanded ? 'true' : 'false'}"
+           data-paradigm-row="${escapeHtml(lemma)}">
+        <div class="paradigm-stat-header">
+          <span class="paradigm-stat-lemma">${escapeHtml(lemma)}</span>
+          <span class="paradigm-stat-pct">${totals.pct == null ? '—' : `${totals.pct}%`} · ${totals.seen}/${totals.scope} forms</span>
+        </div>
+        ${weakest ? `<div class="paradigm-stat-weakline">${weakestValueTagHtml(weakest)}</div>` : ''}
+        ${isExpanded ? `<div class="paradigm-stat-chart">${breakdownHtml}</div>` : ''}
+      </div>`;
+  }).join('');
+
+  // Overall row (rendered on top): cross-paradigm per-form headline + merged
+  // breakdown, so the single worst value across everything is the pointer.
+  const { groups: overallGroups, weakest: overallWeakest, totals: overallTotals } = finalizeValueBreakdown(overallAcc);
   const overallExpanded = expandedKey === '__overall';
-  const overallChartHtml = overallExpanded
-    ? buildParadigmBucketBarsHtml(
-        overallBucketSeries.buckets,
-        overallBucketSeries.inProgress,
-        { bucketSize: attemptWindow, maxBuckets: bucketHistory, title: 'Overall parsing performance' }
-      )
-    : '';
+  const paradigmCount = rows.length;
   const overallRow = `
     <div class="paradigm-stat-row paradigm-stat-row-overall${overallExpanded ? ' paradigm-stat-row-active' : ''}"
          role="button"
@@ -843,44 +877,15 @@ function renderParadigmStepStatsSection() {
          data-paradigm-row="__overall">
       <div class="paradigm-stat-header">
         <span class="paradigm-stat-lemma paradigm-stat-lemma-overall">All paradigms</span>
-        <span class="paradigm-stat-pct">${overallSummary.total ? `${overallPct}%` : '—'} · ${overallSummary.attempts} attempt${overallSummary.attempts === 1 ? '' : 's'} across ${overallSummary.paradigms} paradigm${overallSummary.paradigms === 1 ? '' : 's'}</span>
+        <span class="paradigm-stat-pct">${overallTotals.pct == null ? '—' : `${overallTotals.pct}%`} · ${overallTotals.seen}/${overallTotals.scope} forms across ${paradigmCount} paradigm${paradigmCount === 1 ? '' : 's'}</span>
       </div>
-      ${overallExpanded ? `<div class="paradigm-stat-chart">${overallChartHtml}</div>` : ''}
+      ${overallWeakest ? `<div class="paradigm-stat-weakline">${weakestValueTagHtml(overallWeakest)}</div>` : ''}
+      ${overallExpanded ? `<div class="paradigm-stat-chart">${buildDimValueBarsHtml(overallGroups, { caption: 'Recent accuracy per value, across every paradigm · seen / in scope' })}</div>` : ''}
     </div>`;
-
-  const lemmaRows = lemmaSummaries.map((s) => {
-    const pct = Math.round(100 * s.correct / Math.max(1, s.total));
-    const perDimChips = Object.entries(s.perDim).map(([dim, agg]) => {
-      const dpct = Math.round(100 * agg.correct / Math.max(1, agg.seen));
-      return `<span class="paradigm-stat-chip">${escapeHtml(getParadigmStepDimensionLabel(dim))} ${dpct}%</span>`;
-    }).join('');
-    const isExpanded = expandedKey === s.lemma;
-    const series = isExpanded ? getLemmaBucketSeries(stats, s.lemma) : null;
-    const chartHtml = isExpanded
-      ? buildParadigmBucketBarsHtml(series.buckets, series.inProgress, {
-          bucketSize: attemptWindow,
-          maxBuckets: bucketHistory,
-          title: `${s.lemma} parsing performance`
-        })
-      : '';
-    return `
-      <div class="paradigm-stat-row${isExpanded ? ' paradigm-stat-row-active' : ''}"
-           role="button"
-           tabindex="0"
-           aria-expanded="${isExpanded ? 'true' : 'false'}"
-           data-paradigm-row="${escapeHtml(s.lemma)}">
-        <div class="paradigm-stat-header">
-          <span class="paradigm-stat-lemma">${escapeHtml(s.lemma)}</span>
-          <span class="paradigm-stat-pct">${pct}% · ${s.attempts}/${attemptWindow} attempts</span>
-        </div>
-        <div class="paradigm-stat-chips">${perDimChips}</div>
-        ${isExpanded ? `<div class="paradigm-stat-chart">${chartHtml}</div>` : ''}
-      </div>`;
-  }).join('');
 
   body.innerHTML = `<div class="paradigm-stat-list">${overallRow}${lemmaRows}</div>`;
   setupParadigmStepStatsInteractivity(body);
-  if (status) status.textContent = `${lemmaSummaries.length} paradigm${lemmaSummaries.length === 1 ? '' : 's'} drilled · tap a row for the ${bucketHistory}-bucket performance chart.`;
+  if (status) status.textContent = `${paradigmCount} paradigm${paradigmCount === 1 ? '' : 's'} drilled · tap a row for the mood / tense breakdown.`;
 }
 
 function setupParadigmStepStatsInteractivity(rootEl) {

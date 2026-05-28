@@ -139,6 +139,13 @@ export const runtime = {
   // deck so the user still verifies it). Default off so the full
   // focused-paradigm pool is the baseline.
   excludeKnownMorphs: false,
+  // Transient (not persisted): set by the parsing deck builder to true only
+  // when a non-empty focused-paradigm pool was emptied by the
+  // exclude-known-morphs filter — i.e. every in-scope form is 2/2 known. The
+  // empty-state in render.js reads it so the "paradigm mastered" message
+  // fires only on genuine mastery, not when value/optional filters happened
+  // to prune the pool to nothing.
+  parsingAllMastered: false,
   // Per-category sub-filters on the optional-form drill pool. Each key
   // defaults to true (the category is INCLUDED); flipping a key to false
   // excludes any optional-form card whose canonical parse mentions the

@@ -393,66 +393,58 @@ export function buildTitleLadderHtml(xpData) {
   `;
 }
 
-// ── Paradigm parsing bucket bar chart ────────────────────────────────────
-// Renders up to maxBuckets disjoint completed 20-attempt buckets (oldest →
-// newest, left → right). If there's an `inProgress` bucket with any
-// recorded dims, it appears as a muted trailing column so the user can
-// watch their current bucket filling. Empty state shows when there are no
-// completed buckets and the in-progress bucket is empty.
-export function buildParadigmBucketBarsHtml(buckets, inProgress, options = {}) {
-  const bucketSize = Number(options.bucketSize) || 20;
-  const maxBuckets = Number(options.maxBuckets) || 10;
-  const list = Array.isArray(buckets) ? buckets.slice(-maxBuckets) : [];
-  const ip = inProgress && typeof inProgress === 'object'
-    ? { correct: Number(inProgress.correct) || 0, total: Number(inProgress.total) || 0 }
-    : { correct: 0, total: 0 };
-  const hasInProgress = ip.total > 0;
+// ── Per-value (mood / tense / voice …) proficiency breakdown ──────────────
+// Renders the grouped breakdown produced by finalizeValueBreakdown(): one
+// labelled group per dimension (Tense, Mood, …), each value a horizontal bar
+// coloured on the shared 5-band gradient (stacked-seg-b0..b80, red → green).
+// A value with no recent attempts shows a muted track + "—" so coverage gaps
+// (e.g. an aorist you've never drilled) read as honestly as weak ones.
+function masteryBandClass(pct) {
+  if (pct == null) return null;
+  if (pct < 20) return 'stacked-seg-b0';
+  if (pct < 40) return 'stacked-seg-b20';
+  if (pct < 60) return 'stacked-seg-b40';
+  if (pct < 80) return 'stacked-seg-b60';
+  return 'stacked-seg-b80';
+}
 
-  if (!list.length && !hasInProgress) {
-    const remaining = bucketSize;
-    return `<div class="paradigm-bucket-empty">No completed buckets yet. ${remaining} more parses for the first bar.</div>`;
+export function buildDimValueBarsHtml(groups, options = {}) {
+  if (!Array.isArray(groups) || !groups.length) {
+    const msg = options.emptyText
+      || 'Drill a few more forms to unlock the per-mood / per-tense breakdown.';
+    return `<div class="dim-value-empty">${escapeHtml(msg)}</div>`;
   }
-
-  const newestIdx = list.length - 1; // 0 = most recent completed
-  const cols = list.map((b, i) => {
-    const total = Math.max(0, Number(b.total) || 0);
-    const correct = Math.max(0, Number(b.correct) || 0);
-    const pct = total > 0 ? Math.round(100 * correct / total) : 0;
-    const cls = pct >= 80 ? 'paradigm-bucket-bar-high'
-      : pct >= 50 ? 'paradigm-bucket-bar-mid'
-      : 'paradigm-bucket-bar-low';
-    const offset = newestIdx - i; // 0 = newest, increases for older
-    const indexLabel = offset === 0 ? 'last' : `−${offset}`;
-    const dateText = b.at ? formatAnalyticsDate(b.at) : '';
-    const title = `Bucket ${indexLabel}${dateText ? ` (${dateText})` : ''}: ${correct}/${total} (${pct}%)`;
+  const groupsHtml = groups.map((g) => {
+    const rowsHtml = g.rows.map((r) => {
+      const band = masteryBandClass(r.pct);
+      const fill = band
+        ? `<span class="dim-value-fill ${band}" style="width:${Math.max(4, r.pct)}%"></span>`
+        : '';
+      const pctText = r.pct == null ? '—' : `${r.pct}%`;
+      const cov = `${r.seenForms}/${r.forms}`;
+      const rowCls = r.pct == null ? 'dim-value-row dim-value-row-unseen' : 'dim-value-row';
+      const title = r.pct == null
+        ? `${g.label} ${r.label}: not attempted yet — ${r.forms} form${r.forms === 1 ? '' : 's'} in scope`
+        : `${g.label} ${r.label}: ${r.pct}% over recent attempts · ${r.seenForms}/${r.forms} forms seen`;
+      return `
+        <div class="${rowCls}" title="${escapeHtml(title)}">
+          <span class="dim-value-name">${escapeHtml(r.label)}</span>
+          <span class="dim-value-track">${fill}</span>
+          <span class="dim-value-pct">${pctText}</span>
+          <span class="dim-value-cov" aria-label="${r.seenForms} of ${r.forms} forms seen">${escapeHtml(cov)}</span>
+        </div>`;
+    }).join('');
     return `
-      <div class="paradigm-bucket-col" title="${escapeHtml(title)}">
-        <div class="paradigm-bucket-pct">${pct}%</div>
-        <div class="paradigm-bucket-bar-track">
-          <div class="paradigm-bucket-bar ${cls}" style="height:${pct}%"></div>
-        </div>
-        <div class="paradigm-bucket-idx">${escapeHtml(indexLabel)}</div>
+      <div class="dim-value-group">
+        <div class="dim-value-group-label">${escapeHtml(g.label)}</div>
+        ${rowsHtml}
       </div>`;
   }).join('');
-
-  let ipCol = '';
-  if (hasInProgress) {
-    const ipPct = ip.total > 0 ? Math.round(100 * ip.correct / ip.total) : 0;
-    const title = `In progress: ${ipPct}% across ${ip.correct}/${ip.total} dims so far`;
-    ipCol = `
-      <div class="paradigm-bucket-col paradigm-bucket-col-inprogress" title="${escapeHtml(title)}">
-        <div class="paradigm-bucket-pct paradigm-bucket-pct-muted">${ipPct}%</div>
-        <div class="paradigm-bucket-bar-track">
-          <div class="paradigm-bucket-bar paradigm-bucket-bar-inprogress" style="height:${ipPct}%"></div>
-        </div>
-        <div class="paradigm-bucket-idx paradigm-bucket-idx-inprogress">now</div>
-      </div>`;
-  }
-
-  const ariaLabel = options.title || `Performance by buckets of ${bucketSize}`;
+  const caption = options.caption
+    || 'Recent accuracy per value · the number = forms you’ve seen / forms in scope';
   return `
-    <div class="paradigm-bucket-chart" role="img" aria-label="${escapeHtml(ariaLabel)}">${cols}${ipCol}</div>
-    <div class="paradigm-bucket-chart-caption">Each bar = ${bucketSize} parses · oldest → newest${hasInProgress ? ' · "now" = current bucket filling' : ''}</div>
+    <div class="dim-value-breakdown">${groupsHtml}</div>
+    <div class="dim-value-caption">${escapeHtml(caption)}</div>
   `;
 }
 

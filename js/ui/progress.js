@@ -11,15 +11,15 @@ import { getCardReviewLeft, getCardReviewRight, getCardMetaLine } from '../domai
 import { isAnalyticsModalOpen } from './modals.js';
 import {
   getAllLemmaStats,
-  getParadigmStepDimensionLabel,
-  getParadigmStepAttemptWindow,
-  getParadigmBucketHistorySize,
-  getLemmaBucketSeries,
-  getOverallBucketSeries,
-  summarizeOverallRolling,
-  getLemmaFormStatus
+  getLemmaFormStatus,
+  clearLemmaFormRecent,
+  isLemmaFormKnown,
+  createValueBreakdownAcc,
+  accumulateValueBreakdown,
+  finalizeValueBreakdown,
+  summarizeLemmaValueBreakdown
 } from '../domain/grammar/morph_steps.js';
-import { buildParadigmBucketBarsHtml } from './charts.js';
+import { buildDimValueBarsHtml } from './charts.js';
 
 let host = {
   accumulateUsageTime: () => {},
@@ -38,7 +38,8 @@ let host = {
   buildStudyDeck: () => [],
   renderCard: () => {},
   saveState: () => {},
-  getEnabledParsingDims: () => null
+  getEnabledParsingDims: () => null,
+  rebuildParsingDeck: () => {}
 };
 
 export function configureProgress(deps) {
@@ -215,6 +216,19 @@ function escapeHtmlSmall(s) {
     .replace(/'/g, '&#39;');
 }
 
+// A compact "weakest: <value> <pct>%" pointer for a collapsed paradigm row.
+// The headline pct can read healthy while one mood/tense lags, so this calls
+// out the worst seen value. Dot colour tracks the shared 5-band gradient.
+function parsingWeakestTagHtml(weakest) {
+  if (!weakest) return '';
+  const band = weakest.pct < 20 ? 'stacked-seg-b0'
+    : weakest.pct < 40 ? 'stacked-seg-b20'
+    : weakest.pct < 60 ? 'stacked-seg-b40'
+    : weakest.pct < 80 ? 'stacked-seg-b60'
+    : 'stacked-seg-b80';
+  return `<span class="parsing-review-weakest"><span class="parsing-review-weakest-dot ${band}"></span>weakest: ${escapeHtmlSmall(weakest.label)} ${weakest.pct}%</span>`;
+}
+
 // Replacement for renderReview when in parsing mode. The standard
 // confidence/seen/unseen breakdown doesn't apply (parsing has no SRS or
 // main-stats writes); instead we surface the per-lemma rolling-window
@@ -222,8 +236,8 @@ function escapeHtmlSmall(s) {
 // uses — so the bottom panel becomes "here's how each paradigm I've
 // drilled is going."
 //
-// Each row is tappable: tapping expands an inline performance bar chart
-// (10 disjoint 20-attempt buckets + an in-progress trailing column).
+// Each row is tappable: tapping expands an inline per-value breakdown
+// (accuracy per tense, mood, voice, … on the shared 5-band gradient).
 // The "All paradigms" row at the top aggregates across every drilled
 // paradigm. Expansion state is tracked separately from the analytics
 // tile (runtime.parsingReviewExpanded) so opening a row here doesn't
@@ -237,21 +251,42 @@ function renderParsingReviewPanel() {
   const enabledDims = host.getEnabledParsingDims();
   const allStats = getAllLemmaStats(stats, enabledDims);
 
-  // Pull out the currently-focused paradigm so it always reads at the top,
-  // even if other paradigms have more attempts.
+  // Each drilled paradigm's breakdown comes from its in-scope forms (up to two
+  // recent attempts per form, chapter-gated), folded into the cross-paradigm
+  // accumulator so the "All paradigms" row matches the per-lemma rows. The
+  // headline % is this per-form tally — every form, not a capped rolling
+  // window — consistent with the bars.
+  const overallAcc = createValueBreakdownAcc();
+  const lemmaBreakdowns = new Map();
+  allStats.forEach((s) => {
+    const cards = host.getMorphCardsForLemma(s.lemma) || [];
+    accumulateValueBreakdown(overallAcc, stats, s.lemma, cards, enabledDims);
+    lemmaBreakdowns.set(s.lemma, summarizeLemmaValueBreakdown(stats, s.lemma, cards, enabledDims));
+  });
+  const pctOf = (lemma) => {
+    const b = lemmaBreakdowns.get(lemma);
+    return b && b.totals ? b.totals.pct : null;
+  };
+
+  // Focused paradigm pinned on top; the rest worst-first by per-form accuracy
+  // (paradigms with nothing seen yet sink to the bottom).
   const focusedEntry = allStats.find((s) => s.lemma === focused);
   const otherEntries = allStats.filter((s) => s.lemma !== focused);
-  otherEntries.sort((a, b) => b.attempts - a.attempts);
+  otherEntries.sort((a, b) => {
+    const pa = pctOf(a.lemma), pb = pctOf(b.lemma);
+    if (pa == null && pb == null) return 0;
+    if (pa == null) return 1;
+    if (pb == null) return -1;
+    return pa - pb;
+  });
   const ordered = focusedEntry ? [focusedEntry, ...otherEntries] : otherEntries;
 
-  const attemptWindow = getParadigmStepAttemptWindow();
-  const bucketHistory = getParadigmBucketHistorySize();
   const drilledCount = ordered.length;
 
   document.getElementById('reviewStats').innerHTML = `
     <div class="review-stats-row">
       <span class="stat-deck">▦ Paradigms drilled: ${drilledCount}</span>
-      <span class="stat-total">· Tap any row for the ${bucketHistory}-bucket chart (${attemptWindow} parses each)</span>
+      <span class="stat-total">· Tap any row to break it down by mood, tense, and voice</span>
     </div>`;
 
   const sortRowEl = document.getElementById('reviewSortRow');
@@ -260,23 +295,15 @@ function renderParsingReviewPanel() {
   const expandedKey = runtime.parsingReviewExpanded;
 
   // Overall row (always rendered, even when no paradigms have been drilled,
-  // so the user can see the empty-state of the chart). When ordered is
-  // empty, only the overall row + empty hint appear.
-  const overallSummary = summarizeOverallRolling(stats, enabledDims);
-  const overallBucketSeries = getOverallBucketSeries(stats);
-  const overallPct = Math.round(100 * overallSummary.correct / Math.max(1, overallSummary.total));
-  const overallPctClass = !overallSummary.total ? 'parsing-review-pct-mid'
+  // so the user can see the empty state). When ordered is empty, only the
+  // overall row + empty hint appear.
+  const { groups: overallGroups, weakest: overallWeakest, totals: overallTotals } = finalizeValueBreakdown(overallAcc);
+  const overallPct = overallTotals.pct;
+  const overallPctClass = overallPct == null ? 'parsing-review-pct-mid'
     : overallPct >= 80 ? 'parsing-review-pct-high'
     : overallPct >= 50 ? 'parsing-review-pct-mid'
     : 'parsing-review-pct-low';
   const overallExpanded = expandedKey === '__overall';
-  const overallChartHtml = overallExpanded
-    ? buildParadigmBucketBarsHtml(
-        overallBucketSeries.buckets,
-        overallBucketSeries.inProgress,
-        { bucketSize: attemptWindow, maxBuckets: bucketHistory, title: 'Overall parsing performance' }
-      )
-    : '';
   const overallRow = `
     <div class="parsing-review-row parsing-review-row-overall${overallExpanded ? ' parsing-review-row-active' : ''}"
          role="button"
@@ -285,10 +312,11 @@ function renderParsingReviewPanel() {
          data-parsing-row="__overall">
       <div class="parsing-review-header">
         <span class="parsing-review-lemma parsing-review-lemma-overall">All paradigms</span>
-        <span class="parsing-review-pct ${overallPctClass}">${overallSummary.total ? `${overallPct}%` : '—'}</span>
-        <span class="parsing-review-attempts">${overallSummary.attempts} attempt${overallSummary.attempts === 1 ? '' : 's'} · ${overallSummary.paradigms} paradigm${overallSummary.paradigms === 1 ? '' : 's'}</span>
+        <span class="parsing-review-pct ${overallPctClass}">${overallPct == null ? '—' : `${overallPct}%`}</span>
+        <span class="parsing-review-attempts">${overallTotals.seen}/${overallTotals.scope} forms · ${drilledCount} paradigm${drilledCount === 1 ? '' : 's'}</span>
       </div>
-      ${overallExpanded ? `<div class="parsing-review-chart">${overallChartHtml}</div>` : ''}
+      ${overallWeakest ? `<div class="parsing-review-weakline">${parsingWeakestTagHtml(overallWeakest)}</div>` : ''}
+      ${overallExpanded ? `<div class="parsing-review-chart">${buildDimValueBarsHtml(overallGroups, { caption: 'Recent accuracy per value, across every paradigm · seen / in scope' })}</div>` : ''}
     </div>`;
 
   if (!ordered.length) {
@@ -300,24 +328,18 @@ function renderParsingReviewPanel() {
   }
 
   const lemmaRows = ordered.map((s) => {
-    const pct = Math.round(100 * s.correct / Math.max(1, s.total));
-    const pctClass = pct >= 80 ? 'parsing-review-pct-high' : pct >= 50 ? 'parsing-review-pct-mid' : 'parsing-review-pct-low';
-    const chips = Object.entries(s.perDim).map(([dim, agg]) => {
-      const dpct = Math.round(100 * agg.correct / Math.max(1, agg.seen));
-      return `<span class="parsing-review-chip">${escapeHtmlSmall(getParadigmStepDimensionLabel(dim))} ${dpct}%</span>`;
-    }).join('');
+    const { groups, weakest, totals } = lemmaBreakdowns.get(s.lemma)
+      || { groups: [], weakest: null, totals: { pct: null, seen: 0, scope: 0 } };
+    const pct = totals.pct;
+    const pctClass = pct == null ? 'parsing-review-pct-mid'
+      : pct >= 80 ? 'parsing-review-pct-high' : pct >= 50 ? 'parsing-review-pct-mid' : 'parsing-review-pct-low';
     const focusBadge = s.lemma === focused
       ? '<span class="parsing-review-focused-badge">FOCUSED</span>'
       : '';
     const isExpanded = expandedKey === s.lemma;
-    const series = isExpanded ? getLemmaBucketSeries(stats, s.lemma) : null;
-    const chartHtml = isExpanded
-      ? buildParadigmBucketBarsHtml(series.buckets, series.inProgress, {
-          bucketSize: attemptWindow,
-          maxBuckets: bucketHistory,
-          title: `${s.lemma} parsing performance`
-        })
-      : '';
+    const breakdownHtml = isExpanded ? buildDimValueBarsHtml(groups) : '';
+    // Keep the full per-form list (every in-scope morph, colour-dotted by its
+    // recent status) below the breakdown on expand.
     const formsHtml = isExpanded ? buildLemmaTestableFormsHtml(s.lemma) : '';
     return `
       <div class="parsing-review-row${isExpanded ? ' parsing-review-row-active' : ''}"
@@ -328,11 +350,11 @@ function renderParsingReviewPanel() {
         <div class="parsing-review-header">
           <span class="parsing-review-lemma">${escapeHtmlSmall(s.lemma)}</span>
           ${focusBadge}
-          <span class="parsing-review-pct ${pctClass}">${pct}%</span>
-          <span class="parsing-review-attempts">${s.attempts}/${attemptWindow} attempts</span>
+          <span class="parsing-review-pct ${pctClass}">${pct == null ? '—' : `${pct}%`}</span>
+          <span class="parsing-review-attempts">${totals.seen}/${totals.scope} forms</span>
         </div>
-        <div class="parsing-review-chips">${chips}</div>
-        ${isExpanded ? `<div class="parsing-review-chart">${chartHtml}</div>${formsHtml}` : ''}
+        ${weakest ? `<div class="parsing-review-weakline">${parsingWeakestTagHtml(weakest)}</div>` : ''}
+        ${isExpanded ? `<div class="parsing-review-chart">${breakdownHtml}</div>${formsHtml}` : ''}
       </div>`;
   }).join('');
 
@@ -432,28 +454,38 @@ function buildLemmaTestableFormsHtml(lemma) {
   });
   const stats = runtime.paradigmStepStats || {};
   const enabledDims = host.getEnabledParsingDims();
-  const counts = { right: 0, wrong: 0, uncertain: 0, unseen: 0 };
+  const counts = { known: 0, right: 0, wrong: 0, uncertain: 0, unseen: 0 };
   const rows = sorted.map((card) => {
     const status = getLemmaFormStatus(stats, lemma, card.id, enabledDims);
     counts[status] += 1;
-    const dotClass = status === 'right' ? 'parsing-review-form-dot-right'
+    const dotClass = status === 'known' ? 'parsing-review-form-dot-known'
+      : status === 'right' ? 'parsing-review-form-dot-right'
       : status === 'wrong' ? 'parsing-review-form-dot-wrong'
       : status === 'uncertain' ? 'parsing-review-form-dot-uncertain'
       : 'parsing-review-form-dot-unseen';
-    const statusLabel = status === 'right' ? 'recent attempts all correct'
+    const statusLabel = status === 'known' ? 'both recent attempts correct'
+      : status === 'right' ? 'recent attempt correct'
       : status === 'wrong' ? 'recent attempts all wrong'
       : status === 'uncertain' ? '1 of last 2 attempts correct'
       : 'not yet attempted';
     const parseFull = card.parsedAnswer || card.answer || '';
     const parseShort = abbreviateParse(parseFull);
+    // A ✕ that drops this form's recent tally so it re-enters the deck under
+    // "skip confident" (exclude-known-morphs). Unseen forms have no tally to
+    // clear, so they get an invisible placeholder that keeps the grid column
+    // aligned without offering a no-op button.
+    const clearBtn = status === 'unseen'
+      ? '<span class="parsing-review-form-clear placeholder" aria-hidden="true">✕</span>'
+      : `<button type="button" class="parsing-review-form-clear" title="Clear this form's recent tally so it re-enters the deck" aria-label="Clear recent tally for ${escapeHtmlSmall(card.form || '')}" onclick="clearParsingMorph('${encodeURIComponent(lemma)}','${encodeURIComponent(card.id)}')">✕</button>`;
     return `
       <li class="parsing-review-form-row">
         <span class="parsing-review-form-dot ${dotClass}" title="${escapeHtmlSmall(statusLabel)}" aria-label="${escapeHtmlSmall(statusLabel)}"></span>
         <span class="parsing-review-form-greek">${escapeHtmlSmall(card.form || '')}</span>
         <span class="parsing-review-form-parse" title="${escapeHtmlSmall(parseFull)}">${escapeHtmlSmall(parseShort)}</span>
+        ${clearBtn}
       </li>`;
   }).join('');
-  const summary = `${counts.right} correct · ${counts.uncertain} uncertain · ${counts.wrong} missed · ${counts.unseen} unseen`;
+  const summary = `${counts.known} known · ${counts.right} correct · ${counts.uncertain} uncertain · ${counts.wrong} missed · ${counts.unseen} unseen`;
   return `
     <div class="parsing-review-forms">
       <div class="parsing-review-forms-header">
@@ -462,6 +494,29 @@ function buildLemmaTestableFormsHtml(lemma) {
       </div>
       <ul class="parsing-review-forms-list">${rows}</ul>
     </div>`;
+}
+
+// ✕ handler for a single testable form. Drops that form's recent tally so it
+// reads as 'unseen' again (its per-paradigm rolling %, buckets, and the
+// overall aggregate are left intact — same scoping as resetKnownMorphs but
+// for one form). A full deck rebuild is only needed when the form was
+// actually being excluded by "skip confident" (exclude-known-morphs on AND
+// the form was 2/2 known): clearing it re-admits it to the deck. For any
+// other form the membership doesn't change, so we just refresh the review
+// panel + persist — rebuilding would needlessly reset the user's deck cursor.
+export function clearParsingMorph(encodedLemma, encodedCardId) {
+  const lemma = decodeURIComponent(encodedLemma);
+  const cardId = decodeURIComponent(encodedCardId);
+  const stats = runtime.paradigmStepStats;
+  const wasExcluded = !!runtime.excludeKnownMorphs
+    && isLemmaFormKnown(stats, lemma, cardId, host.getEnabledParsingDims());
+  if (!clearLemmaFormRecent(stats, lemma, cardId)) return;
+  if (wasExcluded) {
+    host.rebuildParsingDeck();
+    return;
+  }
+  renderReview();
+  host.saveState();
 }
 
 // Sort-mode toggle for the per-deck progress list. Lives in runtime only —
