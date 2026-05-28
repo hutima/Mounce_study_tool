@@ -264,6 +264,9 @@ import {
   resetCurrentDeck,
   resetRequiredOnly,
   resetKnownMorphs,
+  closeResetKnownModal,
+  confirmResetKnownFocused,
+  confirmResetKnownAll,
   clearParsingStats,
   closeResetSpacedModal,
   confirmResetSpacedTimingOnly,
@@ -431,17 +434,7 @@ configureSelectors({
   isMorphStepByStepActive: () => isParsingMode(),
   getFocusedParadigmCards: () => {
     if (!isParsingMode()) return null;
-    ensureMorphFocusedParadigm();
-    if (!runtime.morphFocusedParadigm) return [];
-    return applyExcludeKnownMorphsFilter(getCardsForFocusedParadigm(
-      getAggregateSelectionKeys(),
-      runtime.morphFocusedParadigm,
-      {
-        includeOptional: !!runtime.includeOptionalForms,
-        optionalFilters: runtime.optionalFormFilters,
-        dimValueFilters: runtime.dimValueFilters
-      }
-    ));
+    return buildFilteredFocusedParadigmCards();
   }
 });
 configureNavigation({
@@ -483,7 +476,8 @@ configureNavigation({
   getSelectedCards: (keys) => getSelectedCards(keys),
   resetMorphStepState: () => resetMorphStepState(),
   ensureMorphFocusedParadigm: () => ensureMorphFocusedParadigm(),
-  rebuildMorphDeckForStepMode: () => rebuildMorphDeckForStepMode()
+  rebuildMorphDeckForStepMode: () => rebuildMorphDeckForStepMode(),
+  rebuildParsingCycle: (opts) => rebuildParsingCycle(opts)
 });
 configureAnalytics({
   ensureUsageStats: () => ensureUsageStats(),
@@ -1613,17 +1607,7 @@ function getSelectedCards(keys) {
   // load in parsing mode would surface vocab cards until the user picks a
   // paradigm.
   if (isParsingMode()) {
-    ensureMorphFocusedParadigm();
-    if (!runtime.morphFocusedParadigm) return [];
-    return applyExcludeKnownMorphsFilter(getCardsForFocusedParadigm(
-      getAggregateSelectionKeys(),
-      runtime.morphFocusedParadigm,
-      {
-        includeOptional: !!runtime.includeOptionalForms,
-        optionalFilters: runtime.optionalFormFilters,
-        dimValueFilters: runtime.dimValueFilters
-      }
-    ));
+    return buildFilteredFocusedParadigmCards();
   }
   return getSelectedVocabCards(keys, false);
 }
@@ -1649,6 +1633,45 @@ function applyExcludeKnownMorphsFilter(cards) {
   const filtered = cards.filter((c) => !isLemmaFormKnown(stats, c.lemma, c.id, enabledDims));
   runtime.parsingAllMastered = filtered.length === 0;
   return filtered;
+}
+
+// The focused paradigm's in-scope, chapter-gated pool with the
+// exclude-known-morphs filter applied — the single source of truth for what
+// parsing mode should be drilling right now. Used at deck-build time
+// (getFocusedParadigmCards / getSelectedCards) and at every parsing cycle
+// boundary (rebuildParsingCycle), so a form that crossed the 2/2 "known"
+// threshold mid-session drops out the moment the deck is next rebuilt.
+function buildFilteredFocusedParadigmCards() {
+  ensureMorphFocusedParadigm();
+  if (!runtime.morphFocusedParadigm) return [];
+  return applyExcludeKnownMorphsFilter(getCardsForFocusedParadigm(
+    getAggregateSelectionKeys(),
+    runtime.morphFocusedParadigm,
+    {
+      includeOptional: !!runtime.includeOptionalForms,
+      optionalFilters: runtime.optionalFormFilters,
+      dimValueFilters: runtime.dimValueFilters
+    }
+  ));
+}
+
+// Rebuild the parsing deck for a fresh cycle. Unlike startNextCycle's generic
+// 'remaining' path — which reshuffles the existing originalDeck and never
+// re-runs the exclude-known filter — this re-derives the filtered focused
+// pool so newly-mastered (2/2) forms are dropped. Honors the shuffle toggle
+// and avoidHeadId so the just-shown card doesn't lead the new cycle. When the
+// pool is empty (every form mastered) the deck drains and renderCard shows
+// the "paradigm mastered" empty state.
+function rebuildParsingCycle(options = {}) {
+  const pool = buildFilteredFocusedParadigmCards();
+  runtime.originalDeck = pool;
+  const ordered = runtime.shuffled ? shuffleArray([...pool]) : [...pool];
+  avoidHeadCollision(ordered, options.avoidHeadId);
+  runtime.deck = ordered;
+  runtime.activeDeckCount = ordered.length;
+  runtime.currentIdx = ordered.length ? 0 : runtime.deck.length;
+  runtime.unspacedPendingRecycle = false;
+  resetUnspacedCycleState();
 }
 
 
@@ -2444,6 +2467,16 @@ function startNextCycle(mode = 'remaining', options = {}) {
   // A new cycle is a fresh shuffle anchor — reset the hourly timer so the
   // next periodic reshuffle counts from now.
   runtime.lastPeriodicReshuffleAt = Date.now();
+  // Parsing mode re-derives its pool from the filtered focused paradigm so
+  // the exclude-known-morphs filter re-runs each cycle (the generic
+  // 'remaining'/'full' paths below just reshuffle originalDeck and would
+  // re-admit a form that became 2/2 known mid-session). saveState below.
+  if (isParsingMode()) {
+    rebuildParsingCycle(options);
+    runtime.unspacedPendingRecycle = false;
+    saveState();
+    return;
+  }
   if (mode === 'full') {
     const directionalMarks = getDirectionalMarksStore();
     (runtime.originalDeck || []).forEach(card => {
@@ -2555,7 +2588,7 @@ const GLOBAL_CLICK_HANDLERS = {
   restoreSpacedUndo, setAppProfile, setStudyMode, setThemeMode, setFontFamily, setTextSize,
   showDisclaimerModal, startStudying, toggleDirection, toggleMorphSelfCheck,
   toggleMorphStepByStep, setMorphFocusedParadigm, setParsingChapter, goToStemDrillFromParsing,
-  toggleRequiredOnly, toggleHardVocabReview, toggleShuffle, toggleSpacedRepetition, toggleSplitSelection, toggleAspectStep, toggleDimStep, toggleOptionalForms, toggleOptionalFormFilter, toggleDimValueFilter, toggleExcludeKnownMorphs, resetKnownMorphs, clearParsingStats, toggleUnspacedDailyReset, triggerImportProgress,
+  toggleRequiredOnly, toggleHardVocabReview, toggleShuffle, toggleSpacedRepetition, toggleSplitSelection, toggleAspectStep, toggleDimStep, toggleOptionalForms, toggleOptionalFormFilter, toggleDimValueFilter, toggleExcludeKnownMorphs, resetKnownMorphs, closeResetKnownModal, confirmResetKnownFocused, confirmResetKnownAll, clearParsingStats, toggleUnspacedDailyReset, triggerImportProgress,
   openReaderTab, selectReaderDrillChoice, advanceReaderDrill,
   closeWhatsNewV1_1Modal,
   applyAppUpdate, dismissAppUpdate
