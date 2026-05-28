@@ -87,9 +87,32 @@ function sanitizeBucketList(input) {
       return { correct, total, at: Number(b.at) || 0 };
     });
 }
-// Per-card "last attempt outcome" map. Lives next to attempts on a lemma
-// entry; used by the parsing-review testable-forms list to dot each form
-// red/green/unseen. Drop any entry that doesn't carry a usable seen count.
+// Per-card recent-attempts map. Lives next to attempts on a lemma entry;
+// used by the parsing-review testable-forms list to dot each form
+// grey/green/yellow/red based on the last 2 attempts. Each recent entry
+// carries either per-dim results (so disabled dims can be filtered out at
+// read time) or a legacy allDims fallback from pre-2-of-2 saves.
+const FORM_RECENT_CAP = 2;
+function sanitizeFormRecentList(input, legacyLastCorrect) {
+  if (Array.isArray(input)) {
+    return input
+      .filter((a) => isPlainObject(a))
+      .slice(-FORM_RECENT_CAP)
+      .map((a) => {
+        if (typeof a.allDims === 'boolean') return { allDims: a.allDims };
+        const dims = isPlainObject(a.dims)
+          ? Object.fromEntries(
+              Object.entries(a.dims).map(([k, v]) => [String(k), v ? 1 : 0])
+            )
+          : {};
+        return { dims };
+      });
+  }
+  if (typeof legacyLastCorrect === 'boolean') {
+    return [{ allDims: legacyLastCorrect }];
+  }
+  return [];
+}
 function sanitizeLemmaForms(input) {
   if (!isPlainObject(input)) return {};
   const out = {};
@@ -98,9 +121,10 @@ function sanitizeLemmaForms(input) {
     if (!isPlainObject(f)) return;
     const seen = Math.max(0, Math.floor(Number(f.seen) || 0));
     if (!seen) return;
+    const recent = sanitizeFormRecentList(f.recent, f.lastCorrect);
     out[String(cardId)] = {
       seen,
-      lastCorrect: !!f.lastCorrect,
+      recent,
       lastAt: Number(f.lastAt) || 0
     };
   });
@@ -217,6 +241,7 @@ export function buildPersistedStatePayload(options = {}) {
     dimToggles: runtime.dimToggles,
     dimValueFilters: runtime.dimValueFilters,
     includeOptionalForms: runtime.includeOptionalForms,
+    excludeKnownMorphs: runtime.excludeKnownMorphs,
     optionalFormFilters: runtime.optionalFormFilters,
     analyticsVocabDirection: runtime.analyticsVocabDirection,
     analyticsVocabScope: runtime.analyticsVocabScope,
@@ -302,6 +327,10 @@ function sanitizeImportedState(candidate) {
   // predating this field hydrate to false too, so existing decks keep the
   // standard Mounce-aligned card set as their baseline.
   state.includeOptionalForms = !!candidate.includeOptionalForms;
+  // Exclude-known-morphs toggle defaults to false (off). "Known" means a
+  // strict 2/2 — the form's last two recorded attempts were both fully
+  // correct under the current dim toggles.
+  state.excludeKnownMorphs = !!candidate.excludeKnownMorphs;
   // Sub-filters default to true (every category included) so toggling
   // the parent on without touching filters reproduces the original
   // "all optional forms" behavior. Missing keys from older exports
@@ -988,6 +1017,8 @@ export function restoreState() {
     runtime.dimValueFilters = sanitizeDimValueFilters(saved.dimValueFilters);
     // Optional paradigm extensions: rehydrate the toggle (default false).
     runtime.includeOptionalForms = !!saved.includeOptionalForms;
+    // Exclude-known-morphs filter: rehydrate the toggle (default false).
+    runtime.excludeKnownMorphs = !!saved.excludeKnownMorphs;
     // Per-category sub-filters: default each to true if missing.
     const OPTIONAL_FILTER_KEYS = ['imperative', 'subjunctive', 'infinitive', 'participle', 'thirdPerson', 'futureTense', 'perfectTense'];
     const savedFilters = (saved.optionalFormFilters && typeof saved.optionalFormFilters === 'object') ? saved.optionalFormFilters : {};

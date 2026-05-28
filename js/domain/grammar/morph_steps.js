@@ -642,13 +642,18 @@ function accumulateDims(target, dimResults) {
   }
 }
 
+const FORM_RECENT_CAP = 2;
+
 // Record one attempt: a fully walked card with per-dimension correctness.
 // stats: { byLemma: { lemma: { attempts, totalAttempts, inProgress, buckets,
-//                              forms: { [cardId]: { seen, lastCorrect, lastAt } } } },
+//                              forms: { [cardId]: { seen, recent: [{dims}],
+//                                                   lastAt } } } },
 //          overall: { totalAttempts, inProgress, buckets } }
-// `formMeta` is optional: { cardId, allCorrect } records per-form last-attempt
-// outcome so the parsing-review "testable forms" list can dot each form red /
-// green / unseen. Independent of the per-dim sliding window above.
+// `formMeta` is optional: { cardId } stores the most recent FORM_RECENT_CAP
+// per-dim results so the parsing-review "testable forms" list can dot each
+// form based on its last 1–2 attempts (grey/green/yellow/red), and so reads
+// can filter out toggled-off dims at the read site. Independent of the
+// per-dim sliding window above.
 export function recordParadigmAttempt(stats, lemma, dimResults, formMeta) {
   if (!lemma || !dimResults) return;
   ensureParadigmStepStats(stats);
@@ -658,9 +663,11 @@ export function recordParadigmAttempt(stats, lemma, dimResults, formMeta) {
   if (formMeta && formMeta.cardId) {
     const prior = entry.forms[formMeta.cardId];
     const prevSeen = prior && Number.isFinite(prior.seen) ? prior.seen : 0;
+    const priorRecent = Array.isArray(prior && prior.recent) ? prior.recent : [];
+    const recent = priorRecent.concat([{ dims: { ...dimResults } }]).slice(-FORM_RECENT_CAP);
     entry.forms[formMeta.cardId] = {
       seen: prevSeen + 1,
-      lastCorrect: !!formMeta.allCorrect,
+      recent,
       lastAt: Date.now()
     };
   }
@@ -698,9 +705,20 @@ export function recordParadigmAttempt(stats, lemma, dimResults, formMeta) {
   }
 }
 
-// Aggregate accuracy for a single lemma's recent attempts.
-// Returns { total, correct, perDim: { tense: {seen, correct}, ... } }
-export function summarizeLemmaStats(stats, lemma) {
+// True if the given dim is currently enabled. `enabledDims` is the map
+// returned by getEnabledParsingDims (main.js); a null/undefined value is
+// treated as "all dims enabled" so callers that don't care about filters
+// (e.g. import sanitization) still get the historical totals.
+function isDimEnabled(enabledDims, dim) {
+  if (!enabledDims) return true;
+  return enabledDims[dim] !== false;
+}
+
+// Aggregate accuracy for a single lemma's recent attempts. When
+// `enabledDims` is provided, per-dim values whose dim is currently
+// toggled off are skipped — they don't contribute to the totals or to
+// the per-dim chips, matching the user's current parsing scope.
+export function summarizeLemmaStats(stats, lemma, enabledDims) {
   const empty = { total: 0, correct: 0, perDim: {}, attempts: 0 };
   if (!stats || !stats.byLemma || !stats.byLemma[lemma]) return empty;
   const attempts = stats.byLemma[lemma].attempts || [];
@@ -709,6 +727,7 @@ export function summarizeLemmaStats(stats, lemma) {
   for (const a of attempts) {
     if (!a || !a.dims) continue;
     for (const [dim, val] of Object.entries(a.dims)) {
+      if (!isDimEnabled(enabledDims, dim)) continue;
       if (!perDim[dim]) perDim[dim] = { seen: 0, correct: 0 };
       perDim[dim].seen += 1;
       if (val) perDim[dim].correct += 1;
@@ -719,11 +738,11 @@ export function summarizeLemmaStats(stats, lemma) {
   return { total, correct, perDim, attempts: attempts.length };
 }
 
-export function getAllLemmaStats(stats) {
+export function getAllLemmaStats(stats, enabledDims) {
   if (!stats || !stats.byLemma) return [];
   return Object.keys(stats.byLemma).map((lemma) => ({
     lemma,
-    ...summarizeLemmaStats(stats, lemma)
+    ...summarizeLemmaStats(stats, lemma, enabledDims)
   })).filter((s) => s.attempts > 0);
 }
 
@@ -731,17 +750,62 @@ export function getParadigmStepDimensionLabel(dimKey) {
   return DIM_LABEL[dimKey] || dimKey;
 }
 
-// Per-form last-attempt status for the parsing-review "testable forms" list.
-// Returns 'right' / 'wrong' / 'unseen'. Reads the disjoint per-card map kept
-// on each lemma entry — parsing mode doesn't write to the directional progress
-// store, so this is the canonical source for "have I attempted this form yet
-// and how did it go."
-export function getLemmaFormStatus(stats, lemma, cardId) {
-  if (!cardId) return 'unseen';
+// Re-evaluate a single recent attempt under the user's current dim toggles.
+// Legacy attempts (saved before per-dim recording, only `allDims: bool`) keep
+// their stored verdict since we no longer have the per-dim breakdown.
+function evaluateRecentAttempt(attempt, enabledDims) {
+  if (!attempt) return false;
+  if (typeof attempt.allDims === 'boolean') return attempt.allDims;
+  const dims = attempt.dims || {};
+  for (const [dim, val] of Object.entries(dims)) {
+    if (!isDimEnabled(enabledDims, dim)) continue;
+    if (val !== 1) return false;
+  }
+  return true;
+}
+
+// Out-of-2 tally for one form, after filtering disabled dims. Returns
+// { correct, total } where total is the number of recorded recent
+// attempts (≤ FORM_RECENT_CAP) and correct is how many of those pass
+// every currently-enabled dim.
+export function countLemmaFormRecent(stats, lemma, cardId, enabledDims) {
+  if (!cardId) return { correct: 0, total: 0 };
   const entry = stats?.byLemma?.[lemma];
   const form = entry?.forms && entry.forms[cardId];
-  if (!form || !Number.isFinite(form.seen) || form.seen <= 0) return 'unseen';
-  return form.lastCorrect ? 'right' : 'wrong';
+  if (!form || !Array.isArray(form.recent) || !form.recent.length) {
+    return { correct: 0, total: 0 };
+  }
+  let correct = 0;
+  for (const a of form.recent) {
+    if (evaluateRecentAttempt(a, enabledDims)) correct += 1;
+  }
+  return { correct, total: form.recent.length };
+}
+
+// Per-form recent-attempt status for the parsing-review "testable forms"
+// list. Returns 'right' / 'wrong' / 'uncertain' / 'unseen' based on the
+// out-of-2 tally:
+//   0/0 → unseen (grey)
+//   1/1, 2/2 → right (green)
+//   1/2 → uncertain (yellow)
+//   0/1, 0/2 → wrong (red)
+// Parsing mode doesn't write to the directional progress store, so this is
+// the canonical source for "have I attempted this form yet and how did it go."
+export function getLemmaFormStatus(stats, lemma, cardId, enabledDims) {
+  const { correct, total } = countLemmaFormRecent(stats, lemma, cardId, enabledDims);
+  if (!total) return 'unseen';
+  if (correct === total) return 'right';
+  if (correct === 0) return 'wrong';
+  return 'uncertain';
+}
+
+// Stricter "known" check for the exclude-known-morphs deck filter: the
+// form has been correctly parsed in BOTH of its last two attempts. A
+// single 1/1 is still green in the UI but isn't excluded here — the user
+// has to demonstrate the form twice before parsing mode skips it.
+export function isLemmaFormKnown(stats, lemma, cardId, enabledDims) {
+  const { correct, total } = countLemmaFormRecent(stats, lemma, cardId, enabledDims);
+  return total >= FORM_RECENT_CAP && correct >= FORM_RECENT_CAP;
 }
 
 export function getParadigmStepAttemptWindow() {
@@ -785,7 +849,9 @@ export function getOverallBucketSeries(stats) {
 // paradigms" overall row header — a single dim-accuracy pct over whatever's
 // currently in everyone's rolling-20 window. Independent of buckets so it
 // stays meaningful even when the user hasn't completed a full bucket yet.
-export function summarizeOverallRolling(stats) {
+// `enabledDims` filters out toggled-off dims so the % reflects the user's
+// current parsing scope.
+export function summarizeOverallRolling(stats, enabledDims) {
   const empty = { total: 0, correct: 0, perDim: {}, attempts: 0, paradigms: 0 };
   if (!stats?.byLemma) return empty;
   let total = 0, correct = 0, attempts = 0, paradigms = 0;
@@ -799,6 +865,7 @@ export function summarizeOverallRolling(stats) {
     for (const a of list) {
       if (!a || !a.dims) continue;
       for (const [dim, val] of Object.entries(a.dims)) {
+        if (!isDimEnabled(enabledDims, dim)) continue;
         if (!perDim[dim]) perDim[dim] = { seen: 0, correct: 0 };
         perDim[dim].seen += 1;
         total += 1;

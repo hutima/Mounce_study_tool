@@ -3,95 +3,95 @@
 // GitHub Pages note: all app-shell URLs are resolved relative to the
 // service worker registration scope so this works both at a domain root
 // and at a project path such as https://user.github.io/repository/.
-const CACHE_NAME = 'mounce-bbg-greek-pwa-v98';
+const CACHE_NAME = 'mounce-bbg-greek-pwa-v102';
 const BASE_URL = new URL('./', self.registration.scope);
 
 const APP_SHELL_PATHS = [
   './',
   'index.html',
   'pages/memorization.html',
-  'styles.css?v=98',
-  'manifest.json?v=98',
-  'favicon.svg?v=98',
-  'js/data/words.js?v=98',
-  'js/data/morphology.js?v=98',
-  'js/data/lemma_inventory.js?v=98',
-  'js/data/supplemental.js?v=98',
-  'js/data/grammar.js?v=98',
-  'js/data/parsing_examples.js?v=98',
-  'js/data/concept_examples.js?v=98',
-  'js/data/grammar_examples.js?v=98',
-  'js/data/setMeta.js?v=98',
-  'js/logic/pos_logic.js?v=98',
-  'js/data/reader.js?v=98',
-  'js/data/reader_verse_literals.js?v=98',
-  'js/data/reader_translations.js?v=98',
-  'js/data/supplementals/mounce_paradigms.js?v=98',
-  'js/data/supplementals/stem_change_drills.js?v=98',
-  'js/data/supplementals/second_aorist_flip.js?v=98',
-  'js/data/supplementals/w3_aorist_passive_flip.js?v=98',
-  'js/data/supplementals/w3_perfect_active_flip.js?v=98',
-  'js/data/supplementals/w4_mi_verb_principal_parts_flip.js?v=98',
-  'js/app/main.js?v=98',
-  'js/data/advanced/advanced_01.js?v=98',
-  'js/data/advanced/advanced_02.js?v=98',
-  'js/data/advanced/advanced_03.js?v=98',
-  'js/data/advanced/advanced_04.js?v=98',
-  'js/data/advanced/advanced_05.js?v=98',
-  'js/data/advanced/advanced_06.js?v=98',
-  'js/data/advanced/advanced_07.js?v=98',
-  'js/data/advanced/advanced_08.js?v=98',
-  'js/data/advanced/advanced_09.js?v=98',
-  'js/data/advanced/advanced_10.js?v=98',
-  'js/data/advanced/advanced_11.js?v=98',
-  'js/data/advanced/advanced_12.js?v=98',
-  'js/data/advanced/advanced_13.js?v=98',
-  'js/data/advanced/advanced_14.js?v=98',
-  'js/data/advanced/advanced_15.js?v=98',
-  'js/data/advanced/advanced_16.js?v=98',
-  'js/data/advanced/advanced_17.js?v=98',
-  'js/data/advanced/advanced_18.js?v=98',
-  'js/data/advanced/advanced_19.js?v=98',
-  'js/data/advanced/advanced_20.js?v=98',
-  'js/data/advanced/advanced_21.js?v=98',
-  'js/data/advanced/advanced_22.js?v=98',
-  'js/data/advanced/advanced_23.js?v=98',
-  'js/data/advanced/advanced_24.js?v=98',
-  'js/data/advanced/advanced_25.js?v=98',
-  'js/utils/helpers.js?v=98',
-  'js/utils/time.js?v=98',
-  'js/utils/storage.js?v=98',
-  'js/utils/greekSort.js?v=98',
-  'js/utils/clickShield.js?v=98',
-  'js/domain/srs/constants.js?v=98',
-  'js/domain/srs/scheduler.js?v=98',
-  'js/domain/srs/confidence.js?v=98',
-  'js/domain/gamification/levels.js?v=98',
-  'js/domain/gamification/usageStats.js?v=98',
-  'js/domain/deck/ordering.js?v=98',
-  'js/domain/deck/filters.js?v=98',
-  'js/domain/grammar/explanations.js?v=98',
-  'js/domain/grammar/morph_steps.js?v=98',
-  'js/domain/grammar/paradigm_focus.js?v=98',
-  'js/state/migrations.js?v=98',
-  'js/state/store.js?v=98',
-  'js/state/runtime.js?v=98',
-  'js/state/persistence.js?v=98',
-  'js/domain/gamification/xp.js?v=98',
-  'js/ui/analytics.js?v=98',
-  'js/ui/charts.js?v=98',
-  'js/ui/keyboard.js?v=98',
-  'js/ui/modals.js?v=98',
-  'js/ui/navigation.js?v=98',
-  'js/ui/progress.js?v=98',
-  'js/ui/reader.js?v=98',
-  'js/ui/render.js?v=98',
-  'js/ui/selectors.js?v=98',
-  'js/ui/toast.js?v=98',
-  'js/ui/touchTapBridge.js?v=98',
+  'styles.css?v=102',
+  'manifest.json?v=102',
+  'favicon.svg?v=102',
+  'js/data/words.js?v=102',
+  'js/data/morphology.js?v=102',
+  'js/data/lemma_inventory.js?v=102',
+  'js/data/supplemental.js?v=102',
+  'js/data/grammar.js?v=102',
+  'js/data/parsing_examples.js?v=102',
+  'js/data/concept_examples.js?v=102',
+  'js/data/grammar_examples.js?v=102',
+  'js/data/setMeta.js?v=102',
+  'js/logic/pos_logic.js?v=102',
+  'js/data/reader.js?v=102',
+  'js/data/reader_verse_literals.js?v=102',
+  'js/data/reader_translations.js?v=102',
+  'js/data/supplementals/mounce_paradigms.js?v=102',
+  'js/data/supplementals/stem_change_drills.js?v=102',
+  'js/data/supplementals/second_aorist_flip.js?v=102',
+  'js/data/supplementals/w3_aorist_passive_flip.js?v=102',
+  'js/data/supplementals/w3_perfect_active_flip.js?v=102',
+  'js/data/supplementals/w4_mi_verb_principal_parts_flip.js?v=102',
+  'js/app/main.js?v=102',
+  'js/data/advanced/advanced_01.js?v=102',
+  'js/data/advanced/advanced_02.js?v=102',
+  'js/data/advanced/advanced_03.js?v=102',
+  'js/data/advanced/advanced_04.js?v=102',
+  'js/data/advanced/advanced_05.js?v=102',
+  'js/data/advanced/advanced_06.js?v=102',
+  'js/data/advanced/advanced_07.js?v=102',
+  'js/data/advanced/advanced_08.js?v=102',
+  'js/data/advanced/advanced_09.js?v=102',
+  'js/data/advanced/advanced_10.js?v=102',
+  'js/data/advanced/advanced_11.js?v=102',
+  'js/data/advanced/advanced_12.js?v=102',
+  'js/data/advanced/advanced_13.js?v=102',
+  'js/data/advanced/advanced_14.js?v=102',
+  'js/data/advanced/advanced_15.js?v=102',
+  'js/data/advanced/advanced_16.js?v=102',
+  'js/data/advanced/advanced_17.js?v=102',
+  'js/data/advanced/advanced_18.js?v=102',
+  'js/data/advanced/advanced_19.js?v=102',
+  'js/data/advanced/advanced_20.js?v=102',
+  'js/data/advanced/advanced_21.js?v=102',
+  'js/data/advanced/advanced_22.js?v=102',
+  'js/data/advanced/advanced_23.js?v=102',
+  'js/data/advanced/advanced_24.js?v=102',
+  'js/data/advanced/advanced_25.js?v=102',
+  'js/utils/helpers.js?v=102',
+  'js/utils/time.js?v=102',
+  'js/utils/storage.js?v=102',
+  'js/utils/greekSort.js?v=102',
+  'js/utils/clickShield.js?v=102',
+  'js/domain/srs/constants.js?v=102',
+  'js/domain/srs/scheduler.js?v=102',
+  'js/domain/srs/confidence.js?v=102',
+  'js/domain/gamification/levels.js?v=102',
+  'js/domain/gamification/usageStats.js?v=102',
+  'js/domain/deck/ordering.js?v=102',
+  'js/domain/deck/filters.js?v=102',
+  'js/domain/grammar/explanations.js?v=102',
+  'js/domain/grammar/morph_steps.js?v=102',
+  'js/domain/grammar/paradigm_focus.js?v=102',
+  'js/state/migrations.js?v=102',
+  'js/state/store.js?v=102',
+  'js/state/runtime.js?v=102',
+  'js/state/persistence.js?v=102',
+  'js/domain/gamification/xp.js?v=102',
+  'js/ui/analytics.js?v=102',
+  'js/ui/charts.js?v=102',
+  'js/ui/keyboard.js?v=102',
+  'js/ui/modals.js?v=102',
+  'js/ui/navigation.js?v=102',
+  'js/ui/progress.js?v=102',
+  'js/ui/reader.js?v=102',
+  'js/ui/render.js?v=102',
+  'js/ui/selectors.js?v=102',
+  'js/ui/toast.js?v=102',
+  'js/ui/touchTapBridge.js?v=102',
   'icons/icon-192.png',
   'icons/icon-512.png',
-  'icons/apple-touch-icon.png?v=98',
+  'icons/apple-touch-icon.png?v=102',
   // Bundled webfonts — referenced from styles.css @font-face declarations.
   // Same-origin, so no runtime CDN fetches. Gentium Plus is the serif
   // (regular/bold × upright/italic × 3 subsets = 12 files); Noto Sans is
@@ -121,10 +121,11 @@ const APP_SHELL = APP_SHELL_PATHS.map(path => new URL(path, BASE_URL).toString()
 const INDEX_URL = new URL('index.html', BASE_URL).toString();
 
 self.addEventListener('install', event => {
-  // No self.skipWaiting() here — we let the new SW sit in the "waiting"
-  // state so the page can show the user a "Refresh to update" banner.
-  // The page posts {type:'SKIP_WAITING'} (see handler below) when the
-  // user clicks the banner.
+  // Take over immediately rather than parking in `waiting` until every
+  // tab closes. The page's controllerchange listener fires a single full
+  // reload once the new SW claims clients, so returning users land on
+  // the new app shell without needing to click anything.
+  self.skipWaiting();
   event.waitUntil(
     caches.open(CACHE_NAME).then(cache => cache.addAll(APP_SHELL))
   );
@@ -132,9 +133,38 @@ self.addEventListener('install', event => {
 
 self.addEventListener('activate', event => {
   event.waitUntil(
-    caches.keys().then(keys => Promise.all(
-      keys.filter(key => key !== CACHE_NAME).map(key => caches.delete(key))
-    )).then(() => self.clients.claim())
+    caches.keys()
+      .then(keys => {
+        const stale = keys.filter(key => key !== CACHE_NAME);
+        // wasUpgrade distinguishes "another SW was here before me" from
+        // a first-time install on a clean device. Only upgrades need the
+        // forced re-navigate dance below; first installs are already
+        // showing fresh content.
+        return Promise.all(stale.map(key => caches.delete(key)))
+          .then(() => stale.length > 0);
+      })
+      .then(wasUpgrade =>
+        self.clients.claim().then(() => wasUpgrade)
+      )
+      .then(wasUpgrade => {
+        if (!wasUpgrade) return;
+        // Force-reload every top-level client AFTER claim, so the
+        // navigate request goes through this new SW (not the old one
+        // we just replaced). This catches users whose cached main.js
+        // predates the controllerchange-listener wiring and would
+        // otherwise sit on stale in-memory JS until they refreshed
+        // again. Newer main.js also reloads via its own controllerchange
+        // listener; the browser collapses the concurrent reload +
+        // navigate on the same URL into a single load. client.navigate
+        // can throw or return null (cross-origin, hidden tab); a
+        // Promise.resolve fallback keeps Promise.all from rejecting.
+        return self.clients.matchAll({ type: 'window' }).then(clients =>
+          Promise.all(clients.map(client => {
+            try { return client.navigate(client.url) || Promise.resolve(); }
+            catch (_) { return Promise.resolve(); }
+          }))
+        );
+      })
   );
 });
 
@@ -161,8 +191,17 @@ self.addEventListener('fetch', event => {
     return;
   }
 
+  // Static assets: cache first, then network. When the URL carries an
+  // explicit `?v=N` cache-bust, match exactly so a version bump always
+  // falls through to network rather than serving a stale cross-version
+  // entry. When it doesn't (bare ES-module imports from main.js have no
+  // query string), use ignoreSearch so they resolve to the precached
+  // versioned entry instead of double-caching one copy per version.
+  const reqUrl = new URL(req.url);
+  const isVersioned = reqUrl.searchParams.has('v');
+  const matchOpts = isVersioned ? {} : { ignoreSearch: true };
   event.respondWith(
-    caches.match(req).then(cached => {
+    caches.match(req, matchOpts).then(cached => {
       if (cached) return cached;
       return fetch(req).then(res => {
         if (req.url.startsWith(BASE_URL.origin)) {

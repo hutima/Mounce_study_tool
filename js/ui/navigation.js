@@ -763,6 +763,57 @@ export function toggleOptionalForms() {
   loadDeckFromKeys(keysToLoad, runtime.currentSession ? runtime.currentSession.id : null);
 }
 
+// Drop any card whose last two parsing attempts are both correct (2/2)
+// from the parsing deck. The 1/1 "single right answer so far" state is
+// intentionally kept in the pool — the user has to demonstrate the form
+// twice before parsing mode skips it. Rebuilds the deck immediately so
+// the toggle takes effect mid-session; outside parsing mode the flag
+// still flips and persists but the deck isn't rebuilt (vocab/grammar
+// don't read it).
+export function toggleExcludeKnownMorphs() {
+  runtime.excludeKnownMorphs = !runtime.excludeKnownMorphs;
+  host.syncToggleButtons();
+  if (!runtime.selectedKeys.length) {
+    host.saveState();
+    return;
+  }
+  const keysToLoad = runtime.currentSession ? expandSessionSets(runtime.currentSession) : runtime.selectedKeys;
+  loadDeckFromKeys(keysToLoad, runtime.currentSession ? runtime.currentSession.id : null);
+}
+
+// Reset every form's per-form tally to 0/2 — drops the `recent` attempts
+// (and the seen count) on every lemma's forms map. Per-paradigm rolling
+// %, the completed bucket history, in-progress counters, and the
+// cross-paradigm overall are intentionally kept; "Reset stats" remains
+// the option for wiping those too. Lets the user re-verify a paradigm
+// from scratch without losing the long-term performance record. The
+// parsing-mode "Reset known" button replaces vocab/grammar's
+// Reset-deck/Reset-required pair (neither applies in parsing: no SRS
+// state, no required-vs-supplemental split).
+export function resetKnownMorphs() {
+  if (!window.confirm('Set every form back to 0/2 attempts? This clears the per-form "known" tally so parsing forms read as unseen again. Per-paradigm % and history are kept.')) return;
+  const stats = runtime.paradigmStepStats;
+  if (stats && stats.byLemma && typeof stats.byLemma === 'object') {
+    Object.keys(stats.byLemma).forEach((lemma) => {
+      const entry = stats.byLemma[lemma];
+      if (entry && typeof entry === 'object') entry.forms = {};
+    });
+  }
+  host.resetMorphAnswerState();
+  // Round-trip through loadDeckFromKeys so any 2/2-known forms that the
+  // exclude-known-morphs filter dropped at deck-build time come back into
+  // scope now that every form is unseen again.
+  if (runtime.selectedKeys.length) {
+    const keysToLoad = runtime.currentSession ? expandSessionSets(runtime.currentSession) : runtime.selectedKeys;
+    loadDeckFromKeys(keysToLoad, runtime.currentSession ? runtime.currentSession.id : null);
+  } else {
+    renderCard();
+    renderProgress();
+    renderReview();
+  }
+  host.saveState();
+}
+
 const OPTIONAL_FILTER_KEYS = new Set(['imperative', 'subjunctive', 'infinitive', 'participle', 'thirdPerson', 'futureTense', 'perfectTense']);
 
 // Per-category filter on the optional-form pool. Off → cards whose

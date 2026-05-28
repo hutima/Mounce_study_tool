@@ -62,7 +62,8 @@ let host = {
   ensureUsageStats: () => runtime.appUsageStats,
   accumulateActiveStudyTime: () => {},
   canAccessGrammarUi: () => true,
-  saveState: () => {}
+  saveState: () => {},
+  getEnabledParsingDims: () => null
 };
 
 export function configureAnalytics(deps) {
@@ -803,7 +804,8 @@ function renderParadigmStepStatsSection() {
   const status = document.getElementById('analyticsParadigmStepStatsStatus');
   if (!body) return;
   const stats = runtime.paradigmStepStats || {};
-  const lemmaSummaries = getAllLemmaStats(stats);
+  const enabledDims = host.getEnabledParsingDims();
+  const lemmaSummaries = getAllLemmaStats(stats, enabledDims);
   const attemptWindow = getParadigmStepAttemptWindow();
   const bucketHistory = getParadigmBucketHistorySize();
   if (!lemmaSummaries.length) {
@@ -822,7 +824,7 @@ function renderParadigmStepStatsSection() {
   // Overall row: aggregates the sliding-window dims across every lemma plus
   // the cross-paradigm bucket series. Always rendered at the top so the
   // user can spot trend changes without scrolling per-lemma.
-  const overallSummary = summarizeOverallRolling(stats);
+  const overallSummary = summarizeOverallRolling(stats, enabledDims);
   const overallBucketSeries = getOverallBucketSeries(stats);
   const overallPct = Math.round(100 * overallSummary.correct / Math.max(1, overallSummary.total));
   const overallExpanded = expandedKey === '__overall';
