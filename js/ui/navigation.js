@@ -71,7 +71,8 @@ let host = {
   getSelectedCards: () => [],
   resetMorphStepState: () => {},
   ensureMorphFocusedParadigm: () => {},
-  rebuildMorphDeckForStepMode: () => {}
+  rebuildMorphDeckForStepMode: () => {},
+  rebuildParsingCycle: () => {}
 };
 
 export function configureNavigation(deps) {
@@ -200,14 +201,15 @@ export function navigate(dir, options = {}) {
       } else if (host.isParsingMode() && runtime.currentIdx + 1 >= runtime.activeDeckCount) {
         // Parsing has no SRS writes, so the standard end-of-cycle "no cards
         // due" splash never resolves on its own — reshuffle immediately
-        // when the cursor would step past the last card. The just-shown
-        // card's id is forwarded as avoidHeadId so it doesn't repeat at
-        // the head of the new shuffled cycle.
+        // when the cursor would step past the last card. Rebuild through the
+        // filtered focused pool (not buildStudyDeck on the stale originalDeck)
+        // so any form that became 2/2 known mid-session is dropped by the
+        // exclude-known-morphs filter. The just-shown card's id is forwarded
+        // as avoidHeadId so it doesn't repeat at the head of the new cycle.
         const avoidHeadId = runtime.deck[runtime.currentIdx]
           ? runtime.deck[runtime.currentIdx].id
           : undefined;
-        runtime.deck = host.buildStudyDeck(runtime.originalDeck, { forceShuffle: true, avoidHeadId });
-        runtime.currentIdx = 0;
+        host.rebuildParsingCycle({ avoidHeadId });
       } else {
         runtime.currentIdx = Math.min(runtime.currentIdx + 1, runtime.activeDeckCount);
       }
@@ -781,28 +783,90 @@ export function toggleExcludeKnownMorphs() {
   loadDeckFromKeys(keysToLoad, runtime.currentSession ? runtime.currentSession.id : null);
 }
 
-// Reset every form's per-form tally to 0/2 — drops the `recent` attempts
-// (and the seen count) on every lemma's forms map. Per-paradigm rolling
-// %, the completed bucket history, in-progress counters, and the
-// cross-paradigm overall are intentionally kept; "Reset stats" remains
-// the option for wiping those too. Lets the user re-verify a paradigm
-// from scratch without losing the long-term performance record. The
-// parsing-mode "Reset known" button replaces vocab/grammar's
-// Reset-deck/Reset-required pair (neither applies in parsing: no SRS
-// state, no required-vs-supplemental split).
+// Reset per-form tallies to 0/2 — drops the `recent` attempts (and the seen
+// count) on a lemma's forms map, so its parsing dots read as unseen again,
+// the exclude-known filter re-admits the forms, and the per-value breakdown
+// resets. The per-paradigm rolling `attempts` window (the in-card "Last 20
+// attempts" rollup) is intentionally kept; "Clear parsing stats" remains the
+// option for wiping that too. Lets the user re-verify a paradigm from scratch
+// without losing the long-term attempt log. The parsing-mode "Reset known"
+// button replaces vocab/grammar's Reset-deck/Reset-required pair (neither
+// applies in parsing: no SRS state, no required-vs-supplemental split).
+//
+// The button opens a modal that scopes the reset: just the currently focused
+// paradigm, or every paradigm the user has drilled.
 export function resetKnownMorphs() {
-  if (!window.confirm('Set every form back to 0/2 attempts? This clears the per-form "known" tally so parsing forms read as unseen again. Per-paradigm % and history are kept.')) return;
+  openResetKnownModal();
+}
+
+function openResetKnownModal() {
+  const overlay = document.getElementById('resetKnownOverlay');
+  if (!overlay) {
+    // Fall back to the legacy single-confirm (all paradigms) if the modal
+    // markup isn't present (e.g. an older cached index.html on a PWA install).
+    if (window.confirm('Set every form back to 0/2 attempts? This clears the per-form "known" tally so parsing forms read as unseen again. Per-paradigm history is kept.')) {
+      performResetKnown('all');
+    }
+    return;
+  }
+  // Name the focused paradigm in the copy + on the button so "current
+  // paradigm only" is unambiguous. With nothing focused, hide that option
+  // and leave only the all-paradigms reset.
+  const focused = runtime.morphFocusedParadigm || '';
+  const lemmaEl = overlay.querySelector('#resetKnownFocusedLemma');
+  if (lemmaEl) lemmaEl.textContent = focused || 'the current paradigm';
+  const focusedRow = overlay.querySelector('#resetKnownFocusedRow');
+  if (focusedRow) focusedRow.style.display = focused ? '' : 'none';
+  const focusedBtn = overlay.querySelector('#resetKnownFocusedBtn');
+  if (focusedBtn) {
+    focusedBtn.style.display = focused ? '' : 'none';
+    focusedBtn.textContent = focused ? `Reset ${focused}` : 'Current paradigm only';
+  }
+  overlay.classList.add('show');
+  overlay.setAttribute('aria-hidden', 'false');
+  document.body.classList.add('modal-open');
+}
+
+export function closeResetKnownModal() {
+  const overlay = document.getElementById('resetKnownOverlay');
+  if (!overlay) return;
+  overlay.classList.remove('show');
+  overlay.setAttribute('aria-hidden', 'true');
+  const anyOtherOpen = document.querySelector('.consent-overlay.show');
+  if (!anyOtherOpen) document.body.classList.remove('modal-open');
+  shieldClicksBriefly();
+}
+
+export function confirmResetKnownFocused() {
+  closeResetKnownModal();
+  performResetKnown('focused');
+}
+
+export function confirmResetKnownAll() {
+  closeResetKnownModal();
+  performResetKnown('all');
+}
+
+// Clear per-form tallies. `scope === 'focused'` clears only the currently
+// focused paradigm's forms map; any other value clears every lemma's.
+function performResetKnown(scope) {
   const stats = runtime.paradigmStepStats;
   if (stats && stats.byLemma && typeof stats.byLemma === 'object') {
-    Object.keys(stats.byLemma).forEach((lemma) => {
-      const entry = stats.byLemma[lemma];
+    if (scope === 'focused') {
+      const focused = runtime.morphFocusedParadigm;
+      const entry = focused && stats.byLemma[focused];
       if (entry && typeof entry === 'object') entry.forms = {};
-    });
+    } else {
+      Object.keys(stats.byLemma).forEach((lemma) => {
+        const entry = stats.byLemma[lemma];
+        if (entry && typeof entry === 'object') entry.forms = {};
+      });
+    }
   }
   host.resetMorphAnswerState();
   // Round-trip through loadDeckFromKeys so any 2/2-known forms that the
   // exclude-known-morphs filter dropped at deck-build time come back into
-  // scope now that every form is unseen again.
+  // scope now that they read as unseen again.
   if (runtime.selectedKeys.length) {
     const keysToLoad = runtime.currentSession ? expandSessionSets(runtime.currentSession) : runtime.selectedKeys;
     loadDeckFromKeys(keysToLoad, runtime.currentSession ? runtime.currentSession.id : null);
