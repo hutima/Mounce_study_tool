@@ -264,6 +264,7 @@ import {
   resetCurrentDeck,
   resetRequiredOnly,
   resetKnownMorphs,
+  clearParsingStats,
   closeResetSpacedModal,
   confirmResetSpacedTimingOnly,
   confirmResetSpacedProgress,
@@ -1247,10 +1248,14 @@ function syncToggleButtons() {
   // form's per-form tally back to 0/2 (per-paradigm history kept).
   const resetRequiredBtn = document.getElementById('resetRequiredBtn');
   const resetKnownBtn = document.getElementById('resetKnownBtn');
+  const clearParsingStatsBtn = document.getElementById('clearParsingStatsBtn');
   const parsing = isParsingMode();
   if (resetDeckBtn) resetDeckBtn.style.display = parsing ? 'none' : '';
   if (resetRequiredBtn) resetRequiredBtn.style.display = parsing ? 'none' : '';
   if (resetKnownBtn) resetKnownBtn.style.display = parsing ? '' : 'none';
+  // "Clear parsing stats" is parsing-mode-only — it wipes runtime.paradigmStepStats
+  // and nothing else, so it's meaningless (and hidden) in vocab/morph/reader.
+  if (clearParsingStatsBtn) clearParsingStatsBtn.style.display = parsing ? '' : 'none';
 
   const subtitle = document.getElementById('appSubtitle');
   if (subtitle) subtitle.textContent = getModeDescription();
@@ -2529,7 +2534,7 @@ const GLOBAL_CLICK_HANDLERS = {
   restoreSpacedUndo, setAppProfile, setStudyMode, setThemeMode, setFontFamily, setTextSize,
   showDisclaimerModal, startStudying, toggleDirection, toggleMorphSelfCheck,
   toggleMorphStepByStep, setMorphFocusedParadigm, setParsingChapter, goToStemDrillFromParsing,
-  toggleRequiredOnly, toggleHardVocabReview, toggleShuffle, toggleSpacedRepetition, toggleSplitSelection, toggleAspectStep, toggleDimStep, toggleOptionalForms, toggleOptionalFormFilter, toggleDimValueFilter, toggleExcludeKnownMorphs, resetKnownMorphs, toggleUnspacedDailyReset, triggerImportProgress,
+  toggleRequiredOnly, toggleHardVocabReview, toggleShuffle, toggleSpacedRepetition, toggleSplitSelection, toggleAspectStep, toggleDimStep, toggleOptionalForms, toggleOptionalFormFilter, toggleDimValueFilter, toggleExcludeKnownMorphs, resetKnownMorphs, clearParsingStats, toggleUnspacedDailyReset, triggerImportProgress,
   openReaderTab, selectReaderDrillChoice, advanceReaderDrill,
   closeWhatsNewV1_1Modal,
   applyAppUpdate, dismissAppUpdate

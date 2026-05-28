@@ -814,6 +814,35 @@ export function resetKnownMorphs() {
   host.saveState();
 }
 
+// Wipe the parsing module's stats record completely — everything that
+// resetKnownMorphs intentionally keeps. Drops every lemma's attempts,
+// per-paradigm rolling %, completed-bucket history, in-progress counters,
+// per-form recent tallies, AND the cross-paradigm overall aggregate, back
+// to a fresh empty store. Scoped to parsing only: it touches nothing but
+// runtime.paradigmStepStats, so vocab/morphology/reader stats, marks,
+// spaced-review scheduling, achievements, and study-time history are all
+// left untouched (the global "Reset stats" never wrote paradigm stats in
+// the first place, so this is the only way to clear them). Rebuilds the
+// deck so any forms the exclude-known-morphs filter had dropped come back
+// into scope now that the record is empty.
+export function clearParsingStats() {
+  if (!window.confirm('Clear ALL parsing stats? This wipes every paradigm\'s accuracy %, bucket history, per-form tallies, and the overall parsing aggregate. Only parsing stats are affected — vocab, morphology, and reader progress are kept. No undo.')) return;
+  runtime.paradigmStepStats = {
+    byLemma: {},
+    overall: { totalAttempts: 0, inProgress: { correct: 0, total: 0 }, buckets: [] }
+  };
+  host.resetMorphAnswerState();
+  if (runtime.selectedKeys.length) {
+    const keysToLoad = runtime.currentSession ? expandSessionSets(runtime.currentSession) : runtime.selectedKeys;
+    loadDeckFromKeys(keysToLoad, runtime.currentSession ? runtime.currentSession.id : null);
+  } else {
+    renderCard();
+    renderProgress();
+    renderReview();
+  }
+  host.saveState();
+}
+
 const OPTIONAL_FILTER_KEYS = new Set(['imperative', 'subjunctive', 'infinitive', 'participle', 'thirdPerson', 'futureTense', 'perfectTense']);
 
 // Per-category filter on the optional-form pool. Off → cards whose
