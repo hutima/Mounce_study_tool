@@ -133,9 +133,38 @@ self.addEventListener('install', event => {
 
 self.addEventListener('activate', event => {
   event.waitUntil(
-    caches.keys().then(keys => Promise.all(
-      keys.filter(key => key !== CACHE_NAME).map(key => caches.delete(key))
-    )).then(() => self.clients.claim())
+    caches.keys()
+      .then(keys => {
+        const stale = keys.filter(key => key !== CACHE_NAME);
+        // wasUpgrade distinguishes "another SW was here before me" from
+        // a first-time install on a clean device. Only upgrades need the
+        // forced re-navigate dance below; first installs are already
+        // showing fresh content.
+        return Promise.all(stale.map(key => caches.delete(key)))
+          .then(() => stale.length > 0);
+      })
+      .then(wasUpgrade =>
+        self.clients.claim().then(() => wasUpgrade)
+      )
+      .then(wasUpgrade => {
+        if (!wasUpgrade) return;
+        // Force-reload every top-level client AFTER claim, so the
+        // navigate request goes through this new SW (not the old one
+        // we just replaced). This catches users whose cached main.js
+        // predates the controllerchange-listener wiring and would
+        // otherwise sit on stale in-memory JS until they refreshed
+        // again. Newer main.js also reloads via its own controllerchange
+        // listener; the browser collapses the concurrent reload +
+        // navigate on the same URL into a single load. client.navigate
+        // can throw or return null (cross-origin, hidden tab); a
+        // Promise.resolve fallback keeps Promise.all from rejecting.
+        return self.clients.matchAll({ type: 'window' }).then(clients =>
+          Promise.all(clients.map(client => {
+            try { return client.navigate(client.url) || Promise.resolve(); }
+            catch (_) { return Promise.resolve(); }
+          }))
+        );
+      })
   );
 });
 
