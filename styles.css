@@ -1344,23 +1344,6 @@
     font-size: 12px;
     color: var(--muted);
   }
-  .paradigm-stat-chips {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 6px;
-  }
-  .paradigm-stat-chip {
-    background: rgba(201,168,76,0.08);
-    border: 1px solid var(--border);
-    border-radius: 6px;
-    padding: 2px 8px;
-    font-size: 11px;
-    color: var(--gold-dim);
-    font-family: var(--font-display);
-    letter-spacing: 0.5px;
-    text-transform: uppercase;
-  }
-
   /* ── Paradigm parsing performance bar chart (tappable row expand) ── */
   .paradigm-stat-row,
   .parsing-review-row {
@@ -1513,92 +1496,86 @@
     text-overflow: ellipsis;
     white-space: nowrap;
   }
-  .paradigm-bucket-chart {
+  /* Per-value (mood / tense / voice …) proficiency breakdown. Replaces the
+   * old bucket bar chart: one labelled group per dimension, each value a
+   * horizontal bar coloured on the shared 5-band gradient (.stacked-seg-b*),
+   * with "seen / in-scope" coverage so gaps read as honestly as weak values. */
+  .dim-value-breakdown {
     display: flex;
-    align-items: flex-end;
-    justify-content: flex-start;
-    gap: 6px;
-    height: 96px;
-    padding: 4px 6px;
+    flex-direction: column;
+    gap: 12px;
+    padding: 8px 10px;
     border: 1px solid var(--border);
     border-radius: 6px;
     background: rgba(255,255,255,0.02);
   }
-  html[data-theme="light"] .paradigm-bucket-chart {
+  html[data-theme="light"] .dim-value-breakdown {
     background: rgba(0,0,0,0.02);
   }
-  .paradigm-bucket-col {
-    flex: 1 1 0;
-    min-width: 18px;
+  .dim-value-group {
     display: flex;
     flex-direction: column;
-    align-items: center;
-    justify-content: flex-end;
-    gap: 2px;
-    height: 100%;
+    gap: 4px;
   }
-  .paradigm-bucket-pct {
+  .dim-value-group-label {
     font-size: 10px;
     font-family: var(--font-display);
-    color: var(--muted);
-    letter-spacing: 0.5px;
-    line-height: 1;
-  }
-  .paradigm-bucket-pct-muted {
-    opacity: 0.6;
-  }
-  .paradigm-bucket-bar-track {
-    width: 100%;
-    flex: 1 1 auto;
-    display: flex;
-    align-items: flex-end;
-    background: rgba(255,255,255,0.04);
-    border-radius: 3px;
-    overflow: hidden;
-  }
-  html[data-theme="light"] .paradigm-bucket-bar-track {
-    background: rgba(0,0,0,0.05);
-  }
-  .paradigm-bucket-bar {
-    width: 100%;
-    min-height: 2px;
-    border-radius: 3px 3px 0 0;
-    transition: height 0.18s ease;
-  }
-  .paradigm-bucket-bar-high { background: rgba(120,200,140,0.85); }
-  .paradigm-bucket-bar-mid  { background: rgba(220,180,110,0.85); }
-  .paradigm-bucket-bar-low  { background: rgba(210,110,110,0.85); }
-  .paradigm-bucket-bar-inprogress {
-    background: repeating-linear-gradient(
-      45deg,
-      rgba(201,168,76,0.55),
-      rgba(201,168,76,0.55) 4px,
-      rgba(201,168,76,0.25) 4px,
-      rgba(201,168,76,0.25) 8px
-    );
-  }
-  .paradigm-bucket-col-inprogress {
-    border-left: 1px dashed var(--border);
-    padding-left: 4px;
-    margin-left: 2px;
-  }
-  .paradigm-bucket-idx {
-    font-size: 9px;
-    color: var(--muted);
-    font-family: var(--font-display);
-    letter-spacing: 0.5px;
-    line-height: 1;
-  }
-  .paradigm-bucket-idx-inprogress {
+    letter-spacing: 1px;
+    text-transform: uppercase;
     color: var(--gold-dim);
   }
-  .paradigm-bucket-chart-caption {
+  .dim-value-row {
+    display: grid;
+    grid-template-columns: 74px 1fr 34px 42px;
+    align-items: center;
+    gap: 8px;
+  }
+  .dim-value-name {
+    font-size: 12px;
+    color: var(--cream);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .dim-value-track {
+    height: 9px;
+    border-radius: 5px;
+    background: rgba(255,255,255,0.06);
+    overflow: hidden;
+  }
+  html[data-theme="light"] .dim-value-track {
+    background: rgba(0,0,0,0.06);
+  }
+  .dim-value-fill {
+    display: block;
+    height: 100%;
+    border-radius: 5px;
+    transition: width 0.3s ease;
+  }
+  .dim-value-pct {
+    font-size: 11px;
+    font-family: var(--font-display);
+    color: var(--muted);
+    text-align: right;
+    letter-spacing: 0.5px;
+  }
+  .dim-value-cov {
+    font-size: 11px;
+    color: var(--muted);
+    text-align: right;
+    opacity: 0.75;
+  }
+  .dim-value-row-unseen .dim-value-name,
+  .dim-value-row-unseen .dim-value-pct {
+    opacity: 0.5;
+  }
+  .dim-value-caption {
     margin-top: 6px;
     font-size: 11px;
     color: var(--muted);
     font-style: italic;
   }
-  .paradigm-bucket-empty {
+  .dim-value-empty {
     padding: 14px 12px;
     border: 1px dashed var(--border);
     border-radius: 6px;
@@ -1607,8 +1584,29 @@
     font-size: 13px;
     text-align: center;
   }
-  html[data-theme="light"] .paradigm-bucket-empty {
+  html[data-theme="light"] .dim-value-empty {
     background: rgba(0,0,0,0.02);
+  }
+  /* "weakest: <value> <pct>%" pointer shown on a collapsed paradigm row. */
+  .paradigm-stat-weakline,
+  .parsing-review-weakline {
+    margin-top: 2px;
+  }
+  .paradigm-stat-weakest,
+  .parsing-review-weakest {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 11px;
+    color: var(--muted);
+    font-style: italic;
+  }
+  .paradigm-stat-weakest-dot,
+  .parsing-review-weakest-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 2px;
+    flex-shrink: 0;
   }
 
   /* Step-by-step parsing drill */
@@ -1932,23 +1930,6 @@
     font-size: 11px;
     color: var(--muted);
   }
-  .parsing-review-chips {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 6px;
-  }
-  .parsing-review-chip {
-    background: rgba(201,168,76,0.08);
-    border: 1px solid var(--border);
-    border-radius: 6px;
-    padding: 2px 8px;
-    font-size: 11px;
-    color: var(--gold-dim);
-    font-family: var(--font-display);
-    letter-spacing: 0.5px;
-    text-transform: uppercase;
-  }
-
 
   .profile-section {
     margin-bottom: 30px;

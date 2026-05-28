@@ -62,31 +62,17 @@ export function configurePersistence(deps) {
   host = { ...host, ...deps };
 }
 
-// Per-lemma sliding window of paradigm-parse attempts plus the
-// disjoint-20-attempt buckets that feed the performance bar chart. Capped
-// per lemma at 20 raw attempts and 10 completed buckets; older entries drop
-// off the front. Sanitizer is forgiving on import so a stat from a previous
-// version (or a missing field) restores as empty rather than wiping the
-// rest of the save.
+// Per-lemma sliding window of paradigm-parse attempts (capped at 20; older
+// entries drop off the front) plus the per-form recent tally. The sanitizer
+// is forgiving on import so a stat from a previous version (or a missing
+// field) restores as empty rather than wiping the rest of the save.
+//
+// Legacy disjoint-bucket fields (buckets / inProgress / totalAttempts, both
+// per-lemma and under a top-level `overall`) and the per-form `lastAt` are no
+// longer read — the mood/tense breakdown is derived from `forms` at read time.
+// They're dropped here, so the first save after this update shrinks the
+// payload without any one-time migration step.
 const PARADIGM_STEP_ATTEMPT_CAP = 20;
-const PARADIGM_STEP_BUCKET_CAP = 10;
-function sanitizeInProgressBucket(input) {
-  if (!isPlainObject(input)) return { correct: 0, total: 0 };
-  const total = Math.max(0, Math.floor(Number(input.total) || 0));
-  const correct = Math.max(0, Math.min(total, Math.floor(Number(input.correct) || 0)));
-  return { correct, total };
-}
-function sanitizeBucketList(input) {
-  if (!Array.isArray(input)) return [];
-  return input
-    .filter((b) => isPlainObject(b))
-    .slice(-PARADIGM_STEP_BUCKET_CAP)
-    .map((b) => {
-      const total = Math.max(0, Math.floor(Number(b.total) || 0));
-      const correct = Math.max(0, Math.min(total, Math.floor(Number(b.correct) || 0)));
-      return { correct, total, at: Number(b.at) || 0 };
-    });
-}
 // Per-card recent-attempts map. Lives next to attempts on a lemma entry;
 // used by the parsing-review testable-forms list to dot each form
 // grey/green/yellow/red based on the last 2 attempts. Each recent entry
@@ -122,11 +108,7 @@ function sanitizeLemmaForms(input) {
     const seen = Math.max(0, Math.floor(Number(f.seen) || 0));
     if (!seen) return;
     const recent = sanitizeFormRecentList(f.recent, f.lastCorrect);
-    out[String(cardId)] = {
-      seen,
-      recent,
-      lastAt: Number(f.lastAt) || 0
-    };
+    out[String(cardId)] = { seen, recent };
   });
   return out;
 }
@@ -140,38 +122,30 @@ function sanitizeParsingChapter(input) {
 }
 
 function sanitizeParadigmStepStats(input) {
-  const out = { byLemma: {}, overall: { totalAttempts: 0, inProgress: { correct: 0, total: 0 }, buckets: [] } };
+  const out = { byLemma: {} };
   if (!isPlainObject(input)) return out;
   const lemmaBag = isPlainObject(input.byLemma) ? input.byLemma : null;
-  if (lemmaBag) {
-    Object.keys(lemmaBag).forEach((lemma) => {
-      const entry = lemmaBag[lemma];
-      if (!isPlainObject(entry) || !Array.isArray(entry.attempts)) return;
-      const attempts = entry.attempts
-        .filter((a) => isPlainObject(a) && isPlainObject(a.dims))
-        .slice(-PARADIGM_STEP_ATTEMPT_CAP)
-        .map((a) => ({
-          at: Number(a.at) || 0,
-          dims: Object.fromEntries(
-            Object.entries(a.dims).map(([k, v]) => [String(k), v ? 1 : 0])
-          )
-        }));
-      const buckets = sanitizeBucketList(entry.buckets);
-      const inProgress = sanitizeInProgressBucket(entry.inProgress);
-      const totalAttempts = Math.max(0, Math.floor(Number(entry.totalAttempts) || 0));
-      const forms = sanitizeLemmaForms(entry.forms);
-      if (attempts.length || buckets.length || inProgress.total || Object.keys(forms).length) {
-        out.byLemma[String(lemma)] = { attempts, totalAttempts, inProgress, buckets, forms };
-      }
-    });
-  }
-  if (isPlainObject(input.overall)) {
-    out.overall = {
-      totalAttempts: Math.max(0, Math.floor(Number(input.overall.totalAttempts) || 0)),
-      inProgress: sanitizeInProgressBucket(input.overall.inProgress),
-      buckets: sanitizeBucketList(input.overall.buckets)
-    };
-  }
+  if (!lemmaBag) return out;
+  Object.keys(lemmaBag).forEach((lemma) => {
+    const entry = lemmaBag[lemma];
+    if (!isPlainObject(entry)) return;
+    const attempts = (Array.isArray(entry.attempts) ? entry.attempts : [])
+      .filter((a) => isPlainObject(a) && isPlainObject(a.dims))
+      .slice(-PARADIGM_STEP_ATTEMPT_CAP)
+      .map((a) => ({
+        at: Number(a.at) || 0,
+        dims: Object.fromEntries(
+          Object.entries(a.dims).map(([k, v]) => [String(k), v ? 1 : 0])
+        )
+      }));
+    const forms = sanitizeLemmaForms(entry.forms);
+    // Keep an entry if it carries either signal — accepting forms-only
+    // entries (no attempts) keeps the keep-gate forgiving across the
+    // legacy-bucket migration.
+    if (attempts.length || Object.keys(forms).length) {
+      out.byLemma[String(lemma)] = { attempts, forms };
+    }
+  });
   return out;
 }
 

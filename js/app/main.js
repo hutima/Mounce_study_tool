@@ -490,7 +490,19 @@ configureAnalytics({
   accumulateActiveStudyTime: () => accumulateActiveStudyTime(),
   canAccessGrammarUi: () => canAccessGrammarUi(),
   saveState: () => saveState(),
-  getEnabledParsingDims: () => getEnabledParsingDims()
+  getEnabledParsingDims: () => getEnabledParsingDims(),
+  // Chapter-gated in-scope forms for a paradigm (same pool the deck + the
+  // review panel use), so the analytics breakdown only shows values the
+  // student's current chapter scope has unlocked.
+  getMorphCardsForLemma: (lemma) => getCardsForFocusedParadigm(
+    getAggregateSelectionKeys(),
+    lemma,
+    {
+      includeOptional: !!runtime.includeOptionalForms,
+      optionalFilters: runtime.optionalFormFilters,
+      dimValueFilters: runtime.dimValueFilters
+    }
+  )
 });
 configurePersistence({
   ensureUsageStats: (stats) => ensureUsageStats(stats),

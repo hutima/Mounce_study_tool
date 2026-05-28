@@ -594,66 +594,45 @@ export function buildMorphSteps(card, accessiblePools = null, options = {}) {
   return steps;
 }
 
-// ─── Per-lemma rolling stats (sliding window of last N attempts) ─────────
+// ─── Per-lemma drill stats ──────────────────────────────────────────────
 //
-// Three parallel structures per lemma:
-//   - `attempts`:  sliding window of last ATTEMPT_WINDOW raw attempts. Drives
-//                  the "Last 20 attempts" header pct + per-dim chips.
-//   - `inProgress` + `buckets`: disjoint 20-attempt rollups. Every time
-//                  `totalAttempts` reaches a multiple of ATTEMPT_WINDOW,
-//                  `inProgress` is snapshotted into `buckets` (capped at
-//                  BUCKET_HISTORY) and reset. This is what the expandable
-//                  bar chart visualizes — last 200 graded attempts in 10
-//                  disjoint groups of 20.
+// Two structures per lemma:
+//   - `attempts`:  sliding window of the last ATTEMPT_WINDOW raw attempts.
+//                  Drives the header pct + the in-card "Last 20 attempts"
+//                  rollup. Per-attempt, per-dimension correctness.
+//   - `forms`:     { [cardId]: { seen, recent: [last 2 per-dim results] } }.
+//                  The canonical per-form record: dots the testable-forms
+//                  list, feeds the exclude-known-morphs filter, and — joined
+//                  with each form's parsed dimension *values* — drives the
+//                  per-value (per-mood / per-tense) proficiency breakdown.
 //
-// `stats.overall` mirrors the same shape but aggregates across every lemma.
+// No cross-paradigm `overall` mirror and no disjoint bucket history are
+// persisted: the breakdown is derived from `forms` at read time, so the
+// aggregate views cost nothing extra in the save.
 
 const ATTEMPT_WINDOW = 20;
-const BUCKET_HISTORY = 10;
 
 export function ensureParadigmStepStats(store) {
   if (!store || typeof store !== 'object') return {};
   if (typeof store.byLemma !== 'object' || store.byLemma === null) store.byLemma = {};
-  if (typeof store.overall !== 'object' || store.overall === null) {
-    store.overall = { totalAttempts: 0, inProgress: { correct: 0, total: 0 }, buckets: [] };
-  } else {
-    if (!Number.isFinite(store.overall.totalAttempts)) store.overall.totalAttempts = 0;
-    if (!store.overall.inProgress || typeof store.overall.inProgress !== 'object') {
-      store.overall.inProgress = { correct: 0, total: 0 };
-    }
-    if (!Array.isArray(store.overall.buckets)) store.overall.buckets = [];
-  }
   return store;
 }
 
 function ensureLemmaEntry(entry) {
   if (!Array.isArray(entry.attempts)) entry.attempts = [];
-  if (!Number.isFinite(entry.totalAttempts)) entry.totalAttempts = 0;
-  if (!entry.inProgress || typeof entry.inProgress !== 'object') entry.inProgress = { correct: 0, total: 0 };
-  if (!Array.isArray(entry.buckets)) entry.buckets = [];
   if (!entry.forms || typeof entry.forms !== 'object') entry.forms = {};
   return entry;
-}
-
-function accumulateDims(target, dimResults) {
-  for (const v of Object.values(dimResults || {})) {
-    target.total += 1;
-    if (v) target.correct += 1;
-  }
 }
 
 const FORM_RECENT_CAP = 2;
 
 // Record one attempt: a fully walked card with per-dimension correctness.
-// stats: { byLemma: { lemma: { attempts, totalAttempts, inProgress, buckets,
-//                              forms: { [cardId]: { seen, recent: [{dims}],
-//                                                   lastAt } } } },
-//          overall: { totalAttempts, inProgress, buckets } }
+// stats: { byLemma: { lemma: { attempts: [{at, dims}],
+//                              forms: { [cardId]: { seen, recent: [{dims}] } } } } }
 // `formMeta` is optional: { cardId } stores the most recent FORM_RECENT_CAP
-// per-dim results so the parsing-review "testable forms" list can dot each
-// form based on its last 1–2 attempts (grey/green/yellow/red), and so reads
-// can filter out toggled-off dims at the read site. Independent of the
-// per-dim sliding window above.
+// per-dim results so the testable-forms list can dot each form by its last
+// 1–2 attempts, the exclude-known-morphs filter can skip mastered forms, and
+// the per-value breakdown can roll each form into its mood/tense/voice value.
 export function recordParadigmAttempt(stats, lemma, dimResults, formMeta) {
   if (!lemma || !dimResults) return;
   ensureParadigmStepStats(stats);
@@ -665,44 +644,13 @@ export function recordParadigmAttempt(stats, lemma, dimResults, formMeta) {
     const prevSeen = prior && Number.isFinite(prior.seen) ? prior.seen : 0;
     const priorRecent = Array.isArray(prior && prior.recent) ? prior.recent : [];
     const recent = priorRecent.concat([{ dims: { ...dimResults } }]).slice(-FORM_RECENT_CAP);
-    entry.forms[formMeta.cardId] = {
-      seen: prevSeen + 1,
-      recent,
-      lastAt: Date.now()
-    };
+    entry.forms[formMeta.cardId] = { seen: prevSeen + 1, recent };
   }
 
-  // 1) Sliding window of raw attempts (drives the header pct + per-dim chips).
+  // Sliding window of raw attempts (drives the header pct + the in-card
+  // "Last 20 attempts" rollup). Per-attempt, per-dimension correctness.
   entry.attempts.push({ at: Date.now(), dims: { ...dimResults } });
   while (entry.attempts.length > ATTEMPT_WINDOW) entry.attempts.shift();
-
-  // 2) Disjoint per-lemma bucket aggregation. Increment on every attempt
-  // regardless of dim count so 20 cards = one bucket.
-  entry.totalAttempts += 1;
-  accumulateDims(entry.inProgress, dimResults);
-  if (entry.totalAttempts % ATTEMPT_WINDOW === 0) {
-    entry.buckets.push({
-      correct: entry.inProgress.correct,
-      total: entry.inProgress.total,
-      at: Date.now()
-    });
-    while (entry.buckets.length > BUCKET_HISTORY) entry.buckets.shift();
-    entry.inProgress = { correct: 0, total: 0 };
-  }
-
-  // 3) Overall (cross-paradigm) bucket aggregation. Mirrors per-lemma logic.
-  const overall = stats.overall;
-  overall.totalAttempts += 1;
-  accumulateDims(overall.inProgress, dimResults);
-  if (overall.totalAttempts % ATTEMPT_WINDOW === 0) {
-    overall.buckets.push({
-      correct: overall.inProgress.correct,
-      total: overall.inProgress.total,
-      at: Date.now()
-    });
-    while (overall.buckets.length > BUCKET_HISTORY) overall.buckets.shift();
-    overall.inProgress = { correct: 0, total: 0 };
-  }
 }
 
 // True if the given dim is currently enabled. `enabledDims` is the map
@@ -825,10 +773,10 @@ export function getLemmaFormStatus(stats, lemma, cardId, enabledDims) {
 
 // Clears one form's per-form recent tally — drops it from the lemma's forms
 // map so it reads as 'unseen' again and re-enters the deck when the
-// exclude-known-morphs ("skip confident") filter is on. The per-paradigm
-// rolling %, completed buckets, in-progress counters, and the cross-paradigm
-// overall are intentionally left alone (same scoping as resetKnownMorphs, but
-// for a single form). Returns true when something was actually cleared.
+// exclude-known-morphs ("skip confident") filter is on. The lemma's rolling
+// `attempts` window is intentionally left alone (same scoping as
+// resetKnownMorphs, but for a single form). Returns true when something was
+// actually cleared.
 export function clearLemmaFormRecent(stats, lemma, cardId) {
   if (!stats || !stats.byLemma || !lemma || !cardId) return false;
   const entry = stats.byLemma[lemma];
@@ -850,43 +798,10 @@ export function getParadigmStepAttemptWindow() {
   return ATTEMPT_WINDOW;
 }
 
-export function getParadigmBucketHistorySize() {
-  return BUCKET_HISTORY;
-}
-
-// Buckets + in-progress for one lemma. The chart consumer reads both: each
-// completed bucket renders as a solid bar, in-progress (if it has any
-// recorded dims) renders as a muted trailing bar so the user can see their
-// current bucket filling.
-export function getLemmaBucketSeries(stats, lemma) {
-  const entry = stats?.byLemma?.[lemma];
-  if (!entry) return { buckets: [], inProgress: { correct: 0, total: 0 }, totalAttempts: 0 };
-  return {
-    buckets: Array.isArray(entry.buckets) ? entry.buckets : [],
-    inProgress: entry.inProgress && typeof entry.inProgress === 'object'
-      ? { correct: Number(entry.inProgress.correct) || 0, total: Number(entry.inProgress.total) || 0 }
-      : { correct: 0, total: 0 },
-    totalAttempts: Number(entry.totalAttempts) || 0
-  };
-}
-
-// Same shape as getLemmaBucketSeries, but for the cross-paradigm aggregate.
-export function getOverallBucketSeries(stats) {
-  const overall = stats?.overall;
-  if (!overall) return { buckets: [], inProgress: { correct: 0, total: 0 }, totalAttempts: 0 };
-  return {
-    buckets: Array.isArray(overall.buckets) ? overall.buckets : [],
-    inProgress: overall.inProgress && typeof overall.inProgress === 'object'
-      ? { correct: Number(overall.inProgress.correct) || 0, total: Number(overall.inProgress.total) || 0 }
-      : { correct: 0, total: 0 },
-    totalAttempts: Number(overall.totalAttempts) || 0
-  };
-}
-
 // Cumulative across every lemma's sliding window. Used to render the "All
 // paradigms" overall row header — a single dim-accuracy pct over whatever's
-// currently in everyone's rolling-20 window. Independent of buckets so it
-// stays meaningful even when the user hasn't completed a full bucket yet.
+// currently in everyone's rolling-20 window, so it stays meaningful from the
+// very first attempt.
 // `enabledDims` filters out toggled-off dims so the % reflects the user's
 // current parsing scope.
 export function summarizeOverallRolling(stats, enabledDims) {
@@ -919,4 +834,123 @@ export function summarizeOverallRolling(stats, enabledDims) {
     }
   }
   return { total, correct, weightedCorrect, perDim, attempts, paradigms };
+}
+
+// ─── Per-value proficiency breakdown ─────────────────────────────────────
+//
+// The headline pct and the old bucket bars aggregated across every form, so a
+// student strong on present-indicative but weak on aorist-subjunctive read as
+// uniformly fine. This breakdown joins each in-scope form's parsed *value*
+// (which mood? which tense?) with its saved per-form recent tally, so weakness
+// in a specific mood/tense/voice surfaces instead of averaging away.
+//
+// Derived entirely at read time from `forms` + the card's parse string — no
+// new persisted data. `aspect` is intentionally omitted (it's a function of
+// tense, already shown). Dimensions appear in this order; a dimension only
+// renders when ≥2 of its values exist among the in-scope forms (otherwise
+// there's nothing to compare).
+const VALUE_BREAKDOWN_DIMS = ['tense', 'mood', 'voice', 'person', 'case', 'number', 'gender'];
+const VALUE_ORDER = {
+  tense:  ['present', 'future', 'imperfect', 'aorist', 'perfect', 'pluperfect'],
+  mood:   ['indicative', 'subjunctive', 'imperative', 'infinitive', 'participle'],
+  voice:  ['active', 'middle', 'passive', 'middle/passive'],
+  person: ['first', 'second', 'third'],
+  case:   ['nominative', 'accusative', 'genitive', 'dative', 'vocative'],
+  number: ['singular', 'plural'],
+  gender: ['masculine', 'feminine', 'neuter']
+};
+const VALUE_LABEL = {
+  person: { first: '1st', second: '2nd', third: '3rd' },
+  voice:  { 'middle/passive': 'mid/pass' }
+};
+function valueDisplayLabel(dim, val) {
+  const override = VALUE_LABEL[dim] && VALUE_LABEL[dim][val];
+  if (override) return override;
+  return val.charAt(0).toUpperCase() + val.slice(1);
+}
+// Map a parsed dimension value to the atomic breakdown value(s). First/second
+// aorist collapse into "aorist". Syncretic case/gender composites
+// ("nominative/accusative", "masculine/feminine/neuter") split so the form
+// counts toward each member — but a genuine atomic value (e.g. the
+// "middle/passive" voice) is kept whole.
+function breakdownValuesFor(dim, raw) {
+  if (!raw) return [];
+  let v = String(raw);
+  if (dim === 'tense' && (v === 'first aorist' || v === 'second aorist')) v = 'aorist';
+  if (VALUE_ORDER[dim].includes(v)) return [v];
+  return v.split('/')
+    .map((piece) => (dim === 'tense' && (piece === 'first aorist' || piece === 'second aorist') ? 'aorist' : piece))
+    .filter((piece) => VALUE_ORDER[dim].includes(piece));
+}
+
+export function createValueBreakdownAcc() {
+  const byDim = {};
+  for (const dim of VALUE_BREAKDOWN_DIMS) byDim[dim] = {};
+  return { byDim };
+}
+
+// Fold one lemma's in-scope cards into the accumulator. `cards` come from the
+// same focused-paradigm pool the deck uses (chapter-gated), so coverage counts
+// match what's actually drillable. Call once per lemma, reusing the acc, to
+// build a cross-paradigm aggregate.
+export function accumulateValueBreakdown(acc, stats, lemma, cards, enabledDims) {
+  if (!acc || !Array.isArray(cards)) return acc;
+  for (const card of cards) {
+    if (!card || !card.id) continue;
+    const dims = parseAnswerDimensions(card.parsedAnswer || card.answer);
+    const status = getLemmaFormStatus(stats, lemma, card.id, enabledDims);
+    const { correct, total } = countLemmaFormRecent(stats, lemma, card.id, enabledDims);
+    for (const dim of VALUE_BREAKDOWN_DIMS) {
+      if (!isDimEnabled(enabledDims, dim)) continue;
+      for (const val of breakdownValuesFor(dim, dims[dim])) {
+        const bag = acc.byDim[dim];
+        if (!bag[val]) bag[val] = { forms: 0, seenForms: 0, correct: 0, total: 0 };
+        const e = bag[val];
+        e.forms += 1;
+        if (status !== 'unseen') e.seenForms += 1;
+        e.correct += correct;
+        e.total += total;
+      }
+    }
+  }
+  return acc;
+}
+
+// Collapse the accumulator into render-ready groups (canonical value order)
+// plus the single weakest seen value across every dimension — the "drill this
+// next" pointer shown on the collapsed row. `pct` is null for a value with no
+// recent attempts (rendered as an unseen track, surfacing coverage gaps).
+export function finalizeValueBreakdown(acc, options = {}) {
+  const minValues = Number.isFinite(options.minValues) ? options.minValues : 2;
+  const groups = [];
+  let weakest = null;
+  if (!acc || !acc.byDim) return { groups, weakest };
+  for (const dim of VALUE_BREAKDOWN_DIMS) {
+    const bag = acc.byDim[dim];
+    const present = VALUE_ORDER[dim].filter((v) => bag[v]);
+    if (present.length < minValues) continue;
+    const rows = present.map((v) => {
+      const e = bag[v];
+      const pct = e.total ? Math.round(100 * e.correct / e.total) : null;
+      if (pct != null && e.seenForms > 0 && (!weakest || pct < weakest.pct)) {
+        weakest = { dim, value: v, label: valueDisplayLabel(dim, v), pct };
+      }
+      return {
+        value: v,
+        label: valueDisplayLabel(dim, v),
+        pct,
+        forms: e.forms,
+        seenForms: e.seenForms
+      };
+    });
+    groups.push({ dim, label: DIM_LABEL[dim] || dim, rows });
+  }
+  return { groups, weakest };
+}
+
+// Convenience: full breakdown for a single lemma in one call.
+export function summarizeLemmaValueBreakdown(stats, lemma, cards, enabledDims, options) {
+  const acc = createValueBreakdownAcc();
+  accumulateValueBreakdown(acc, stats, lemma, cards, enabledDims);
+  return finalizeValueBreakdown(acc, options);
 }
