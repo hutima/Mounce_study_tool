@@ -1630,16 +1630,25 @@ function getSelectedCards(keys) {
 
 // When the "Exclude known morphs" toggle is on, drop any card that already
 // passes the strict 2/2 "known" threshold under the user's current dim
-// toggles. If the filter would empty the deck (every form is known), keep
-// the full pool — an empty parsing deck would just print the empty-state
-// instead of letting the user verify the wins are real.
+// toggles. When every form in the focused paradigm is known the deck goes
+// empty on purpose — renderCard then shows the "paradigm mastered" empty
+// state (see js/ui/render.js) instead of silently re-admitting the known
+// forms, which is what made the toggle look broken: a fully-mastered
+// paradigm kept surfacing its blue 2/2 cards.
+//
+// `runtime.parsingAllMastered` records whether this emptying was the
+// known-filter draining a non-empty pool (genuine mastery) rather than the
+// pool already being empty for another reason (chapter gating, value/optional
+// filters); render.js gates the mastery message on it so it can't
+// false-positive.
 function applyExcludeKnownMorphsFilter(cards) {
-  if (!Array.isArray(cards) || !cards.length) return cards || [];
-  if (!runtime.excludeKnownMorphs) return cards;
+  if (!Array.isArray(cards) || !cards.length) { runtime.parsingAllMastered = false; return cards || []; }
+  if (!runtime.excludeKnownMorphs) { runtime.parsingAllMastered = false; return cards; }
   const stats = runtime.paradigmStepStats || {};
   const enabledDims = getEnabledParsingDims();
   const filtered = cards.filter((c) => !isLemmaFormKnown(stats, c.lemma, c.id, enabledDims));
-  return filtered.length ? filtered : cards;
+  runtime.parsingAllMastered = filtered.length === 0;
+  return filtered;
 }
 
 
