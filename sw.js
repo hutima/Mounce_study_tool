@@ -121,10 +121,11 @@ const APP_SHELL = APP_SHELL_PATHS.map(path => new URL(path, BASE_URL).toString()
 const INDEX_URL = new URL('index.html', BASE_URL).toString();
 
 self.addEventListener('install', event => {
-  // No self.skipWaiting() here — we let the new SW sit in the "waiting"
-  // state so the page can show the user a "Refresh to update" banner.
-  // The page posts {type:'SKIP_WAITING'} (see handler below) when the
-  // user clicks the banner.
+  // Take over immediately rather than parking in `waiting` until every
+  // tab closes. The page's controllerchange listener fires a single full
+  // reload once the new SW claims clients, so returning users land on
+  // the new app shell without needing to click anything.
+  self.skipWaiting();
   event.waitUntil(
     caches.open(CACHE_NAME).then(cache => cache.addAll(APP_SHELL))
   );

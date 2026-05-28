@@ -2598,7 +2598,6 @@ function preventDoubleTapZoom(el) {
 });
 
 let __pendingSwUpdate = null;
-let __swExpectingReload = false;
 
 function showAppUpdateBanner(worker) {
   __pendingSwUpdate = worker;
@@ -2606,16 +2605,17 @@ function showAppUpdateBanner(worker) {
   if (banner) banner.hidden = false;
 }
 
+// The new SW calls self.skipWaiting() in its install handler now, so an
+// update normally auto-activates → controllerchange → page reloads, all
+// without UI. The banner is kept as a quick-prompt fallback for the brief
+// window between install completing and the auto-reload firing (and for
+// browsers that delay the activation transition).
 function applyAppUpdate() {
-  if (__swExpectingReload) return;
-  __swExpectingReload = true;
-  if (!__pendingSwUpdate) {
-    window.location.reload();
-    return;
-  }
-  try {
-    __pendingSwUpdate.postMessage({ type: 'SKIP_WAITING' });
-  } catch (_) {
+  if (__pendingSwUpdate) {
+    try { __pendingSwUpdate.postMessage({ type: 'SKIP_WAITING' }); } catch (_) {
+      window.location.reload();
+    }
+  } else {
     window.location.reload();
   }
 }
@@ -2626,10 +2626,25 @@ function dismissAppUpdate() {
 }
 
 if ('serviceWorker' in navigator) {
+  // Snapshot whether a controller is in place before we register. On a
+  // fresh first install there's no prior controller — the very first
+  // activate→claim transition would otherwise trigger a spurious
+  // page reload. With this flag we only reload when a CHANGE of
+  // controller occurs (i.e. an update, not a first install).
+  const __hadInitialController = !!navigator.serviceWorker.controller;
+  let __swReloading = false;
+
   window.addEventListener('load', () => {
     navigator.serviceWorker.register('./sw.js', { updateViaCache: 'none' })
       .then(reg => {
         try { reg.update(); } catch (_) {}
+        // Also re-check whenever the tab regains focus, so a PWA reopened
+        // a day later picks up a deploy without needing a hard reload.
+        document.addEventListener('visibilitychange', () => {
+          if (document.visibilityState === 'visible') {
+            try { reg.update(); } catch (_) {}
+          }
+        });
 
         // A new SW already finished installing before we got here.
         if (reg.waiting && navigator.serviceWorker.controller) {
@@ -2648,11 +2663,13 @@ if ('serviceWorker' in navigator) {
       })
       .catch(() => {});
 
-    // Only reload on controllerchange if we triggered it ourselves
-    // via applyAppUpdate(). Skips the spurious reload that fires when
-    // the very first SW takes control of an uncontrolled page.
     navigator.serviceWorker.addEventListener('controllerchange', () => {
-      if (!__swExpectingReload) return;
+      if (__swReloading) return;
+      // First install on a fresh device: a controller appears for the
+      // first time, but the page is already serving the new app shell
+      // (the SW only just installed). Reloading here would be spurious.
+      if (!__hadInitialController) return;
+      __swReloading = true;
       window.location.reload();
     });
   });
