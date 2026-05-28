@@ -35,8 +35,6 @@ import {
 } from '../domain/gamification/xp.js';
 import {
   getAllLemmaStats,
-  getParadigmStepAttemptWindow,
-  summarizeOverallRolling,
   createValueBreakdownAcc,
   accumulateValueBreakdown,
   finalizeValueBreakdown,
@@ -817,54 +815,60 @@ function renderParadigmStepStatsSection() {
   if (!body) return;
   const stats = runtime.paradigmStepStats || {};
   const enabledDims = host.getEnabledParsingDims();
-  const lemmaSummaries = getAllLemmaStats(stats, enabledDims);
-  const attemptWindow = getParadigmStepAttemptWindow();
-  if (!lemmaSummaries.length) {
+  const drilled = getAllLemmaStats(stats, enabledDims);
+  if (!drilled.length) {
     body.innerHTML = `<p class="analytics-empty">Turn on “Parse step-by-step” in Grammar mode and complete a parse to start seeing per-paradigm accuracy here.</p>`;
     if (status) status.textContent = 'No drill attempts yet. Tap a row to break a paradigm down by mood, tense, and voice.';
     return;
   }
-  lemmaSummaries.sort((a, b) => {
-    const pa = a.weightedCorrect / Math.max(1, a.total);
-    const pb = b.weightedCorrect / Math.max(1, b.total);
-    return pa - pb;
-  });
 
   const expandedKey = runtime.analyticsParadigmExpanded;
 
-  // Per-lemma rows. The same in-scope card pool that drives each row's
-  // breakdown is also folded into the cross-paradigm accumulator, so the
-  // "All paradigms" row reflects exactly what the per-lemma rows show.
+  // Build each paradigm's breakdown from its in-scope forms (up to two recent
+  // attempts per form), folding the same pool into the cross-paradigm
+  // accumulator so the "All paradigms" row matches the per-lemma rows. The
+  // headline % is now this per-form tally — not a capped rolling window — so
+  // it covers every form, consistent with the bars.
   const overallAcc = createValueBreakdownAcc();
-  const lemmaRows = lemmaSummaries.map((s) => {
-    const pct = Math.round(100 * s.weightedCorrect / Math.max(1, s.total));
+  const rows = drilled.map((s) => {
     const cards = host.getMorphCardsForLemma(s.lemma) || [];
     accumulateValueBreakdown(overallAcc, stats, s.lemma, cards, enabledDims);
-    const { groups, weakest } = summarizeLemmaValueBreakdown(stats, s.lemma, cards, enabledDims);
-    const isExpanded = expandedKey === s.lemma;
+    return { lemma: s.lemma, breakdown: summarizeLemmaValueBreakdown(stats, s.lemma, cards, enabledDims) };
+  });
+  // Worst-first: lowest per-form accuracy on top; paradigms with nothing seen
+  // yet (no recent attempts) sink to the bottom.
+  rows.sort((a, b) => {
+    const pa = a.breakdown.totals.pct, pb = b.breakdown.totals.pct;
+    if (pa == null && pb == null) return 0;
+    if (pa == null) return 1;
+    if (pb == null) return -1;
+    return pa - pb;
+  });
+
+  const lemmaRows = rows.map(({ lemma, breakdown }) => {
+    const { groups, weakest, totals } = breakdown;
+    const isExpanded = expandedKey === lemma;
     const breakdownHtml = isExpanded ? buildDimValueBarsHtml(groups) : '';
     return `
       <div class="paradigm-stat-row${isExpanded ? ' paradigm-stat-row-active' : ''}"
            role="button"
            tabindex="0"
            aria-expanded="${isExpanded ? 'true' : 'false'}"
-           data-paradigm-row="${escapeHtml(s.lemma)}">
+           data-paradigm-row="${escapeHtml(lemma)}">
         <div class="paradigm-stat-header">
-          <span class="paradigm-stat-lemma">${escapeHtml(s.lemma)}</span>
-          <span class="paradigm-stat-pct">${pct}% · ${s.attempts}/${attemptWindow} attempts</span>
+          <span class="paradigm-stat-lemma">${escapeHtml(lemma)}</span>
+          <span class="paradigm-stat-pct">${totals.pct == null ? '—' : `${totals.pct}%`} · ${totals.seen}/${totals.scope} forms</span>
         </div>
         ${weakest ? `<div class="paradigm-stat-weakline">${weakestValueTagHtml(weakest)}</div>` : ''}
         ${isExpanded ? `<div class="paradigm-stat-chart">${breakdownHtml}</div>` : ''}
       </div>`;
   }).join('');
 
-  // Overall row (rendered on top): cross-paradigm headline pct + the merged
-  // per-value breakdown, so the single worst value across everything is the
-  // "drill this next" pointer.
-  const overallSummary = summarizeOverallRolling(stats, enabledDims);
-  const overallPct = Math.round(100 * overallSummary.weightedCorrect / Math.max(1, overallSummary.total));
-  const { groups: overallGroups, weakest: overallWeakest } = finalizeValueBreakdown(overallAcc);
+  // Overall row (rendered on top): cross-paradigm per-form headline + merged
+  // breakdown, so the single worst value across everything is the pointer.
+  const { groups: overallGroups, weakest: overallWeakest, totals: overallTotals } = finalizeValueBreakdown(overallAcc);
   const overallExpanded = expandedKey === '__overall';
+  const paradigmCount = rows.length;
   const overallRow = `
     <div class="paradigm-stat-row paradigm-stat-row-overall${overallExpanded ? ' paradigm-stat-row-active' : ''}"
          role="button"
@@ -873,7 +877,7 @@ function renderParadigmStepStatsSection() {
          data-paradigm-row="__overall">
       <div class="paradigm-stat-header">
         <span class="paradigm-stat-lemma paradigm-stat-lemma-overall">All paradigms</span>
-        <span class="paradigm-stat-pct">${overallSummary.total ? `${overallPct}%` : '—'} · ${overallSummary.attempts} attempt${overallSummary.attempts === 1 ? '' : 's'} across ${overallSummary.paradigms} paradigm${overallSummary.paradigms === 1 ? '' : 's'}</span>
+        <span class="paradigm-stat-pct">${overallTotals.pct == null ? '—' : `${overallTotals.pct}%`} · ${overallTotals.seen}/${overallTotals.scope} forms across ${paradigmCount} paradigm${paradigmCount === 1 ? '' : 's'}</span>
       </div>
       ${overallWeakest ? `<div class="paradigm-stat-weakline">${weakestValueTagHtml(overallWeakest)}</div>` : ''}
       ${overallExpanded ? `<div class="paradigm-stat-chart">${buildDimValueBarsHtml(overallGroups, { caption: 'Recent accuracy per value, across every paradigm · seen / in scope' })}</div>` : ''}
@@ -881,7 +885,7 @@ function renderParadigmStepStatsSection() {
 
   body.innerHTML = `<div class="paradigm-stat-list">${overallRow}${lemmaRows}</div>`;
   setupParadigmStepStatsInteractivity(body);
-  if (status) status.textContent = `${lemmaSummaries.length} paradigm${lemmaSummaries.length === 1 ? '' : 's'} drilled · tap a row for the mood / tense breakdown.`;
+  if (status) status.textContent = `${paradigmCount} paradigm${paradigmCount === 1 ? '' : 's'} drilled · tap a row for the mood / tense breakdown.`;
 }
 
 function setupParadigmStepStatsInteractivity(rootEl) {

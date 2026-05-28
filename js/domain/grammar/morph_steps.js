@@ -798,44 +798,6 @@ export function getParadigmStepAttemptWindow() {
   return ATTEMPT_WINDOW;
 }
 
-// Cumulative across every lemma's sliding window. Used to render the "All
-// paradigms" overall row header — a single dim-accuracy pct over whatever's
-// currently in everyone's rolling-20 window, so it stays meaningful from the
-// very first attempt.
-// `enabledDims` filters out toggled-off dims so the % reflects the user's
-// current parsing scope.
-export function summarizeOverallRolling(stats, enabledDims) {
-  const empty = { total: 0, correct: 0, weightedCorrect: 0, perDim: {}, attempts: 0, paradigms: 0 };
-  if (!stats?.byLemma) return empty;
-  let total = 0, correct = 0, weightedCorrect = 0, attempts = 0, paradigms = 0;
-  const perDim = {};
-  for (const lemma of Object.keys(stats.byLemma)) {
-    const entry = stats.byLemma[lemma];
-    const list = Array.isArray(entry?.attempts) ? entry.attempts : [];
-    if (!list.length) continue;
-    paradigms += 1;
-    attempts += list.length;
-    for (const a of list) {
-      if (!a || !a.dims) continue;
-      let attemptTotal = 0, attemptCorrect = 0;
-      for (const [dim, val] of Object.entries(a.dims)) {
-        if (!isDimEnabled(enabledDims, dim)) continue;
-        if (!perDim[dim]) perDim[dim] = { seen: 0, correct: 0 };
-        perDim[dim].seen += 1;
-        attemptTotal += 1;
-        if (val) { perDim[dim].correct += 1; attemptCorrect += 1; }
-      }
-      if (!attemptTotal) continue;
-      total += attemptTotal;
-      correct += attemptCorrect;
-      weightedCorrect += attemptCorrect === attemptTotal
-        ? attemptCorrect
-        : attemptCorrect * WRONG_PARSE_CREDIT;
-    }
-  }
-  return { total, correct, weightedCorrect, perDim, attempts, paradigms };
-}
-
 // ─── Per-value proficiency breakdown ─────────────────────────────────────
 //
 // The headline pct and the old bucket bars aggregated across every form, so a
@@ -886,7 +848,13 @@ function breakdownValuesFor(dim, raw) {
 export function createValueBreakdownAcc() {
   const byDim = {};
   for (const dim of VALUE_BREAKDOWN_DIMS) byDim[dim] = {};
-  return { byDim };
+  // `totals` counts each form ONCE (not once per dimension) so it can drive a
+  // paradigm-wide headline: recent attempts (≤2 per form) summed across every
+  // in-scope form, plus seen/in-scope form coverage. This is what the per-
+  // paradigm and "All paradigms" % now report — no longer the capped rolling
+  // window, so the headline scales with the paradigm instead of the last 20
+  // parses and stays consistent with the per-value bars.
+  return { byDim, totals: { correct: 0, total: 0, seen: 0, scope: 0 } };
 }
 
 // Fold one lemma's in-scope cards into the accumulator. `cards` come from the
@@ -900,6 +868,11 @@ export function accumulateValueBreakdown(acc, stats, lemma, cards, enabledDims) 
     const dims = parseAnswerDimensions(card.parsedAnswer || card.answer);
     const status = getLemmaFormStatus(stats, lemma, card.id, enabledDims);
     const { correct, total } = countLemmaFormRecent(stats, lemma, card.id, enabledDims);
+    // Once-per-form paradigm-wide tally (recent attempts + coverage).
+    acc.totals.scope += 1;
+    if (status !== 'unseen') acc.totals.seen += 1;
+    acc.totals.correct += correct;
+    acc.totals.total += total;
     for (const dim of VALUE_BREAKDOWN_DIMS) {
       if (!isDimEnabled(enabledDims, dim)) continue;
       for (const val of breakdownValuesFor(dim, dims[dim])) {
@@ -916,15 +889,17 @@ export function accumulateValueBreakdown(acc, stats, lemma, cards, enabledDims) 
   return acc;
 }
 
-// Collapse the accumulator into render-ready groups (canonical value order)
-// plus the single weakest seen value across every dimension — the "drill this
-// next" pointer shown on the collapsed row. `pct` is null for a value with no
-// recent attempts (rendered as an unseen track, surfacing coverage gaps).
+// Collapse the accumulator into render-ready groups (canonical value order),
+// the single weakest seen value across every dimension — the "drill this next"
+// pointer — and the paradigm-wide `totals` (headline % + form coverage). `pct`
+// is null for a value with no recent attempts (rendered as an unseen track,
+// surfacing coverage gaps).
 export function finalizeValueBreakdown(acc, options = {}) {
   const minValues = Number.isFinite(options.minValues) ? options.minValues : 2;
   const groups = [];
   let weakest = null;
-  if (!acc || !acc.byDim) return { groups, weakest };
+  const emptyTotals = { correct: 0, total: 0, seen: 0, scope: 0, pct: null };
+  if (!acc || !acc.byDim) return { groups, weakest, totals: emptyTotals };
   for (const dim of VALUE_BREAKDOWN_DIMS) {
     const bag = acc.byDim[dim];
     const present = VALUE_ORDER[dim].filter((v) => bag[v]);
@@ -945,7 +920,15 @@ export function finalizeValueBreakdown(acc, options = {}) {
     });
     groups.push({ dim, label: DIM_LABEL[dim] || dim, rows });
   }
-  return { groups, weakest };
+  const t = acc.totals || emptyTotals;
+  const totals = {
+    correct: t.correct,
+    total: t.total,
+    seen: t.seen,
+    scope: t.scope,
+    pct: t.total ? Math.round(100 * t.correct / t.total) : null
+  };
+  return { groups, weakest, totals };
 }
 
 // Convenience: full breakdown for a single lemma in one call.

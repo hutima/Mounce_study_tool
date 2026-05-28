@@ -11,8 +11,6 @@ import { getCardReviewLeft, getCardReviewRight, getCardMetaLine } from '../domai
 import { isAnalyticsModalOpen } from './modals.js';
 import {
   getAllLemmaStats,
-  getParadigmStepAttemptWindow,
-  summarizeOverallRolling,
   getLemmaFormStatus,
   clearLemmaFormRecent,
   isLemmaFormKnown,
@@ -253,14 +251,36 @@ function renderParsingReviewPanel() {
   const enabledDims = host.getEnabledParsingDims();
   const allStats = getAllLemmaStats(stats, enabledDims);
 
-  // Pull out the currently-focused paradigm so it always reads at the top,
-  // even if other paradigms have more attempts.
+  // Each drilled paradigm's breakdown comes from its in-scope forms (up to two
+  // recent attempts per form, chapter-gated), folded into the cross-paradigm
+  // accumulator so the "All paradigms" row matches the per-lemma rows. The
+  // headline % is this per-form tally — every form, not a capped rolling
+  // window — consistent with the bars.
+  const overallAcc = createValueBreakdownAcc();
+  const lemmaBreakdowns = new Map();
+  allStats.forEach((s) => {
+    const cards = host.getMorphCardsForLemma(s.lemma) || [];
+    accumulateValueBreakdown(overallAcc, stats, s.lemma, cards, enabledDims);
+    lemmaBreakdowns.set(s.lemma, summarizeLemmaValueBreakdown(stats, s.lemma, cards, enabledDims));
+  });
+  const pctOf = (lemma) => {
+    const b = lemmaBreakdowns.get(lemma);
+    return b && b.totals ? b.totals.pct : null;
+  };
+
+  // Focused paradigm pinned on top; the rest worst-first by per-form accuracy
+  // (paradigms with nothing seen yet sink to the bottom).
   const focusedEntry = allStats.find((s) => s.lemma === focused);
   const otherEntries = allStats.filter((s) => s.lemma !== focused);
-  otherEntries.sort((a, b) => b.attempts - a.attempts);
+  otherEntries.sort((a, b) => {
+    const pa = pctOf(a.lemma), pb = pctOf(b.lemma);
+    if (pa == null && pb == null) return 0;
+    if (pa == null) return 1;
+    if (pb == null) return -1;
+    return pa - pb;
+  });
   const ordered = focusedEntry ? [focusedEntry, ...otherEntries] : otherEntries;
 
-  const attemptWindow = getParadigmStepAttemptWindow();
   const drilledCount = ordered.length;
 
   document.getElementById('reviewStats').innerHTML = `
@@ -274,28 +294,15 @@ function renderParsingReviewPanel() {
 
   const expandedKey = runtime.parsingReviewExpanded;
 
-  // Per-lemma in-scope cards (chapter-gated) drive each row's breakdown and
-  // are folded into the cross-paradigm accumulator, so the "All paradigms"
-  // row reflects exactly what the per-lemma rows show. Computed once per
-  // render so collapsed rows can still flag their weakest value.
-  const overallAcc = createValueBreakdownAcc();
-  const lemmaBreakdowns = new Map();
-  ordered.forEach((s) => {
-    const cards = host.getMorphCardsForLemma(s.lemma) || [];
-    accumulateValueBreakdown(overallAcc, stats, s.lemma, cards, enabledDims);
-    lemmaBreakdowns.set(s.lemma, summarizeLemmaValueBreakdown(stats, s.lemma, cards, enabledDims));
-  });
-
   // Overall row (always rendered, even when no paradigms have been drilled,
   // so the user can see the empty state). When ordered is empty, only the
   // overall row + empty hint appear.
-  const overallSummary = summarizeOverallRolling(stats, enabledDims);
-  const overallPct = Math.round(100 * overallSummary.weightedCorrect / Math.max(1, overallSummary.total));
-  const overallPctClass = !overallSummary.total ? 'parsing-review-pct-mid'
+  const { groups: overallGroups, weakest: overallWeakest, totals: overallTotals } = finalizeValueBreakdown(overallAcc);
+  const overallPct = overallTotals.pct;
+  const overallPctClass = overallPct == null ? 'parsing-review-pct-mid'
     : overallPct >= 80 ? 'parsing-review-pct-high'
     : overallPct >= 50 ? 'parsing-review-pct-mid'
     : 'parsing-review-pct-low';
-  const { groups: overallGroups, weakest: overallWeakest } = finalizeValueBreakdown(overallAcc);
   const overallExpanded = expandedKey === '__overall';
   const overallRow = `
     <div class="parsing-review-row parsing-review-row-overall${overallExpanded ? ' parsing-review-row-active' : ''}"
@@ -305,8 +312,8 @@ function renderParsingReviewPanel() {
          data-parsing-row="__overall">
       <div class="parsing-review-header">
         <span class="parsing-review-lemma parsing-review-lemma-overall">All paradigms</span>
-        <span class="parsing-review-pct ${overallPctClass}">${overallSummary.total ? `${overallPct}%` : '—'}</span>
-        <span class="parsing-review-attempts">${overallSummary.attempts} attempt${overallSummary.attempts === 1 ? '' : 's'} · ${overallSummary.paradigms} paradigm${overallSummary.paradigms === 1 ? '' : 's'}</span>
+        <span class="parsing-review-pct ${overallPctClass}">${overallPct == null ? '—' : `${overallPct}%`}</span>
+        <span class="parsing-review-attempts">${overallTotals.seen}/${overallTotals.scope} forms · ${drilledCount} paradigm${drilledCount === 1 ? '' : 's'}</span>
       </div>
       ${overallWeakest ? `<div class="parsing-review-weakline">${parsingWeakestTagHtml(overallWeakest)}</div>` : ''}
       ${overallExpanded ? `<div class="parsing-review-chart">${buildDimValueBarsHtml(overallGroups, { caption: 'Recent accuracy per value, across every paradigm · seen / in scope' })}</div>` : ''}
@@ -321,13 +328,15 @@ function renderParsingReviewPanel() {
   }
 
   const lemmaRows = ordered.map((s) => {
-    const pct = Math.round(100 * s.weightedCorrect / Math.max(1, s.total));
-    const pctClass = pct >= 80 ? 'parsing-review-pct-high' : pct >= 50 ? 'parsing-review-pct-mid' : 'parsing-review-pct-low';
+    const { groups, weakest, totals } = lemmaBreakdowns.get(s.lemma)
+      || { groups: [], weakest: null, totals: { pct: null, seen: 0, scope: 0 } };
+    const pct = totals.pct;
+    const pctClass = pct == null ? 'parsing-review-pct-mid'
+      : pct >= 80 ? 'parsing-review-pct-high' : pct >= 50 ? 'parsing-review-pct-mid' : 'parsing-review-pct-low';
     const focusBadge = s.lemma === focused
       ? '<span class="parsing-review-focused-badge">FOCUSED</span>'
       : '';
     const isExpanded = expandedKey === s.lemma;
-    const { groups, weakest } = lemmaBreakdowns.get(s.lemma) || { groups: [], weakest: null };
     const breakdownHtml = isExpanded ? buildDimValueBarsHtml(groups) : '';
     // Keep the full per-form list (every in-scope morph, colour-dotted by its
     // recent status) below the breakdown on expand.
@@ -341,8 +350,8 @@ function renderParsingReviewPanel() {
         <div class="parsing-review-header">
           <span class="parsing-review-lemma">${escapeHtmlSmall(s.lemma)}</span>
           ${focusBadge}
-          <span class="parsing-review-pct ${pctClass}">${pct}%</span>
-          <span class="parsing-review-attempts">${s.attempts}/${attemptWindow} attempts</span>
+          <span class="parsing-review-pct ${pctClass}">${pct == null ? '—' : `${pct}%`}</span>
+          <span class="parsing-review-attempts">${totals.seen}/${totals.scope} forms</span>
         </div>
         ${weakest ? `<div class="parsing-review-weakline">${parsingWeakestTagHtml(weakest)}</div>` : ''}
         ${isExpanded ? `<div class="parsing-review-chart">${breakdownHtml}</div>${formsHtml}` : ''}
