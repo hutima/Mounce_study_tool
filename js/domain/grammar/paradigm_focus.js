@@ -177,6 +177,74 @@ function displayLabelForLemma(lemma, item) {
   return lemma + (item && item.gloss ? ` — ${item.gloss}` : '');
 }
 
+// ─── Summative "all forms" aggregates ────────────────────────────────────
+//
+// Mounce splits one verb across many principal-part lemma keys (λύω alone
+// has 15 — present, future, imperfect, aorist act/mid/pas, perfect, the
+// participle sets, the infinitive set, the imperatives). The focused-
+// paradigm dropdown lists each split as its own pick, so there's no single
+// option that drills the whole verb. An *aggregate* is a virtual lemma
+// ("λύω — all forms") that pools every member's chapter-gated cards into one
+// deck — the parsing-mode counterpart of the cumulative vocab deck in
+// mounce_paradigms.js.
+//
+// Membership comes from window.PARADIGM_VARIANT_FAMILIES (defined alongside
+// the *_VARIANTS arrays in lemma_inventory.js) so the union list, the
+// optional-extension registration, and this aggregate all stay in lockstep.
+// Each family is keyed by its base lemma; that base also supplies the
+// aggregate's category and — crucially — its optional-forms source (every
+// variant shares the same optionalFormGroups via registerVariants, so
+// building optionals from the base yields the full optional paradigm exactly
+// once, with no per-member duplication).
+const AGGREGATE_SUFFIX = ' — all forms';
+
+function variantFamilies() {
+  return (typeof window !== 'undefined' && window.PARADIGM_VARIANT_FAMILIES) || {};
+}
+
+// Map of aggregate-key → descriptor, rebuilt on demand (cheap: a couple of
+// entries). Families with fewer than two members can't be "summed" into
+// anything richer than the single member, so they're skipped.
+function aggregateDescriptors() {
+  const families = variantFamilies();
+  const out = {};
+  Object.keys(families).forEach((base) => {
+    const members = Array.isArray(families[base]) ? families[base] : [];
+    if (members.length < 2) return;
+    const key = base + AGGREGATE_SUFFIX;
+    out[key] = {
+      key,
+      base,
+      members,
+      displayLabel: `${base}${AGGREGATE_SUFFIX} (cumulative)`,
+      category: categoryForLemma(base)
+    };
+  });
+  return out;
+}
+
+export function isAggregateParadigm(lemma) {
+  return Object.prototype.hasOwnProperty.call(aggregateDescriptors(), lemma);
+}
+
+// Base lemma behind an aggregate key (e.g. 'λύω — all forms' → 'λύω'), or
+// null for a plain lemma. The base is where the shared optionalFormGroups
+// live, so the deck builder reads optionals from it.
+function aggregateBaseLemma(lemma) {
+  const agg = aggregateDescriptors()[lemma];
+  return agg ? agg.base : null;
+}
+
+// Real member lemmas a focused-paradigm key resolves to: an aggregate
+// expands to its whole family; a plain lemma is just itself. Exported so
+// reset-known-focused (navigation.js) can clear every member's tally when an
+// aggregate is the focus, mirroring how the deck pools them.
+export function resolveFocusedLemmas(focusedLemma) {
+  const agg = aggregateDescriptors()[focusedLemma];
+  if (agg) return agg.members.slice();
+  return focusedLemma ? [focusedLemma] : [];
+}
+
 // Inverse of CHAPTER_TO_WEEK keyed by week → first chapter where that
 // week's material starts in the textbook. Used to give W*_* sources an
 // effective chapter so they sort/gate alongside chapter-keyed sets.
@@ -368,8 +436,40 @@ export function listAvailableParadigms(selectedKeys) {
   });
   // Sort by first-introduced chapter (ascending), then alphabetically, so the
   // dropdown reads as a natural progression through the course.
-  return [...seen.values()]
+  const realList = [...seen.values()]
     .map((p) => ({ ...p, sources: [...p.sources] }))
+    .sort((a, b) => (a.firstChapter - b.firstChapter) || a.lemma.localeCompare(b.lemma));
+
+  // Inject a summative aggregate for any variant family with ≥2 members in
+  // scope. With fewer than two unlocked it would just duplicate the single
+  // member (e.g. λύω at Ch 16 is present-only), so it stays hidden until
+  // there's something to pool. firstChapter is the earliest in-scope member's
+  // so the aggregate sorts into the course progression next to its base
+  // lemma; the category grouper then floats it to the head of its group.
+  const realByLemma = new Map(realList.map((p) => [p.lemma, p]));
+  const aggregates = [];
+  Object.values(aggregateDescriptors()).forEach((agg) => {
+    const inScope = agg.members.filter((m) => realByLemma.has(m));
+    if (inScope.length < 2) return;
+    const sources = new Set();
+    let firstChapter = Infinity;
+    inScope.forEach((m) => {
+      const entry = realByLemma.get(m);
+      entry.sources.forEach((s) => sources.add(s));
+      if (entry.firstChapter < firstChapter) firstChapter = entry.firstChapter;
+    });
+    aggregates.push({
+      lemma: agg.key,
+      displayLabel: agg.displayLabel,
+      category: agg.category,
+      sources: [...sources],
+      firstChapter,
+      isAggregate: true,
+      members: inScope.slice()
+    });
+  });
+  if (!aggregates.length) return realList;
+  return [...realList, ...aggregates]
     .sort((a, b) => (a.firstChapter - b.firstChapter) || a.lemma.localeCompare(b.lemma));
 }
 
@@ -409,11 +509,14 @@ export function getCardsForFocusedParadigm(selectedKeys, focusedLemma, options =
   const sets = safeMorphSets();
   const levels = deriveSelectionLevels(selectedKeys);
   if (levels.maxEffectiveChapter == null) return [];
+  // A plain focus resolves to itself; a summative aggregate resolves to its
+  // whole variant family, so the pooled deck spans every split of the verb.
+  const targetLemmas = new Set(resolveFocusedLemmas(focusedLemma));
   const eligibleSourceKeys = Object.keys(sets).filter((key) => {
     if (!sourcePassesLevel(key, levels)) return false;
     const set = sets[key];
     if (!set || !Array.isArray(set.items)) return false;
-    return set.items.some((item) => item && item.lemma === focusedLemma);
+    return set.items.some((item) => item && targetLemmas.has(item.lemma));
   });
 
   // Optional paradigm extensions: when the user has toggled them on in
@@ -425,14 +528,22 @@ export function getCardsForFocusedParadigm(selectedKeys, focusedLemma, options =
   // other duplicate. When the toggle is off, no extension cards are
   // added — but the fallback form-lookup in render.js still consults
   // LEMMA_INVENTORY.extraForms, so wrong-pick feedback stays canonical.
+  //
+  // For an aggregate, optionals come from the base lemma: registerVariants
+  // attaches the same optionalFormGroups to every family member, so the base
+  // already carries the complete optional paradigm. Building from it once
+  // (rather than per member) yields every optional form without 15× the
+  // duplication, and keys the synthetic cards' stats under the base lemma —
+  // matching what focusing the base lemma alone with the toggle on produces.
+  const optionalSourceLemma = aggregateBaseLemma(focusedLemma) || focusedLemma;
   const optionalCards = options.includeOptional
-    ? buildOptionalMorphCardsForLemma(focusedLemma, levels, options.optionalFilters)
+    ? buildOptionalMorphCardsForLemma(optionalSourceLemma, levels, options.optionalFilters)
     : [];
 
   if (!eligibleSourceKeys.length && !optionalCards.length) return [];
   const drilledCards = eligibleSourceKeys.length
     ? window.buildMorphologyCardsForKeys(eligibleSourceKeys)
-        .filter((card) => card && card.lemma === focusedLemma)
+        .filter((card) => card && targetLemmas.has(card.lemma))
     : [];
   const cards = drilledCards.concat(optionalCards);
 
@@ -536,10 +647,20 @@ export function listAvailableParadigmsByCategory(selectedKeys) {
     ...CATEGORY_ORDER.filter((c) => grouped.has(c)),
     ...[...grouped.keys()].filter((c) => !CATEGORY_ORDER.includes(c)).sort()
   ];
-  return orderedCats.map((category) => ({
-    category,
-    lemmas: grouped.get(category)
-  }));
+  return orderedCats.map((category) => {
+    const lemmas = grouped.get(category);
+    // Float the summative "— all forms" pick to the head of its category so
+    // it reads as the section's lead-in ("λύω — all forms", then the
+    // individual splits). Order within each partition is preserved (the flat
+    // list is already chapter-then-alpha sorted).
+    return {
+      category,
+      lemmas: [
+        ...lemmas.filter((p) => p.isAggregate),
+        ...lemmas.filter((p) => !p.isAggregate)
+      ]
+    };
+  });
 }
 
 // Every morph card whose source is in scope at the student's current max

@@ -31,6 +31,7 @@ import {
   buildSupplementalSelector,
   buildAdvancedSelector
 } from './selectors.js';
+import { resolveFocusedLemmas } from '../domain/grammar/paradigm_focus.js';
 
 let host = {
   noteStudyInteraction: () => {},
@@ -865,9 +866,14 @@ function performResetKnown(scope) {
   const stats = runtime.paradigmStepStats;
   if (stats && stats.byLemma && typeof stats.byLemma === 'object') {
     if (scope === 'focused') {
-      const focused = runtime.morphFocusedParadigm;
-      const entry = focused && stats.byLemma[focused];
-      if (entry && typeof entry === 'object') entry.forms = {};
+      // An aggregate ("λύω — all forms") has no stats entry of its own — its
+      // forms record under each real member lemma — so clear every member's
+      // tally. resolveFocusedLemmas returns [lemma] for a plain focus, so the
+      // single-paradigm case is unchanged.
+      resolveFocusedLemmas(runtime.morphFocusedParadigm).forEach((lemma) => {
+        const entry = lemma && stats.byLemma[lemma];
+        if (entry && typeof entry === 'object') entry.forms = {};
+      });
     } else {
       Object.keys(stats.byLemma).forEach((lemma) => {
         const entry = stats.byLemma[lemma];

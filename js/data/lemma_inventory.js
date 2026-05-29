@@ -1312,5 +1312,22 @@
   //     nouns + adjective; the only standard gap is the vocative
   //     singular (already handled for λόγος).
 
-  if (typeof window !== 'undefined') window.LEMMA_INVENTORY = LEMMA_INVENTORY;
+  if (typeof window !== 'undefined') {
+    window.LEMMA_INVENTORY = LEMMA_INVENTORY;
+    // Principal-part variant families, keyed by base lemma. Mounce splits a
+    // single verb across several lemma keys in morphology.js (λύω alone spans
+    // 15 — present, future, imperfect, aorist act/mid/pas, perfect, the
+    // participles, the infinitive set, the imperatives). This is the same
+    // union the optional-extension registration above walks; exposing it lets
+    // the parsing-mode focused-paradigm dropdown offer a summative
+    // "λύω — all forms" pick that pools every member into one chapter-gated
+    // deck (see domain/grammar/paradigm_focus.js). Only families with ≥2 core
+    // variants are worth a summative entry. Keep this list in lockstep with
+    // the *_VARIANTS arrays — adding a variant in one place feeds both the
+    // optional drill and the aggregate.
+    window.PARADIGM_VARIANT_FAMILIES = {
+      'λύω': LUO_VARIANTS,
+      'δίδωμι': DIDOMI_VARIANTS
+    };
+  }
 })();
