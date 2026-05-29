@@ -18,7 +18,7 @@ import {
   expandSessionSets
 } from '../domain/deck/ordering.js';
 import { filterHardVocabCards } from '../domain/deck/filters.js';
-import { renderCard } from './render.js';
+import { renderCard, renderChooseSessionEmptyState } from './render.js';
 import { renderProgress, renderReview } from './progress.js';
 
 let host = {
@@ -480,7 +480,7 @@ function clearAndRenderEmpty() {
   runtime.currentIdx = 0;
   runtime.unspacedRoundSize = 0;
   runtime.unspacedRoundMarks = 0;
-  document.getElementById('cardArea').innerHTML = '<div class="empty-state"><div class="big">αβγ</div>Tap to choose a session and start studying.</div>';
+  renderChooseSessionEmptyState();
   host.clearSpacedUndoSnapshot();
   host.syncToggleButtons();
   renderReview();
