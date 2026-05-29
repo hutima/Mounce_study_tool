@@ -515,6 +515,18 @@ export function setStudyMode(mode) {
   }
 
   if (!runtime.selectedKeys.length) {
+    // Switching into a mode with nothing selected (common when split
+    // vocab/grammar selection is on and only one side has chapters): drop the
+    // deck we carried over from the mode we just left. Without this the stale
+    // deck stays in runtime.deck and its cards leak through — e.g. grammar
+    // cards rendering in an empty vocab deck — and the progress/review panels
+    // keep summarizing it. saveCurrentDeckStateToBank() ran above, so the
+    // previous deck's resume cursor is already banked.
+    runtime.deck = [];
+    runtime.originalDeck = [];
+    runtime.activeDeckRef = null;
+    runtime.currentIdx = 0;
+    runtime.activeDeckCount = 0;
     host.saveState();
     renderCard();
     renderProgress();
