@@ -905,6 +905,29 @@ function skipMorphologyStep() {
   saveState();
 }
 
+// "I give up" — abandon the whole form rather than just the current step.
+// Marks every remaining graded step wrong, satisfies any pending inferred
+// steps without scoring them, and jumps straight to the summary. Parsing
+// stays off the record in Mounce, so (unlike duff) this does NOT call
+// noteStudyInteraction().
+function giveUpMorphologyStep() {
+  if (!isParsingMode()) return;
+  const card = runtime.deck[runtime.currentIdx];
+  if (!card || !runtime.morphStepState || runtime.morphStepState.completed) return;
+  const state = runtime.morphStepState;
+  for (let i = state.stepIdx; i < state.steps.length; i += 1) {
+    const step = state.steps[i];
+    if (!step) continue;
+    state.answers[i] = { selectedIdx: -1, isCorrect: step.inferred ? null : false };
+  }
+  state.stepIdx = state.steps.length;
+  state.completed = true;
+  finalizeMorphStepAttempt(card, state);
+  renderCard();
+  renderProgress();
+  saveState();
+}
+
 function finalizeMorphStepAttempt(card, state) {
   if (!card || !card.lemma) return;
   const dims = {};
@@ -2570,7 +2593,7 @@ installKeyboardShortcuts({
 const GLOBAL_CLICK_HANDLERS = {
   flipCard, navigate, markCard, handleNavNext, answerMorphologyChoice,
   revealMorphologyAnswer, rateMorphologySelfCheck, passMorphologyChoice,
-  answerMorphologyStep, skipMorphologyStep,
+  answerMorphologyStep, skipMorphologyStep, giveUpMorphologyStep,
   returnSeenCardToDeck, clearParsingMorph,
   closeAnalyticsOverlay, closeTransferModal, exportProgressJson,
   closeShortcutsModal, closeStudySelector,

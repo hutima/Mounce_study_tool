@@ -1209,9 +1209,11 @@
     min-width: 150px;
   }
 
-  .morph-pass-row {
+  .morph-pass-row,
+  .morph-dontknow-row {
     display: flex;
     justify-content: center;
+    gap: 10px;
     margin-bottom: 16px;
   }
 
@@ -1231,6 +1233,20 @@
   .morph-dontknow-btn {
     min-width: 180px;
     font-style: italic;
+  }
+
+  /* "I give up" — fail the whole form. Red-tinted to read as more drastic
+     than the per-step "I don't know" beside it. */
+  .morph-giveup-btn {
+    min-width: 160px;
+    background: rgba(150, 60, 60, 0.10);
+    border: 1px solid rgba(170, 90, 90, 0.55);
+    color: var(--muted);
+  }
+
+  .morph-giveup-btn:hover {
+    border-color: rgba(200, 110, 110, 0.9);
+    color: var(--cream);
   }
   /* Prev keeps the same Reset-like swatch when inactive — it's a constant
      anchor in the nav row, so a grey-out reads as "broken" rather than
