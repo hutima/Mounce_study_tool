@@ -635,28 +635,42 @@ function toLetterUnits(s) {
 // and differing letters get wrapped in <span class="stem-diff">. Used by the
 // stem-flip card renderer so the stem change is visually obvious.
 //
-// The diff compares letters with pitch accents stripped (see toLetterUnits),
-// so an accent-only difference (μένω → μενῶ, κρίνω → κρινῶ) never lights up —
-// the identical stem is the point — while genuine letter changes (λαμβάνω →
-// ἔλαβον) still stand out. Accents are still shown on the letters; they just
-// don't drive the highlight.
+// By default the diff compares letters with pitch accents stripped (see
+// toLetterUnits), so an accent-only difference doesn't light up — the identical
+// stem is the point — while genuine letter changes (λαμβάνω → ἔλαβον)
+// still stand out. Accents are still shown on the letters; they just don't
+// drive the highlight.
+//
+// The one exception: when the two forms are identical once pitch accents are
+// stripped, the accent is the *only* thing telling them apart (e.g. the liquid
+// present κρίνω vs. future κρινῶ, or μένω vs. μενῶ — same letters, the
+// circumflex is the whole signal). There's no stem change to highlight, so we
+// fall back to comparing the fully accented glyphs, letting the differentiating
+// accent light up rather than the card showing no highlight at all.
 function diffHighlightPair(a, b) {
   const A = toLetterUnits(a);
   const B = toLetterUnits(b);
   if (!A.length || !B.length) return { aHtml: escapeHtml(a || ''), bHtml: escapeHtml(b || '') };
-  // Standard LCS DP table over the accent-stripped letter keys.
+  // If the bare (accent-stripped) letters match end to end, the accent is the
+  // sole differentiator, so compare the full accented glyph; otherwise compare
+  // the accent-stripped key so only real letter changes drive the highlight.
+  const sameBareLetters = A.length === B.length && A.every((u, idx) => u.key === B[idx].key);
+  const keyOf = sameBareLetters ? (u) => u.full : (u) => u.key;
+  // Standard LCS DP table over the chosen comparison key.
   const m = A.length, n = B.length;
   const dp = Array.from({ length: m + 1 }, () => new Array(n + 1).fill(0));
   for (let i = 0; i < m; i++) {
     for (let j = 0; j < n; j++) {
-      dp[i + 1][j + 1] = A[i].key === B[j].key ? dp[i][j] + 1 : Math.max(dp[i + 1][j], dp[i][j + 1]);
+      dp[i + 1][j + 1] = keyOf(A[i]) === keyOf(B[j]) ? dp[i][j] + 1 : Math.max(dp[i + 1][j], dp[i][j + 1]);
     }
   }
+  // Walk back to mark which positions in A and B are part of the common
+  // subsequence; anything else gets the diff highlight.
   const inLCS_A = new Array(m).fill(false);
   const inLCS_B = new Array(n).fill(false);
   let i = m, j = n;
   while (i > 0 && j > 0) {
-    if (A[i - 1].key === B[j - 1].key) {
+    if (keyOf(A[i - 1]) === keyOf(B[j - 1])) {
       inLCS_A[i - 1] = true;
       inLCS_B[j - 1] = true;
       i--; j--;
