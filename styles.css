@@ -1170,9 +1170,17 @@
     transition: all 0.08s;
   }
 
-  .choice-btn:hover:not(:disabled) {
-    border-color: var(--gold-dim);
-    background: #1e2030;
+  /* Gate hover feedback behind a hover-capable pointer. On iOS Safari the
+     :hover state "sticks" to the last-tapped element and transfers to a
+     freshly-rendered button at the same screen position — so after finishing
+     a card the next form's bottom-right option (e.g. "aorist") shows the gold
+     hover border with no interaction. Touch devices can't truly hover, so
+     skipping this rule there both fixes the phantom selection and is correct. */
+  @media (hover: hover) {
+    .choice-btn:hover:not(:disabled) {
+      border-color: var(--gold-dim);
+      background: #1e2030;
+    }
   }
 
   .choice-btn.correct {
@@ -2715,9 +2723,15 @@
 
   html[data-theme="light"] body::before { opacity: 0.015; }
   html[data-theme="light"] .session-btn:hover,
-  html[data-theme="light"] .chapter-btn:hover,
-  html[data-theme="light"] .choice-btn:hover:not(:disabled) {
+  html[data-theme="light"] .chapter-btn:hover {
     background: #f5eddc;
+  }
+  /* See the hover-capability note on .choice-btn above — same iOS sticky-hover
+     fix, applied to the light theme's choice-button hover tint. */
+  @media (hover: hover) {
+    html[data-theme="light"] .choice-btn:hover:not(:disabled) {
+      background: #f5eddc;
+    }
   }
   html[data-theme="light"] .session-btn.active,
   html[data-theme="light"] .chapter-btn.active {
@@ -4398,9 +4412,13 @@
     transition: all 0.08s;
   }
 
-  .reader-choice-btn:hover:not(:disabled) {
-    border-color: var(--gold-dim);
-    background: rgba(201,168,76,0.05);
+  /* Same iOS sticky-hover fix as .choice-btn — reader-mode multiple choice
+     re-renders a new button under the last tap, so gate the hover tint. */
+  @media (hover: hover) {
+    .reader-choice-btn:hover:not(:disabled) {
+      border-color: var(--gold-dim);
+      background: rgba(201,168,76,0.05);
+    }
   }
 
   .reader-choice-btn:disabled {
