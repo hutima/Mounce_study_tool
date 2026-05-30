@@ -1248,6 +1248,21 @@
     border-color: rgba(200, 110, 110, 0.9);
     color: var(--cream);
   }
+
+  /* When the forward parsing walk shows both "I don't know" and "I give up",
+     keep them side by side on one line (sized to content, a touch narrower)
+     so the card doesn't grow tall. Scoped via :has so single-button rows keep
+     their centered full-width button. (Ported from duff #225.) */
+  .morph-dontknow-row:has(.morph-giveup-btn) {
+    flex-wrap: nowrap;
+  }
+
+  .morph-dontknow-row:has(.morph-giveup-btn) .morph-dontknow-btn,
+  .morph-dontknow-row:has(.morph-giveup-btn) .morph-giveup-btn {
+    min-width: 0;
+    flex: 0 1 auto;
+    padding: 7px 10px;
+  }
   /* Prev keeps the same Reset-like swatch when inactive — it's a constant
      anchor in the nav row, so a grey-out reads as "broken" rather than
      "nothing to do here right now". */
