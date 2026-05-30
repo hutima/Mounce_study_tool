@@ -166,7 +166,7 @@ import { getSelectedVocabCards, getSelectedGrammarCards, getAllVocabKeys, getAll
 
 // Domain — Grammar
 import { buildGrammarSupportHtml } from '../domain/grammar/explanations.js';
-import { recordParadigmAttempt, inferredFollowupDims, buildInferredStep, structuralImpossibilityReason, isLemmaFormKnown } from '../domain/grammar/morph_steps.js';
+import { recordParadigmAttempt, inferredFollowupDims, buildInferredStep, structuralImpossibilityReason, isLemmaFormKnown, parseAnswerDimensions } from '../domain/grammar/morph_steps.js';
 import { listAvailableParadigms, listAvailableParadigmsByCategory, getCardsForFocusedParadigm } from '../domain/grammar/paradigm_focus.js';
 
 // UI
@@ -257,6 +257,7 @@ import {
   toggleOptionalFormFilter,
   toggleDimValueFilter,
   toggleExcludeKnownMorphs,
+  toggleParsingReverse,
   toggleUnspacedDailyReset,
   reshuffleEligible,
   fastForwardOneDay,
@@ -905,6 +906,83 @@ function skipMorphologyStep() {
   saveState();
 }
 
+// "I give up" — abandon the whole form rather than just the current step.
+// Marks every remaining graded step wrong, satisfies any pending inferred
+// steps without scoring them, and jumps straight to the summary. Parsing
+// stays off the record in Mounce, so (unlike duff) this does NOT call
+// noteStudyInteraction().
+function giveUpMorphologyStep() {
+  if (!isParsingMode()) return;
+  const card = runtime.deck[runtime.currentIdx];
+  if (!card || !runtime.morphStepState || runtime.morphStepState.completed) return;
+  const state = runtime.morphStepState;
+  for (let i = state.stepIdx; i < state.steps.length; i += 1) {
+    const step = state.steps[i];
+    if (!step) continue;
+    state.answers[i] = { selectedIdx: -1, isCorrect: step.inferred ? null : false };
+  }
+  state.stepIdx = state.steps.length;
+  state.completed = true;
+  finalizeMorphStepAttempt(card, state);
+  renderCard();
+  renderProgress();
+  saveState();
+}
+
+// English → Greek parsing answer. choiceIdx === -1 is the "I don't know"
+// row (counts as wrong). Grades the picked form against the cached correct
+// form, records a paradigm attempt across the enabled dims (the form encodes
+// every dimension, so a right pick is all-correct, a wrong pick all-wrong),
+// and shows feedback. Mounce keeps parsing off the record, so (unlike duff)
+// this omits noteStudyInteraction(). Advancing is the normal Next button
+// (navigate), which steps the parsing cursor linearly — the same path the
+// forward walk uses; we deliberately do NOT set morphPendingAdvance.
+function answerParsingReverseChoice(choiceIdx) {
+  if (!isParsingMode() || !runtime.parsingReverse) return;
+  const card = runtime.deck[runtime.currentIdx];
+  if (!card || runtime.morphAnswerState.answered) return;
+  const st = runtime.parsingReverseState;
+  if (!st || st.cardId !== card.id || !Array.isArray(st.options)) return;
+  const picked = choiceIdx >= 0 ? st.options[choiceIdx] : null;
+  const isCorrect = picked != null && picked === st.correctForm;
+  runtime.morphAnswerState = {
+    answered: true,
+    revealed: true,
+    selfRated: true,
+    selectedIndex: choiceIdx,
+    isCorrect
+  };
+  // Don't set morphPendingAdvance — that flag routes navigate() into the
+  // grammar-quiz reshuffle branch. Parsing (forward and reverse alike)
+  // advances linearly via the normal currentIdx++/rebuildParsingCycle path.
+  recordParsingReverseAttempt(card, isCorrect);
+  renderCard();
+  renderProgress();
+  saveState();
+}
+
+// Fold a reverse-drill outcome into the per-paradigm stats the same way the
+// forward walk does: every enabled dimension the card actually carries gets
+// the shared correctness (1 if the right form was picked, else 0), so the
+// per-form recent tally updates and the 2/2 "known"/exclude-known machinery
+// keeps working across both directions.
+function recordParsingReverseAttempt(card, isCorrect) {
+  if (!card || !card.lemma) return;
+  const dims = parseAnswerDimensions(card.parsedAnswer || card.answer || '');
+  const enabled = getEnabledParsingDims();
+  const result = {};
+  ['tense', 'voice', 'mood', 'person', 'number', 'case', 'gender'].forEach((k) => {
+    if (!dims[k]) return;
+    if (enabled && enabled[k] === false) return;
+    result[k] = isCorrect ? 1 : 0;
+  });
+  if (!Object.keys(result).length) return;
+  if (!runtime.paradigmStepStats || typeof runtime.paradigmStepStats !== 'object') {
+    runtime.paradigmStepStats = { byLemma: {} };
+  }
+  recordParadigmAttempt(runtime.paradigmStepStats, card.lemma, result, { cardId: card.id });
+}
+
 function finalizeMorphStepAttempt(card, state) {
   if (!card || !card.lemma) return;
   const dims = {};
@@ -1184,6 +1262,10 @@ function syncToggleButtons() {
   if (excludeKnownMorphsSwitch) excludeKnownMorphsSwitch.classList.toggle('on', !!runtime.excludeKnownMorphs);
   const excludeKnownMorphsToggle = document.getElementById('excludeKnownMorphsToggle');
   if (excludeKnownMorphsToggle) excludeKnownMorphsToggle.setAttribute('aria-checked', runtime.excludeKnownMorphs ? 'true' : 'false');
+  const parsingReverseSwitch = document.getElementById('parsingReverseBtn');
+  if (parsingReverseSwitch) parsingReverseSwitch.classList.toggle('on', !!runtime.parsingReverse);
+  const parsingReverseToggleBtn = document.getElementById('parsingReverseToggle');
+  if (parsingReverseToggleBtn) parsingReverseToggleBtn.setAttribute('aria-checked', runtime.parsingReverse ? 'true' : 'false');
   // The toggles read as "Exclude X" — ON in the UI means the value is
   // excluded (sub[value] === false in the model). Default is all values
   // included → all toggles OFF in the UI.
@@ -1316,6 +1398,9 @@ function syncLayoutVisibility() {
   // Shuffle so it's reachable without expanding the per-dim section.
   const excludeKnownMorphsToggle = document.getElementById('excludeKnownMorphsToggle');
   if (excludeKnownMorphsToggle) excludeKnownMorphsToggle.style.display = isParsingMode() ? 'flex' : 'none';
+  // English → Greek (pick the form) is also a parsing-only drill direction.
+  const parsingReverseToggle = document.getElementById('parsingReverseToggle');
+  if (parsingReverseToggle) parsingReverseToggle.style.display = isParsingMode() ? 'flex' : 'none';
   // Spaced repetition writes confidence stats — parsing mode is explicitly
   // off-the-record, so the toggle is irrelevant there and gets hidden.
   if (spacedToggle) spacedToggle.style.display = (reviewDeckMode && !isParsingMode()) ? 'flex' : 'none';
@@ -2570,7 +2655,7 @@ installKeyboardShortcuts({
 const GLOBAL_CLICK_HANDLERS = {
   flipCard, navigate, markCard, handleNavNext, answerMorphologyChoice,
   revealMorphologyAnswer, rateMorphologySelfCheck, passMorphologyChoice,
-  answerMorphologyStep, skipMorphologyStep,
+  answerMorphologyStep, skipMorphologyStep, giveUpMorphologyStep, answerParsingReverseChoice,
   returnSeenCardToDeck, clearParsingMorph,
   closeAnalyticsOverlay, closeTransferModal, exportProgressJson,
   closeShortcutsModal, closeStudySelector,
@@ -2588,7 +2673,7 @@ const GLOBAL_CLICK_HANDLERS = {
   restoreSpacedUndo, setAppProfile, setStudyMode, setThemeMode, setFontFamily, setTextSize,
   showDisclaimerModal, startStudying, toggleDirection, toggleMorphSelfCheck,
   toggleMorphStepByStep, setMorphFocusedParadigm, setParsingChapter, goToStemDrillFromParsing,
-  toggleRequiredOnly, toggleHardVocabReview, toggleShuffle, toggleSpacedRepetition, toggleSplitSelection, toggleAspectStep, toggleDimStep, toggleOptionalForms, toggleOptionalFormFilter, toggleDimValueFilter, toggleExcludeKnownMorphs, resetKnownMorphs, closeResetKnownModal, confirmResetKnownFocused, confirmResetKnownAll, clearParsingStats, toggleUnspacedDailyReset, triggerImportProgress,
+  toggleRequiredOnly, toggleHardVocabReview, toggleShuffle, toggleSpacedRepetition, toggleSplitSelection, toggleAspectStep, toggleDimStep, toggleOptionalForms, toggleOptionalFormFilter, toggleDimValueFilter, toggleExcludeKnownMorphs, toggleParsingReverse, resetKnownMorphs, closeResetKnownModal, confirmResetKnownFocused, confirmResetKnownAll, clearParsingStats, toggleUnspacedDailyReset, triggerImportProgress,
   openReaderTab, selectReaderDrillChoice, advanceReaderDrill,
   closeWhatsNewV1_1Modal,
   applyAppUpdate, dismissAppUpdate

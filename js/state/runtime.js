@@ -94,6 +94,17 @@ export const runtime = {
   // Default 36 = the last Mounce chapter (every paradigm in scope).
   parsingChapter: 36,
   morphStepState: { cardId: null, steps: [], stepIdx: 0, answers: [], completed: false },
+  // English → Greek parsing direction. When on, parsing mode flips: instead
+  // of walking a Greek form's parse one dimension at a time, the card shows
+  // the requested parse (the chapter-gated dimensions the user has enabled)
+  // and offers a multiple-choice of Greek forms from the same focused
+  // paradigm — the student picks the form that matches. Off by default;
+  // the forward dimensional walk stays the parsing baseline.
+  parsingReverse: false,
+  // Ephemeral per-card cache for the reverse drill so the MC options stay
+  // stable across re-renders of the same card (answer feedback re-renders
+  // the card). Rebuilt whenever the focused card changes. Not persisted.
+  parsingReverseState: { cardId: null, options: [], correctForm: '' },
   paradigmStepStats: { byLemma: {} },
   // Whether the parsing walk asks an explicit Aspect step before Tense.
   // Aspect is derivable from tense (present/future → continuous/undefined,

@@ -1170,9 +1170,17 @@
     transition: all 0.08s;
   }
 
-  .choice-btn:hover:not(:disabled) {
-    border-color: var(--gold-dim);
-    background: #1e2030;
+  /* Gate hover feedback behind a hover-capable pointer. On iOS Safari the
+     :hover state "sticks" to the last-tapped element and transfers to a
+     freshly-rendered button at the same screen position — so after finishing
+     a card the next form's bottom-right option (e.g. "aorist") shows the gold
+     hover border with no interaction. Touch devices can't truly hover, so
+     skipping this rule there both fixes the phantom selection and is correct. */
+  @media (hover: hover) {
+    .choice-btn:hover:not(:disabled) {
+      border-color: var(--gold-dim);
+      background: #1e2030;
+    }
   }
 
   .choice-btn.correct {
@@ -1209,9 +1217,11 @@
     min-width: 150px;
   }
 
-  .morph-pass-row {
+  .morph-pass-row,
+  .morph-dontknow-row {
     display: flex;
     justify-content: center;
+    gap: 10px;
     margin-bottom: 16px;
   }
 
@@ -1231,6 +1241,35 @@
   .morph-dontknow-btn {
     min-width: 180px;
     font-style: italic;
+  }
+
+  /* "I give up" — fail the whole form. Red-tinted to read as more drastic
+     than the per-step "I don't know" beside it. */
+  .morph-giveup-btn {
+    min-width: 160px;
+    background: rgba(150, 60, 60, 0.10);
+    border: 1px solid rgba(170, 90, 90, 0.55);
+    color: var(--muted);
+  }
+
+  .morph-giveup-btn:hover {
+    border-color: rgba(200, 110, 110, 0.9);
+    color: var(--cream);
+  }
+
+  /* When the forward parsing walk shows both "I don't know" and "I give up",
+     keep them side by side on one line (sized to content, a touch narrower)
+     so the card doesn't grow tall. Scoped via :has so single-button rows keep
+     their centered full-width button. (Ported from duff #225.) */
+  .morph-dontknow-row:has(.morph-giveup-btn) {
+    flex-wrap: nowrap;
+  }
+
+  .morph-dontknow-row:has(.morph-giveup-btn) .morph-dontknow-btn,
+  .morph-dontknow-row:has(.morph-giveup-btn) .morph-giveup-btn {
+    min-width: 0;
+    flex: 0 1 auto;
+    padding: 7px 10px;
   }
   /* Prev keeps the same Reset-like swatch when inactive — it's a constant
      anchor in the nav row, so a grey-out reads as "broken" rather than
@@ -2684,9 +2723,15 @@
 
   html[data-theme="light"] body::before { opacity: 0.015; }
   html[data-theme="light"] .session-btn:hover,
-  html[data-theme="light"] .chapter-btn:hover,
-  html[data-theme="light"] .choice-btn:hover:not(:disabled) {
+  html[data-theme="light"] .chapter-btn:hover {
     background: #f5eddc;
+  }
+  /* See the hover-capability note on .choice-btn above — same iOS sticky-hover
+     fix, applied to the light theme's choice-button hover tint. */
+  @media (hover: hover) {
+    html[data-theme="light"] .choice-btn:hover:not(:disabled) {
+      background: #f5eddc;
+    }
   }
   html[data-theme="light"] .session-btn.active,
   html[data-theme="light"] .chapter-btn.active {
@@ -4367,9 +4412,13 @@
     transition: all 0.08s;
   }
 
-  .reader-choice-btn:hover:not(:disabled) {
-    border-color: var(--gold-dim);
-    background: rgba(201,168,76,0.05);
+  /* Same iOS sticky-hover fix as .choice-btn — reader-mode multiple choice
+     re-renders a new button under the last tap, so gate the hover tint. */
+  @media (hover: hover) {
+    .reader-choice-btn:hover:not(:disabled) {
+      border-color: var(--gold-dim);
+      background: rgba(201,168,76,0.05);
+    }
   }
 
   .reader-choice-btn:disabled {

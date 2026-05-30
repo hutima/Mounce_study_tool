@@ -194,6 +194,10 @@ export function renderCard() {
   // card.dimensional === false; those fall through to the standard MC
   // renderer below regardless of mode.
   if (host.isMorphCard(card) && host.isParsingMode() && card.dimensional !== false) {
+    if (runtime.parsingReverse) {
+      renderParsingReverseCard(area, card);
+      return;
+    }
     renderMorphStepCard(area, card);
     return;
   }
@@ -752,6 +756,7 @@ function renderMorphStepCurrent(state) {
       <div class="morph-choices">${choiceButtons}</div>
       <div class="morph-dontknow-row">
         <button class="ctrl-btn morph-dontknow-btn" type="button" onclick="skipMorphologyStep()">I don't know</button>
+        <button class="ctrl-btn morph-giveup-btn" type="button" onclick="giveUpMorphologyStep()">I give up</button>
       </div>
     </div>`;
 }
@@ -1208,6 +1213,135 @@ function renderMorphStepSummary(card, state) {
       ${recentLine}
       <div class="morph-step-summary-meta">${escapeHtml(card.lemma)}${card.family ? ' · ' + escapeHtml(card.family) : ''}</div>
     </div>`;
+}
+
+// ── English → Greek parsing (reverse direction) ───────────────────────
+// Forward parsing walks a Greek form's parse one dimension at a time. The
+// reverse drill flips it: show the requested parse (restricted to the dims
+// the student has enabled) and offer a multiple-choice of Greek forms drawn
+// from the same focused paradigm — they pick the form that matches.
+
+const PARSE_DISPLAY_ORDER = ['tense', 'voice', 'mood', 'person', 'number', 'case', 'gender'];
+
+// In-place Fisher–Yates; returns the same array for chaining.
+function shuffleInPlace(arr) {
+  for (let i = arr.length - 1; i > 0; i -= 1) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [arr[i], arr[j]] = [arr[j], arr[i]];
+  }
+  return arr;
+}
+
+// Readable parse from a card's canonical answer, limited to the enabled dims.
+// "third" reads as "third person"; empty dims are skipped so a narrowed dim
+// scope still reads cleanly.
+function reverseParseLine(card, enabledDims) {
+  const dims = parseAnswerDimensions(card.parsedAnswer || card.answer || '');
+  const parts = [];
+  PARSE_DISPLAY_ORDER.forEach((k) => {
+    if (enabledDims && enabledDims[k] === false) return;
+    const v = dims[k];
+    if (!v) return;
+    parts.push(k === 'person' ? `${v} person` : v);
+  });
+  return parts.join(' · ');
+}
+
+// Stable identity for a card's parse under the enabled dims — two cards with
+// the same key are indistinguishable answers to the same requested parse, so
+// one must never appear as a distractor for the other.
+function reverseParseKey(card, enabledDims) {
+  const dims = parseAnswerDimensions(card.parsedAnswer || card.answer || '');
+  return PARSE_DISPLAY_ORDER
+    .filter((k) => !(enabledDims && enabledDims[k] === false))
+    .map((k) => dims[k] || '')
+    .join('|');
+}
+
+// Build (and cache, per card) the MC option list for the reverse drill: the
+// correct form plus up to three distractor forms from the focused-paradigm
+// pool. Distractors must be a different Greek string AND a different parse
+// (under the enabled dims) so exactly one option is right. Falls back to
+// however many distinct forms exist for small paradigms.
+function ensureReverseChoices(card) {
+  const cached = runtime.parsingReverseState;
+  if (cached && cached.cardId === card.id && Array.isArray(cached.options) && cached.options.length) {
+    return cached;
+  }
+  const enabledDims = host.getEnabledParsingDims();
+  const pool = Array.isArray(runtime.originalDeck) ? runtime.originalDeck : [];
+  const correctForm = card.form;
+  const targetKey = reverseParseKey(card, enabledDims);
+  const seenForms = new Set([String(correctForm).trim()]);
+  const distractors = [];
+  shuffleInPlace([...pool]).forEach((c) => {
+    if (distractors.length >= 3) return;
+    if (!c || !c.form) return;
+    const formKey = String(c.form).trim();
+    if (seenForms.has(formKey)) return;
+    if (reverseParseKey(c, enabledDims) === targetKey) return;
+    seenForms.add(formKey);
+    distractors.push(c.form);
+  });
+  const options = shuffleInPlace([correctForm, ...distractors]);
+  const state = { cardId: card.id, options, correctForm };
+  runtime.parsingReverseState = state;
+  return state;
+}
+
+function renderParsingReverseCard(area, card) {
+  const enabledDims = host.getEnabledParsingDims();
+  const parseLine = reverseParseLine(card, enabledDims);
+  const { options, correctForm } = ensureReverseChoices(card);
+  const answered = runtime.morphAnswerState.answered;
+  const selectedIdx = runtime.morphAnswerState.selectedIndex;
+
+  const stepSourceLabel = card.supplemental
+    ? cardFaceLabelFromSourceLabel(card.sourceLabel || '')
+    : (card.sourceLabel || '');
+
+  const choiceButtons = options.map((form, idx) => {
+    const classes = ['choice-btn', 'choice-btn-greek'];
+    if (answered) {
+      if (form === correctForm) classes.push('correct');
+      if (idx === selectedIdx && form !== correctForm) classes.push('incorrect');
+    }
+    return `<button class="${classes.join(' ')}" type="button" ${answered ? 'disabled' : ''} onclick="answerParsingReverseChoice(${idx})">${escapeHtml(form)}</button>`;
+  }).join('');
+
+  const dontKnowHtml = answered
+    ? ''
+    : `<div class="morph-dontknow-row">
+         <button class="ctrl-btn morph-dontknow-btn" type="button" onclick="answerParsingReverseChoice(-1)">I don't know</button>
+       </div>`;
+
+  let resultHtml = '';
+  if (answered) {
+    const isCorrect = runtime.morphAnswerState.isCorrect;
+    const glossLine = (card.gloss || card.lemmaGloss)
+      ? `<div class="morph-gloss">Gloss: “${escapeHtml(card.gloss || card.lemmaGloss)}”</div>`
+      : '';
+    resultHtml = `<div class="morph-result ${isCorrect ? 'correct' : 'incorrect'}">
+        <div class="morph-result-title">${isCorrect ? 'Correct' : 'Not quite'}</div>
+        <div class="morph-result-body">${escapeHtml(parseLine)} = ${escapeHtml(correctForm)}</div>
+        <div class="morph-result-meta">${escapeHtml(card.lemma || '')}${card.family ? ` · ${escapeHtml(card.family)}` : ''}</div>
+        ${glossLine}
+      </div>`;
+  }
+
+  area.innerHTML = `
+    <div class="morph-card morph-step-card">
+      <div class="morph-label">Grammar · English → Greek</div>
+      <div class="morph-prompt">Pick the form that matches this parse.</div>
+      <div class="morph-form">${escapeHtml(card.lemma || card.form)}</div>
+      <div class="morph-step-label">${escapeHtml(parseLine)}</div>
+      <div class="morph-source">${escapeHtml(stepSourceLabel)}</div>
+      <div class="morph-choices">${choiceButtons}</div>
+      ${dontKnowHtml}
+      ${resultHtml}
+    </div>`;
+  runtime.isFlipped = false;
+  renderProgress();
 }
 
 function renderMorphStepCard(area, card) {
