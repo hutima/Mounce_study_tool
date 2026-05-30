@@ -602,27 +602,61 @@ function familyLemmaAppearsInForm(lemma, form) {
   });
 }
 
-// Diff-highlights two Greek strings via Longest Common Subsequence: shared
-// characters render plain, the rest get wrapped in <span class="stem-diff">.
-// Used by the stem-flip card renderer so the present↔aorist stem change is
-// visually obvious without the student having to mentally subtract one form
-// from the other.
+// Split a Greek string into "letter units" — a base character plus any
+// combining diacritics that follow it. `full` keeps every mark for display
+// (re-composed to NFC so it renders normally); `key` is what the diff compares
+// against: the base letter plus its *meaningful* marks (breathing, diaeresis,
+// iota subscript), with only the pitch accents (acute/grave/circumflex)
+// stripped. Breathing is a real consonantal distinction (rough vs smooth —
+// εὑρ- vs εὐ-) so it stays significant; pitch accents shift for reasons
+// unrelated to the stem being taught (accent recession, contraction,
+// enclitics), so they must not drive the highlight.
+const STEM_DIFF_ACCENT_MARKS = /[̀́͂]/; // grave, acute, perispomeni (Greek circumflex)
+function toLetterUnits(s) {
+  const units = [];
+  for (const ch of String(s || '').normalize('NFD')) {
+    if (/[̀-ͯ]/.test(ch) && units.length) {
+      // Combining mark — attach to the preceding base letter for display, and
+      // to its comparison key unless it's a pitch accent.
+      const u = units[units.length - 1];
+      u.full += ch;
+      if (!STEM_DIFF_ACCENT_MARKS.test(ch)) u.key += ch;
+    } else {
+      units.push({ key: ch, full: ch });
+    }
+  }
+  // Display form keeps all marks but renders as a normal precomposed glyph.
+  units.forEach((u) => { u.full = u.full.normalize('NFC'); });
+  return units;
+}
+
+// LCS-based diff between two Greek forms (e.g. a present and its aorist or
+// liquid future). Returns {aHtml, bHtml} where matching letters render plain
+// and differing letters get wrapped in <span class="stem-diff">. Used by the
+// stem-flip card renderer so the stem change is visually obvious.
+//
+// The diff compares letters with pitch accents stripped (see toLetterUnits),
+// so an accent-only difference (μένω → μενῶ, κρίνω → κρινῶ) never lights up —
+// the identical stem is the point — while genuine letter changes (λαμβάνω →
+// ἔλαβον) still stand out. Accents are still shown on the letters; they just
+// don't drive the highlight.
 function diffHighlightPair(a, b) {
-  const A = [...String(a || '')];
-  const B = [...String(b || '')];
+  const A = toLetterUnits(a);
+  const B = toLetterUnits(b);
   if (!A.length || !B.length) return { aHtml: escapeHtml(a || ''), bHtml: escapeHtml(b || '') };
+  // Standard LCS DP table over the accent-stripped letter keys.
   const m = A.length, n = B.length;
   const dp = Array.from({ length: m + 1 }, () => new Array(n + 1).fill(0));
   for (let i = 0; i < m; i++) {
     for (let j = 0; j < n; j++) {
-      dp[i + 1][j + 1] = A[i] === B[j] ? dp[i][j] + 1 : Math.max(dp[i + 1][j], dp[i][j + 1]);
+      dp[i + 1][j + 1] = A[i].key === B[j].key ? dp[i][j] + 1 : Math.max(dp[i + 1][j], dp[i][j + 1]);
     }
   }
   const inLCS_A = new Array(m).fill(false);
   const inLCS_B = new Array(n).fill(false);
   let i = m, j = n;
   while (i > 0 && j > 0) {
-    if (A[i - 1] === B[j - 1]) {
+    if (A[i - 1].key === B[j - 1].key) {
       inLCS_A[i - 1] = true;
       inLCS_B[j - 1] = true;
       i--; j--;
@@ -632,8 +666,8 @@ function diffHighlightPair(a, b) {
       j--;
     }
   }
-  const wrap = (chars, mask) => chars.map((ch, idx) =>
-    mask[idx] ? escapeHtml(ch) : `<span class="stem-diff">${escapeHtml(ch)}</span>`
+  const wrap = (units, mask) => units.map((u, idx) =>
+    mask[idx] ? escapeHtml(u.full) : `<span class="stem-diff">${escapeHtml(u.full)}</span>`
   ).join('');
   return { aHtml: wrap(A, inLCS_A), bHtml: wrap(B, inLCS_B) };
 }
