@@ -934,8 +934,9 @@ function giveUpMorphologyStep() {
 // form, records a paradigm attempt across the enabled dims (the form encodes
 // every dimension, so a right pick is all-correct, a wrong pick all-wrong),
 // and shows feedback. Mounce keeps parsing off the record, so (unlike duff)
-// this omits noteStudyInteraction(); advancing is the normal Next button
-// (navigate), which fires on the morphPendingAdvance flag set here.
+// this omits noteStudyInteraction(). Advancing is the normal Next button
+// (navigate), which steps the parsing cursor linearly — the same path the
+// forward walk uses; we deliberately do NOT set morphPendingAdvance.
 function answerParsingReverseChoice(choiceIdx) {
   if (!isParsingMode() || !runtime.parsingReverse) return;
   const card = runtime.deck[runtime.currentIdx];
@@ -951,7 +952,9 @@ function answerParsingReverseChoice(choiceIdx) {
     selectedIndex: choiceIdx,
     isCorrect
   };
-  runtime.morphPendingAdvance = true;
+  // Don't set morphPendingAdvance — that flag routes navigate() into the
+  // grammar-quiz reshuffle branch. Parsing (forward and reverse alike)
+  // advances linearly via the normal currentIdx++/rebuildParsingCycle path.
   recordParsingReverseAttempt(card, isCorrect);
   renderCard();
   renderProgress();
