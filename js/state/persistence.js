@@ -216,6 +216,7 @@ export function buildPersistedStatePayload(options = {}) {
     dimValueFilters: runtime.dimValueFilters,
     includeOptionalForms: runtime.includeOptionalForms,
     excludeKnownMorphs: runtime.excludeKnownMorphs,
+    parsingReverse: runtime.parsingReverse,
     optionalFormFilters: runtime.optionalFormFilters,
     analyticsVocabDirection: runtime.analyticsVocabDirection,
     analyticsVocabScope: runtime.analyticsVocabScope,
@@ -301,6 +302,7 @@ function sanitizeImportedState(candidate) {
   // predating this field hydrate to false too, so existing decks keep the
   // standard Mounce-aligned card set as their baseline.
   state.includeOptionalForms = !!candidate.includeOptionalForms;
+  state.parsingReverse = !!candidate.parsingReverse;
   // Exclude-known-morphs toggle defaults to false (off). "Known" means a
   // strict 2/2 — the form's last two recorded attempts were both fully
   // correct under the current dim toggles.
@@ -993,6 +995,8 @@ export function restoreState() {
     runtime.includeOptionalForms = !!saved.includeOptionalForms;
     // Exclude-known-morphs filter: rehydrate the toggle (default false).
     runtime.excludeKnownMorphs = !!saved.excludeKnownMorphs;
+    // English → Greek parsing direction (default false).
+    runtime.parsingReverse = !!saved.parsingReverse;
     // Per-category sub-filters: default each to true if missing.
     const OPTIONAL_FILTER_KEYS = ['imperative', 'subjunctive', 'infinitive', 'participle', 'thirdPerson', 'futureTense', 'perfectTense'];
     const savedFilters = (saved.optionalFormFilters && typeof saved.optionalFormFilters === 'object') ? saved.optionalFormFilters : {};
