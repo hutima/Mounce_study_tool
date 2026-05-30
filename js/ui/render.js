@@ -505,12 +505,26 @@ function escapeHtml(s) {
     .replace(/'/g, '&#39;');
 }
 
+// Normalizes a Greek headword to a stable lookup key so the chapter-vocab data
+// and the flip-set data match even when they were typed with different Unicode
+// conventions. Mounce's words.js uses oxia accents (U+1F71 …) and plain-η
+// spellings (ἀποθνήσκω), while the flip files use the modern monotonic tonos
+// (U+03AC …) and iota-subscript spellings (ἀποθνῄσκω). Without folding these
+// the exact-string lookup below silently misses most verbs (e.g. every Ch 22
+// second aorist). We NFC-normalize — which unifies oxia/tonos — and drop the
+// combining iota-subscript (U+0345) so ἀποθνῄσκω and ἀποθνήσκω collapse to one
+// key. Used for matching only; the displayed forms keep their original glyphs.
+function stemAltLookupKey(g) {
+  return String(g || '').normalize('NFD').replace(/ͅ/g, '').normalize('NFC');
+}
+
 // Lazily-built lookup of present-stem lemma → its second-aorist (1st sg.)
 // form, derived from the W3_SECOND_AORIST_FLIP supplemental set so the data
 // keeps a single source. The present and 2nd-aorist stems of these verbs
 // often look nothing alike (e.g. λέγω → εἶπον, ἔρχομαι → ἦλθον), so the
 // standard chapter-vocab card surfaces the aorist as a small second row to
-// help associate the pair.
+// help associate the pair. Keyed by stemAltLookupKey so the lookup survives
+// the oxia/tonos + iota-subscript spelling gap between data files.
 let secondAoristByLemma = null;
 function getSecondAoristByLemma() {
   if (secondAoristByLemma) return secondAoristByLemma;
@@ -518,7 +532,7 @@ function getSecondAoristByLemma() {
   const flip = window.SUPPLEMENTAL_VOCAB_SETS && window.SUPPLEMENTAL_VOCAB_SETS.W3_SECOND_AORIST_FLIP;
   if (flip && Array.isArray(flip.cards)) {
     for (const c of flip.cards) {
-      if (c && c.stemFlip && c.g && c.aorist) map[c.g] = c.aorist;
+      if (c && c.stemFlip && c.g && c.aorist) map[stemAltLookupKey(c.g)] = c.aorist;
     }
   }
   // Only cache once populated, in case this runs before the data file loads.
@@ -537,7 +551,7 @@ function getLiquidFutureByLemma() {
   const flip = window.SUPPLEMENTAL_VOCAB_SETS && window.SUPPLEMENTAL_VOCAB_SETS.W3_LIQUID_FUTURE_FLIP;
   if (flip && Array.isArray(flip.cards)) {
     for (const c of flip.cards) {
-      if (c && c.stemFlip && c.g && c.aorist) map[c.g] = c.aorist;
+      if (c && c.stemFlip && c.g && c.aorist) map[stemAltLookupKey(c.g)] = c.aorist;
     }
   }
   if (Object.keys(map).length) liquidFutureByLemma = map;
@@ -551,11 +565,12 @@ function getLiquidFutureByLemma() {
 function verbStemAltHtml(card) {
   if (!card || card.advanced || card.supplemental || card.stemFlip) return '';
   let html = '';
-  const aorist = getSecondAoristByLemma()[card.g];
+  const key = stemAltLookupKey(card.g);
+  const aorist = getSecondAoristByLemma()[key];
   if (aorist) {
     html += `<div class="card-aorist-alt"><span class="card-aorist-alt-label">2 aor.</span> [${escapeHtml(aorist)}]</div>`;
   }
-  const future = getLiquidFutureByLemma()[card.g];
+  const future = getLiquidFutureByLemma()[key];
   if (future) {
     html += `<div class="card-future-alt"><span class="card-future-alt-label">fut.</span> [${escapeHtml(future)}]</div>`;
   }
