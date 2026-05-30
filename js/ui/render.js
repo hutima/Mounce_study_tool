@@ -352,24 +352,42 @@ export function renderCard() {
   const greekDisplay = `${prepStar}${host.formatGreekHeadword(card.g)}`;
   const englishDisplay = `${prepStar}${card.e || '—'}`;
   const requiredLabelHTML = `<span class="card-required-label card-required-label-${card.required ? 'req' : 'opt'}">(${card.required ? 'req.' : 'opt.'})</span>`;
+  // Second-aorist / liquid-future verbs get their aorist and/or future forms
+  // shown in small bracketed rows under the Greek headword so the present is
+  // learned together with the forms that look nothing like it.
+  const verbStemAltHTML = verbStemAltHtml(card);
 
-  // Stem-flip cards (2nd-aorist / aorist-passive / perfect-active / μι-verb
-  // supplements): both faces show Greek + English gloss subtitle, with the
-  // differing characters highlighted so the stem change between the two
-  // forms is visually obvious. Direction toggle is ignored — the card is
-  // always present-on-front, target-on-back.
+  // Stem-flip cards (2nd-aorist / liquid-future / aorist-passive /
+  // perfect-active / μι-verb supplements): both faces show Greek + English
+  // gloss subtitle, with the differing characters highlighted so the stem
+  // change between the two forms is visually obvious. Direction toggle is
+  // ignored — the card is always present-on-front, target-on-back.
   let frontHTML, backHTML;
   if (card.stemFlip) {
     const diff = diffHighlightPair(card.g, card.aorist);
-    const flipHint = '<div class="flip-hint">click to reveal →</div>';
+    // The "other form" face is the aorist for second-aorist flips and the
+    // future for liquid-future flips; key off the back-face label override.
+    const revealWord = /future/i.test(card.stemFlipAorist || '') ? 'future' : 'aorist';
+    const flipHint = `<div class="flip-hint">click to reveal ${revealWord} →</div>`;
+    const keyBadge = card.keyVerb
+      ? '<div class="card-key-verb">★ key verb</div>'
+      : '';
     const noteHtml = card.stemNote
       ? `<div class="card-stem-note">${escapeHtml(card.stemNote)}</div>`
+      : '';
+    // The verbal stem is printed after a comma on BOTH faces (same stem each
+    // side), anchoring the present↔aorist/future pair to the stem that links
+    // them. Appended outside the diff HTML so it doesn't perturb the
+    // char-by-char form highlighting.
+    const stemSuffix = card.stem
+      ? `<span class="card-stem-inline">, ${escapeHtml(card.stem)}</span>`
       : '';
     frontHTML = `
         <div class="card-face card-front card-stem-flip">
           ${requiredLabelHTML}
+          ${keyBadge}
           <span class="card-label">Present</span>
-          <div class="card-greek card-stem-flip-form">${diff.aHtml}</div>
+          <div class="card-greek card-stem-flip-form">${diff.aHtml}${stemSuffix}</div>
           <div class="card-stem-flip-gloss">${escapeHtml(card.e || '')}</div>
           <div class="card-hint">${sourceLabelDisplay}</div>
           ${flipHint}
@@ -377,8 +395,9 @@ export function renderCard() {
     backHTML = `
         <div class="card-face card-back card-stem-flip">
           ${requiredLabelHTML}
+          ${keyBadge}
           <span class="card-label">${escapeHtml(card.stemFlipAorist || 'Aorist (1st sg.)')}</span>
-          <div class="card-greek card-stem-flip-form">${diff.bHtml}</div>
+          <div class="card-greek card-stem-flip-form">${diff.bHtml}${stemSuffix}</div>
           <div class="card-stem-flip-gloss">${escapeHtml(card.aoristGloss || '')}</div>
           ${noteHtml}
           <div class="card-hint">${escapeHtml(card.g)} → ${escapeHtml(card.aorist)}</div>
@@ -389,6 +408,7 @@ export function renderCard() {
           ${requiredLabelHTML}
           <span class="card-label">Greek</span>
           <div class="card-greek">${greekDisplay}</div>
+          ${verbStemAltHTML}
           <div class="card-hint">${sourceLabelDisplay}</div>
           <div class="flip-hint">click to reveal →</div>
         </div>`;
@@ -398,6 +418,7 @@ export function renderCard() {
           <span class="card-label">English</span>
           <div class="card-english">${englishDisplay}</div>
           <div class="card-greek-small">${host.formatGreekHeadword(card.g)}</div>
+          ${verbStemAltHTML}
           <div class="card-hint">${host.transliterateGreek(host.formatGreekHeadword(card.g))}${advancedCountSuffix}</div>
           <div class="card-pos">${host.detectPartOfSpeech(card)}</div>
         </div>`;
@@ -415,6 +436,7 @@ export function renderCard() {
           ${requiredLabelHTML}
           <span class="card-label">Greek</span>
           <div class="card-greek">${greekDisplay}</div>
+          ${verbStemAltHTML}
           <div class="card-hint">${host.transliterateGreek(host.formatGreekHeadword(card.g))}${advancedCountSuffix}</div>
           <div class="card-pos">${host.detectPartOfSpeech(card)}</div>
         </div>`;
@@ -483,6 +505,63 @@ function escapeHtml(s) {
     .replace(/'/g, '&#39;');
 }
 
+// Lazily-built lookup of present-stem lemma → its second-aorist (1st sg.)
+// form, derived from the W3_SECOND_AORIST_FLIP supplemental set so the data
+// keeps a single source. The present and 2nd-aorist stems of these verbs
+// often look nothing alike (e.g. λέγω → εἶπον, ἔρχομαι → ἦλθον), so the
+// standard chapter-vocab card surfaces the aorist as a small second row to
+// help associate the pair.
+let secondAoristByLemma = null;
+function getSecondAoristByLemma() {
+  if (secondAoristByLemma) return secondAoristByLemma;
+  const map = {};
+  const flip = window.SUPPLEMENTAL_VOCAB_SETS && window.SUPPLEMENTAL_VOCAB_SETS.W3_SECOND_AORIST_FLIP;
+  if (flip && Array.isArray(flip.cards)) {
+    for (const c of flip.cards) {
+      if (c && c.stemFlip && c.g && c.aorist) map[c.g] = c.aorist;
+    }
+  }
+  // Only cache once populated, in case this runs before the data file loads.
+  if (Object.keys(map).length) secondAoristByLemma = map;
+  return map;
+}
+
+// Same idea for liquid futures (derived from W3_LIQUID_FUTURE_FLIP): present
+// lemma → liquid-future (1st sg.) form. A verb can be both a second aorist and
+// a liquid future (e.g. βάλλω → ἔβαλον / βαλῶ, ἀποθνῄσκω → ἀπέθανον /
+// ἀποθανοῦμαι), so its chapter card can carry three rows.
+let liquidFutureByLemma = null;
+function getLiquidFutureByLemma() {
+  if (liquidFutureByLemma) return liquidFutureByLemma;
+  const map = {};
+  const flip = window.SUPPLEMENTAL_VOCAB_SETS && window.SUPPLEMENTAL_VOCAB_SETS.W3_LIQUID_FUTURE_FLIP;
+  if (flip && Array.isArray(flip.cards)) {
+    for (const c of flip.cards) {
+      if (c && c.stemFlip && c.g && c.aorist) map[c.g] = c.aorist;
+    }
+  }
+  if (Object.keys(map).length) liquidFutureByLemma = map;
+  return map;
+}
+
+// Small second-/third-row stem annotations for a standard chapter-vocab verb:
+// its second-aorist and/or liquid-future form in brackets under the headword,
+// so the present is learned together with the forms that look nothing like it.
+// Returns '' for supplemental/advanced/flip cards and for lemmas with neither.
+function verbStemAltHtml(card) {
+  if (!card || card.advanced || card.supplemental || card.stemFlip) return '';
+  let html = '';
+  const aorist = getSecondAoristByLemma()[card.g];
+  if (aorist) {
+    html += `<div class="card-aorist-alt"><span class="card-aorist-alt-label">2 aor.</span> [${escapeHtml(aorist)}]</div>`;
+  }
+  const future = getLiquidFutureByLemma()[card.g];
+  if (future) {
+    html += `<div class="card-future-alt"><span class="card-future-alt-label">fut.</span> [${escapeHtml(future)}]</div>`;
+  }
+  return html;
+}
+
 // True iff the gloss text matches exactly one of the displayed multiple-choice
 // options. When a hint resolves to a single option, showing it before the
 // student answers is essentially giving them the answer — used on grammar
@@ -523,27 +602,61 @@ function familyLemmaAppearsInForm(lemma, form) {
   });
 }
 
-// Diff-highlights two Greek strings via Longest Common Subsequence: shared
-// characters render plain, the rest get wrapped in <span class="stem-diff">.
-// Used by the stem-flip card renderer so the present↔aorist stem change is
-// visually obvious without the student having to mentally subtract one form
-// from the other.
+// Split a Greek string into "letter units" — a base character plus any
+// combining diacritics that follow it. `full` keeps every mark for display
+// (re-composed to NFC so it renders normally); `key` is what the diff compares
+// against: the base letter plus its *meaningful* marks (breathing, diaeresis,
+// iota subscript), with only the pitch accents (acute/grave/circumflex)
+// stripped. Breathing is a real consonantal distinction (rough vs smooth —
+// εὑρ- vs εὐ-) so it stays significant; pitch accents shift for reasons
+// unrelated to the stem being taught (accent recession, contraction,
+// enclitics), so they must not drive the highlight.
+const STEM_DIFF_ACCENT_MARKS = /[̀́͂]/; // grave, acute, perispomeni (Greek circumflex)
+function toLetterUnits(s) {
+  const units = [];
+  for (const ch of String(s || '').normalize('NFD')) {
+    if (/[̀-ͯ]/.test(ch) && units.length) {
+      // Combining mark — attach to the preceding base letter for display, and
+      // to its comparison key unless it's a pitch accent.
+      const u = units[units.length - 1];
+      u.full += ch;
+      if (!STEM_DIFF_ACCENT_MARKS.test(ch)) u.key += ch;
+    } else {
+      units.push({ key: ch, full: ch });
+    }
+  }
+  // Display form keeps all marks but renders as a normal precomposed glyph.
+  units.forEach((u) => { u.full = u.full.normalize('NFC'); });
+  return units;
+}
+
+// LCS-based diff between two Greek forms (e.g. a present and its aorist or
+// liquid future). Returns {aHtml, bHtml} where matching letters render plain
+// and differing letters get wrapped in <span class="stem-diff">. Used by the
+// stem-flip card renderer so the stem change is visually obvious.
+//
+// The diff compares letters with pitch accents stripped (see toLetterUnits),
+// so an accent-only difference (μένω → μενῶ, κρίνω → κρινῶ) never lights up —
+// the identical stem is the point — while genuine letter changes (λαμβάνω →
+// ἔλαβον) still stand out. Accents are still shown on the letters; they just
+// don't drive the highlight.
 function diffHighlightPair(a, b) {
-  const A = [...String(a || '')];
-  const B = [...String(b || '')];
+  const A = toLetterUnits(a);
+  const B = toLetterUnits(b);
   if (!A.length || !B.length) return { aHtml: escapeHtml(a || ''), bHtml: escapeHtml(b || '') };
+  // Standard LCS DP table over the accent-stripped letter keys.
   const m = A.length, n = B.length;
   const dp = Array.from({ length: m + 1 }, () => new Array(n + 1).fill(0));
   for (let i = 0; i < m; i++) {
     for (let j = 0; j < n; j++) {
-      dp[i + 1][j + 1] = A[i] === B[j] ? dp[i][j] + 1 : Math.max(dp[i + 1][j], dp[i][j + 1]);
+      dp[i + 1][j + 1] = A[i].key === B[j].key ? dp[i][j] + 1 : Math.max(dp[i + 1][j], dp[i][j + 1]);
     }
   }
   const inLCS_A = new Array(m).fill(false);
   const inLCS_B = new Array(n).fill(false);
   let i = m, j = n;
   while (i > 0 && j > 0) {
-    if (A[i - 1] === B[j - 1]) {
+    if (A[i - 1].key === B[j - 1].key) {
       inLCS_A[i - 1] = true;
       inLCS_B[j - 1] = true;
       i--; j--;
@@ -553,8 +666,8 @@ function diffHighlightPair(a, b) {
       j--;
     }
   }
-  const wrap = (chars, mask) => chars.map((ch, idx) =>
-    mask[idx] ? escapeHtml(ch) : `<span class="stem-diff">${escapeHtml(ch)}</span>`
+  const wrap = (units, mask) => units.map((u, idx) =>
+    mask[idx] ? escapeHtml(u.full) : `<span class="stem-diff">${escapeHtml(u.full)}</span>`
   ).join('');
   return { aHtml: wrap(A, inLCS_A), bHtml: wrap(B, inLCS_B) };
 }
