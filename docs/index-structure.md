@@ -96,7 +96,7 @@ data files are plain `defer` globals that publish onto `window`.
 Groups, in order:
 
 - **Core data (643–647):** `words.js`, `morphology.js`, `lemma_inventory.js`, `supplemental.js`, `grammar.js`
-- **Mounce paradigm + flip supplements (648–653):** `mounce_paradigms.js` (single Mounce-wide paradigm table — duff splits into `week_N_paradigms.js`), `stem_change_drills.js`, then chapter-mapped flip sets: `second_aorist_flip.js` (Ch 11), `w3_aorist_passive_flip.js` (Ch 14), `w3_perfect_active_flip.js` (Ch 15), `w4_mi_verb_principal_parts_flip.js` (Ch 18). The `wN_` prefix is the Mounce Part number, not a week.
+- **Mounce paradigm + flip supplements (648–653):** `mounce_paradigms.js` (single Mounce-wide paradigm table — duff splits into `week_N_paradigms.js`), `stem_change_drills.js`, then chapter-mapped flip sets: `second_aorist_flip.js` (`W3_SECOND_AORIST_FLIP`, Ch 22), `liquid_future_flip.js` (`W3_LIQUID_FUTURE_FLIP`, Ch 20), `w3_aorist_passive_flip.js` (Ch 14), `w3_perfect_active_flip.js` (Ch 15), `w4_mi_verb_principal_parts_flip.js` (Ch 18). The `wN_` prefix is the Mounce Part number, not a week. Each flip card carries an optional `stem` (printed inline on both faces by `render.js`) and `keyVerb` (renders a "★ key verb" badge); `render.js`'s `verbStemAltHtml` derives the bracketed "2 aor."/"fut." rows on standard chapter-vocab verb cards from these two sets, so they are the single source for those annotations.
 - **Advanced vocabulary buckets (654–678):** `advanced/advanced_NN.js` (currently 01–25)
 - **Reader (679–681):** `reader.js`, `reader_verse_literals.js`, `reader_translations.js`
 - **Logic (682):** `pos_logic.js` (intentionally loaded before main)

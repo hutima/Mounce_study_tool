@@ -640,6 +640,68 @@
     margin: 8px auto 0;
     max-width: 90%;
   }
+  /* Second-aorist annotation under a chapter-vocab verb's headword: the
+   * bracketed aorist form in smaller Greek, paired with a tiny "2 aor." tag
+   * so the present/aorist stems are associated at a glance. */
+  .card-aorist-alt {
+    font-family: var(--font-greek);
+    font-size: clamp(15px, 2.8vw, 20px);
+    color: var(--gold-dim);
+    text-align: center;
+    letter-spacing: 1px;
+    margin-top: -2px;
+    margin-bottom: 8px;
+  }
+  .card-aorist-alt-label {
+    font-family: var(--font-display);
+    font-size: 10px;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-right: 4px;
+    vertical-align: middle;
+  }
+  /* Liquid-future annotation — same treatment as the aorist row, so a verb
+   * that is both a 2nd aorist and a liquid future stacks two extra rows under
+   * the headword. */
+  .card-future-alt {
+    font-family: var(--font-greek);
+    font-size: clamp(15px, 2.8vw, 20px);
+    color: var(--gold-dim);
+    text-align: center;
+    letter-spacing: 1px;
+    margin-top: -4px;
+    margin-bottom: 8px;
+  }
+  .card-future-alt-label {
+    font-family: var(--font-display);
+    font-size: 10px;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-right: 4px;
+    vertical-align: middle;
+  }
+  /* "★ key verb" badge on stem-flip cards for the high-frequency verbs.
+   * Small gold tag centered above the form. */
+  .card-key-verb {
+    font-family: var(--font-display);
+    font-size: 10px;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    color: var(--gold);
+    text-align: center;
+    margin-bottom: 2px;
+    opacity: 0.9;
+  }
+  /* Verbal stem printed inline after the form (", λαβ-") on both faces of a
+   * stem-flip card. Smaller and muted so the inflected form stays dominant. */
+  .card-stem-inline {
+    font-size: 0.6em;
+    color: var(--gold-dim);
+    letter-spacing: 0.5px;
+    white-space: nowrap;
+  }
   .stem-diff {
     color: #e7a55a;
     font-weight: 600;
