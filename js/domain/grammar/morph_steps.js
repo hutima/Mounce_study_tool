@@ -341,6 +341,73 @@ export function computeAccessibleDimensionPools(cards) {
   return out;
 }
 
+// Short "how to tell it apart" hints for forms that are easy to confuse with a
+// neighbouring parse. Triggered off the parsed dimensions (reliable) and worded
+// to stay true across the regular ω-verb, contract, μι-, and deponent
+// paradigms the drill covers — each hint names the exception where the simple
+// rule breaks (liquid futures, 2nd-aorist passives) rather than overclaiming.
+// Shown in the forward (Greek → English) walk summary, alongside the
+// ambiguous-imperative note. Returns [] when nothing applies.
+//
+// Kept to patterns whose distinguishing marker is genuinely systematic:
+// present↔future σ, the past-indicative augment (+ the imperfect ‑ον 1sg/3pl
+// syncretism), the aorist-passive ‑θη‑, perfect/pluperfect reduplication, the
+// participle suffix/declension tells, and the infinitive endings. (The aorist's
+// ‑σα‑ is intentionally NOT hinted — κ-aorists ἔδωκα, 2nd aorists, and liquid
+// aorists ἔμεινα all break it.)
+export function confusableFormHints(answer, parsedDims, form) {
+  const dims = parsedDims || parseAnswerDimensions(answer || '');
+  if (!dims) return [];
+  const { tense, voice, mood } = dims;
+  const isMiddlePassive = voice === 'middle' || voice === 'passive' || voice === 'middle/passive';
+  const formNfc = form ? String(form).normalize('NFC').trim() : '';
+  const hints = [];
+  // Present ↔ future: the tense-forming σ — the single most-confused contrast
+  // in the regular paradigm (λύει vs λύσει). Holds for active and
+  // middle/passive; the 2 pl. m/p is the cleanest tell (one σ vs two).
+  if ((tense === 'present' || tense === 'future') && mood === 'indicative') {
+    hints.push(isMiddlePassive
+      ? 'Present vs future middle/passive: the future slots a σ before the ending — λύομαι → λύσομαι, and 2 pl. λύεσθε (one σ) → λύσεσθε (two σ). Liquid/nasal stems (μένω, κρίνω) hide the σ and contract instead: μενοῦμαι.'
+      : 'Present vs future active: the future slots a σ between stem and ending — λύω → λύσω, λύει → λύσει. Liquid/nasal stems (μένω, κρίνω) hide the σ and contract instead: μενῶ.');
+  }
+  // Augment = a past-tense indicative. Imperfect, aorist, and pluperfect
+  // indicatives all carry an augment; it appears ONLY in the indicative, so it
+  // cleanly separates e.g. the aorist indicative ἔλυσα from the augmentless
+  // aorist subjunctive λύσω / infinitive λῦσαι / participle λύσας, and the
+  // imperfect from the present. (Perfect is excluded — it reduplicates instead
+  // of augmenting.)
+  const isPastIndicative = mood === 'indicative'
+    && (tense === 'imperfect' || tense === 'aorist' || tense === 'first aorist'
+        || tense === 'second aorist' || tense === 'pluperfect');
+  if (isPastIndicative) {
+    hints.push('Augment = a past-tense indicative: a prefixed ἐ‑/ἔ‑ (ἔλυον, ἔλυσα, ἐλύθην) or a lengthened initial vowel (ἀκούω → ἤκουον); in compounds it sits after the prefix (ἀπ‑έ‑θανον). It shows up only in the indicative — the same tense’s subjunctive, infinitive, and participle have no augment (λύσω, λῦσαι, λύσας).');
+  }
+  // Imperfect active ‑ον is identical in the 1 sg. and 3 pl. (ἔλυον). Flag it
+  // only when the form actually shows that ending, so it never misfires on a
+  // μι-verb (ἐδίδουν 1 sg. ≠ ἐδίδοσαν 3 pl.).
+  if (tense === 'imperfect' && mood === 'indicative' && /ον$/.test(formNfc)) {
+    hints.push('Imperfect active ‑ον is spelt the same in the 1 sg. and the 3 pl. (ἔλυον = “I was untying” or “they were untying”) — only context tells them apart.');
+  }
+  // Aorist passive: the ‑θη‑ infix.
+  if (tense === 'aorist' && voice === 'passive') {
+    hints.push('Aorist passive: the ‑θη‑ infix is the tell (ἐ‑λύ‑θη‑ν, ἐ‑λύ‑θη‑ς …). A few verbs take a bare ‑η‑ instead — the 2nd aorist passive, e.g. ἐ‑γράφ‑η‑ν.');
+  }
+  // Perfect / pluperfect: reduplication is the signature.
+  if (tense === 'perfect' || tense === 'pluperfect') {
+    hints.push('Perfect/pluperfect: the reduplication (usually the initial consonant + ε — λέ‑λυκα, λέ‑λυμαι) marks the stem, and the active usually adds a ‑κ‑ (λέλυκα). The pluperfect prefixes an augment on top (ἐ‑λελύκειν).');
+  }
+  // Participle: the suffix carries voice, and the declension pattern tells you
+  // where case/gender live.
+  if (mood === 'participle') {
+    hints.push('Participle voice is in the suffix: ‑μενος/‑μένη/‑μενον is middle or middle/passive (λυόμενος, λυσάμενος, λελυμένος) — never active. The aorist passive is the exception, ending ‑(θ)είς (λυθείς; a few verbs drop the θ — γραφείς). The active ‑ων/‑ας/‑ώς types and ‑θείς decline 3rd-declension in the masc./neut. and 1st-declension in the fem. (λύων, λύουσα, λῦον; gen. λύοντος, λυούσης), so case and gender show in the ending; ‑μενος types decline like a 2-1-2 adjective.');
+  }
+  // Infinitive endings: four shapes, three of them ending in ‑αι.
+  if (mood === 'infinitive') {
+    hints.push('Infinitives end in ‑ειν, ‑σαι, ‑ναι, or ‑σθαι — three of the four close in ‑αι. ‑σθαι is middle/passive (λύεσθαι); ‑ναι covers the aorist passive (λυθῆναι), perfect active (λελυκέναι), and μι-verbs/εἰμί (διδόναι, εἶναι); ‑σαι is the 1st-aorist active (λῦσαι); ‑ειν is the present/future and 2nd-aorist active (λύειν, εἰπεῖν).');
+  }
+  return hints;
+}
+
 // When the student picks a mood that requires more dimensions than the
 // source card's parse class supplied, returns the dim keys to inject as
 // ungraded follow-up steps. Example: card λῦε is a 2-singular imperative
@@ -410,6 +477,208 @@ export function structuralImpossibilityReason(pickedDims) {
     if (entry.tense === tense && entry.mood === mood) return entry.why;
   }
   return null;
+}
+
+// ─── Paradigm-level value gaps ───────────────────────────────────────────
+//
+// Some paradigms own a dimension but carry only a subset of its values. The
+// first/second personal pronouns (ἐγώ, σύ) inflect for person — but only
+// first and second; the third-person personal pronoun is a separate paradigm
+// (αὐτός). The person step still offers "third" as a distractor (any verb in
+// scope seeds all three persons into the shared pool), so a student can pick a
+// person the focused paradigm structurally lacks. When that happens there's no
+// form to resolve and no point marching through the remaining dimensions — the
+// walk should cut off and explain the gap, the same way
+// structuralImpossibilityReason ends an impossible tense/mood walk.
+const PERSON_GLOSS = { first: 'first', second: 'second', third: 'third' };
+
+// Curated structural gaps asserted from Greek morphology — NOT inferred from
+// drilled data. Used only for gaps that present-values can't safely detect,
+// because the missing value is also undrilled for paradigms that DO have it
+// (most nouns never drill their vocative, so absence-in-data ≠ no-such-form).
+// Keyed by focused-paradigm lemma → the dim values that genuinely don't exist
+// for it. The Greek article and every pronoun inflect for the nominative,
+// accusative, genitive, and dative only — they have NO vocative case. Nouns and
+// adjectives DO have a vocative, so they are deliberately absent here.
+// NB: keys are Mounce's paradigm-lemma strings (see paradigm_focus.js).
+const PARADIGM_STRUCTURAL_GAPS = {
+  'ὁ, ἡ, τό':           { case: ['vocative'] }, // the article
+  'ἐγώ':                { case: ['vocative'] }, // 1st-person pronoun
+  'σύ':                 { case: ['vocative'] }, // 2nd-person pronoun
+  'αὐτός':              { case: ['vocative'] }, // intensive / 3rd-person
+  'οὗτος, αὕτη, τοῦτο': { case: ['vocative'] }, // demonstrative "this"
+  'ἐκεῖνος, -η, -ο':    { case: ['vocative'] }, // demonstrative "that"
+  'ὅς, ἥ, ὅ':           { case: ['vocative'] }  // relative
+};
+
+// Set of values the focused paradigm actually carries per dimension, derived
+// from its full (unfiltered) card pool. Composite values split so a paradigm
+// tagged "first/second" registers both members. Consumed by paradigmGapReason.
+export function computeParadigmPresentValues(cards) {
+  const dimKeys = ['aspect', 'tense', 'voice', 'mood', 'person', 'case', 'number', 'gender'];
+  const present = {};
+  dimKeys.forEach((k) => { present[k] = new Set(); });
+  (cards || []).forEach((card) => {
+    if (!card) return;
+    const dims = parseAnswerDimensions(card.parsedAnswer || card.answer || '');
+    dimKeys.forEach((k) => {
+      if (!dims[k]) return;
+      String(dims[k]).split('/').forEach((v) => { if (v) present[k].add(v); });
+    });
+  });
+  return present;
+}
+
+// Returns { dim, picked, short, note } when the student's picks name a person
+// the focused paradigm has no forms for, or null otherwise. `presentValues`
+// comes from computeParadigmPresentValues over the paradigm's full pool.
+export function paradigmGapReason(pickedDims, presentValues, lemma) {
+  if (!pickedDims || !presentValues) return null;
+  const personGap = personGapReason(pickedDims, presentValues);
+  if (personGap) return personGap;
+  const curated = lemma ? PARADIGM_STRUCTURAL_GAPS[lemma] : null;
+  if (curated) {
+    const curatedGap = curatedGapReason(pickedDims, presentValues, curated);
+    if (curatedGap) return curatedGap;
+  }
+  return null;
+}
+
+function personGapReason(pickedDims, presentValues) {
+  const picked = pickedDims.person;
+  const pool = presentValues.person;
+  if (!picked || !pool || pool.size === 0) return null; // no person dim → nothing to gate
+  // Only gate person for a person-bearing paradigm that is NOT a verb — i.e.
+  // it has no tense in any of its forms. That's the 1st/2nd personal pronouns
+  // (ἐγώ, σύ). Verbs always conjugate all three persons, so a verb paradigm
+  // that happened to drill only some persons must not look like it "lacks" one.
+  const tensePool = presentValues.tense;
+  if (tensePool && tensePool.size > 0) return null;
+  if (pool.has(picked)) return null;                     // picked person exists here → fine
+  const pickedGloss = PERSON_GLOSS[picked] || picked;
+  const have = ['first', 'second', 'third'].filter((p) => pool.has(p)).map((p) => PERSON_GLOSS[p] || p);
+  const haveList = have.length <= 1 ? `${have[0] || ''} person` : `${have.join(' and ')} person`;
+  let note = `This paradigm has no ${pickedGloss}-person forms — only ${haveList}.`;
+  if (picked === 'third') {
+    note += ' The third-person personal pronoun is a separate paradigm (αὐτός).';
+  }
+  return {
+    dim: 'person',
+    picked,
+    short: `no ${pickedGloss}-person form in this paradigm`,
+    note
+  };
+}
+
+// The picked value for some dim is in the paradigm's declared-lacking list AND
+// isn't actually drilled (the guard trusts data over a stale curated entry).
+// Currently only case=vocative for the article + pronouns.
+function curatedGapReason(pickedDims, presentValues, curated) {
+  for (const dim of Object.keys(curated)) {
+    const pickedVal = pickedDims[dim];
+    const lacking = curated[dim];
+    if (!pickedVal || !Array.isArray(lacking) || !lacking.includes(pickedVal)) continue;
+    const dimPool = presentValues[dim];
+    if (dimPool && dimPool.has(pickedVal)) continue; // paradigm actually drills it → trust data
+    if (dim === 'case' && pickedVal === 'vocative') {
+      return {
+        dim,
+        picked: pickedVal,
+        short: 'no vocative in this paradigm',
+        note: 'Pronouns and the article have no vocative case — they inflect for the nominative, accusative, genitive, and dative only.'
+      };
+    }
+    return {
+      dim,
+      picked: pickedVal,
+      short: `no ${pickedVal} ${dim} in this paradigm`,
+      note: `This paradigm has no ${pickedVal} ${dim}.`
+    };
+  }
+  return null;
+}
+
+// Pedagogical hints appended to a lemma's inventory-gap note, keyed by lemma.
+const LEMMA_GAP_HINTS = {
+  'εἰμί': 'εἰμί is suppletive — its aorist and perfect senses come from other verbs (e.g. ἐγενόμην, γέγονα).'
+};
+
+// Gap descriptor from a lemma's reviewed negative inventory
+// (impossibleTenses / impossibleVoices / impossibleMoods in
+// js/data/lemma_inventory.js): a tense/voice/mood the lemma genuinely lacks in
+// Greek — e.g. the non-existent aorist of εἰμί. Returns { dim, picked, short,
+// note } or null. Reads ONLY the hand-curated inventory; it never infers a gap
+// from forms that merely aren't drilled. Mirrors render.js's
+// isParseImpossibleForLemma, but produces the early-cutoff reason rather than
+// the end-of-walk "[no morph exists]" verdict.
+export function lemmaInventoryGapReason(pickedDims, inv, lemma) {
+  if (!pickedDims || !inv) return null;
+  const lemmaName = lemma || 'this verb';
+  const checks = [
+    ['tense', inv.impossibleTenses],
+    ['voice', inv.impossibleVoices],
+    ['mood',  inv.impossibleMoods]
+  ];
+  for (const [dim, list] of checks) {
+    const picked = pickedDims[dim];
+    if (!picked || !Array.isArray(list) || !list.length) continue;
+    const parts = String(picked).split('/').filter(Boolean);
+    const bad = parts.find((p) => list.includes(p));
+    if (!bad) continue;
+    const norm = bad.replace(/^(first |second )/, ''); // "first aorist" → "aorist"
+    let note = `${lemmaName} has no ${norm} forms in Koine.`;
+    const hint = LEMMA_GAP_HINTS[lemma];
+    if (hint) note += ` ${hint}`;
+    return {
+      dim,
+      picked: bad,
+      short: `no ${norm} ${dim} for ${lemmaName}`,
+      note
+    };
+  }
+  return null;
+}
+
+// ─── Accent / breathing look-alike distractors ──────────────────────────
+//
+// Curated minimal pairs: a drilled paradigm form and another Greek word that
+// is spelled identically except for accent or breathing. In the reverse drill
+// (English → Greek, pick the form) the look-alike is a clean "did you read the
+// accent?" distractor. Toggle-optional, off by default. Hand-authored.
+// Keyed by the tested form (NFC).
+const ACCENT_LOOKALIKES_RAW = {
+  // Article (proclitic, unaccented) ↔ relative pronoun (accented) — accent only
+  'ὁ':  [{ form: 'ὅ',  note: 'ὅ (accented) is the relative pronoun (neut.); ὁ is the masculine article.' }],
+  'ὅ':  [{ form: 'ὁ',  note: 'ὁ (unaccented) is the masculine article; ὅ is the relative pronoun (neut.).' }],
+  'ἡ':  [{ form: 'ἥ',  note: 'ἥ (accented) is the relative pronoun (fem.); ἡ is the feminine article.' }],
+  'ἥ':  [{ form: 'ἡ',  note: 'ἡ (unaccented) is the feminine article; ἥ is the relative pronoun (fem.).' }],
+  'οἱ': [{ form: 'οἵ', note: 'οἵ (accented) is the relative pronoun (masc. pl.); οἱ is the masculine article.' }],
+  'οἵ': [{ form: 'οἱ', note: 'οἱ (unaccented) is the masculine article; οἵ is the relative pronoun (masc. pl.).' }],
+  'αἱ': [{ form: 'αἵ', note: 'αἵ (accented) is the relative pronoun (fem. pl.); αἱ is the feminine article.' }],
+  'αἵ': [{ form: 'αἱ', note: 'αἱ (unaccented) is the feminine article; αἵ is the relative pronoun (fem. pl.).' }],
+  // Intensive αὐτός ↔ near demonstrative οὗτος — breathing (+ accent placement)
+  'αὐτή': [{ form: 'αὕτη', note: 'αὕτη (rough breathing) is the demonstrative “this”; αὐτή (smooth) is αὐτός “she / herself”.' }],
+  'αὕτη': [{ form: 'αὐτή', note: 'αὐτή (smooth breathing) is αὐτός “she / herself”; αὕτη (rough) is the demonstrative “this”.' }],
+  // εἰμί 2 sg. ↔ conjunction — accent only
+  'εἶ':  [{ form: 'εἰ',  note: 'εἰ is the conjunction “if”; εἶ (circumflex) is εἰμί “you are”.' }]
+};
+
+// NFC-normalized index, built once, so lookups match regardless of the
+// composed/decomposed form of the incoming card's Greek string.
+const ACCENT_LOOKALIKES = (() => {
+  const out = {};
+  for (const [key, twins] of Object.entries(ACCENT_LOOKALIKES_RAW)) {
+    out[key.normalize('NFC')] = twins.map((t) => ({ form: String(t.form).normalize('NFC'), note: t.note }));
+  }
+  return out;
+})();
+
+// Returns the curated accent/breathing look-alikes for a tested form
+// ([{ form, note }, …]), or [] when none. NFC-normalizes the query.
+export function accentLookalikesFor(form) {
+  if (!form) return [];
+  const key = String(form).trim().normalize('NFC');
+  return ACCENT_LOOKALIKES[key] || [];
 }
 
 // Builds an ungraded follow-up step for the given dimension. Choices come

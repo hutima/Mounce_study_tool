@@ -217,6 +217,7 @@ export function buildPersistedStatePayload(options = {}) {
     includeOptionalForms: runtime.includeOptionalForms,
     excludeKnownMorphs: runtime.excludeKnownMorphs,
     parsingReverse: runtime.parsingReverse,
+    accentLookalikes: runtime.accentLookalikes,
     optionalFormFilters: runtime.optionalFormFilters,
     analyticsVocabDirection: runtime.analyticsVocabDirection,
     analyticsVocabScope: runtime.analyticsVocabScope,
@@ -303,6 +304,7 @@ function sanitizeImportedState(candidate) {
   // standard Mounce-aligned card set as their baseline.
   state.includeOptionalForms = !!candidate.includeOptionalForms;
   state.parsingReverse = !!candidate.parsingReverse;
+  state.accentLookalikes = !!candidate.accentLookalikes;
   // Exclude-known-morphs toggle defaults to false (off). "Known" means a
   // strict 2/2 — the form's last two recorded attempts were both fully
   // correct under the current dim toggles.
@@ -997,6 +999,8 @@ export function restoreState() {
     runtime.excludeKnownMorphs = !!saved.excludeKnownMorphs;
     // English → Greek parsing direction (default false).
     runtime.parsingReverse = !!saved.parsingReverse;
+    // Accent/breathing look-alike distractors in the reverse drill (default false).
+    runtime.accentLookalikes = !!saved.accentLookalikes;
     // Per-category sub-filters: default each to true if missing.
     const OPTIONAL_FILTER_KEYS = ['imperative', 'subjunctive', 'infinitive', 'participle', 'thirdPerson', 'futureTense', 'perfectTense'];
     const savedFilters = (saved.optionalFormFilters && typeof saved.optionalFormFilters === 'object') ? saved.optionalFormFilters : {};

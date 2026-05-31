@@ -8,7 +8,7 @@
 import { runtime } from '../state/runtime.js';
 import { buildGrammarSupportHtml } from '../domain/grammar/explanations.js';
 import { renderProgress, renderReview } from './progress.js';
-import { buildMorphSteps, summarizeLemmaStats, getParadigmStepAttemptWindow, computeAccessibleDimensionPools, parseAnswerDimensions, aspectMistakeNote, isSecondPluralPresentMoodAmbiguity } from '../domain/grammar/morph_steps.js';
+import { buildMorphSteps, summarizeLemmaStats, getParadigmStepAttemptWindow, computeAccessibleDimensionPools, parseAnswerDimensions, aspectMistakeNote, isSecondPluralPresentMoodAmbiguity, computeParadigmPresentValues, accentLookalikesFor, confusableFormHints } from '../domain/grammar/morph_steps.js';
 import { getAccessibleMorphCards, deriveSelectionLevels, buildMultiGenderLemmas } from '../domain/grammar/paradigm_focus.js';
 
 let host = {
@@ -30,7 +30,12 @@ let host = {
   transliterateGreek: (s) => s,
   detectPartOfSpeech: () => '',
   isMultiCasePreposition: () => false,
-  getEnabledParsingDims: () => null
+  getEnabledParsingDims: () => null,
+  // Full focused-paradigm card pool (chapter-gated, but NOT pruned by the
+  // exclude-known filter or per-value dim filters) — the structural truth of
+  // what forms the paradigm owns. Used to detect value gaps like ἐγώ/σύ
+  // having no third-person forms. Returns [] outside parsing mode.
+  getFocusedParadigmAllCards: () => []
 };
 
 export function configureRender(deps) {
@@ -478,12 +483,24 @@ function ensureStepStateForCard(card) {
     dimValueFilters: runtime.dimValueFilters,
     multiGenderLemmas
   });
+  // Values the focused paradigm actually carries per dimension, from its full
+  // (unfiltered) pool. Lets answerMorphologyStep cut the walk off when a pick
+  // names a value the paradigm structurally lacks — e.g. "third person" for
+  // ἐγώ/σύ, which has only 1st/2nd-person forms. Falls back to the current
+  // card's own dims so a present-only-truth still includes the right answer
+  // when the full pool is unavailable.
+  const paradigmCards = host.getFocusedParadigmAllCards();
+  const paradigmPresentValues = computeParadigmPresentValues(
+    Array.isArray(paradigmCards) && paradigmCards.length ? paradigmCards : [card]
+  );
   runtime.morphStepState = {
     cardId: card.id,
     steps,
     stepIdx: 0,
     answers: new Array(steps.length).fill(null),
     completed: steps.length === 0,
+    // Per-dimension value sets for the focused paradigm (gap detection).
+    paradigmPresentValues,
     // Kept on state so answerMorphologyStep can build ungraded follow-up
     // steps with the same chapter-gated MC choices the original steps
     // were drawn from (avoids re-computing on every answer).
@@ -1082,7 +1099,7 @@ function renderMorphStepSummary(card, state) {
     // A null answer means the walk ended before this step (structural
     // impossibility short-circuit). Render neutral, no ✓/✗ — these were
     // never asked, so they're not graded.
-    if (!answer && state.structuralImpossibility) {
+    if (!answer && (state.structuralImpossibility || state.paradigmGap)) {
       return `
         <div class="morph-step-summary-row morph-step-inferred">
           <span class="morph-step-summary-dim">${escapeHtml(step.label)}</span>
@@ -1147,7 +1164,8 @@ function renderMorphStepSummary(card, state) {
   // A structural impossibility (e.g. future imperative) trumps any lemma
   // lookup — show the specific reason instead of the generic "[no morph
   // exists]" we'd fall back to from the inventory check.
-  const structReason = state.structuralImpossibility && state.structuralImpossibility.reason;
+  const structReason = (state.structuralImpossibility && state.structuralImpossibility.reason)
+    || (state.paradigmGap && state.paradigmGap.short);
   let yourFormHtml;
   if (structReason) {
     yourFormHtml = `<div class="morph-step-parse-match morph-step-parse-match-impossible">[${escapeHtml(structReason)}]</div>`;
@@ -1203,12 +1221,46 @@ function renderMorphStepSummary(card, state) {
     ? `<div class="morph-step-ambig-note"><span class="morph-step-ambig-label">Ambiguous form</span> 2nd-plural present is spelt the same in the indicative and the imperative — only context picks the mood. Either reading is accepted.</div>`
     : '';
 
+  // "How to tell it apart" hints for forms that are easy to confuse with a
+  // neighbouring parse (e.g. present vs future — the σ). Tucked behind a
+  // collapsed "Hint" disclosure so the summary stays short; the ambiguity note
+  // above is deliberately NOT collapsed (it explains why a mark was accepted).
+  const tellApartItems = confusableFormHints(card.parsedAnswer || card.answer, parseAnswerDimensions(card.parsedAnswer || card.answer), card.form);
+  const tellApartHints = tellApartItems.length
+    ? `<details class="morph-step-hint">
+         <summary class="morph-step-hint-summary">Hint</summary>
+         <div class="morph-step-hint-body">${tellApartItems.map((hint) => `<div class="morph-step-hint-note">${escapeHtml(hint)}</div>`).join('')}</div>
+       </details>`
+    : '';
+
+  // Paradigm-gap note: the student picked a value the focused paradigm has no
+  // forms for (e.g. third person for ἐγώ/σύ), so the walk cut off early. Name
+  // the gap so the dropped downstream steps don't read as a bug.
+  const paradigmGapNote = state.paradigmGap
+    ? `<div class="morph-step-gap-note"><span class="morph-step-gap-label">No such form</span> ${escapeHtml(state.paradigmGap.note)}</div>`
+    : '';
+
+  // Inferred-person note: an imperative form has no person contrast in Koine
+  // (it's 2nd person by default), so its walk omits the Person step entirely.
+  // When the student instead picks a finite mood (indicative/subjunctive), we
+  // inject an ungraded Person step so their picks still resolve to a single
+  // form — but the resulting row carries no ✓/✗, which reads like a bug
+  // without explanation. Name why the row is ungraded.
+  const gradedMoodStep = state.steps.find((s) => s.key === 'mood' && !s.inferred);
+  const hasInferredPerson = state.steps.some((s) => s.key === 'person' && s.inferred);
+  const personInferredNote = (hasInferredPerson && gradedMoodStep && gradedMoodStep.correct === 'imperative')
+    ? `<div class="morph-step-person-note"><span class="morph-step-person-label">Person not graded</span> the imperative is 2nd person by default, so ${escapeHtml(card.form || card.lemma)} is parsed without a person — picking a finite mood is what added the Person step, so it isn't scored.</div>`
+    : '';
+
   return `
     <div class="morph-step-summary">
       <div class="morph-step-summary-title">Parse complete — ${escapeHtml(totalStr)}</div>
       <div class="morph-step-summary-body">${rows}</div>
       ${youParseLine}
+      ${paradigmGapNote}
       ${ambigNote}
+      ${tellApartHints}
+      ${personInferredNote}
       ${stemChangeNote}
       ${recentLine}
       <div class="morph-step-summary-meta">${escapeHtml(card.lemma)}${card.family ? ' · ' + escapeHtml(card.family) : ''}</div>
@@ -1274,6 +1326,22 @@ function ensureReverseChoices(card) {
   const targetKey = reverseParseKey(card, enabledDims);
   const seenForms = new Set([String(correctForm).trim()]);
   const distractors = [];
+  let lookalikeNote = '';
+  // Accent / breathing look-alike distractor (toggle-optional, off by default):
+  // a curated twin that differs from the tested form only by accent/breathing
+  // and is a different word. Added before the pool distractors so it survives
+  // the 3-distractor cap, and never via the pool's same-parse filter (its whole
+  // point is that it shares the dimensions but not the spelling).
+  if (runtime.accentLookalikes) {
+    for (const twin of accentLookalikesFor(correctForm)) {
+      if (distractors.length >= 3) break;
+      const tform = String(twin.form).trim();
+      if (!tform || seenForms.has(tform)) continue;
+      seenForms.add(tform);
+      distractors.push(twin.form);
+      if (!lookalikeNote) lookalikeNote = twin.note;
+    }
+  }
   shuffleInPlace([...pool]).forEach((c) => {
     if (distractors.length >= 3) return;
     if (!c || !c.form) return;
@@ -1284,7 +1352,7 @@ function ensureReverseChoices(card) {
     distractors.push(c.form);
   });
   const options = shuffleInPlace([correctForm, ...distractors]);
-  const state = { cardId: card.id, options, correctForm };
+  const state = { cardId: card.id, options, correctForm, lookalikeNote };
   runtime.parsingReverseState = state;
   return state;
 }
@@ -1292,7 +1360,7 @@ function ensureReverseChoices(card) {
 function renderParsingReverseCard(area, card) {
   const enabledDims = host.getEnabledParsingDims();
   const parseLine = reverseParseLine(card, enabledDims);
-  const { options, correctForm } = ensureReverseChoices(card);
+  const { options, correctForm, lookalikeNote } = ensureReverseChoices(card);
   const answered = runtime.morphAnswerState.answered;
   const selectedIdx = runtime.morphAnswerState.selectedIndex;
 
@@ -1321,11 +1389,18 @@ function renderParsingReverseCard(area, card) {
     const glossLine = (card.gloss || card.lemmaGloss)
       ? `<div class="morph-gloss">Gloss: “${escapeHtml(card.gloss || card.lemmaGloss)}”</div>`
       : '';
+    // When an accent/breathing look-alike was offered, name the distinction
+    // after the answer (whether they hit or missed) so the spelling contrast
+    // is reinforced.
+    const lookalikeHtml = lookalikeNote
+      ? `<div class="morph-step-ambig-note"><span class="morph-step-ambig-label">Accent / breathing</span> ${escapeHtml(lookalikeNote)}</div>`
+      : '';
     resultHtml = `<div class="morph-result ${isCorrect ? 'correct' : 'incorrect'}">
         <div class="morph-result-title">${isCorrect ? 'Correct' : 'Not quite'}</div>
         <div class="morph-result-body">${escapeHtml(parseLine)} = ${escapeHtml(correctForm)}</div>
         <div class="morph-result-meta">${escapeHtml(card.lemma || '')}${card.family ? ` · ${escapeHtml(card.family)}` : ''}</div>
         ${glossLine}
+        ${lookalikeHtml}
       </div>`;
   }
 

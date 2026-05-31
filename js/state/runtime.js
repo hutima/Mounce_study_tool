@@ -105,6 +105,10 @@ export const runtime = {
   // stable across re-renders of the same card (answer feedback re-renders
   // the card). Rebuilt whenever the focused card changes. Not persisted.
   parsingReverseState: { cardId: null, options: [], correctForm: '' },
+  // Reverse-drill option: include curated accent/breathing look-alike forms
+  // (e.g. relative ἥ vs article ἡ) as distractors so the student has to read
+  // the accent/breathing, not just the letters. Off by default.
+  accentLookalikes: false,
   paradigmStepStats: { byLemma: {} },
   // Whether the parsing walk asks an explicit Aspect step before Tense.
   // Aspect is derivable from tense (present/future → continuous/undefined,
