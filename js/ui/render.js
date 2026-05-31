@@ -1221,12 +1221,17 @@ function renderMorphStepSummary(card, state) {
     ? `<div class="morph-step-ambig-note"><span class="morph-step-ambig-label">Ambiguous form</span> 2nd-plural present is spelt the same in the indicative and the imperative — only context picks the mood. Either reading is accepted.</div>`
     : '';
 
-  // "How to tell it apart" hints for forms easy to confuse with a neighbouring
-  // parse (e.g. present vs future middle/passive — the σ). Shown on every walk
-  // of a matching form, like the ambiguity note above.
-  const tellApartHints = confusableFormHints(card.parsedAnswer || card.answer, parseAnswerDimensions(card.parsedAnswer || card.answer), card.form)
-    .map((hint) => `<div class="morph-step-ambig-note"><span class="morph-step-ambig-label">How to tell</span> ${escapeHtml(hint)}</div>`)
-    .join('');
+  // "How to tell it apart" hints for forms that are easy to confuse with a
+  // neighbouring parse (e.g. present vs future — the σ). Tucked behind a
+  // collapsed "Hint" disclosure so the summary stays short; the ambiguity note
+  // above is deliberately NOT collapsed (it explains why a mark was accepted).
+  const tellApartItems = confusableFormHints(card.parsedAnswer || card.answer, parseAnswerDimensions(card.parsedAnswer || card.answer), card.form);
+  const tellApartHints = tellApartItems.length
+    ? `<details class="morph-step-hint">
+         <summary class="morph-step-hint-summary">Hint</summary>
+         <div class="morph-step-hint-body">${tellApartItems.map((hint) => `<div class="morph-step-hint-note">${escapeHtml(hint)}</div>`).join('')}</div>
+       </details>`
+    : '';
 
   // Paradigm-gap note: the student picked a value the focused paradigm has no
   // forms for (e.g. third person for ἐγώ/σύ), so the walk cut off early. Name

@@ -350,11 +350,11 @@ export function computeAccessibleDimensionPools(cards) {
 // ambiguous-imperative note. Returns [] when nothing applies.
 //
 // Kept to patterns whose distinguishing marker is genuinely systematic:
-// present↔future σ, the imperfect augment (+ the ‑ον 1sg/3pl syncretism),
-// the aorist-passive ‑θη‑, perfect/pluperfect reduplication, the participle
-// suffix/declension tells, and the infinitive endings. (The aorist's ‑σα‑ is
-// intentionally NOT hinted — κ-aorists ἔδωκα, 2nd aorists, and liquid aorists
-// ἔμεινα all break it.)
+// present↔future σ, the past-indicative augment (+ the imperfect ‑ον 1sg/3pl
+// syncretism), the aorist-passive ‑θη‑, perfect/pluperfect reduplication, the
+// participle suffix/declension tells, and the infinitive endings. (The aorist's
+// ‑σα‑ is intentionally NOT hinted — κ-aorists ἔδωκα, 2nd aorists, and liquid
+// aorists ἔμεινα all break it.)
 export function confusableFormHints(answer, parsedDims, form) {
   const dims = parsedDims || parseAnswerDimensions(answer || '');
   if (!dims) return [];
@@ -370,14 +370,23 @@ export function confusableFormHints(answer, parsedDims, form) {
       ? 'Present vs future middle/passive: the future slots a σ before the ending — λύομαι → λύσομαι, and 2 pl. λύεσθε (one σ) → λύσεσθε (two σ). Liquid/nasal stems (μένω, κρίνω) hide the σ and contract instead: μενοῦμαι.'
       : 'Present vs future active: the future slots a σ between stem and ending — λύω → λύσω, λύει → λύσει. Liquid/nasal stems (μένω, κρίνω) hide the σ and contract instead: μενῶ.');
   }
-  // Imperfect: built on the present stem, so the augment is what tells it from
-  // the present. The thematic ‑ον ending (ἔλυον) is also identical in the
-  // 1 sg. and 3 pl. — flag that only when the form actually shows it, so it
-  // never misfires on a μι-verb (ἐδίδουν 1 sg. ≠ ἐδίδοσαν 3 pl.).
-  if (tense === 'imperfect' && mood === 'indicative') {
-    hints.push(/ον$/.test(formNfc)
-      ? 'Imperfect active ‑ον is spelt the same in the 1 sg. and the 3 pl. (ἔλυον = “I was untying” or “they were untying”) — only context tells them apart. The augment (ἔ‑) marks it off from the present λύω.'
-      : 'Imperfect = present stem + an augment (ἐ‑/ἔ‑ prefix, or a lengthened initial vowel) — that augment, present only in the indicative, is what separates it from the present.');
+  // Augment = a past-tense indicative. Imperfect, aorist, and pluperfect
+  // indicatives all carry an augment; it appears ONLY in the indicative, so it
+  // cleanly separates e.g. the aorist indicative ἔλυσα from the augmentless
+  // aorist subjunctive λύσω / infinitive λῦσαι / participle λύσας, and the
+  // imperfect from the present. (Perfect is excluded — it reduplicates instead
+  // of augmenting.)
+  const isPastIndicative = mood === 'indicative'
+    && (tense === 'imperfect' || tense === 'aorist' || tense === 'first aorist'
+        || tense === 'second aorist' || tense === 'pluperfect');
+  if (isPastIndicative) {
+    hints.push('Augment = a past-tense indicative: a prefixed ἐ‑/ἔ‑ (ἔλυον, ἔλυσα, ἐλύθην) or a lengthened initial vowel (ἀκούω → ἤκουον); in compounds it sits after the prefix (ἀπ‑έ‑θανον). It shows up only in the indicative — the same tense’s subjunctive, infinitive, and participle have no augment (λύσω, λῦσαι, λύσας).');
+  }
+  // Imperfect active ‑ον is identical in the 1 sg. and 3 pl. (ἔλυον). Flag it
+  // only when the form actually shows that ending, so it never misfires on a
+  // μι-verb (ἐδίδουν 1 sg. ≠ ἐδίδοσαν 3 pl.).
+  if (tense === 'imperfect' && mood === 'indicative' && /ον$/.test(formNfc)) {
+    hints.push('Imperfect active ‑ον is spelt the same in the 1 sg. and the 3 pl. (ἔλυον = “I was untying” or “they were untying”) — only context tells them apart.');
   }
   // Aorist passive: the ‑θη‑ infix.
   if (tense === 'aorist' && voice === 'passive') {
