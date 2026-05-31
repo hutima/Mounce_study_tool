@@ -166,7 +166,7 @@ import { getSelectedVocabCards, getSelectedGrammarCards, getAllVocabKeys, getAll
 
 // Domain — Grammar
 import { buildGrammarSupportHtml } from '../domain/grammar/explanations.js';
-import { recordParadigmAttempt, inferredFollowupDims, buildInferredStep, structuralImpossibilityReason, isLemmaFormKnown, parseAnswerDimensions } from '../domain/grammar/morph_steps.js';
+import { recordParadigmAttempt, inferredFollowupDims, buildInferredStep, structuralImpossibilityReason, paradigmGapReason, lemmaInventoryGapReason, isLemmaFormKnown, parseAnswerDimensions } from '../domain/grammar/morph_steps.js';
 import { listAvailableParadigms, listAvailableParadigmsByCategory, getCardsForFocusedParadigm } from '../domain/grammar/paradigm_focus.js';
 
 // UI
@@ -258,6 +258,7 @@ import {
   toggleDimValueFilter,
   toggleExcludeKnownMorphs,
   toggleParsingReverse,
+  toggleAccentLookalikes,
   toggleUnspacedDailyReset,
   reshuffleEligible,
   fastForwardOneDay,
@@ -412,7 +413,22 @@ configureRender({
   transliterateGreek: (s) => typeof window !== 'undefined' && typeof window.transliterateGreek === 'function' ? window.transliterateGreek(s) : s,
   detectPartOfSpeech: (card) => typeof window !== 'undefined' && typeof window.detectPartOfSpeech === 'function' ? window.detectPartOfSpeech(card) : '',
   isMultiCasePreposition: (card) => typeof window !== 'undefined' && typeof window.isMultiCasePreposition === 'function' ? window.isMultiCasePreposition(card) : false,
-  getEnabledParsingDims: () => getEnabledParsingDims()
+  getEnabledParsingDims: () => getEnabledParsingDims(),
+  // Full focused-paradigm pool for paradigm-gap detection: chapter-gated, but
+  // deliberately NOT pruned by exclude-known or per-value dim filters, so the
+  // present-values truth reflects the whole paradigm (e.g. ἐγώ/σύ has only
+  // 1st/2nd person regardless of which forms the user has mastered/excluded).
+  getFocusedParadigmAllCards: () => {
+    if (!isParsingMode() || !runtime.morphFocusedParadigm) return [];
+    return getCardsForFocusedParadigm(
+      getAggregateSelectionKeys(),
+      runtime.morphFocusedParadigm,
+      {
+        includeOptional: !!runtime.includeOptionalForms,
+        optionalFilters: runtime.optionalFormFilters
+      }
+    );
+  }
 });
 configureSelectors({
   getSessions: () => getSessions(),
@@ -847,6 +863,22 @@ function answerMorphologyStep(choiceIdx) {
     return;
   }
 
+  // Paradigm value gap: the pick names a value the focused paradigm has no
+  // forms for (e.g. third person for ἐγώ/σύ). Like a structural impossibility,
+  // there's no form to resolve and no point asking the remaining dimensions —
+  // cut the walk off and let the summary explain the gap.
+  const gap = detectParadigmGap(state, card);
+  if (gap) {
+    state.paradigmGap = gap;
+    state.stepIdx = state.steps.length;
+    state.completed = true;
+    finalizeMorphStepAttempt(card, state);
+    renderCard();
+    renderProgress();
+    saveState();
+    return;
+  }
+
   const injectedCount = maybeInjectInferredSteps(state, step.key, picked);
   if (injectedCount > 0) {
     // Defer this step's correctness reveal until the injected follow-ups
@@ -884,6 +916,38 @@ function detectStructuralImpossibility(state) {
   const reason = structuralImpossibilityReason(picked);
   return reason ? { reason } : null;
 }
+
+// Walks the graded picks so far and asks morph_steps whether any names a value
+// the focused paradigm / lemma structurally lacks. Returns a gap descriptor
+// { dim, picked, short, note } or null. Two sources, both conservative:
+//   1) Person on a person-bearing nominal paradigm that lacks it — third
+//      person on ἐγώ/σύ — derived from the paradigm's own drilled forms
+//      (guarded to non-verbs so it can't misfire on undrilled conjugations).
+//   2) A tense/voice/mood from the lemma's hand-reviewed negative inventory
+//      (lemma_inventory.js) — e.g. the non-existent aorist of εἰμί.
+// Ignores ungraded inferred steps.
+function detectParadigmGap(state, card) {
+  if (!state || !Array.isArray(state.steps)) return null;
+  const picked = {};
+  state.steps.forEach((s, idx) => {
+    if (!s || s.inferred) return;
+    const ans = state.answers[idx];
+    if (!ans || ans.selectedIdx < 0) return;
+    picked[s.key] = s.choices[ans.selectedIdx];
+  });
+  if (state.paradigmPresentValues) {
+    const pGap = paradigmGapReason(picked, state.paradigmPresentValues, card && card.lemma);
+    if (pGap) return pGap;
+  }
+  const inv = (card && card.lemma && typeof window !== 'undefined' && window.LEMMA_INVENTORY)
+    ? window.LEMMA_INVENTORY[card.lemma] : null;
+  if (inv) {
+    const invGap = lemmaInventoryGapReason(picked, inv, card.lemma);
+    if (invGap) return invGap;
+  }
+  return null;
+}
+
 
 function skipMorphologyStep() {
   if (!isParsingMode()) return;
@@ -1266,6 +1330,10 @@ function syncToggleButtons() {
   if (parsingReverseSwitch) parsingReverseSwitch.classList.toggle('on', !!runtime.parsingReverse);
   const parsingReverseToggleBtn = document.getElementById('parsingReverseToggle');
   if (parsingReverseToggleBtn) parsingReverseToggleBtn.setAttribute('aria-checked', runtime.parsingReverse ? 'true' : 'false');
+  const accentLookalikeSwitch = document.getElementById('accentLookalikeBtn');
+  if (accentLookalikeSwitch) accentLookalikeSwitch.classList.toggle('on', !!runtime.accentLookalikes);
+  const accentLookalikeToggle = document.getElementById('accentLookalikeToggle');
+  if (accentLookalikeToggle) accentLookalikeToggle.setAttribute('aria-checked', runtime.accentLookalikes ? 'true' : 'false');
   // The toggles read as "Exclude X" — ON in the UI means the value is
   // excluded (sub[value] === false in the model). Default is all values
   // included → all toggles OFF in the UI.
@@ -1401,6 +1469,10 @@ function syncLayoutVisibility() {
   // English → Greek (pick the form) is also a parsing-only drill direction.
   const parsingReverseToggle = document.getElementById('parsingReverseToggle');
   if (parsingReverseToggle) parsingReverseToggle.style.display = isParsingMode() ? 'flex' : 'none';
+  // Accent/breathing look-alike distractors only do anything in the reverse
+  // drill, so the toggle only shows once English → Greek is on.
+  const accentLookalikeToggle = document.getElementById('accentLookalikeToggle');
+  if (accentLookalikeToggle) accentLookalikeToggle.style.display = (isParsingMode() && runtime.parsingReverse) ? 'flex' : 'none';
   // Spaced repetition writes confidence stats — parsing mode is explicitly
   // off-the-record, so the toggle is irrelevant there and gets hidden.
   if (spacedToggle) spacedToggle.style.display = (reviewDeckMode && !isParsingMode()) ? 'flex' : 'none';
@@ -2673,7 +2745,7 @@ const GLOBAL_CLICK_HANDLERS = {
   restoreSpacedUndo, setAppProfile, setStudyMode, setThemeMode, setFontFamily, setTextSize,
   showDisclaimerModal, startStudying, toggleDirection, toggleMorphSelfCheck,
   toggleMorphStepByStep, setMorphFocusedParadigm, setParsingChapter, goToStemDrillFromParsing,
-  toggleRequiredOnly, toggleHardVocabReview, toggleShuffle, toggleSpacedRepetition, toggleSplitSelection, toggleAspectStep, toggleDimStep, toggleOptionalForms, toggleOptionalFormFilter, toggleDimValueFilter, toggleExcludeKnownMorphs, toggleParsingReverse, resetKnownMorphs, closeResetKnownModal, confirmResetKnownFocused, confirmResetKnownAll, clearParsingStats, toggleUnspacedDailyReset, triggerImportProgress,
+  toggleRequiredOnly, toggleHardVocabReview, toggleShuffle, toggleSpacedRepetition, toggleSplitSelection, toggleAspectStep, toggleDimStep, toggleOptionalForms, toggleOptionalFormFilter, toggleDimValueFilter, toggleExcludeKnownMorphs, toggleParsingReverse, toggleAccentLookalikes, resetKnownMorphs, closeResetKnownModal, confirmResetKnownFocused, confirmResetKnownAll, clearParsingStats, toggleUnspacedDailyReset, triggerImportProgress,
   openReaderTab, selectReaderDrillChoice, advanceReaderDrill,
   closeWhatsNewV1_1Modal,
   applyAppUpdate, dismissAppUpdate
