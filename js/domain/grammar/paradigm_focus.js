@@ -486,6 +486,23 @@ function normalizeFormForDedup(form) {
   return s.trim();
 }
 
+// Greek paradigm cells sometimes list two spellings of one form separated by
+// " / " — an accented form and its enclitic twin ("ἐμέ / με") or a movable-ν
+// pair ("λύουσιν / λύουσι"). For the parsing deck we key on the primary (first)
+// spelling and drop the alternate so the form survives the single-token filter
+// below (isSingleFormShape) instead of being mistaken for a multi-word phrase
+// and silently dropped — which left wrong-pick feedback and the reverse drill
+// with no resolvable form ("—"). Mirrors normalizeFormForDedup's slash split,
+// but preserves parenthesised optional letters ("ἐστι(ν)") rather than
+// expanding them, since this value is shown to the student. The morph-drill
+// (non-parsing) deck is unaffected — it never goes through this pipeline, so it
+// keeps displaying both spellings.
+function primaryFormSpelling(form) {
+  const s = String(form || '');
+  if (!s.includes('/')) return s;
+  return s.split('/')[0].trim();
+}
+
 // Given a focused lemma and the selection, return every morph card across
 // all sources whose effective chapter is ≤ the user's max — filtered to the
 // focused lemma so cross-chapter expansions of the same paradigm collapse
@@ -600,6 +617,13 @@ export function getCardsForFocusedParadigm(selectedKeys, focusedLemma, options =
   // then a no-op for any single-gender (noun) lemma.
   const preGenderFiltered = cards
     .filter((c) => !superseded.has(c.sourceKey))
+    // Reduce slash-alternate spellings ("ἐμέ / με") to the primary form before
+    // the single-token filter, so personal-pronoun obliques and movable-ν pairs
+    // aren't dropped as phantom multi-word phrases.
+    .map((c) => {
+      const primary = primaryFormSpelling(c.form);
+      return primary === c.form ? c : { ...c, form: primary };
+    })
     .filter((c) => isSingleFormShape(c.form) && hasParseableDims(c));
   const multiGenderLemmas = buildMultiGenderLemmas(preGenderFiltered);
   const filtered = preGenderFiltered
