@@ -146,6 +146,16 @@ duff PR here, watch for:
 - **`v=NNN` numbering is independent.** Don't sync the number with duff.
 - **Off-the-record parsing mode** — Mounce omits `noteStudyInteraction()` in
   the morph-step handlers; preserve that when porting.
+- **Slash-alternate forms** — paradigm cells that list two spellings of one
+  form (`ἐμέ / με`, `λύουσιν / λύουσι`) live hand-authored in
+  `morphology.js`, where morph-drill mode shows both spellings on purpose.
+  Duff strips the alternate at card *generation* (`paradigm_morphology.js`),
+  so its drill cards lose the twin too. Mounce instead reduces to the primary
+  spelling only inside the parsing pipeline (`primaryFormSpelling` in
+  `js/domain/grammar/paradigm_focus.js`, applied before `isSingleFormShape`),
+  so the parsing deck stops dropping these as phantom multi-word phrases while
+  the morph drill keeps both. Port duff PRs touching that filter here, not in
+  `morphology.js`.
 
 ---
 
