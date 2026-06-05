@@ -1828,6 +1828,15 @@ function rebuildParsingCycle(options = {}) {
   runtime.activeDeckCount = ordered.length;
   runtime.currentIdx = ordered.length ? 0 : runtime.deck.length;
   runtime.unspacedPendingRecycle = false;
+  // Drop the cached step-walk for the card we just left. A reshuffled cycle can
+  // land the same card back at the head — most often when the focused paradigm
+  // is down to a single in-scope form (e.g. one form left after
+  // exclude-known-morphs), since avoidHeadCollision can't displace a head in a
+  // <2-card deck. Without this, ensureStepStateForCard reuses the *completed*
+  // morphStepState (same cardId) and re-renders the "PARSE COMPLETE" summary, so
+  // Next looks dead. Clearing it forces a fresh walk for whatever card now leads
+  // the cycle.
+  resetMorphStepState();
   resetUnspacedCycleState();
 }
 
