@@ -447,11 +447,10 @@ function buildLemmaTestableFormsHtml(lemma) {
   if (!cards.length) {
     return `<div class="parsing-review-forms parsing-review-forms-empty">No forms in scope for this paradigm at your current chapter selection.</div>`;
   }
-  const sorted = cards.slice().sort((a, b) => {
-    const af = String(a.form || '');
-    const bf = String(b.form || '');
-    return compareGreekAlphabetical(af, bf);
-  });
+  // Pass the card objects, not bare form strings: the comparator derives its
+  // sort key from card.kind/card.form, so a plain string degrades to an empty
+  // key and the whole sort becomes a no-op.
+  const sorted = cards.slice().sort(compareGreekAlphabetical);
   const stats = runtime.paradigmStepStats || {};
   const enabledDims = host.getEnabledParsingDims();
   const counts = { known: 0, right: 0, wrong: 0, uncertain: 0, unseen: 0 };

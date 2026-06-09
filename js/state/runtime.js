@@ -213,8 +213,9 @@ export const runtime = {
   // IDs that should land in the active section on the next buildStudyDeck.
   // Drains as those cards are reviewed; replenishes when middle dumps in
   // (active-empties / manual reshuffle / 2% revival / 5 h idle). Persisted
-  // through reload only when lastStudyActivityAt is within the 5 h window;
-  // see persistence.js for the gating logic.
+  // through reload only when lastStudyActivityAt is within the 5 h window
+  // (see persistence.js), and banked per deck in deckStates so a mode/toggle
+  // round-trip within the window resumes each deck's own active pile.
   spacedActiveIds: [],
   // Timestamp (ms) of the most recent study activity in any mode (vocab,
   // grammar, or reader — anything that fires noteStudyInteraction).
@@ -232,9 +233,10 @@ export const runtime = {
   unspacedDeferredIds: new Set(), // 'pass' and 'again' cards excluded from current pass; reappear in next cycle
   // Cards Hard/Uncertain-marked in the current unspaced round, awaiting the
   // next reshuffle. Sits between active and archived in the deck layout.
-  // In-memory only — on reload everything unmarked goes back to active so a
-  // fresh round starts. Never persisted (Sets aren't in saveStateImpl's
-  // allow-list).
+  // Persisted (as an array) gated on the 5 h session window — a reload or a
+  // mode/toggle round-trip within the window resumes the round; past it,
+  // everything unmarked collapses back into active and a fresh round starts.
+  // Also banked per deck in deckStates alongside spacedActiveIds.
   unspacedMiddleIds: new Set(),
   unspacedMiddleCount: 0,
   // Round bookkeeping for the unspaced flip-deck flow. A "round" is one pass

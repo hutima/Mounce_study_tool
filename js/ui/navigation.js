@@ -193,9 +193,12 @@ export function navigate(dir, options = {}) {
     return;
   }
 
+  let autoReviewedCardId;
   if (runtime.spacedRepetition && runtime.currentIdx < runtime.activeDeckCount && !options.skipAutoReview && !host.isMorphologyMode() && !host.isParsingMode()) {
+    const reviewedCard = runtime.deck[runtime.currentIdx];
+    autoReviewedCardId = reviewedCard ? reviewedCard.id : undefined;
     host.captureSpacedUndoSnapshot();
-    host.applySpacedReview(runtime.deck[runtime.currentIdx], 'again');
+    host.applySpacedReview(reviewedCard, 'again');
     runtime.deck = host.buildStudyDeck(runtime.originalDeck);
   }
 
@@ -220,6 +223,14 @@ export function navigate(dir, options = {}) {
         runtime.currentIdx = Math.min(runtime.currentIdx + 1, runtime.activeDeckCount);
       }
       host.clearSpacedUndoSnapshot();
+    } else if (runtime.activeDeckCount <= 0 && runtime.middleDeckCount > 0) {
+      // The auto-'again' above drained the active pile with cards still
+      // waiting in middle. Dump them in right away — mirroring markCard —
+      // instead of parking on a "no cards due" splash that the user has to
+      // press Next through. The just-reviewed card's id is forwarded so the
+      // dump doesn't put that same card back on top.
+      runtime.deck = host.buildStudyDeck(runtime.originalDeck, { forceShuffle: true, avoidHeadId: autoReviewedCardId });
+      runtime.currentIdx = 0;
     } else {
       runtime.currentIdx = Math.min(runtime.currentIdx, runtime.activeDeckCount);
       host.maybeReturnConfirmedDeferredCard();

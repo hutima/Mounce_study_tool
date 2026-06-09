@@ -2688,6 +2688,11 @@ function resetStudyState() {
   runtime.marks = getDirectionalMarksStore();
   runtime.currentIdx = 0;
   runtime.activeDeckCount = runtime.spacedRepetition ? getDueCount(runtime.originalDeck) : runtime.originalDeck.filter(card => runtime.marks[card.id] !== 'known').length;
+  // Fresh deck = fresh piles. The previous deck's active ids must not leak
+  // into the next build: selections can share card ids (e.g. adding a
+  // chapter keeps the old chapter's ids), and a stale carry-over would split
+  // the brand-new deck into a bogus active/middle partition.
+  runtime.spacedActiveIds = [];
   resetUnspacedCycleState();
   runtime.unspacedPendingRecycle = false;
   runtime.isFlipped = false;

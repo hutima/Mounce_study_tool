@@ -863,9 +863,21 @@ export function saveCurrentDeckStateToBank() {
     selectedKeys: ref.selectedKeys,
     deckIds: runtime.deck.map(card => card.id),
     currentIdx: runtime.currentIdx,
-    unspacedPendingRecycle: !runtime.spacedRepetition && !!runtime.unspacedPendingRecycle,
+    unspacedPendingRecycle: !!runtime.unspacedPendingRecycle,
+    // Per-deck pile membership for the three-deck layout, so switching back
+    // to this deck (mode/toggle round-trip) can resume its in-flight session
+    // instead of force-shuffling. Both fields are written unconditionally:
+    // during a mode transition the live spacedRepetition flag may already
+    // belong to the *next* mode while runtime.deck still holds the deck
+    // being banked, so gating on the flag here would wipe the wrong field.
+    // Each restorer reads only the field matching the deck's own spaced
+    // flag (it's part of the bank key), so stale cross-data is ignored.
+    spacedActiveIds: Array.isArray(runtime.spacedActiveIds) ? runtime.spacedActiveIds.slice(0, 1000) : [],
+    unspacedMiddleIds: runtime.unspacedMiddleIds ? Array.from(runtime.unspacedMiddleIds).slice(0, 1000) : [],
     // Recency stamp so compaction can keep the most recently used selections
-    // and evict stale ones instead of letting the bank grow unbounded.
+    // and evict stale ones instead of letting the bank grow unbounded. Also
+    // gates session resume: a bank entry older than SESSION_IDLE_RESET_MS
+    // restores as a fresh shuffle rather than a stale mid-session pile.
     savedAt: Date.now()
   };
 }
@@ -1046,7 +1058,8 @@ export function restoreState() {
     // (empty) so the next buildStudyDeck rebuilds from scratch and the user
     // gets a freshly-shuffled active pile.
     const savedActivityAt = Number(saved.lastStudyActivityAt) || 0;
-    if (savedActivityAt && (Date.now() - savedActivityAt) <= SESSION_IDLE_RESET_MS) {
+    const withinSessionWindow = savedActivityAt > 0 && (Date.now() - savedActivityAt) <= SESSION_IDLE_RESET_MS;
+    if (withinSessionWindow) {
       runtime.lastStudyActivityAt = savedActivityAt;
       // previousStudyActivityAt seeds equal to lastStudyActivityAt so the
       // first post-restore noteStudyInteraction snapshots the right gap
@@ -1117,13 +1130,14 @@ export function restoreState() {
       // subset of unmarked cards whose IDs are in unspacedMiddleIds — restored
       // intact within 5 h of last activity, empty Set otherwise. Saved
       // active order is preserved; active gets reshuffled only when we're
-      // outside the session window (middle is empty in that case, so the
-      // shuffle applies to the whole unmarked pile).
+      // outside the session window (a fresh round), or in parsing mode,
+      // which deliberately resamples its deck on every load.
       const middleIds = runtime.unspacedMiddleIds || new Set();
       const restoredActive = restoredDeck.filter(card => runtime.marks[card.id] !== 'known' && !middleIds.has(card.id));
       const restoredMiddle = restoredDeck.filter(card => runtime.marks[card.id] !== 'known' && middleIds.has(card.id));
       const restoredKnown = restoredDeck.filter(card => runtime.marks[card.id] === 'known');
-      const orderedActive = (runtime.shuffled && middleIds.size === 0) ? shuffleArray([...restoredActive]) : [...restoredActive];
+      const freshUnspacedRound = !withinSessionWindow || runtime.studyMode === 'parsing';
+      const orderedActive = (runtime.shuffled && freshUnspacedRound) ? shuffleArray([...restoredActive]) : [...restoredActive];
       runtime.deck = [...orderedActive, ...restoredMiddle, ...restoredKnown];
       runtime.unspacedMiddleCount = restoredMiddle.length;
     } else {
@@ -1135,11 +1149,15 @@ export function restoreState() {
     // active count, since the persisted deck might have drifted.
     // Unspaced activeDeckCount excludes the middle section so end-of-round
     // detection (activeDeckCount === 0) fires correctly when only active is
-    // drained and middle still has cards waiting.
-    const unspacedMiddleSet = runtime.unspacedMiddleIds || new Set();
-    runtime.activeDeckCount = runtime.spacedRepetition
-      ? host.getDueCount(runtime.originalDeck)
-      : runtime.originalDeck.filter(card => runtime.marks[card.id] !== 'known' && !unspacedMiddleSet.has(card.id)).length;
+    // drained and middle still has cards waiting. Spaced mode keeps the
+    // active-section count buildStudyDeck just computed — overwriting it
+    // with the total due count (active + middle) would let the cursor and
+    // the end-of-active splash bleed into the middle section after a
+    // continue-session restore.
+    if (!runtime.spacedRepetition) {
+      const unspacedMiddleSet = runtime.unspacedMiddleIds || new Set();
+      runtime.activeDeckCount = runtime.originalDeck.filter(card => runtime.marks[card.id] !== 'known' && !unspacedMiddleSet.has(card.id)).length;
+    }
     if (!runtime.spacedRepetition) {
       const savedRoundSize = Number(saved.unspacedRoundSize);
       const savedRoundMarks = Number(saved.unspacedRoundMarks);
@@ -1157,9 +1175,18 @@ export function restoreState() {
       runtime.unspacedRoundSize = 0;
       runtime.unspacedRoundMarks = 0;
     }
-    runtime.currentIdx = usableDeckState && Number.isInteger(usableDeckState.currentIdx)
+    // The saved cursor only means something while the saved order survives:
+    // outside the session window (or in parsing mode) the active pile was
+    // just rebuilt fresh, so a mid-deck cursor would skip a random prefix.
+    // A fresh start begins at 0 — except an unspaced deck whose active pile
+    // is empty (everything archived), which parks at the end so renderCard
+    // shows the "all confirmed" state instead of an archived card. (Spaced
+    // parks naturally: 0 >= activeDeckCount when nothing is due.)
+    const cursorMeaningful = withinSessionWindow && runtime.studyMode !== 'parsing';
+    const freshStartIdx = (!runtime.spacedRepetition && runtime.activeDeckCount === 0) ? runtime.deck.length : 0;
+    runtime.currentIdx = usableDeckState && cursorMeaningful && Number.isInteger(usableDeckState.currentIdx)
       ? Math.min(Math.max(usableDeckState.currentIdx, 0), runtime.spacedRepetition ? runtime.activeDeckCount : runtime.deck.length)
-      : 0;
+      : freshStartIdx;
     runtime.unspacedPendingRecycle = !runtime.spacedRepetition && !!(usableDeckState && usableDeckState.unspacedPendingRecycle);
     runtime.isFlipped = false;
     host.clearSpacedUndoSnapshot();
