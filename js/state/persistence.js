@@ -319,14 +319,16 @@ function sanitizeImportedState(candidate) {
   OPTIONAL_FILTER_KEYS.forEach((k) => { filterOut[k] = filterSrc[k] !== false; });
   state.optionalFormFilters = filterOut;
 
-  // Older exports made while the user was in reader mode persist reader as the
-  // top-level studyMode, with selectedKeys/currentSessionId left over from the
-  // last vocab/grammar mode and (often) hardVocabReviewMode quietly on. After
-  // import that combination quietly narrows the vocab deck once the user
-  // switches out of reader. Re-normalize on import so existing bad bundles
-  // rehydrate into a sane vocab/grammar starting state regardless of when they
-  // were exported.
-  if (state.studyMode === 'reader') {
+  // Older exports made while the user was in reader (or parsing) mode persist
+  // that as the top-level studyMode, with selectedKeys/currentSessionId left
+  // over from the last vocab/grammar mode and (often) hardVocabReviewMode
+  // quietly on. After import that combination quietly narrows the vocab deck
+  // once the user switches out. Parsing mode also overwrites selectedKeys
+  // with its single chapter key, which on its own would be a very
+  // unrepresentative deck to land in. Re-normalize on import so existing bad
+  // bundles rehydrate into a sane vocab/grammar starting state regardless of
+  // what was on screen at export time.
+  if (state.studyMode === 'reader' || state.studyMode === 'parsing') {
     const vocabSel = state.modeSelections.vocab;
     const morphSel = state.modeSelections.morph;
     if (vocabSel && Array.isArray(vocabSel.selectedKeys)) {
@@ -428,18 +430,20 @@ function buildProgressExportPayload() {
   // exports than the live localStorage cap.
   const appState = buildPersistedStatePayload({ maxDeckStates: EXPORT_MAX_DECK_STATE_ENTRIES });
 
-  // Reader mode doesn't own a deck, so the top-level studyMode/selectedKeys/
-  // currentSessionId snapshot is whatever vocab or grammar mode was active
-  // before switching to reader — plus any flags (hardVocabReviewMode in
-  // particular) that were on at that point. Exporting that as-is means a
-  // re-imported bundle lands in reader UI with a stale vocab/grammar selection
-  // and any narrowing filter still applied: on the user's next switch out of
-  // reader, the deck rebuilds against that filter and they see a tiny deck of
-  // "hard" cards instead of their full selection. Standardize exports to land
-  // in vocab mode (or morph, if no vocab selection was ever recorded), and
-  // clear vocab-only narrowing filters so an import is reproducible regardless
-  // of what was on screen at export time.
-  if (appState.studyMode === 'reader') {
+  // Reader and parsing modes don't own a representative deck — reader has no
+  // deck at all, and parsing overwrites selectedKeys with its single chapter
+  // key. The top-level studyMode/selectedKeys/currentSessionId snapshot for
+  // these modes is therefore something like "whatever vocab or grammar was
+  // active before switching", plus any flags (hardVocabReviewMode in
+  // particular) that were on at that point. Exporting as-is means a
+  // re-imported bundle either lands in reader UI with a stale vocab/grammar
+  // selection and any narrowing filter still applied, or in parsing UI with
+  // a one-chapter parsing deck — in either case the user's first switch out
+  // of the mode rebuilds against a misleading state. Standardize exports to
+  // land in vocab mode (or morph, if no vocab selection was ever recorded),
+  // and clear vocab-only narrowing filters so an import is reproducible
+  // regardless of what was on screen at export time.
+  if (appState.studyMode === 'reader' || appState.studyMode === 'parsing') {
     const vocabSel = appState.modeSelections && appState.modeSelections.vocab;
     const morphSel = appState.modeSelections && appState.modeSelections.morph;
     if (vocabSel && Array.isArray(vocabSel.selectedKeys)) {
@@ -453,10 +457,10 @@ function buildProgressExportPayload() {
     } else {
       appState.studyMode = 'vocab';
     }
-    // hardVocabReviewMode is a vocab-only deck filter; in reader mode it can't
-    // be toggled, so its state at export time is whatever was last set in
-    // vocab mode. A re-import with the filter quietly on hides most of the
-    // user's vocab — clear it so the export rehydrates to a full deck.
+    // hardVocabReviewMode is a vocab-only deck filter; in reader/parsing mode
+    // it can't be toggled, so its state at export time is whatever was last
+    // set in vocab mode. A re-import with the filter quietly on hides most
+    // of the user's vocab — clear it so the export rehydrates to a full deck.
     appState.hardVocabReviewMode = false;
   }
 
