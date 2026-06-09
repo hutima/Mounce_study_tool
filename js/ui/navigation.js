@@ -106,6 +106,11 @@ export function navigate(dir, options = {}) {
   host.noteStudyInteraction();
 
   if (dir < 0) {
+    // Spaced vocab hides the Prev button (going back would re-show a card
+    // that was just rescheduled and invite double-grading); the keyboard
+    // ArrowLeft path must match. Spaced morph routes ArrowLeft through the
+    // undo snapshot in keyboard.js, mirroring its visible Undo button.
+    if (runtime.spacedRepetition && !host.isMorphologyMode() && !host.isParsingMode()) return;
     // Vocab unspaced: Prev walks back through the history stack. Each
     // Next, mark, and reshuffle pushed a snapshot before mutating, so a
     // Prev press just pops and restores. The label flips between

@@ -128,7 +128,11 @@ self.addEventListener('install', event => {
   // the new app shell without needing to click anything.
   self.skipWaiting();
   event.waitUntil(
-    caches.open(CACHE_NAME).then(cache => cache.addAll(APP_SHELL))
+    // cache: 'reload' bypasses the HTTP cache during install so each release
+    // precaches fresh copies even if a ?v= bump was missed for some file.
+    caches.open(CACHE_NAME).then(cache =>
+      cache.addAll(APP_SHELL.map(url => new Request(url, { cache: 'reload' })))
+    )
   );
 });
 
@@ -183,8 +187,12 @@ self.addEventListener('fetch', event => {
     event.respondWith(
       fetch(req)
         .then(res => {
-          const copy = res.clone();
-          caches.open(CACHE_NAME).then(cache => cache.put(req, copy));
+          // Only cache good responses — a 404/500 (e.g. a Pages outage)
+          // must not overwrite the working cached shell.
+          if (res.ok) {
+            const copy = res.clone();
+            caches.open(CACHE_NAME).then(cache => cache.put(req, copy));
+          }
           return res;
         })
         .catch(() => caches.match(req).then(cached => cached || caches.match(INDEX_URL)))
@@ -205,7 +213,9 @@ self.addEventListener('fetch', event => {
     caches.match(req, matchOpts).then(cached => {
       if (cached) return cached;
       return fetch(req).then(res => {
-        if (req.url.startsWith(BASE_URL.origin)) {
+        // Cache only good same-origin responses; error pages cached here
+        // would be served as the asset on every later hit.
+        if (res.ok && req.url.startsWith(BASE_URL.origin)) {
           const copy = res.clone();
           caches.open(CACHE_NAME).then(cache => cache.put(req, copy));
         }

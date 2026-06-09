@@ -658,6 +658,8 @@ export async function exportProgressJson() {
   showExportFallbackModal(jsonText, filename);
 }
 
+// Returns the import summary, or null if the user declined the confirmation.
+// Throws when the payload is not a recognizable progress export.
 function importProgressFromJsonText(rawText, options = {}) {
   const parsed = JSON.parse(String(rawText || '{}'));
   const wrappedState = parsed?.format === PROGRESS_EXPORT_FORMAT && isPlainObject(parsed.appState)
@@ -669,6 +671,20 @@ function importProgressFromJsonText(rawText, options = {}) {
   const summary = parsed?.format === PROGRESS_EXPORT_FORMAT && isPlainObject(parsed.summary)
     ? parsed.summary
     : summarizePersistedState(wrappedState);
+
+  // Reject unrecognizable payloads before asking for confirmation. This is a
+  // shape check only (mirrors sanitizeImportedState's gate) — the full
+  // sanitizer must not run before the user confirms, because it routes
+  // through host.ensureUsageStats which can replace the live usage stats.
+  const looksLikeProgressState = isPlainObject(wrappedState)
+    && ['selectedKeys', 'deckStates', 'globalWordMarks', 'globalWordProgress', 'appUsageStats']
+      .some(key => key in wrappedState);
+  if (!looksLikeProgressState) throw new Error('Invalid progress file shape.');
+
+  const confirmed = window.confirm(
+    `Importing will replace all progress saved on this device.\n\nIncoming data: ${formatPersistedStateSummary(summary)}\n\nContinue?`
+  );
+  if (!confirmed) return null;
 
   const success = applyImportedState(wrappedState, { disclaimerAccepted });
   if (!success) throw new Error('Invalid progress file shape.');
@@ -728,6 +744,7 @@ export function triggerImportProgress() {
 
       try {
         const summary = importProgressFromJsonText(rawText);
+        if (!summary) return; // user declined the confirmation
         closeTransferModal();
         window.alert(`Progress imported successfully. ${formatPersistedStateSummary(summary)}`);
       } catch (err) {
@@ -751,8 +768,10 @@ function handleImportedProgressFile(event) {
   reader.onload = () => {
     try {
       const summary = importProgressFromJsonText(reader.result);
-      closeTransferModal();
-      window.alert(`Progress imported successfully. ${formatPersistedStateSummary(summary)}`);
+      if (summary) {
+        closeTransferModal();
+        window.alert(`Progress imported successfully. ${formatPersistedStateSummary(summary)}`);
+      }
     } catch (err) {
       window.alert('Import failed. Please choose a valid progress JSON exported from this app.');
     } finally {
@@ -1158,7 +1177,20 @@ export function restoreState() {
     if (host.isReaderMode()) host.renderReaderModule();
     return true;
   } catch (err) {
-    clearSavedState();
+    // Never delete the saved payload here: this catch also covers migrations
+    // and the render calls above, so a transient bug in either would destroy
+    // the user's study history. Fall back to a clean in-memory baseline and
+    // leave storage untouched — a later fixed build can still restore it.
+    console.warn('Could not restore saved study state; starting fresh without deleting saved data.', err);
+    runtime.currentSession = null;
+    runtime.selectedKeys = [];
+    runtime.deck = [];
+    runtime.originalDeck = [];
+    runtime.currentIdx = 0;
+    runtime.activeDeckCount = 0;
+    runtime.isFlipped = false;
+    runtime.unspacedPendingRecycle = false;
+    host.clearSpacedUndoSnapshot();
     return false;
   }
 }

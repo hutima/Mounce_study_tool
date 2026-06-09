@@ -201,10 +201,25 @@ export function maybeCelebrateAchievements() {
   runtime.appGamification.lastCelebratedBadgeDay = todayKey;
 }
 
+// Course-wide card lists are deterministic per page load (the data scripts
+// never change after startup), but building them re-walks every set and
+// re-shuffles every quiz's choice list. maybeCelebrateAchievements runs on
+// every saveState (i.e. on every interaction), so build the lists once and
+// reuse them.
+let courseCardCache = null;
+function getCourseCards() {
+  if (!courseCardCache) {
+    courseCardCache = {
+      allVocab: getAllVocabCards(false),
+      reqVocab: getAllVocabCards(true),
+      allGrammar: getAllGrammarCards()
+    };
+  }
+  return courseCardCache;
+}
+
 function computeCourseWideData() {
-  const allVocab = getAllVocabCards(false);
-  const reqVocab = getAllVocabCards(true);
-  const allGrammar = getAllGrammarCards();
+  const { allVocab, reqVocab, allGrammar } = getCourseCards();
 
   // Use g2e marks/progress as the canonical direction for course completion;
   // grammar uses the morph store regardless of which mode is currently active.

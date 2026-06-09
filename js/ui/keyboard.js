@@ -18,11 +18,15 @@ export function installKeyboardShortcuts(deps) {
     closeWhatsNewV1_1Modal,
     isDisclaimerModalOpen,
     isTransferModalOpen,
+    closeTransferModal,
     isReviewDeckMode,
     getSelectedKeys,
     isMorphologyMode,
+    isMorphSelfCheck,
     navigate,
     answerMorphologyChoice,
+    revealMorphologyAnswer,
+    rateMorphologySelfCheck,
     passMorphologyChoice,
     flipCard,
     markCard,
@@ -36,6 +40,7 @@ export function installKeyboardShortcuts(deps) {
     if (e.key === 'Escape' && isStudySelectorOpen()) { closeStudySelector(); return; }
     if (e.key === 'Escape' && isShortcutsModalOpen()) { closeShortcutsModal(); return; }
     if (e.key === 'Escape' && isWhatsNewV1_1ModalOpen()) { closeWhatsNewV1_1Modal(); return; }
+    if (e.key === 'Escape' && isTransferModalOpen()) { closeTransferModal(); return; }
     if (isDisclaimerModalOpen() || isTransferModalOpen() || isAnalyticsModalOpen() || isStudySelectorOpen() || isShortcutsModalOpen() || isWhatsNewV1_1ModalOpen()) return;
     if (!isReviewDeckMode() || !getSelectedKeys().length) return;
 
@@ -44,9 +49,15 @@ export function installKeyboardShortcuts(deps) {
       if (e.key === 'ArrowLeft'  || e.key === 'ArrowUp') {
         if (getMorphAnswerState().answered && getSpacedUndoSnapshot()) restoreSpacedUndo();
       }
-      if (/^[1-4]$/.test(e.key)) {
-        const idx = Number(e.key) - 1;
-        answerMorphologyChoice(idx);
+      if (isMorphSelfCheck()) {
+        // Self-check hides the multiple-choice options, so digits map to the
+        // reveal/rate flow instead of answerMorphologyChoice (which would
+        // grade the card against an invisible option).
+        if (e.key === ' ' || e.key === 'Enter') { e.preventDefault(); revealMorphologyAnswer(); }
+        if (e.key === '1') rateMorphologySelfCheck(true);
+        if (e.key === '2') rateMorphologySelfCheck(false);
+      } else if (/^[1-4]$/.test(e.key)) {
+        answerMorphologyChoice(Number(e.key) - 1);
       }
       if (e.key === '0' || e.key === '5') passMorphologyChoice();
       return;

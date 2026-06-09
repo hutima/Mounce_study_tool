@@ -156,10 +156,16 @@ export function computeAchievements(usage, courseData, streaks, sessionCount, to
   check('all_grammar',   '♔', 'Grammar Master',  'Confirm all grammar cards',           courseData.allGrammarConfirmed >= courseData.allGrammarTotal && courseData.allGrammarTotal > 0);
 
   // ── Per-chapter awards (vocab, persist regardless of selection) ──
+  // courseData.allVocabCards already holds every vocab card, so derive each
+  // chapter's cards from it instead of rebuilding the card list per chapter
+  // (computeAchievements runs on every saveState via the celebration check).
+  const allVocabCards = Array.isArray(courseData.allVocabCards) ? courseData.allVocabCards : null;
   const chapterKeys = getAllChapterKeys();
   chapterKeys.forEach(chKey => {
     const chNum = Number(chKey);
-    const chCards = getChapterVocabCards(chKey, false);
+    const chCards = allVocabCards
+      ? allVocabCards.filter(card => card.sourceKey === String(chKey))
+      : getChapterVocabCards(chKey, false);
     if (!chCards.length) return;
     // Check g2e marks (the primary direction)
     const g2eMarks = globalWordMarks?.g2e || {};

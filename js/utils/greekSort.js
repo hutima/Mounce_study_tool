@@ -12,7 +12,7 @@ export function isMorphCard(card) {
 }
 
 export function getGreekAlphabetSortKey(card) {
-  if (isMorphCard(card)) return stripGreekAccents(normalizeSpacing(card.form || '')).toLowerCase();
+  if (isMorphCard(card)) return stripGreekAccents(normalizeSpacing(card.form || '')).replace(/ς/g, 'σ').toLowerCase();
   const pos = detectPartOfSpeech(card);
   const headword = formatGreekHeadword(card.g);
   const sortable = /^Noun\b/.test(pos) ? stripInitialNominalArticle(headword) : headword;
