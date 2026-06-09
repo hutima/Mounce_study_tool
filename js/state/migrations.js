@@ -413,25 +413,29 @@ export const STATE_MIGRATIONS = [
       const capDays = SRS_MAX_INTERVAL_DAYS;
       const capMs = capDays * SRS_DAY_MS;
 
-      const scaleDays = value => {
+      // Only rescale entries whose value still exceeds the new cap: anything
+      // already at or below 14 days was written under the new schedule and
+      // should be left alone (mixed-era exports are common).
+      const scaleDaysIfOverCap = value => {
         const days = Number(value);
-        if (!Number.isFinite(days) || days <= 0) return value;
+        if (!Number.isFinite(days) || days <= capDays) return value;
         return Math.min(capDays, days * factor);
       };
 
       const scaleEntry = entry => {
         if (!isPlainObject(entry)) return entry;
         const next = { ...entry };
-        if ('intervalDays' in next) next.intervalDays = scaleDays(next.intervalDays);
-        if ('lastEasyIntervalDays' in next) next.lastEasyIntervalDays = scaleDays(next.lastEasyIntervalDays);
+        if ('intervalDays' in next) next.intervalDays = scaleDaysIfOverCap(next.intervalDays);
+        if ('lastEasyIntervalDays' in next) next.lastEasyIntervalDays = scaleDaysIfOverCap(next.lastEasyIntervalDays);
 
         const lastReviewedAt = Number(next.lastReviewedAt) || 0;
         const dueAt = Number(next.dueAt) || 0;
         if (dueAt > 0) {
           if (lastReviewedAt > 0 && dueAt > lastReviewedAt) {
             const gap = dueAt - lastReviewedAt;
-            const scaledGap = Math.min(capMs, gap * factor);
-            next.dueAt = lastReviewedAt + scaledGap;
+            if (gap > capMs) {
+              next.dueAt = lastReviewedAt + Math.min(capMs, gap * factor);
+            }
           } else {
             // No anchor to scale against — clamp the absolute remaining wait
             // so cards can't sit beyond the new cap.

@@ -80,6 +80,17 @@ export function configureNavigation(deps) {
   host = { ...host, ...deps };
 }
 
+// Spaced-repetition is remembered per section (vocab vs grammar). Only those
+// two modes carry a setting; grammar (morph) defaults to unspaced, vocab to
+// spaced. Parsing/reader don't use the SRS deck, so they're left out.
+function spacedDefaultForMode(mode) {
+  return mode !== 'morph';
+}
+function effectiveSpacedForMode(mode) {
+  const v = runtime.spacedByMode && runtime.spacedByMode[mode];
+  return typeof v === 'boolean' ? v : spacedDefaultForMode(mode);
+}
+
 // When split vocab/grammar selection is on, each mode keeps its own selected
 // chapters. These helpers stash/restore that selection as the study mode
 // changes. Only 'vocab' and 'morph' participate; 'reader' is left untouched.
@@ -106,6 +117,11 @@ export function navigate(dir, options = {}) {
   host.noteStudyInteraction();
 
   if (dir < 0) {
+    // Spaced vocab hides the Prev button (going back would re-show a card
+    // that was just rescheduled and invite double-grading); the keyboard
+    // ArrowLeft path must match. Spaced morph routes ArrowLeft through the
+    // undo snapshot in keyboard.js, mirroring its visible Undo button.
+    if (runtime.spacedRepetition && !host.isMorphologyMode() && !host.isParsingMode()) return;
     // Vocab unspaced: Prev walks back through the history stack. Each
     // Next, mark, and reshuffle pushed a snapshot before mutating, so a
     // Prev press just pops and restores. The label flips between
@@ -188,9 +204,12 @@ export function navigate(dir, options = {}) {
     return;
   }
 
+  let autoReviewedCardId;
   if (runtime.spacedRepetition && runtime.currentIdx < runtime.activeDeckCount && !options.skipAutoReview && !host.isMorphologyMode() && !host.isParsingMode()) {
+    const reviewedCard = runtime.deck[runtime.currentIdx];
+    autoReviewedCardId = reviewedCard ? reviewedCard.id : undefined;
     host.captureSpacedUndoSnapshot();
-    host.applySpacedReview(runtime.deck[runtime.currentIdx], 'again');
+    host.applySpacedReview(reviewedCard, 'again');
     runtime.deck = host.buildStudyDeck(runtime.originalDeck);
   }
 
@@ -215,6 +234,14 @@ export function navigate(dir, options = {}) {
         runtime.currentIdx = Math.min(runtime.currentIdx + 1, runtime.activeDeckCount);
       }
       host.clearSpacedUndoSnapshot();
+    } else if (runtime.activeDeckCount <= 0 && runtime.middleDeckCount > 0) {
+      // The auto-'again' above drained the active pile with cards still
+      // waiting in middle. Dump them in right away — mirroring markCard —
+      // instead of parking on a "no cards due" splash that the user has to
+      // press Next through. The just-reviewed card's id is forwarded so the
+      // dump doesn't put that same card back on top.
+      runtime.deck = host.buildStudyDeck(runtime.originalDeck, { forceShuffle: true, avoidHeadId: autoReviewedCardId });
+      runtime.currentIdx = 0;
     } else {
       runtime.currentIdx = Math.min(runtime.currentIdx, runtime.activeDeckCount);
       host.maybeReturnConfirmedDeferredCard();
@@ -490,6 +517,16 @@ export function setStudyMode(mode) {
     restoreModeSelection(nextMode);
   }
   runtime.studyMode = nextMode;
+  // Swap the spaced-repetition flag to the section we're entering. Save the
+  // mode we're leaving back into spacedByMode first (vocab/morph each keep
+  // their own), then mirror the destination's value into the live flag so the
+  // deck build below and the toggle UI reflect this section's setting.
+  if (prevMode === 'vocab' || prevMode === 'morph') {
+    runtime.spacedByMode[prevMode] = runtime.spacedRepetition;
+  }
+  if (nextMode === 'vocab' || nextMode === 'morph') {
+    runtime.spacedRepetition = effectiveSpacedForMode(nextMode);
+  }
   // Entering parsing: the dropdown is the source of truth, so overwrite
   // selectedKeys with [parsingChapter] (a chapter-keyed string, which
   // deriveSelectionLevels reads as the max effective chapter). Any stale
@@ -677,6 +714,10 @@ export function toggleDirection() {
 export function toggleSpacedRepetition() {
   if (host.isReaderMode()) return;
   runtime.spacedRepetition = !runtime.spacedRepetition;
+  // Persist this section's choice so vocab and grammar keep diverging.
+  if (runtime.studyMode === 'vocab' || runtime.studyMode === 'morph') {
+    runtime.spacedByMode[runtime.studyMode] = runtime.spacedRepetition;
+  }
   host.clearSpacedUndoSnapshot();
   host.resetUnspacedCycleState();
   host.syncToggleButtons();

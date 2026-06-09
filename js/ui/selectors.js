@@ -11,6 +11,7 @@
 
 import { runtime } from '../state/runtime.js';
 import { shuffleArray } from '../utils/helpers.js';
+import { SESSION_IDLE_RESET_MS } from '../domain/srs/constants.js';
 import {
   isChapterKey,
   isAdvancedKey,
@@ -579,27 +580,60 @@ export function loadDeckFromKeys(keys, sessionId = null, options = {}) {
   // A bank entry whose ids don't line up with the current deck is a stale
   // cross-mode save — ignore its cursor rather than clamp a meaningless index.
   if (restoredDeck) {
+    // Resume this deck's banked three-pile session when the user is merely
+    // coming back to it — a mode switch or an option toggle — within the 5 h
+    // session window. The due/middle pile then keeps waiting (it only joins
+    // active when active drains, on a manual reshuffle, or after the idle
+    // gap) instead of being reshuffled into active on every switch.
+    // Three cases still start fresh:
+    //  - an explicit session/chapter pick (clearUnspacedMarks) — choosing a
+    //    session is a deliberate "new round" event,
+    //  - parsing mode, which deliberately resamples its deck on every load,
+    //  - a bank entry older than the idle window (stale session).
+    const savedAtMs = Number(savedDeckState.savedAt) || 0;
+    const resumeSession = options.clearUnspacedMarks !== true
+      && !host.isMorphStepByStepActive()
+      && savedAtMs > 0
+      && (Date.now() - savedAtMs) <= SESSION_IDLE_RESET_MS;
     if (runtime.spacedRepetition) {
+      // Hand buildStudyDeck the banked active pile (and the banked order via
+      // runtime.deck): its continue-session branch preserves the active
+      // section as-is, with everything else due waiting in middle. When not
+      // resuming, the cleared id list makes freshStart fire naturally, which
+      // collapses all due cards into active and honours the shuffle toggle.
       runtime.deck = restoredDeck;
-      runtime.activeDeckCount = restoredDeck.length;
-      runtime.deck = host.buildStudyDeck(runtime.originalDeck, { forceShuffle: runtime.shuffled });
+      runtime.spacedActiveIds = resumeSession && Array.isArray(savedDeckState.spacedActiveIds)
+        ? [...savedDeckState.spacedActiveIds]
+        : [];
+      runtime.deck = host.buildStudyDeck(runtime.originalDeck);
     } else {
-      // Unspaced: partition into [active, archived]. A different deck loaded
-      // through selectors (mode/chapter switch) starts a fresh round, so the
-      // middle pile clears — any restored IDs wouldn't match this deck's
-      // cards anyway.
-      runtime.unspacedMiddleIds = new Set();
-      runtime.unspacedMiddleCount = 0;
-      const restoredActive = restoredDeck.filter(card => runtime.marks[card.id] !== 'known');
+      // Unspaced: partition into [active, middle, archived]. Within the
+      // session window the banked middle membership and active order are
+      // restored intact; otherwise the round resets — middle collapses back
+      // into active and the unmarked pile reshuffles.
+      runtime.unspacedMiddleIds = resumeSession && Array.isArray(savedDeckState.unspacedMiddleIds)
+        ? new Set(savedDeckState.unspacedMiddleIds)
+        : new Set();
+      const middleIds = runtime.unspacedMiddleIds;
+      const restoredActive = restoredDeck.filter(card => runtime.marks[card.id] !== 'known' && !middleIds.has(card.id));
+      const restoredMiddle = restoredDeck.filter(card => runtime.marks[card.id] !== 'known' && middleIds.has(card.id));
       const restoredKnown = restoredDeck.filter(card => runtime.marks[card.id] === 'known');
-      const orderedActive = runtime.shuffled ? shuffleArray([...restoredActive]) : [...restoredActive];
-      runtime.deck = [...orderedActive, ...restoredKnown];
+      const orderedActive = (runtime.shuffled && !resumeSession) ? shuffleArray([...restoredActive]) : [...restoredActive];
+      runtime.deck = [...orderedActive, ...restoredMiddle, ...restoredKnown];
+      runtime.unspacedMiddleCount = restoredMiddle.length;
+      runtime.activeDeckCount = restoredActive.length;
     }
-    runtime.activeDeckCount = runtime.spacedRepetition ? host.getDueCount(runtime.originalDeck) : runtime.originalDeck.filter(card => runtime.marks[card.id] !== 'known').length;
-    runtime.currentIdx = Number.isInteger(savedDeckState.currentIdx)
+    // The saved cursor only means something while the banked order survives;
+    // against a fresh build it would just skip a random prefix of the pile.
+    // A fresh start begins at 0 — except an unspaced deck whose active pile
+    // is empty (everything archived), which parks at the end so renderCard
+    // shows the "all confirmed" state instead of an archived card. (Spaced
+    // parks naturally: 0 >= activeDeckCount when nothing is due.)
+    const freshStartIdx = (!runtime.spacedRepetition && runtime.activeDeckCount === 0) ? runtime.deck.length : 0;
+    runtime.currentIdx = resumeSession && Number.isInteger(savedDeckState.currentIdx)
       ? Math.min(Math.max(savedDeckState.currentIdx, 0), runtime.spacedRepetition ? runtime.activeDeckCount : runtime.deck.length)
-      : 0;
-    runtime.unspacedPendingRecycle = !runtime.spacedRepetition && !!savedDeckState.unspacedPendingRecycle;
+      : freshStartIdx;
+    runtime.unspacedPendingRecycle = resumeSession && !runtime.spacedRepetition && !!savedDeckState.unspacedPendingRecycle;
     host.resetUnspacedCycleState();
     runtime.isFlipped = false;
   } else {

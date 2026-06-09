@@ -121,6 +121,19 @@ function sanitizeParsingChapter(input) {
   return 36;
 }
 
+// Per-section spaced-repetition preference. Newer saves carry a `spacedByMode`
+// object; legacy saves only have the single global `spacedRepetition`, which
+// maps onto vocab (the only section it ever governed in practice). Grammar
+// (morph) defaults to unspaced for everyone — it's the new section default.
+function sanitizeSpacedByMode(input, legacySpaced) {
+  const legacyVocab = legacySpaced !== false;
+  const src = (input && typeof input === 'object') ? input : {};
+  return {
+    vocab: typeof src.vocab === 'boolean' ? src.vocab : legacyVocab,
+    morph: typeof src.morph === 'boolean' ? src.morph : false
+  };
+}
+
 function sanitizeParadigmStepStats(input) {
   const out = { byLemma: {} };
   if (!isPlainObject(input)) return out;
@@ -186,6 +199,11 @@ export function buildPersistedStatePayload(options = {}) {
     };
   }
   const usage = host.ensureUsageStats();
+  // spacedRepetition is the live mirror of the current section's setting —
+  // fold it back into spacedByMode so the per-section preference persists.
+  if (runtime.studyMode === 'vocab' || runtime.studyMode === 'morph') {
+    runtime.spacedByMode[runtime.studyMode] = runtime.spacedRepetition;
+  }
   // Trim the live runtime stores first (in place, so references like
   // runtime.marks stay valid): getWordProgress re-seeds a default entry for
   // every card rendered, so the in-memory state must be compacted too or it
@@ -203,6 +221,7 @@ export function buildPersistedStatePayload(options = {}) {
     srsIntervalCapAlignedV1: true,
     directionToGreek: runtime.directionToGreek,
     spacedRepetition: runtime.spacedRepetition,
+    spacedByMode: runtime.spacedByMode,
     hardVocabReviewMode: runtime.hardVocabReviewMode,
     studyMode: runtime.studyMode,
     appProfile: runtime.appProfile,
@@ -274,6 +293,7 @@ function sanitizeImportedState(candidate) {
   state.requiredOnly = candidate.requiredOnly !== false;
   state.directionToGreek = !!candidate.directionToGreek;
   state.spacedRepetition = candidate.spacedRepetition !== false;
+  state.spacedByMode = sanitizeSpacedByMode(candidate.spacedByMode, candidate.spacedRepetition);
   state.hardVocabReviewMode = !!candidate.hardVocabReviewMode;
   state.splitSelection = !!candidate.splitSelection;
   state.modeSelections = isPlainObject(candidate.modeSelections) ? candidate.modeSelections : {};
@@ -319,14 +339,16 @@ function sanitizeImportedState(candidate) {
   OPTIONAL_FILTER_KEYS.forEach((k) => { filterOut[k] = filterSrc[k] !== false; });
   state.optionalFormFilters = filterOut;
 
-  // Older exports made while the user was in reader mode persist reader as the
-  // top-level studyMode, with selectedKeys/currentSessionId left over from the
-  // last vocab/grammar mode and (often) hardVocabReviewMode quietly on. After
-  // import that combination quietly narrows the vocab deck once the user
-  // switches out of reader. Re-normalize on import so existing bad bundles
-  // rehydrate into a sane vocab/grammar starting state regardless of when they
-  // were exported.
-  if (state.studyMode === 'reader') {
+  // Older exports made while the user was in reader (or parsing) mode persist
+  // that as the top-level studyMode, with selectedKeys/currentSessionId left
+  // over from the last vocab/grammar mode and (often) hardVocabReviewMode
+  // quietly on. After import that combination quietly narrows the vocab deck
+  // once the user switches out. Parsing mode also overwrites selectedKeys
+  // with its single chapter key, which on its own would be a very
+  // unrepresentative deck to land in. Re-normalize on import so existing bad
+  // bundles rehydrate into a sane vocab/grammar starting state regardless of
+  // what was on screen at export time.
+  if (state.studyMode === 'reader' || state.studyMode === 'parsing') {
     const vocabSel = state.modeSelections.vocab;
     const morphSel = state.modeSelections.morph;
     if (vocabSel && Array.isArray(vocabSel.selectedKeys)) {
@@ -428,18 +450,20 @@ function buildProgressExportPayload() {
   // exports than the live localStorage cap.
   const appState = buildPersistedStatePayload({ maxDeckStates: EXPORT_MAX_DECK_STATE_ENTRIES });
 
-  // Reader mode doesn't own a deck, so the top-level studyMode/selectedKeys/
-  // currentSessionId snapshot is whatever vocab or grammar mode was active
-  // before switching to reader — plus any flags (hardVocabReviewMode in
-  // particular) that were on at that point. Exporting that as-is means a
-  // re-imported bundle lands in reader UI with a stale vocab/grammar selection
-  // and any narrowing filter still applied: on the user's next switch out of
-  // reader, the deck rebuilds against that filter and they see a tiny deck of
-  // "hard" cards instead of their full selection. Standardize exports to land
-  // in vocab mode (or morph, if no vocab selection was ever recorded), and
-  // clear vocab-only narrowing filters so an import is reproducible regardless
-  // of what was on screen at export time.
-  if (appState.studyMode === 'reader') {
+  // Reader and parsing modes don't own a representative deck — reader has no
+  // deck at all, and parsing overwrites selectedKeys with its single chapter
+  // key. The top-level studyMode/selectedKeys/currentSessionId snapshot for
+  // these modes is therefore something like "whatever vocab or grammar was
+  // active before switching", plus any flags (hardVocabReviewMode in
+  // particular) that were on at that point. Exporting as-is means a
+  // re-imported bundle either lands in reader UI with a stale vocab/grammar
+  // selection and any narrowing filter still applied, or in parsing UI with
+  // a one-chapter parsing deck — in either case the user's first switch out
+  // of the mode rebuilds against a misleading state. Standardize exports to
+  // land in vocab mode (or morph, if no vocab selection was ever recorded),
+  // and clear vocab-only narrowing filters so an import is reproducible
+  // regardless of what was on screen at export time.
+  if (appState.studyMode === 'reader' || appState.studyMode === 'parsing') {
     const vocabSel = appState.modeSelections && appState.modeSelections.vocab;
     const morphSel = appState.modeSelections && appState.modeSelections.morph;
     if (vocabSel && Array.isArray(vocabSel.selectedKeys)) {
@@ -453,10 +477,10 @@ function buildProgressExportPayload() {
     } else {
       appState.studyMode = 'vocab';
     }
-    // hardVocabReviewMode is a vocab-only deck filter; in reader mode it can't
-    // be toggled, so its state at export time is whatever was last set in
-    // vocab mode. A re-import with the filter quietly on hides most of the
-    // user's vocab — clear it so the export rehydrates to a full deck.
+    // hardVocabReviewMode is a vocab-only deck filter; in reader/parsing mode
+    // it can't be toggled, so its state at export time is whatever was last
+    // set in vocab mode. A re-import with the filter quietly on hides most
+    // of the user's vocab — clear it so the export rehydrates to a full deck.
     appState.hardVocabReviewMode = false;
   }
 
@@ -658,6 +682,8 @@ export async function exportProgressJson() {
   showExportFallbackModal(jsonText, filename);
 }
 
+// Returns the import summary, or null if the user declined the confirmation.
+// Throws when the payload is not a recognizable progress export.
 function importProgressFromJsonText(rawText, options = {}) {
   const parsed = JSON.parse(String(rawText || '{}'));
   const wrappedState = parsed?.format === PROGRESS_EXPORT_FORMAT && isPlainObject(parsed.appState)
@@ -669,6 +695,20 @@ function importProgressFromJsonText(rawText, options = {}) {
   const summary = parsed?.format === PROGRESS_EXPORT_FORMAT && isPlainObject(parsed.summary)
     ? parsed.summary
     : summarizePersistedState(wrappedState);
+
+  // Reject unrecognizable payloads before asking for confirmation. This is a
+  // shape check only (mirrors sanitizeImportedState's gate) — the full
+  // sanitizer must not run before the user confirms, because it routes
+  // through host.ensureUsageStats which can replace the live usage stats.
+  const looksLikeProgressState = isPlainObject(wrappedState)
+    && ['selectedKeys', 'deckStates', 'globalWordMarks', 'globalWordProgress', 'appUsageStats']
+      .some(key => key in wrappedState);
+  if (!looksLikeProgressState) throw new Error('Invalid progress file shape.');
+
+  const confirmed = window.confirm(
+    `Importing will replace all progress saved on this device.\n\nIncoming data: ${formatPersistedStateSummary(summary)}\n\nContinue?`
+  );
+  if (!confirmed) return null;
 
   const success = applyImportedState(wrappedState, { disclaimerAccepted });
   if (!success) throw new Error('Invalid progress file shape.');
@@ -728,6 +768,7 @@ export function triggerImportProgress() {
 
       try {
         const summary = importProgressFromJsonText(rawText);
+        if (!summary) return; // user declined the confirmation
         closeTransferModal();
         window.alert(`Progress imported successfully. ${formatPersistedStateSummary(summary)}`);
       } catch (err) {
@@ -751,8 +792,10 @@ function handleImportedProgressFile(event) {
   reader.onload = () => {
     try {
       const summary = importProgressFromJsonText(reader.result);
-      closeTransferModal();
-      window.alert(`Progress imported successfully. ${formatPersistedStateSummary(summary)}`);
+      if (summary) {
+        closeTransferModal();
+        window.alert(`Progress imported successfully. ${formatPersistedStateSummary(summary)}`);
+      }
     } catch (err) {
       window.alert('Import failed. Please choose a valid progress JSON exported from this app.');
     } finally {
@@ -807,34 +850,6 @@ export function markActiveDeckRef() {
   };
 }
 
-// Obsolete localStorage keys from earlier save formats. restoreState reads
-// them once as a migration fallback (see the fallback chain below); left in
-// place afterwards they are pure dead weight against the small iOS Safari
-// quota, which is what eventually makes setItem throw.
-const LEGACY_STORAGE_KEYS = [
-  'greekFlashcardsStateV17',
-  'greekFlashcardsStateV15',
-  'greekFlashcardsStateV14',
-  'greekFlashcardsStateV12',
-  'greekFlashcardsStateV11',
-  'greekFlashcardsStateV10'
-];
-
-function clearLegacySaves(storage) {
-  let cleared = false;
-  for (const key of LEGACY_STORAGE_KEYS) {
-    try {
-      if (storage.getItem(key) !== null) {
-        storage.removeItem(key);
-        cleared = true;
-      }
-    } catch (err) {
-      // A removeItem failure just means we couldn't reclaim that one key.
-    }
-  }
-  return cleared;
-}
-
 export function saveCurrentDeckStateToBank() {
   const ref = runtime.activeDeckRef;
   if (!ref || !runtime.deck.length) return;
@@ -844,9 +859,21 @@ export function saveCurrentDeckStateToBank() {
     selectedKeys: ref.selectedKeys,
     deckIds: runtime.deck.map(card => card.id),
     currentIdx: runtime.currentIdx,
-    unspacedPendingRecycle: !runtime.spacedRepetition && !!runtime.unspacedPendingRecycle,
+    unspacedPendingRecycle: !!runtime.unspacedPendingRecycle,
+    // Per-deck pile membership for the three-deck layout, so switching back
+    // to this deck (mode/toggle round-trip) can resume its in-flight session
+    // instead of force-shuffling. Both fields are written unconditionally:
+    // during a mode transition the live spacedRepetition flag may already
+    // belong to the *next* mode while runtime.deck still holds the deck
+    // being banked, so gating on the flag here would wipe the wrong field.
+    // Each restorer reads only the field matching the deck's own spaced
+    // flag (it's part of the bank key), so stale cross-data is ignored.
+    spacedActiveIds: Array.isArray(runtime.spacedActiveIds) ? runtime.spacedActiveIds.slice(0, 1000) : [],
+    unspacedMiddleIds: runtime.unspacedMiddleIds ? Array.from(runtime.unspacedMiddleIds).slice(0, 1000) : [],
     // Recency stamp so compaction can keep the most recently used selections
-    // and evict stale ones instead of letting the bank grow unbounded.
+    // and evict stale ones instead of letting the bank grow unbounded. Also
+    // gates session resume: a bank entry older than SESSION_IDLE_RESET_MS
+    // restores as a fresh shuffle rather than a stale mid-session pile.
     savedAt: Date.now()
   };
 }
@@ -864,20 +891,14 @@ export function saveState() {
   try {
     storage.setItem(STORAGE_KEY, JSON.stringify(buildPersistedStatePayload()));
   } catch (err) {
-    // Almost always QuotaExceededError on iOS. Reclaim space by dropping
-    // obsolete legacy-format saves, then retry; if it still won't fit, drop
-    // the deck-state bank (a pure resume convenience) and try once more.
-    clearLegacySaves(storage);
+    // Almost always QuotaExceededError on iOS. Drop the deck-state bank (a
+    // pure resume convenience) and try once more.
     try {
-      storage.setItem(STORAGE_KEY, JSON.stringify(buildPersistedStatePayload()));
+      const payload = buildPersistedStatePayload();
+      payload.deckStates = {};
+      storage.setItem(STORAGE_KEY, JSON.stringify(payload));
     } catch (err2) {
-      try {
-        const payload = buildPersistedStatePayload();
-        payload.deckStates = {};
-        storage.setItem(STORAGE_KEY, JSON.stringify(payload));
-      } catch (err3) {
-        console.warn('saveState: unable to persist progress to localStorage.', err3);
-      }
+      console.warn('saveState: unable to persist progress to localStorage.', err2);
     }
   }
 }
@@ -911,32 +932,13 @@ export function restoreState() {
   const storage = getStorage();
   if (!storage) return false;
 
-  let raw = storage.getItem(STORAGE_KEY);
-  // One-time fallback: if no V16 data exists yet, load older saved data and migrate it.
-  if (!raw) {
-    const legacyV17 = storage.getItem('greekFlashcardsStateV17');
-    if (legacyV17) raw = legacyV17;
-  }
-  if (!raw) {
-    const legacyV15 = storage.getItem('greekFlashcardsStateV15');
-    if (legacyV15) raw = legacyV15;
-  }
-  if (!raw) {
-    const legacyV14 = storage.getItem('greekFlashcardsStateV14');
-    if (legacyV14) raw = legacyV14;
-  }
-  if (!raw) {
-    const legacyV12 = storage.getItem('greekFlashcardsStateV12');
-    if (legacyV12) raw = legacyV12;
-  }
-  if (!raw) {
-    const legacyV11 = storage.getItem('greekFlashcardsStateV11');
-    if (legacyV11) raw = legacyV11;
-  }
-  if (!raw) {
-    const legacyV10 = storage.getItem('greekFlashcardsStateV10');
-    if (legacyV10) raw = legacyV10;
-  }
+  // No legacy-key fallback chain here, on purpose. The Duff build's
+  // greekFlashcardsStateV* keys can coexist on this same origin (GitHub
+  // Pages serves both project sites from one hostname), but its chapter IDs
+  // and grammar item indices don't line up with this build — store.js bumped
+  // the namespace precisely so a fresh Mounce install starts clean instead
+  // of inheriting (or deleting) the sibling app's progress.
+  const raw = storage.getItem(STORAGE_KEY);
   if (!raw) return false;
 
   try {
@@ -956,10 +958,6 @@ export function restoreState() {
     // so an oversized legacy save shrinks on first load instead of repeatedly
     // failing to persist.
     saved = compactPersistedState(saved);
-    // Once the current-format save exists, the obsolete legacy-format keys are
-    // pure dead weight against the iOS quota — reclaim that space. Guarded so
-    // we never drop a legacy save still being used as the load source.
-    if (storage.getItem(STORAGE_KEY) !== null) clearLegacySaves(storage);
 
     runtime.selectedKeys = Array.isArray(saved.selectedKeys) ? sortSetKeys(saved.selectedKeys.map(String)) : [];
     runtime.requiredOnly = saved.requiredOnly !== false;
@@ -972,6 +970,13 @@ export function restoreState() {
     const hadSavedAchievementSnapshot = Array.isArray(saved?.gamification?.lastEarnedAchievementIds);
     runtime.appGamification = sanitizeGamificationState(saved.gamification);
     runtime.studyMode = host.normalizeStudyMode(saved.studyMode);
+    // Per-section spaced flag: restore both sections' settings, then mirror the
+    // active mode's value into the live `spacedRepetition` the rest of the load
+    // (deck build, cursor clamp) reads below.
+    runtime.spacedByMode = sanitizeSpacedByMode(saved.spacedByMode, saved.spacedRepetition);
+    if (runtime.studyMode === 'vocab' || runtime.studyMode === 'morph') {
+      runtime.spacedRepetition = runtime.spacedByMode[runtime.studyMode];
+    }
     runtime.morphSelfCheck = !!saved.morphSelfCheck;
     runtime.morphStepByStep = !!saved.morphStepByStep;
     runtime.morphFocusedParadigm = typeof saved.morphFocusedParadigm === 'string'
@@ -1027,7 +1032,8 @@ export function restoreState() {
     // (empty) so the next buildStudyDeck rebuilds from scratch and the user
     // gets a freshly-shuffled active pile.
     const savedActivityAt = Number(saved.lastStudyActivityAt) || 0;
-    if (savedActivityAt && (Date.now() - savedActivityAt) <= SESSION_IDLE_RESET_MS) {
+    const withinSessionWindow = savedActivityAt > 0 && (Date.now() - savedActivityAt) <= SESSION_IDLE_RESET_MS;
+    if (withinSessionWindow) {
       runtime.lastStudyActivityAt = savedActivityAt;
       // previousStudyActivityAt seeds equal to lastStudyActivityAt so the
       // first post-restore noteStudyInteraction snapshots the right gap
@@ -1098,13 +1104,14 @@ export function restoreState() {
       // subset of unmarked cards whose IDs are in unspacedMiddleIds — restored
       // intact within 5 h of last activity, empty Set otherwise. Saved
       // active order is preserved; active gets reshuffled only when we're
-      // outside the session window (middle is empty in that case, so the
-      // shuffle applies to the whole unmarked pile).
+      // outside the session window (a fresh round), or in parsing mode,
+      // which deliberately resamples its deck on every load.
       const middleIds = runtime.unspacedMiddleIds || new Set();
       const restoredActive = restoredDeck.filter(card => runtime.marks[card.id] !== 'known' && !middleIds.has(card.id));
       const restoredMiddle = restoredDeck.filter(card => runtime.marks[card.id] !== 'known' && middleIds.has(card.id));
       const restoredKnown = restoredDeck.filter(card => runtime.marks[card.id] === 'known');
-      const orderedActive = (runtime.shuffled && middleIds.size === 0) ? shuffleArray([...restoredActive]) : [...restoredActive];
+      const freshUnspacedRound = !withinSessionWindow || runtime.studyMode === 'parsing';
+      const orderedActive = (runtime.shuffled && freshUnspacedRound) ? shuffleArray([...restoredActive]) : [...restoredActive];
       runtime.deck = [...orderedActive, ...restoredMiddle, ...restoredKnown];
       runtime.unspacedMiddleCount = restoredMiddle.length;
     } else {
@@ -1116,11 +1123,15 @@ export function restoreState() {
     // active count, since the persisted deck might have drifted.
     // Unspaced activeDeckCount excludes the middle section so end-of-round
     // detection (activeDeckCount === 0) fires correctly when only active is
-    // drained and middle still has cards waiting.
-    const unspacedMiddleSet = runtime.unspacedMiddleIds || new Set();
-    runtime.activeDeckCount = runtime.spacedRepetition
-      ? host.getDueCount(runtime.originalDeck)
-      : runtime.originalDeck.filter(card => runtime.marks[card.id] !== 'known' && !unspacedMiddleSet.has(card.id)).length;
+    // drained and middle still has cards waiting. Spaced mode keeps the
+    // active-section count buildStudyDeck just computed — overwriting it
+    // with the total due count (active + middle) would let the cursor and
+    // the end-of-active splash bleed into the middle section after a
+    // continue-session restore.
+    if (!runtime.spacedRepetition) {
+      const unspacedMiddleSet = runtime.unspacedMiddleIds || new Set();
+      runtime.activeDeckCount = runtime.originalDeck.filter(card => runtime.marks[card.id] !== 'known' && !unspacedMiddleSet.has(card.id)).length;
+    }
     if (!runtime.spacedRepetition) {
       const savedRoundSize = Number(saved.unspacedRoundSize);
       const savedRoundMarks = Number(saved.unspacedRoundMarks);
@@ -1138,9 +1149,18 @@ export function restoreState() {
       runtime.unspacedRoundSize = 0;
       runtime.unspacedRoundMarks = 0;
     }
-    runtime.currentIdx = usableDeckState && Number.isInteger(usableDeckState.currentIdx)
+    // The saved cursor only means something while the saved order survives:
+    // outside the session window (or in parsing mode) the active pile was
+    // just rebuilt fresh, so a mid-deck cursor would skip a random prefix.
+    // A fresh start begins at 0 — except an unspaced deck whose active pile
+    // is empty (everything archived), which parks at the end so renderCard
+    // shows the "all confirmed" state instead of an archived card. (Spaced
+    // parks naturally: 0 >= activeDeckCount when nothing is due.)
+    const cursorMeaningful = withinSessionWindow && runtime.studyMode !== 'parsing';
+    const freshStartIdx = (!runtime.spacedRepetition && runtime.activeDeckCount === 0) ? runtime.deck.length : 0;
+    runtime.currentIdx = usableDeckState && cursorMeaningful && Number.isInteger(usableDeckState.currentIdx)
       ? Math.min(Math.max(usableDeckState.currentIdx, 0), runtime.spacedRepetition ? runtime.activeDeckCount : runtime.deck.length)
-      : 0;
+      : freshStartIdx;
     runtime.unspacedPendingRecycle = !runtime.spacedRepetition && !!(usableDeckState && usableDeckState.unspacedPendingRecycle);
     runtime.isFlipped = false;
     host.clearSpacedUndoSnapshot();
@@ -1158,7 +1178,20 @@ export function restoreState() {
     if (host.isReaderMode()) host.renderReaderModule();
     return true;
   } catch (err) {
-    clearSavedState();
+    // Never delete the saved payload here: this catch also covers migrations
+    // and the render calls above, so a transient bug in either would destroy
+    // the user's study history. Fall back to a clean in-memory baseline and
+    // leave storage untouched — a later fixed build can still restore it.
+    console.warn('Could not restore saved study state; starting fresh without deleting saved data.', err);
+    runtime.currentSession = null;
+    runtime.selectedKeys = [];
+    runtime.deck = [];
+    runtime.originalDeck = [];
+    runtime.currentIdx = 0;
+    runtime.activeDeckCount = 0;
+    runtime.isFlipped = false;
+    runtime.unspacedPendingRecycle = false;
+    host.clearSpacedUndoSnapshot();
     return false;
   }
 }

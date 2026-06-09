@@ -42,6 +42,30 @@ export function configureRender(deps) {
   host = { ...host, ...deps };
 }
 
+// Grammar MC options often carry a trailing parenthetical that names the very
+// grammatical category the prompt asks for, or glosses the form — e.g.
+// "ὁ ἀπόστολος (nominative)" against "(accusative)" siblings, or a parse
+// string ending in "('he sees')" when only the correct option is glossed.
+// Shown up front, that tail hands the answer over (it labels the right
+// category, or singles out the one annotated option). This returns a
+// display-only copy of the choices with each trailing "(…)" removed so the
+// buttons read as a real recall test before the student commits; the full
+// text — brackets and all — returns on the disabled buttons and in the reveal
+// once they answer. Returns null (leave choices untouched) when there is
+// nothing to hide, or when stripping would make any option empty or collide
+// with another — that guards load-bearing parens like "genitive plural
+// ('of us')" vs "('of you all')", where the tail is the only thing telling
+// the options apart.
+function hideGrammarChoiceAnnotations(choices) {
+  if (!Array.isArray(choices) || choices.length < 2) return null;
+  const stripped = choices.map(c => String(c).replace(/\s*\([^()]*\)\s*$/, '').trim());
+  const changed = stripped.some((s, i) => s !== String(choices[i]).trim());
+  if (!changed) return null;
+  if (stripped.some(s => s.length === 0)) return null;
+  if (new Set(stripped).size !== stripped.length) return null;
+  return stripped;
+}
+
 // Focused-paradigm lemmas that are stem-recall prompts ("what is the aorist
 // of λαμβάνω?") rather than canonical paradigm forms. Parsing mode can't
 // dimension-walk them — they have no tense/voice/mood/case/etc. parse —
@@ -262,6 +286,14 @@ export function renderCard() {
           </div>${ratingHtml}`;
       }
     } else {
+      // Grammar cards hide answer-giving trailing parentheticals until the
+      // student answers. Grading stays index-based against the untouched
+      // card data; this is display-only. Morphology drill cards keep their
+      // full labels (their parentheticals are part of the parse).
+      const isGrammarCard = String(card.id || '').startsWith('grammar-');
+      const choiceLabels = (!reversed && isGrammarCard && !runtime.morphAnswerState.answered)
+        ? hideGrammarChoiceAnnotations(displayChoices)
+        : null;
       const choiceButtons = displayChoices.map((choice, idx) => {
         const classes = ['choice-btn'];
         if (reversed) classes.push('choice-btn-greek');
@@ -269,7 +301,8 @@ export function renderCard() {
           if (choice === correctAnswer) classes.push('correct');
           if (idx === runtime.morphAnswerState.selectedIndex && choice !== correctAnswer) classes.push('incorrect');
         }
-        return `<button class="${classes.join(' ')}" type="button" ${runtime.morphAnswerState.answered ? 'disabled' : ''} onclick="answerMorphologyChoice(${idx})">${choice}</button>`;
+        const label = choiceLabels ? choiceLabels[idx] : choice;
+        return `<button class="${classes.join(' ')}" type="button" ${runtime.morphAnswerState.answered ? 'disabled' : ''} onclick="answerMorphologyChoice(${idx})">${label}</button>`;
       }).join('');
 
       const dontKnowButton = `<button class="choice-btn choice-btn-dontknow" type="button" ${runtime.morphAnswerState.answered ? 'disabled' : ''} onclick="passMorphologyChoice()">I don't know</button>`;
@@ -358,7 +391,7 @@ export function renderCard() {
   // Prepositions that govern more than one case get a star on both faces as a
   // reminder that the meaning depends on the case of the object.
   const prepStar = host.isMultiCasePreposition(card) ? '★ ' : '';
-  const greekDisplay = `${prepStar}${host.formatGreekHeadword(card.g)}`;
+  const greekDisplay = `${prepStar}${host.formatGreekHeadword(card.g)}${verbStemInlineHtml(card)}`;
   const englishDisplay = `${prepStar}${card.e || '—'}`;
   const requiredLabelHTML = `<span class="card-required-label card-required-label-${card.required ? 'req' : 'opt'}">(${card.required ? 'req.' : 'opt.'})</span>`;
   // Second-aorist / liquid-future verbs get their aorist and/or future forms
@@ -577,6 +610,41 @@ function getLiquidFutureByLemma() {
   }
   if (Object.keys(map).length) liquidFutureByLemma = map;
   return map;
+}
+
+// Lazily-built lookup of present-stem lemma → its bare verbal stem (e.g.
+// ἀποθνῄσκω → ἀποθαν-), merged from both flip sets. A verb that is both a
+// second aorist and a liquid future carries the same stem in each set
+// (ἀποθαν- in both), so the merge is order-independent. Keyed through
+// stemAltLookupKey like the other flip lookups so oxia/tonos and
+// iota-subscript spellings still match. Used to print the stem inline after
+// the headword on standard chapter-vocab cards.
+let verbStemByLemma = null;
+function getVerbStemByLemma() {
+  if (verbStemByLemma) return verbStemByLemma;
+  const map = {};
+  const sets = window.SUPPLEMENTAL_VOCAB_SETS;
+  for (const key of ['W3_SECOND_AORIST_FLIP', 'W3_LIQUID_FUTURE_FLIP']) {
+    const flip = sets && sets[key];
+    if (flip && Array.isArray(flip.cards)) {
+      for (const c of flip.cards) {
+        if (c && c.stemFlip && c.g && c.stem) map[stemAltLookupKey(c.g)] = c.stem;
+      }
+    }
+  }
+  if (Object.keys(map).length) verbStemByLemma = map;
+  return map;
+}
+
+// Inline verbal-stem suffix (", ἀποθαν-") for a standard chapter-vocab verb,
+// printed in smaller muted letters right after the headword — the same lexical
+// treatment the stem-flip cards use, so the present is read together with the
+// stem its 2nd-aorist / liquid-future forms are built on. Returns '' for
+// supplemental/advanced/flip cards and lemmas without a recorded stem.
+function verbStemInlineHtml(card) {
+  if (!card || card.advanced || card.supplemental || card.stemFlip) return '';
+  const stem = getVerbStemByLemma()[stemAltLookupKey(card.g)];
+  return stem ? `<span class="card-stem-inline">, ${escapeHtml(stem)}</span>` : '';
 }
 
 // Small second-/third-row stem annotations for a standard chapter-vocab verb:

@@ -146,6 +146,12 @@ duff PR here, watch for:
 - **`v=NNN` numbering is independent.** Don't sync the number with duff.
 - **Off-the-record parsing mode** — Mounce omits `noteStudyInteraction()` in
   the morph-step handlers; preserve that when porting.
+- **Shared localStorage origin.** Both apps are GitHub Pages project sites
+  under the same `username.github.io` origin, so they see each other's
+  localStorage. Never port duff's `greekFlashcardsState*` legacy-key
+  handling (fallback reads or cleanup deletes) — Mounce reads/writes only
+  its `mounceBbgFlashcards*` keys so the two apps can't adopt or destroy
+  each other's saves.
 - **Slash-alternate forms** — paradigm cells that list two spellings of one
   form (`ἐμέ / με`, `λύουσιν / λύουσι`) live hand-authored in
   `morphology.js`, where morph-drill mode shows both spellings on purpose.
