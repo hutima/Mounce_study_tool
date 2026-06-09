@@ -42,6 +42,30 @@ export function configureRender(deps) {
   host = { ...host, ...deps };
 }
 
+// Grammar MC options often carry a trailing parenthetical that names the very
+// grammatical category the prompt asks for, or glosses the form — e.g.
+// "ὁ ἀπόστολος (nominative)" against "(accusative)" siblings, or a parse
+// string ending in "('he sees')" when only the correct option is glossed.
+// Shown up front, that tail hands the answer over (it labels the right
+// category, or singles out the one annotated option). This returns a
+// display-only copy of the choices with each trailing "(…)" removed so the
+// buttons read as a real recall test before the student commits; the full
+// text — brackets and all — returns on the disabled buttons and in the reveal
+// once they answer. Returns null (leave choices untouched) when there is
+// nothing to hide, or when stripping would make any option empty or collide
+// with another — that guards load-bearing parens like "genitive plural
+// ('of us')" vs "('of you all')", where the tail is the only thing telling
+// the options apart.
+function hideGrammarChoiceAnnotations(choices) {
+  if (!Array.isArray(choices) || choices.length < 2) return null;
+  const stripped = choices.map(c => String(c).replace(/\s*\([^()]*\)\s*$/, '').trim());
+  const changed = stripped.some((s, i) => s !== String(choices[i]).trim());
+  if (!changed) return null;
+  if (stripped.some(s => s.length === 0)) return null;
+  if (new Set(stripped).size !== stripped.length) return null;
+  return stripped;
+}
+
 // Focused-paradigm lemmas that are stem-recall prompts ("what is the aorist
 // of λαμβάνω?") rather than canonical paradigm forms. Parsing mode can't
 // dimension-walk them — they have no tense/voice/mood/case/etc. parse —
@@ -262,6 +286,14 @@ export function renderCard() {
           </div>${ratingHtml}`;
       }
     } else {
+      // Grammar cards hide answer-giving trailing parentheticals until the
+      // student answers. Grading stays index-based against the untouched
+      // card data; this is display-only. Morphology drill cards keep their
+      // full labels (their parentheticals are part of the parse).
+      const isGrammarCard = String(card.id || '').startsWith('grammar-');
+      const choiceLabels = (!reversed && isGrammarCard && !runtime.morphAnswerState.answered)
+        ? hideGrammarChoiceAnnotations(displayChoices)
+        : null;
       const choiceButtons = displayChoices.map((choice, idx) => {
         const classes = ['choice-btn'];
         if (reversed) classes.push('choice-btn-greek');
@@ -269,7 +301,8 @@ export function renderCard() {
           if (choice === correctAnswer) classes.push('correct');
           if (idx === runtime.morphAnswerState.selectedIndex && choice !== correctAnswer) classes.push('incorrect');
         }
-        return `<button class="${classes.join(' ')}" type="button" ${runtime.morphAnswerState.answered ? 'disabled' : ''} onclick="answerMorphologyChoice(${idx})">${choice}</button>`;
+        const label = choiceLabels ? choiceLabels[idx] : choice;
+        return `<button class="${classes.join(' ')}" type="button" ${runtime.morphAnswerState.answered ? 'disabled' : ''} onclick="answerMorphologyChoice(${idx})">${label}</button>`;
       }).join('');
 
       const dontKnowButton = `<button class="choice-btn choice-btn-dontknow" type="button" ${runtime.morphAnswerState.answered ? 'disabled' : ''} onclick="passMorphologyChoice()">I don't know</button>`;
