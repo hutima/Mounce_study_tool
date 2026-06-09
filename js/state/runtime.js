@@ -201,7 +201,16 @@ export const runtime = {
   shuffled: true,           // shuffle on by default
   requiredOnly: true,
   directionToGreek: false,  // false = Greek→English, true = English→Greek
+  // Live spaced-repetition flag for the *current* study mode. Mirrors the
+  // matching entry in `spacedByMode` — kept in sync on every mode switch and
+  // toggle so the wide existing read-base (deck banks, nav, stats) needs no
+  // change. Vocab and grammar each remember their own setting.
   spacedRepetition: true,
+  // Per-section spaced-repetition preference. Grammar (morph) defaults to
+  // unspaced — its drills are short reference checks, not a confidence-graded
+  // SRS deck — while vocab stays spaced. setStudyMode swaps the active value
+  // into `spacedRepetition`; toggleSpacedRepetition writes back here.
+  spacedByMode: { vocab: true, morph: false },
   hardVocabReviewMode: false, // restrict vocab deck to cards missed >10× and still under 40% confidence
   activeDeckCount: 0,
   // Cards in the "middle deck" — currently due but not yet seen this session.

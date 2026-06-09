@@ -121,6 +121,19 @@ function sanitizeParsingChapter(input) {
   return 36;
 }
 
+// Per-section spaced-repetition preference. Newer saves carry a `spacedByMode`
+// object; legacy saves only have the single global `spacedRepetition`, which
+// maps onto vocab (the only section it ever governed in practice). Grammar
+// (morph) defaults to unspaced for everyone — it's the new section default.
+function sanitizeSpacedByMode(input, legacySpaced) {
+  const legacyVocab = legacySpaced !== false;
+  const src = (input && typeof input === 'object') ? input : {};
+  return {
+    vocab: typeof src.vocab === 'boolean' ? src.vocab : legacyVocab,
+    morph: typeof src.morph === 'boolean' ? src.morph : false
+  };
+}
+
 function sanitizeParadigmStepStats(input) {
   const out = { byLemma: {} };
   if (!isPlainObject(input)) return out;
@@ -186,6 +199,11 @@ export function buildPersistedStatePayload(options = {}) {
     };
   }
   const usage = host.ensureUsageStats();
+  // spacedRepetition is the live mirror of the current section's setting —
+  // fold it back into spacedByMode so the per-section preference persists.
+  if (runtime.studyMode === 'vocab' || runtime.studyMode === 'morph') {
+    runtime.spacedByMode[runtime.studyMode] = runtime.spacedRepetition;
+  }
   // Trim the live runtime stores first (in place, so references like
   // runtime.marks stay valid): getWordProgress re-seeds a default entry for
   // every card rendered, so the in-memory state must be compacted too or it
@@ -203,6 +221,7 @@ export function buildPersistedStatePayload(options = {}) {
     srsIntervalCapAlignedV1: true,
     directionToGreek: runtime.directionToGreek,
     spacedRepetition: runtime.spacedRepetition,
+    spacedByMode: runtime.spacedByMode,
     hardVocabReviewMode: runtime.hardVocabReviewMode,
     studyMode: runtime.studyMode,
     appProfile: runtime.appProfile,
@@ -274,6 +293,7 @@ function sanitizeImportedState(candidate) {
   state.requiredOnly = candidate.requiredOnly !== false;
   state.directionToGreek = !!candidate.directionToGreek;
   state.spacedRepetition = candidate.spacedRepetition !== false;
+  state.spacedByMode = sanitizeSpacedByMode(candidate.spacedByMode, candidate.spacedRepetition);
   state.hardVocabReviewMode = !!candidate.hardVocabReviewMode;
   state.splitSelection = !!candidate.splitSelection;
   state.modeSelections = isPlainObject(candidate.modeSelections) ? candidate.modeSelections : {};
@@ -950,6 +970,13 @@ export function restoreState() {
     const hadSavedAchievementSnapshot = Array.isArray(saved?.gamification?.lastEarnedAchievementIds);
     runtime.appGamification = sanitizeGamificationState(saved.gamification);
     runtime.studyMode = host.normalizeStudyMode(saved.studyMode);
+    // Per-section spaced flag: restore both sections' settings, then mirror the
+    // active mode's value into the live `spacedRepetition` the rest of the load
+    // (deck build, cursor clamp) reads below.
+    runtime.spacedByMode = sanitizeSpacedByMode(saved.spacedByMode, saved.spacedRepetition);
+    if (runtime.studyMode === 'vocab' || runtime.studyMode === 'morph') {
+      runtime.spacedRepetition = runtime.spacedByMode[runtime.studyMode];
+    }
     runtime.morphSelfCheck = !!saved.morphSelfCheck;
     runtime.morphStepByStep = !!saved.morphStepByStep;
     runtime.morphFocusedParadigm = typeof saved.morphFocusedParadigm === 'string'
