@@ -115,6 +115,11 @@ export const runtime = {
   // aorist → undefined, etc.), so for students who don't want to drill the
   // composite-vs-single distinction it can be turned off. Default on.
   aspectStep: true,
+  // Stem & declension notes on standard vocab cards: the inline verbal /
+  // third-declension stem after the headword, the bracketed principal-parts
+  // line under a verb, and the "declines like σάρξ" hint-line pointer.
+  // Render-only; default on.
+  stemNotes: true,
   // Per-dimension toggles for the parsing walk. Each key controls whether
   // that dim's step is asked. Default-on; off → step skipped, dim doesn't
   // contribute to stats, omitted from the final parse summary, and the

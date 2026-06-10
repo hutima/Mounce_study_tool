@@ -692,6 +692,16 @@ export function toggleHardVocabReview() {
   loadDeckFromKeys(keysToLoad, runtime.currentSession ? runtime.currentSession.id : null);
 }
 
+// Stem & declension notes (inline stems, principal-parts line, "declines
+// like" pointer) are render-only annotations on standard vocab cards —
+// flipping the toggle re-renders the current card; the deck is untouched.
+export function toggleStemNotes() {
+  runtime.stemNotes = runtime.stemNotes === false;
+  host.syncToggleButtons();
+  host.saveState();
+  renderCard();
+}
+
 export function toggleDirection() {
   runtime.directionToGreek = !runtime.directionToGreek;
   host.clearSpacedUndoSnapshot();

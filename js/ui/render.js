@@ -391,13 +391,31 @@ export function renderCard() {
   // Prepositions that govern more than one case get a star on both faces as a
   // reminder that the meaning depends on the case of the object.
   const prepStar = host.isMultiCasePreposition(card) ? '★ ' : '';
-  const greekDisplay = `${prepStar}${host.formatGreekHeadword(card.g)}${verbStemInlineHtml(card)}`;
+  // Vocab mode has no explicit chapter dropdown, so the selection itself is
+  // the gate: its max effective chapter (same deriveSelectionLevels scale
+  // parsing uses) caps the later stem annotations below. The second-aorist /
+  // liquid-future material is deliberately NOT gated — the aorist is the most
+  // common form a verb wears in the NT, so early exposure is wanted — but the
+  // aorist-passive (Ch. 24) and perfect (Ch. 25) parts, and the
+  // third-declension annotations (Ch. 10), wait for their chapters.
+  const levels = deriveSelectionLevels(runtime.selectedKeys || []);
+  const maxCh = levels.maxEffectiveChapter;
+  // The "Stem & declension notes" toggle (advanced settings, default on)
+  // switches every annotation below off at once for students who want bare
+  // cards.
+  const notesOn = runtime.stemNotes !== false;
+  // A card carries at most one inline stem: the verbal stem for second-aorist /
+  // liquid-future verbs, or the third-declension noun stem (never both).
+  const stemInline = notesOn ? (verbStemInlineHtml(card) || nounStemInlineHtml(card, maxCh)) : '';
+  const greekDisplay = `${prepStar}${host.formatGreekHeadword(card.g)}${stemInline}`;
   const englishDisplay = `${prepStar}${card.e || '—'}`;
   const requiredLabelHTML = `<span class="card-required-label card-required-label-${card.required ? 'req' : 'opt'}">(${card.required ? 'req.' : 'opt.'})</span>`;
-  // Second-aorist / liquid-future verbs get their aorist and/or future forms
-  // shown in small bracketed rows under the Greek headword so the present is
-  // learned together with the forms that look nothing like it.
-  const verbStemAltHTML = verbStemAltHtml(card);
+  // Verbs with irregular principal parts get them in one small bracketed line
+  // under the Greek headword (2 aor. / fut. / aor. pass. / pf.).
+  const verbStemAltHTML = notesOn ? verbStemAltHtml(card, maxCh) : '';
+  // Third-declension nouns carry a "declines like σάρξ" pointer in the hint
+  // line of the Greek-bearing face, anchoring each noun to its model paradigm.
+  const declModelTag = notesOn ? nounDeclensionModelSuffix(card, maxCh) : '';
 
   // Stem-flip cards (2nd-aorist / liquid-future / aorist-passive /
   // perfect-active / μι-verb supplements): both faces show Greek + English
@@ -451,7 +469,7 @@ export function renderCard() {
           <span class="card-label">Greek</span>
           <div class="card-greek">${greekDisplay}</div>
           ${verbStemAltHTML}
-          <div class="card-hint">${sourceLabelDisplay}</div>
+          <div class="card-hint">${sourceLabelDisplay}${declModelTag}</div>
           <div class="flip-hint">click to reveal →</div>
         </div>`;
     backHTML = `
@@ -479,7 +497,7 @@ export function renderCard() {
           <span class="card-label">Greek</span>
           <div class="card-greek">${greekDisplay}</div>
           ${verbStemAltHTML}
-          <div class="card-hint">${host.transliterateGreek(host.formatGreekHeadword(card.g))}${advancedCountSuffix}</div>
+          <div class="card-hint">${host.transliterateGreek(host.formatGreekHeadword(card.g))}${advancedCountSuffix}${declModelTag}</div>
           <div class="card-pos">${host.detectPartOfSpeech(card)}</div>
         </div>`;
   }
@@ -636,6 +654,46 @@ function getVerbStemByLemma() {
   return map;
 }
 
+// Same idea for the Part-3 passive set: present lemma → aorist passive
+// (1st sg.), from W3_AORIST_PASSIVE_FLIP. Guard: a real aorist passive
+// (1st sg.) always ends in -ην — both θη-stems (ἐλύθην) and the 2nd
+// (η-stem) passives (ἐγράφην) — so a reference-only entry whose "aorist"
+// field held some other form (duff's data carries a 2nd-aorist ACTIVE,
+// ἔρχομαι → ἦλθον) would be skipped rather than mislabelled "aor. pass."
+// on the vocab card. Every current Mounce entry passes.
+let aoristPassiveByLemma = null;
+function getAoristPassiveByLemma() {
+  if (aoristPassiveByLemma) return aoristPassiveByLemma;
+  const map = {};
+  const flip = window.SUPPLEMENTAL_VOCAB_SETS && window.SUPPLEMENTAL_VOCAB_SETS.W3_AORIST_PASSIVE_FLIP;
+  if (flip && Array.isArray(flip.cards)) {
+    for (const c of flip.cards) {
+      if (!c || !c.stemFlip || !c.g || !c.aorist) continue;
+      const bare = String(c.aorist).normalize('NFD').replace(/\p{M}/gu, '');
+      if (bare.endsWith('ην')) map[stemAltLookupKey(c.g)] = c.aorist;
+    }
+  }
+  if (Object.keys(map).length) aoristPassiveByLemma = map;
+  return map;
+}
+
+// Perfect actives (W3_PERFECT_ACTIVE_FLIP) skip the self-identical entry
+// (οἶδα is listed as its own perfect — a perfect that functions as a
+// present) — a "pf. [οἶδα]" row under the οἶδα headword says nothing.
+let perfectActiveByLemma = null;
+function getPerfectActiveByLemma() {
+  if (perfectActiveByLemma) return perfectActiveByLemma;
+  const map = {};
+  const flip = window.SUPPLEMENTAL_VOCAB_SETS && window.SUPPLEMENTAL_VOCAB_SETS.W3_PERFECT_ACTIVE_FLIP;
+  if (flip && Array.isArray(flip.cards)) {
+    for (const c of flip.cards) {
+      if (c && c.stemFlip && c.g && c.aorist && c.aorist !== c.g) map[stemAltLookupKey(c.g)] = c.aorist;
+    }
+  }
+  if (Object.keys(map).length) perfectActiveByLemma = map;
+  return map;
+}
+
 // Inline verbal-stem suffix (", ἀποθαν-") for a standard chapter-vocab verb,
 // printed in smaller muted letters right after the headword — the same lexical
 // treatment the stem-flip cards use, so the present is read together with the
@@ -647,23 +705,148 @@ function verbStemInlineHtml(card) {
   return stem ? `<span class="card-stem-inline">, ${escapeHtml(stem)}</span>` : '';
 }
 
-// Small second-/third-row stem annotations for a standard chapter-vocab verb:
-// its second-aorist and/or liquid-future form in brackets under the headword,
-// so the present is learned together with the forms that look nothing like it.
-// Returns '' for supplemental/advanced/flip cards and for lemmas with neither.
-function verbStemAltHtml(card) {
+// One small bracketed line of irregular principal parts under a standard
+// chapter-vocab verb's headword, so the present is learned together with the
+// forms that look nothing like it: "2 aor. [ἔλαβον] · aor. pass. [ἐλήμφθην] ·
+// pf. [εἴληφα]". The second-aorist / liquid-future parts always show (early
+// exposure to the NT's most common verb forms is wanted); the aorist-passive
+// and perfect parts wait for the chapter that teaches them (Mounce Ch. 24 /
+// Ch. 25), so they never leak into an earlier deck. A null maxChapter (no
+// chapter-graded selection) shows everything, matching the ungated legacy
+// behavior. Returns '' for supplemental/advanced/flip cards and for lemmas
+// with no recorded parts.
+function verbStemAltHtml(card, maxChapter) {
   if (!card || card.advanced || card.supplemental || card.stemFlip) return '';
-  let html = '';
+  const unlocked = (ch) => maxChapter == null || maxChapter >= ch;
+  const parts = [];
+  const push = (label, form) =>
+    parts.push(`<span class="card-stem-alts-label">${label}</span> [${escapeHtml(form)}]`);
   const key = stemAltLookupKey(card.g);
   const aorist = getSecondAoristByLemma()[key];
-  if (aorist) {
-    html += `<div class="card-aorist-alt"><span class="card-aorist-alt-label">2 aor.</span> [${escapeHtml(aorist)}]</div>`;
-  }
+  if (aorist) push('2 aor.', aorist);
   const future = getLiquidFutureByLemma()[key];
-  if (future) {
-    html += `<div class="card-future-alt"><span class="card-future-alt-label">fut.</span> [${escapeHtml(future)}]</div>`;
+  if (future) push('fut.', future);
+  const aoristPassive = getAoristPassiveByLemma()[key];
+  if (aoristPassive && unlocked(24)) push('aor. pass.', aoristPassive);
+  const perfect = getPerfectActiveByLemma()[key];
+  if (perfect && unlocked(25)) push('pf.', perfect);
+  return parts.length ? `<div class="card-stem-alts">${parts.join(' · ')}</div>` : '';
+}
+
+// The third declension enters at Mounce Ch. 10; its annotations (inline
+// stem, "declines like" pointer) stay hidden below that. Unlike duff, the
+// gate is not just belt-and-braces here: πνεῦμα and Σίμων are Ch. 4 vocab,
+// so a pre-Ch.-10 deck would otherwise carry declension notes the student
+// can't read yet. Null (no chapter-graded selection) shows them.
+const THIRD_DECLENSION_CHAPTER = 10;
+
+// Bare third-declension noun stem (e.g. σαρκ-) — Mounce's Ch. 10 rule: the
+// stem is the genitive singular minus -ος. Derived from a headword that
+// prints its genitive ("σάρξ, σαρκός, ἡ"), with one wrinkle duff's words.js
+// doesn't have: Mounce's data often abbreviates the genitive to a hyphen
+// tail ("ἐλπίς, -ίδος", "σῶμα, -ματος", "νύξ, -νυκτός"), so the full
+// genitive is first reconstructed by splicing the tail onto the nominative.
+// Contract types whose bare stem never surfaces uncontracted — the -εως
+// ι/ευ-stems, the -ους neuters — and the 1st/2nd-declension tails all fail
+// the final -ος test and yield ''. Pitch accents (acute/grave/circumflex)
+// are stripped so the stem prints unaccented like the verbal stems;
+// breathing marks are kept (ὕδατος → ὑδατ-, αἷμα → αἱματ-).
+const NOMINAL_ARTICLES = new Set(['ὁ', 'ἡ', 'τό'].map((a) => stemAltLookupKey(a)));
+function thirdDeclensionStemFromHeadword(greek) {
+  // Mirrors pos_logic's primary "<nom>, <gen>, <article>" nominal pattern —
+  // the only shape third-declension genitives are written in. The article is
+  // compared through the stemAltLookupKey fold rather than a regex literal:
+  // words.js types τό with the oxia accent, and an editor that saves this
+  // file with the tonos form would otherwise silently drop every neuter.
+  const m = String(greek || '').match(/^(.*?),\s*([^,]+),\s*(\S+)$/u);
+  if (!m || !NOMINAL_ARTICLES.has(stemAltLookupKey(m[3]))) return '';
+  const stripAccents = (s) =>
+    String(s).normalize('NFD').replace(/[\u0300\u0301\u0342]/g, '').normalize('NFC');
+  const gen = stripAccents(m[2].trim());
+  let full = gen;
+  if (gen.startsWith('-')) {
+    const tail = gen.slice(1);
+    const nomMatch = stripAccents(m[1]).match(/[Ͱ-Ͽἀ-῿]+/u);
+    let nom = nomMatch ? nomMatch[0] : '';
+    if (!nom) return '';
+    // The tail overlaps the nominative's ending: drop a final ς/ξ/ψ (the
+    // tail re-supplies the consonant it stands for), then splice at the
+    // longest nominative suffix that prefixes the tail (σῶμα + -ματος →
+    // σώματος; νύξ → νυ + νυκτός → νυκτός; πῦρ + -ός → πυρός).
+    if (/[ςξψ]$/u.test(nom)) nom = nom.slice(0, -1);
+    let k = 0;
+    for (let i = Math.min(nom.length, tail.length); i > 0; i--) {
+      if (tail.startsWith(nom.slice(nom.length - i))) { k = i; break; }
+    }
+    full = nom.slice(0, nom.length - k) + tail;
   }
-  return html;
+  return full.endsWith('ος') ? `${full.slice(0, -2)}-` : '';
+}
+
+// Inline noun-stem suffix (", νυκτ-") for a standard chapter-vocab
+// third-declension noun — the same smaller muted treatment the verb cards
+// give their verbal stem, so νύξ is read together with the νυκτ- its other
+// cases are built on. Returns '' for supplemental/advanced/flip cards and
+// for headwords whose genitive doesn't (re)construct to one in -ος.
+function nounStemInlineHtml(card, maxChapter) {
+  if (!card || card.advanced || card.supplemental || card.stemFlip) return '';
+  if (maxChapter != null && maxChapter < THIRD_DECLENSION_CHAPTER) return '';
+  const stem = thirdDeclensionStemFromHeadword(card.g);
+  return stem ? `<span class="card-stem-inline">, ${escapeHtml(stem)}</span>` : '';
+}
+
+// Third-declension model-noun anchors, keyed by the headword's first token.
+// Mounce teaches the declension through model paradigms the app drills in
+// morph mode (Ch. 10: σάρξ for the masc/fem consonant stems, πνεῦμα for the
+// neuter dental stems); tagging each vocab noun "declines like σάρξ" turns
+// the scary nouns into a handful of patterns. Where the app drills no model
+// the anchor is the first vocab noun of the class the course meets: πίστις
+// (Ch. 11) for the -εως ι-stems, βασιλεύς (Ch. 19) for the ευ-stems, ὄρος
+// (Ch. 24) for the -ους neuters, πλείων (Ch. 17) for the comparative
+// ν-stems. Curated, and deliberately conservative: nouns whose endings
+// genuinely track the model are tagged; the syncopated kinship nouns
+// (πατήρ, μήτηρ, ἀνήρ), irregular-accusative χάρις (acc. χάριν), neuter
+// ρ-stem πῦρ, and the proper name Μωϋσῆς are left untagged rather than
+// overclaim. The model nouns themselves carry no tag.
+const DECLENSION_MODEL_BY_HEAD_RAW = {
+  // masc/fem consonant stems (Ch. 10 pattern, incl. the regular ρ-stems)
+  'γυνή': 'σάρξ', 'ἐλπίς': 'σάρξ', 'νύξ': 'σάρξ', 'πούς': 'σάρξ',
+  'αἰών': 'σάρξ', 'Σίμων': 'σάρξ', 'χείρ': 'σάρξ', 'σωτήρ': 'σάρξ',
+  // neuter dental stems
+  'ὄνομα': 'πνεῦμα', 'σῶμα': 'πνεῦμα', 'θέλημα': 'πνεῦμα', 'φῶς': 'πνεῦμα',
+  'ὕδωρ': 'πνεῦμα', 'ῥῆμα': 'πνεῦμα', 'στόμα': 'πνεῦμα', 'αἷμα': 'πνεῦμα',
+  // ι-stems (gen. -εως)
+  'πόλις': 'πίστις', 'δύναμις': 'πίστις', 'θλῖψις': 'πίστις',
+  'ἀνάστασις': 'πίστις',
+  // ευ-stems (gen. -έως)
+  'ἀρχιερεύς': 'βασιλεύς', 'γραμματεύς': 'βασιλεύς',
+  // -ους neuters
+  'ἔθνος': 'ὄρος',
+  // 3rd-decl. comparative adjectives (ν-stems)
+  'μείζων': 'πλείων'
+};
+
+// Folded through stemAltLookupKey on both sides so the map keys match
+// words.js regardless of oxia/tonos typing differences between the files.
+let declensionModelByHead = null;
+function getDeclensionModelByHead() {
+  if (declensionModelByHead) return declensionModelByHead;
+  declensionModelByHead = {};
+  for (const [head, model] of Object.entries(DECLENSION_MODEL_BY_HEAD_RAW)) {
+    declensionModelByHead[stemAltLookupKey(head)] = model;
+  }
+  return declensionModelByHead;
+}
+
+// " · declines like σάρξ" suffix for the hint line of the Greek-bearing card
+// face. Plain text in the hint's own muted style — no extra row, so the card
+// stays clean. Same guards and Ch. 10 gate as the noun stem.
+function nounDeclensionModelSuffix(card, maxChapter) {
+  if (!card || card.advanced || card.supplemental || card.stemFlip) return '';
+  if (maxChapter != null && maxChapter < THIRD_DECLENSION_CHAPTER) return '';
+  const head = String(card.g || '').split(',')[0].trim();
+  const model = getDeclensionModelByHead()[stemAltLookupKey(head)];
+  return model ? ` · declines like ${escapeHtml(model)}` : '';
 }
 
 // True iff the gloss text matches exactly one of the displayed multiple-choice
