@@ -161,7 +161,7 @@ import {
 // Domain — Deck
 import { isChapterKey, isAdvancedKey, sortSetKeys, sourceHint, expandSessionSets } from '../domain/deck/ordering.js';
 import { getSelectedVocabCards, getSelectedGrammarCards, getAllVocabKeys, getAllChapterKeys,
-         getAllVocabCards, getAllGrammarCards, getChapterVocabCards,
+         getAllVocabCards, getAllGrammarCards, getChapterVocabCards, expandSecondAoristCards, progressCardId,
          getCardReviewLeft, getCardReviewRight, getCardMetaLine, getCardAuxLine } from '../domain/deck/filters.js';
 
 // Domain — Grammar
@@ -248,6 +248,8 @@ import {
   toggleShuffle,
   toggleRequiredOnly,
   toggleHardVocabReview,
+  toggleStemNotes,
+  toggleSecondAoristCards,
   toggleDirection,
   toggleSpacedRepetition,
   toggleSplitSelection,
@@ -1308,6 +1310,14 @@ function syncToggleButtons() {
   if (directionSwitch) directionSwitch.classList.toggle('on', !!runtime.directionToGreek);
   if (spacedSwitch)    spacedSwitch.classList.toggle('on',    !!runtime.spacedRepetition);
   if (hardReviewSwitch) hardReviewSwitch.classList.toggle('on', !!runtime.hardVocabReviewMode);
+  const stemNotesSwitch = document.getElementById('stemNotesBtn');
+  if (stemNotesSwitch) stemNotesSwitch.classList.toggle('on', runtime.stemNotes !== false);
+  const stemNotesToggleEl = document.getElementById('stemNotesToggle');
+  if (stemNotesToggleEl) stemNotesToggleEl.setAttribute('aria-checked', runtime.stemNotes !== false ? 'true' : 'false');
+  const secondAoristCardsSwitch = document.getElementById('secondAoristCardsBtn');
+  if (secondAoristCardsSwitch) secondAoristCardsSwitch.classList.toggle('on', !!runtime.secondAoristCards);
+  const secondAoristCardsToggleEl = document.getElementById('secondAoristCardsToggle');
+  if (secondAoristCardsToggleEl) secondAoristCardsToggleEl.setAttribute('aria-checked', runtime.secondAoristCards ? 'true' : 'false');
   if (splitSelectionSwitch) splitSelectionSwitch.classList.toggle('on', !!runtime.splitSelection);
   if (selfCheckBtn)    selfCheckBtn.classList.toggle('on',    !!runtime.morphSelfCheck && isMorphologyMode());
   if (aspectStepSwitch) aspectStepSwitch.classList.toggle('on', runtime.aspectStep !== false);
@@ -1451,6 +1461,12 @@ function syncLayoutVisibility() {
   if (directionToggle) directionToggle.style.display = (runtime.studyMode === 'vocab' || runtime.studyMode === 'morph') ? 'flex' : 'none';
   if (requiredToggle) requiredToggle.style.display = runtime.studyMode === 'vocab' ? 'flex' : 'none';
   if (hardReviewToggle) hardReviewToggle.style.display = runtime.studyMode === 'vocab' ? 'flex' : 'none';
+  // Stem & declension notes annotate standard vocab cards only.
+  const stemNotesToggleVis = document.getElementById('stemNotesToggle');
+  if (stemNotesToggleVis) stemNotesToggleVis.style.display = runtime.studyMode === 'vocab' ? 'flex' : 'none';
+  // Second-aorists-as-cards expands the vocab deck only.
+  const secondAoristCardsToggleVis = document.getElementById('secondAoristCardsToggle');
+  if (secondAoristCardsToggleVis) secondAoristCardsToggleVis.style.display = runtime.studyMode === 'vocab' ? 'flex' : 'none';
   // Split vocab/grammar selection only makes sense between vocab and morph;
   // parsing mode owns its chapter via the dedicated dropdown, so hide the
   // toggle there entirely.
@@ -1766,7 +1782,12 @@ function getSelectedCards(keys) {
   if (isParsingMode()) {
     return buildFilteredFocusedParadigmCards();
   }
-  return getSelectedVocabCards(keys, false);
+  const vocabCards = getSelectedVocabCards(keys, false);
+  // "Second aorists as cards" (advanced settings, vocab-only, default off):
+  // each second-aorist verb's aorist form joins the deck as its own card.
+  return (runtime.secondAoristCards && runtime.studyMode === 'vocab')
+    ? expandSecondAoristCards(vocabCards)
+    : vocabCards;
 }
 
 // When the "Exclude known morphs" toggle is on, drop any card that already
@@ -1868,7 +1889,13 @@ function isAdvancedCard(card) {
 
 function advanceScheduledCards(cards = runtime.originalDeck, advanceMs = SRS_CYCLE_ADVANCE_MS) {
   const now = Date.now();
+  // A base card and its derived second-aorist card share one progress entry;
+  // advance it once, not once per face.
+  const advanced = new Set();
   (cards || []).forEach(card => {
+    const progressId = progressCardId(card.id);
+    if (advanced.has(progressId)) return;
+    advanced.add(progressId);
     const progress = getWordProgress(card.id);
     if (progress.dueAt && progress.dueAt > now) {
       progress.dueAt = Math.max(now, progress.dueAt - advanceMs);
@@ -1883,6 +1910,11 @@ function advanceScheduledCards(cards = runtime.originalDeck, advanceMs = SRS_CYC
 // and the store is never polluted with no-information entries — which is what
 // kept bloating both the in-memory state and the saved payload.
 function getWordProgress(cardId, { persist = false } = {}) {
+  // Derived second-aorist cards share their base card's progress entry —
+  // reviewing εἶπον records onto λέγω's stats (and schedule). Deck mechanics
+  // (marks, cycle state, deck order) keep the suffixed id; only this
+  // progress-store identity is normalized.
+  cardId = progressCardId(cardId);
   const progressStore = getDirectionalProgressStore();
   const existing = progressStore[cardId];
   if (existing && typeof existing === 'object') {
@@ -2296,7 +2328,12 @@ function seedMinimumUncertainSchedule(cardId, reviewedAt = Date.now()) {
 }
 
 function getDeckAggregateStats(cards = runtime.originalDeck) {
+  // Shared base/second-aorist progress entries count once, not per face.
+  const counted = new Set();
   return (cards || []).reduce((totals, card) => {
+    const progressId = progressCardId(card.id);
+    if (counted.has(progressId)) return totals;
+    counted.add(progressId);
     const progress = getWordProgress(card.id);
     totals.seenCount += progress.seenCount || 0;
     totals.passCount += progress.passCount || 0;
@@ -2768,7 +2805,7 @@ const GLOBAL_CLICK_HANDLERS = {
   restoreSpacedUndo, setAppProfile, setStudyMode, setThemeMode, setFontFamily, setTextSize,
   showDisclaimerModal, startStudying, toggleDirection, toggleMorphSelfCheck,
   toggleMorphStepByStep, setMorphFocusedParadigm, setParsingChapter, goToStemDrillFromParsing,
-  toggleRequiredOnly, toggleHardVocabReview, toggleShuffle, toggleSpacedRepetition, toggleSplitSelection, toggleAspectStep, toggleDimStep, toggleOptionalForms, toggleOptionalFormFilter, toggleDimValueFilter, toggleExcludeKnownMorphs, toggleParsingReverse, toggleAccentLookalikes, resetKnownMorphs, closeResetKnownModal, confirmResetKnownFocused, confirmResetKnownAll, clearParsingStats, toggleUnspacedDailyReset, triggerImportProgress,
+  toggleRequiredOnly, toggleHardVocabReview, toggleStemNotes, toggleSecondAoristCards, toggleShuffle, toggleSpacedRepetition, toggleSplitSelection, toggleAspectStep, toggleDimStep, toggleOptionalForms, toggleOptionalFormFilter, toggleDimValueFilter, toggleExcludeKnownMorphs, toggleParsingReverse, toggleAccentLookalikes, resetKnownMorphs, closeResetKnownModal, confirmResetKnownFocused, confirmResetKnownAll, clearParsingStats, toggleUnspacedDailyReset, triggerImportProgress,
   openReaderTab, selectReaderDrillChoice, advanceReaderDrill,
   closeWhatsNewV1_1Modal,
   applyAppUpdate, dismissAppUpdate

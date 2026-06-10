@@ -640,40 +640,21 @@
     margin: 8px auto 0;
     max-width: 90%;
   }
-  /* Second-aorist annotation under a chapter-vocab verb's headword: the
-   * bracketed aorist form in smaller Greek, paired with a tiny "2 aor." tag
-   * so the present/aorist stems are associated at a glance. */
-  .card-aorist-alt {
+  /* Principal-parts annotation under a chapter-vocab verb's headword: one
+   * line of bracketed forms in smaller Greek (2 aor. / fut. / aor. pass. /
+   * pf.), each paired with a tiny label, so the present is associated with
+   * its irregular parts at a glance. Wraps when a verb carries several. */
+  .card-stem-alts {
     font-family: var(--font-greek);
     font-size: clamp(15px, 2.8vw, 20px);
     color: var(--gold-dim);
     text-align: center;
     letter-spacing: 1px;
+    line-height: 1.5;
     margin-top: -2px;
     margin-bottom: 8px;
   }
-  .card-aorist-alt-label {
-    font-family: var(--font-display);
-    font-size: 10px;
-    letter-spacing: 1.5px;
-    text-transform: uppercase;
-    color: var(--muted);
-    margin-right: 4px;
-    vertical-align: middle;
-  }
-  /* Liquid-future annotation — same treatment as the aorist row, so a verb
-   * that is both a 2nd aorist and a liquid future stacks two extra rows under
-   * the headword. */
-  .card-future-alt {
-    font-family: var(--font-greek);
-    font-size: clamp(15px, 2.8vw, 20px);
-    color: var(--gold-dim);
-    text-align: center;
-    letter-spacing: 1px;
-    margin-top: -4px;
-    margin-bottom: 8px;
-  }
-  .card-future-alt-label {
+  .card-stem-alts-label {
     font-family: var(--font-display);
     font-size: 10px;
     letter-spacing: 1.5px;

@@ -692,6 +692,30 @@ export function toggleHardVocabReview() {
   loadDeckFromKeys(keysToLoad, runtime.currentSession ? runtime.currentSession.id : null);
 }
 
+// Stem & declension notes (inline stems, principal-parts line, "declines
+// like" pointer) are render-only annotations on standard vocab cards —
+// flipping the toggle re-renders the current card; the deck is untouched.
+export function toggleStemNotes() {
+  runtime.stemNotes = runtime.stemNotes === false;
+  host.syncToggleButtons();
+  host.saveState();
+  renderCard();
+}
+
+// Second aorists as their own cards (e.g. εἶπον alongside λέγω). Unlike
+// stem notes this changes the deck's contents, so it rebuilds the deck the
+// same way toggleRequiredOnly does.
+export function toggleSecondAoristCards() {
+  runtime.secondAoristCards = !runtime.secondAoristCards;
+  host.syncToggleButtons();
+  if (!runtime.selectedKeys.length) {
+    host.saveState();
+    return;
+  }
+  const keysToLoad = runtime.currentSession ? expandSessionSets(runtime.currentSession) : runtime.selectedKeys;
+  loadDeckFromKeys(keysToLoad, runtime.currentSession ? runtime.currentSession.id : null);
+}
+
 export function toggleDirection() {
   runtime.directionToGreek = !runtime.directionToGreek;
   host.clearSpacedUndoSnapshot();
