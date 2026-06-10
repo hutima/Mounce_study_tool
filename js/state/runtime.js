@@ -120,6 +120,12 @@ export const runtime = {
   // line under a verb, and the "declines like σάρξ" hint-line pointer.
   // Render-only; default on.
   stemNotes: true,
+  // Second aorists as their own cards: when on, every standard chapter-vocab
+  // verb with a recorded second aorist (the W3 flip set) also contributes a
+  // standalone card for the aorist form itself (e.g. εἶπον "I said" alongside
+  // λέγω). Changes deck contents, so flipping it rebuilds the deck. Default
+  // off — the aorist normally rides along as the principal-parts line.
+  secondAoristCards: false,
   // Per-dimension toggles for the parsing walk. Each key controls whether
   // that dim's step is asked. Default-on; off → step skipped, dim doesn't
   // contribute to stats, omitted from the final parse summary, and the

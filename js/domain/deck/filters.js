@@ -9,8 +9,19 @@ import { getConfidencePct } from '../srs/confidence.js';
 export const HARD_VOCAB_MIN_FAILS = 10;
 export const HARD_VOCAB_MAX_CONFIDENCE = 40;
 
+// Derived second-aorist cards (the "Second aorists as cards" toggle) carry a
+// `::2aor` deck-id suffix so deck mechanics — archive marks, cycle state,
+// saved deck order — track them separately, but their *stats* live on the
+// base card: every progress read/write strips the suffix, so reviewing
+// εἶπον records onto λέγω's entry and analytics/confidence see one word.
+export const SECOND_AORIST_ID_SUFFIX = '::2aor';
+export function progressCardId(cardId) {
+  const id = String(cardId == null ? '' : cardId);
+  return id.endsWith(SECOND_AORIST_ID_SUFFIX) ? id.slice(0, -SECOND_AORIST_ID_SUFFIX.length) : id;
+}
+
 export function isHardVocabCard(card, progressStore) {
-  const progress = (progressStore || {})[card?.id];
+  const progress = (progressStore || {})[progressCardId(card?.id)];
   if (!progress) return false;
   if ((Number(progress.failCount) || 0) <= HARD_VOCAB_MIN_FAILS) return false;
   const pct = getConfidencePct(progress);
@@ -114,6 +125,79 @@ export function getSelectedVocabCards(keys, requiredFlag = false) {
     });
   });
   return cards;
+}
+
+// Folds oxia/tonos and iota-subscript spelling differences exactly like
+// render.js's stemAltLookupKey: words.js types oxia accents and plain-η
+// spellings (ἀποθνήσκω) where the flip set types monotonic tonos and
+// iota-subscript (ἀποθνῄσκω); without the fold the lemma lookup below would
+// silently miss most second aorists.
+function flipLookupKey(g) {
+  return String(g || '').normalize('NFD').replace(/ͅ/g, '').normalize('NFC');
+}
+
+// Second-aorist expansion (the "Second aorists as cards" advanced toggle):
+// for every standard chapter-vocab verb with a recorded second aorist in the
+// W3 flip set, add a standalone card for the aorist form (e.g. εἶπον "I said"
+// for λέγω). The derived card keeps the parent's set metadata and required
+// flag so required-only and hard-review scoping treat the pair alike, and
+// gets a stable `::2aor` id suffix for deck mechanics — while its stats land
+// on the parent's progress entry via progressCardId above. Supplemental,
+// advanced, and flip cards are left alone — same rule as the render-side
+// stem annotations.
+//
+// Placement: each aorist is woven into its own chapter's run of cards about
+// half the run away from its present-stem parent (circularly), not appended
+// right after it — back-to-back the present gives the aorist away in an
+// unshuffled deck. The offset is deterministic, so the unshuffled order is
+// stable across rebuilds; shuffled decks randomize it anyway.
+export function expandSecondAoristCards(cards) {
+  if (!Array.isArray(cards) || !cards.length) return cards || [];
+  const flip = window.SUPPLEMENTAL_VOCAB_SETS && window.SUPPLEMENTAL_VOCAB_SETS.W3_SECOND_AORIST_FLIP;
+  const flipCards = flip && Array.isArray(flip.cards) ? flip.cards : [];
+  if (!flipCards.length) return cards;
+  const byLemma = {};
+  for (const c of flipCards) {
+    if (c && c.stemFlip && c.g && c.aorist) byLemma[flipLookupKey(c.g)] = c;
+  }
+  const out = [];
+  // Current contiguous same-sourceKey run, plus the aorists derived from it
+  // (with each parent's index within the run) awaiting placement.
+  let run = [];
+  let runKey;
+  let pending = [];
+  const flushRun = () => {
+    pending.forEach(({ card, parentIdx }) => {
+      const target = (parentIdx + Math.ceil(run.length / 2)) % (run.length + 1);
+      run.splice(target, 0, card);
+    });
+    out.push(...run);
+    run = [];
+    pending = [];
+  };
+  cards.forEach(card => {
+    const key = card ? card.sourceKey : undefined;
+    if (run.length && key !== runKey) flushRun();
+    runKey = key;
+    const parentIdx = run.length;
+    run.push(card);
+    if (!card || card.advanced || card.supplemental || card.stemFlip || card.secondAoristOf) return;
+    const entry = byLemma[flipLookupKey(card.g)];
+    if (!entry) return;
+    pending.push({
+      parentIdx,
+      card: {
+        ...card,
+        g: entry.aorist,
+        e: entry.aoristGloss || card.e,
+        secondAoristOf: card.g,
+        secondAoristStem: entry.stem || '',
+        id: `${card.id}${SECOND_AORIST_ID_SUFFIX}`
+      }
+    });
+  });
+  flushRun();
+  return out;
 }
 
 export function getSelectedGrammarCards(keys) {

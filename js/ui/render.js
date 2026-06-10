@@ -701,7 +701,9 @@ function getPerfectActiveByLemma() {
 // supplemental/advanced/flip cards and lemmas without a recorded stem.
 function verbStemInlineHtml(card) {
   if (!card || card.advanced || card.supplemental || card.stemFlip) return '';
-  const stem = getVerbStemByLemma()[stemAltLookupKey(card.g)];
+  // Standalone second-aorist cards carry their stem directly (the lookup is
+  // keyed by present-stem lemma, which their headword isn't).
+  const stem = card.secondAoristOf ? card.secondAoristStem : getVerbStemByLemma()[stemAltLookupKey(card.g)];
   return stem ? `<span class="card-stem-inline">, ${escapeHtml(stem)}</span>` : '';
 }
 
@@ -717,6 +719,11 @@ function verbStemInlineHtml(card) {
 // with no recorded parts.
 function verbStemAltHtml(card, maxChapter) {
   if (!card || card.advanced || card.supplemental || card.stemFlip) return '';
+  // A standalone second-aorist card (the "Second aorists as cards" toggle)
+  // points back at its present-stem parent instead of listing parts.
+  if (card.secondAoristOf) {
+    return `<div class="card-stem-alts"><span class="card-stem-alts-label">2 aor. of</span> [${escapeHtml(card.secondAoristOf)}]</div>`;
+  }
   const unlocked = (ch) => maxChapter == null || maxChapter >= ch;
   const parts = [];
   const push = (label, form) =>
