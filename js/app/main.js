@@ -161,7 +161,7 @@ import {
 // Domain — Deck
 import { isChapterKey, isAdvancedKey, sortSetKeys, sourceHint, expandSessionSets } from '../domain/deck/ordering.js';
 import { getSelectedVocabCards, getSelectedGrammarCards, getAllVocabKeys, getAllChapterKeys,
-         getAllVocabCards, getAllGrammarCards, getChapterVocabCards, expandSecondAoristCards, progressCardId,
+         getAllVocabCards, getAllGrammarCards, getChapterVocabCards, expandSecondAoristCards, progressCardId, secondAoristFaceKey,
          getCardReviewLeft, getCardReviewRight, getCardMetaLine, getCardAuxLine } from '../domain/deck/filters.js';
 
 // Domain — Grammar
@@ -2343,9 +2343,38 @@ function getDeckAggregateStats(cards = runtime.originalDeck) {
   }, { seenCount: 0, passCount: 0, failCount: 0 });
 }
 
+// "Second aorists as cards": the derived aorist card and its base present
+// card share one progress entry, so one spaced schedule serves two recall
+// tasks — and it must resurface by the WEAKER of the two. Marking λέγω Easy
+// while εἶπον's last review was Hard would otherwise push the pair days out
+// with the aorist still unknown. Each face's own latest rating is kept on
+// the shared entry (faceOutcomes.present / faceOutcomes.aorist) and the
+// outcome actually applied is the lower of the two. The demotion is only
+// active while the toggle is on — with it off the aorist face can't be
+// re-reviewed, so a stale Hard from it must not pin the base card down.
+const SPACED_OUTCOME_RANK = { again: 0, pass: 1, easy: 2 };
+function resolveSharedFaceOutcome(card, ratedOutcome) {
+  const face = secondAoristFaceKey(card);
+  if (!face) return ratedOutcome;
+  const progress = getWordProgress(card.id, { persist: true });
+  const faces = (progress.faceOutcomes && typeof progress.faceOutcomes === 'object')
+    ? progress.faceOutcomes
+    : {};
+  faces[face] = ratedOutcome;
+  progress.faceOutcomes = faces;
+  if (!(runtime.secondAoristCards && runtime.studyMode === 'vocab')) return ratedOutcome;
+  const sibling = faces[face === 'aorist' ? 'present' : 'aorist'];
+  const siblingRank = SPACED_OUTCOME_RANK[sibling];
+  if (!Number.isFinite(siblingRank) || siblingRank >= SPACED_OUTCOME_RANK[ratedOutcome]) return ratedOutcome;
+  return sibling;
+}
+
 function applySpacedReview(card, outcome) {
   const now = Date.now();
-  const normalizedOutcome = outcome === 'pass' ? 'pass' : outcome === 'easy' ? 'easy' : 'again';
+  const ratedOutcome = outcome === 'pass' ? 'pass' : outcome === 'easy' ? 'easy' : 'again';
+  // May be lower than the rating the user just gave — a shared base/2-aorist
+  // entry is graded by its weaker face (see resolveSharedFaceOutcome).
+  const normalizedOutcome = resolveSharedFaceOutcome(card, ratedOutcome);
   const progress = recordStudyOutcome(card.id, normalizedOutcome, now);
 
   if (normalizedOutcome === 'easy') {
