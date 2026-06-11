@@ -106,7 +106,10 @@
     --border: #2e3147;
     --gold: #c9a84c;
     --gold-light: #e8c97a;
-    --gold-dim: #7a6030;
+    /* Dim-gold label tint. Keep ≥4.5:1 on --bg and ≥4.2:1 on --surface —
+       it carries all the tiny uppercase meta labels (koine line, card
+       corner labels, section summaries, reader refs). */
+    --gold-dim: #9a7d42;
     --cream: #f0e6c8;
     --muted: #8a8fa8;
     --accent-blue: #4a7fa5;
@@ -150,9 +153,13 @@
     --card-front: #fffdf7;
     --card-back: #f8f2e6;
     --border: #d5c7a8;
-    --gold: #8e6c1e;
-    --gold-light: #a8842d;
-    --gold-dim: #7c6841;
+    /* Light-mode golds run darker than their names suggest: on cream,
+       "brighter" emphasis has to come from *more* pigment, not less.
+       --gold-light marks active/emphasis text, so it's the darkest of
+       the three (≥4.5:1 on the tinted active-chip backgrounds). */
+    --gold: #82621a;
+    --gold-light: #7c5d12;
+    --gold-dim: #6f5c38;
     --cream: #2b2418;
     --muted: #6d624f;
     --accent-blue: #4a7fa5;
@@ -862,6 +869,7 @@
   .review-sort-group .ctrl-btn { padding: 4px 12px; font-size: 13px; }
   .stat-deck { color: var(--gold-light); font-family: var(--font-display); letter-spacing: 0.5px; }
   .stat-known { color: #7ab88a; }
+  html[data-theme="light"] .stat-known { color: #38704c; }
   .stat-unsure { color: var(--gold); }
   .stat-total { color: var(--muted); }
   .review-list { max-height: 260px; overflow-y: auto; overscroll-behavior: contain; -webkit-overflow-scrolling: touch; }
@@ -3026,6 +3034,16 @@
   }
   html[data-theme="light"] .reader-drill-result.correct { color: #3a6a4a; }
   html[data-theme="light"] .reader-drill-result.incorrect { color: #8c3a3a; }
+
+  /* Difficulty badges share the dark-mode pastel problem: the E/M/H and
+     Easy/Medium/Hard hues are tuned for a near-black surface and wash
+     out on cream, so deepen them the same way. */
+  html[data-theme="light"] .reader-verse-difficulty-e { color: #3a7d3a; }
+  html[data-theme="light"] .reader-verse-difficulty-m { color: #8a6414; }
+  html[data-theme="light"] .reader-verse-difficulty-h { color: #a04f33; }
+  html[data-theme="light"] .reader-difficulty.level-1 { color: #3a7d3a; }
+  html[data-theme="light"] .reader-difficulty.level-2 { color: #8a6414; }
+  html[data-theme="light"] .reader-difficulty.level-3 { color: #a04f33; }
 
   /* ── Light mode: outline OFF toggles ──
      The default OFF track uses `background: var(--border)` (cream tan)

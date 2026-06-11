@@ -1309,6 +1309,49 @@ function performSpacedTimingReset(requiredOnly) {
   host.saveState();
 }
 
+// Levels the future due-date pile-up: finishing a deck shortly after a
+// timing reset hands most cards the same interval, so they all land on the
+// same future day (typically the 14-day cap). This re-spreads the pile so
+// roughly the same number of cards come due each day, with two guarantees:
+// cards due within the next 3 study-days are never touched (short intervals
+// are the stabilization churn — pulling them around would fight the
+// scheduler), and no card is ever pushed later than it already is.
+// intervalDays is left alone on purpose: it records the interval the card
+// *earned*, which seeds the next 'easy' growth — reviewing a few days early
+// shouldn't shrink a card's future intervals.
+function performSpacedScheduleSmooth(requiredOnly) {
+  const directionalProgress = host.getDirectionalProgressStore();
+  const now = Date.now();
+  const protectedUntil = now + 3 * SRS_DAY_MS;
+
+  const entries = [];
+  getResetScopeCards().forEach(card => {
+    if (!shouldResetCard(card, requiredOnly)) return;
+    const p = directionalProgress[card.id];
+    if (p && typeof p === 'object' && Number(p.dueAt) > protectedUntil) entries.push(p);
+  });
+  if (entries.length < 2) return;
+  entries.sort((a, b) => a.dueAt - b.dueAt);
+
+  // Spread across study-days 4..lastDay, where lastDay is the latest
+  // currently-scheduled day — smoothing flattens the curve, it never
+  // extends it.
+  const lastDay = Math.ceil((entries[entries.length - 1].dueAt - now) / SRS_DAY_MS);
+  const spreadDays = lastDay - 3;
+  if (spreadDays < 2) return;
+  entries.forEach((p, i) => {
+    const targetDay = 4 + Math.floor((i * spreadDays) / entries.length);
+    const targetDueAt = now + targetDay * SRS_DAY_MS;
+    if (targetDueAt < p.dueAt) p.dueAt = targetDueAt;
+  });
+
+  // Nothing becomes due immediately (earliest target is day 4), so the
+  // active deck is unchanged — only the review panel's due times moved.
+  renderProgress();
+  renderReview();
+  host.saveState();
+}
+
 // True if the reset-scope toggle in the given modal is checked.
 function isResetScopeRequiredOnly(modalId) {
   const overlay = document.getElementById(modalId);
@@ -1362,6 +1405,14 @@ export function confirmResetSpacedProgress() {
   if (!runtime.selectedKeys.length || !runtime.spacedRepetition) return;
   host.clearSpacedUndoSnapshot();
   performSpacedProgressReset(requiredOnly);
+}
+
+export function confirmResetSpacedSmooth() {
+  const requiredOnly = isResetScopeRequiredOnly('resetSpacedOverlay');
+  closeResetSpacedModal();
+  if (!runtime.selectedKeys.length || !runtime.spacedRepetition) return;
+  host.clearSpacedUndoSnapshot();
+  performSpacedScheduleSmooth(requiredOnly);
 }
 
 function openResetUnspacedModal() {
