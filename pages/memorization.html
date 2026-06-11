@@ -20,7 +20,15 @@ body { margin:0; font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,
 .toggle { position:fixed; top:0; left:0; width:1px; height:1px; opacity:0; pointer-events:none; margin:0; padding:0; border:0; }
 .variant-toggle { position:absolute; width:1px; height:1px; opacity:0; pointer-events:none; margin:0; padding:0; border:0; }
 .page { min-height:100vh; background:#0f1117; color:#f3ead7; padding-bottom:48px; }
-#theme-light:checked ~ .page { background:#f6f0e4; color:#271f16; }
+#theme-light:checked ~ .page { background:#f6f0e4; color:#271f16; color-scheme:light; }
+/* Headings/labels that keep their dark-mode gold (#d3b461) would wash out
+   to ~1.8:1 on the light parchment — deepen them when light is active. */
+#theme-light:checked ~ .page h1,
+#theme-light:checked ~ .page h2,
+#theme-light:checked ~ .page .koine,
+#theme-light:checked ~ .page .toolbar-label { color:#7a5e14; }
+#theme-light:checked ~ .page caption { color:#8a6a1c; }
+#theme-light:checked ~ .page footer { color:#6f6450; }
 header, .toolbar, main, footer { max-width:980px; margin-left:auto; margin-right:auto; }
 .header-top { display:grid; grid-template-columns:1fr auto; align-items:center; gap:12px; margin-bottom:10px; text-align:left; }
 .back a { border:1px solid rgba(211,180,97,.45); color:#f1d47a; background:#171a23; border-radius:999px; padding:7px 11px; text-decoration:none; font-size:.78rem; display:inline-block; }
@@ -402,6 +410,37 @@ footer { color:#aaa08c; padding:20px 16px; text-align:center; border-top:1px sol
 <input class="toggle" id="hide-greek" type="checkbox">
 <input class="toggle" id="hide-english" type="checkbox">
 <input class="toggle" id="hide-notes" type="checkbox">
+<script>
+/* Follow the main app's saved theme (same localStorage key), resolving
+   "system" via prefers-color-scheme. Runs before .page is parsed so the
+   right radio is checked pre-paint. The #theme-system radio has no CSS of
+   its own, so "system" always resolves to a concrete light/dark radio;
+   toggling here writes the choice back so the two pages stay in sync. */
+(function () {
+  var KEY = 'greekFlashcardsThemeMode';
+  function applyResolved(mode) {
+    var resolved = mode;
+    if (resolved !== 'light' && resolved !== 'dark') {
+      var prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+      resolved = prefersDark ? 'dark' : 'light';
+    }
+    var input = document.getElementById(resolved === 'light' ? 'theme-light' : 'theme-dark');
+    if (input) input.checked = true;
+  }
+  var mode = 'system';
+  try { mode = localStorage.getItem(KEY) || 'system'; } catch (err) {}
+  applyResolved(mode);
+  [['theme-system', 'system'], ['theme-dark', 'dark'], ['theme-light', 'light']].forEach(function (pair) {
+    var input = document.getElementById(pair[0]);
+    if (!input) return;
+    input.addEventListener('change', function () {
+      if (!input.checked) return;
+      try { localStorage.setItem(KEY, pair[1]); } catch (err) {}
+      if (pair[1] === 'system') applyResolved('system');
+    });
+  });
+})();
+</script>
 <div class="page" id="top">
 
   <header>
