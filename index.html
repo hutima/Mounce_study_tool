@@ -818,6 +818,7 @@ update that doc in the same commit. Line numbers in the doc are approximate.
     <h2 id="resetSpacedTitle">What would you like to reset?</h2>
     <div class="consent-copy">
       <p><strong>Set all to now</strong> keeps your SRS progress (streaks, intervals, ease) but makes every card in this deck due immediately, so you can review them all right away.</p>
+      <p><strong>Smooth schedule</strong> keeps all progress and just levels the review calendar: when many cards pile up on the same future day (e.g. after completing a reset), it pulls some of them to earlier days so roughly the same number come due each day. Cards due within the next 3 days are left alone, and nothing is ever pushed later.</p>
       <p><strong>Reset progress</strong> clears all SRS scheduling and progress for this deck. Pass history and unspaced marks are kept.</p>
       <p class="reset-scope-row">
         <label>
@@ -829,6 +830,7 @@ update that doc in the same commit. Line numbers in the doc are approximate.
     <div class="consent-actions reset-spaced-actions">
       <button class="ctrl-btn" type="button" onclick="closeResetSpacedModal()">Cancel</button>
       <button class="ctrl-btn reset-spaced-primary-btn" type="button" onclick="confirmResetSpacedTimingOnly()">Set all to now</button>
+      <button class="ctrl-btn reset-spaced-primary-btn" type="button" onclick="confirmResetSpacedSmooth()" title="Re-spread cards due more than 3 days out so a similar number come due each day. Never pushes a card later.">Smooth schedule</button>
     </div>
     <div class="reset-spaced-danger-row">
       <button class="ctrl-btn reset-spaced-danger-btn" type="button" onclick="confirmResetSpacedProgress()">Reset progress</button>
