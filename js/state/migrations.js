@@ -143,6 +143,7 @@ function isEmptyProgressEntry(entry) {
   if (PROGRESS_MEANINGFUL_NUMERIC_FIELDS.some(field => Number(entry[field]) > 0)) return false;
   if (Array.isArray(entry.confidenceHistory) && entry.confidenceHistory.length) return false;
   if (entry.lastSpacedOutcome) return false;
+  if (isPlainObject(entry.faceOutcomes) && Object.keys(entry.faceOutcomes).length) return false;
   if (Number.isFinite(entry.ease) && entry.ease !== PROGRESS_DEFAULT_EASE) return false;
   return true;
 }
@@ -164,6 +165,11 @@ function compactProgressEntry(entry) {
     out.confidenceHistory = entry.confidenceHistory;
   }
   if (entry.lastSpacedOutcome) out.lastSpacedOutcome = entry.lastSpacedOutcome;
+  // Per-face latest ratings on a shared base/second-aorist entry (the spaced
+  // weaker-face rule); without this whitelist line they'd vanish on save.
+  if (isPlainObject(entry.faceOutcomes) && Object.keys(entry.faceOutcomes).length) {
+    out.faceOutcomes = entry.faceOutcomes;
+  }
   return out;
 }
 
