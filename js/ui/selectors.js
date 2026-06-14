@@ -15,6 +15,7 @@ import { SESSION_IDLE_RESET_MS } from '../domain/srs/constants.js';
 import {
   isChapterKey,
   isAdvancedKey,
+  isBookKey,
   sortSetKeys,
   expandSessionSets
 } from '../domain/deck/ordering.js';
@@ -504,6 +505,129 @@ export function deselectAllAdvanced() {
   loadDeckFromKeys(runtime.selectedKeys, null, { clearUnspacedMarks: true });
 }
 
+// ── NT Book Vocab selector ────────────────────────────────────────────────
+// Mirrors the Advanced selector, but each entry is an NT book whose
+// frequency-ordered lexemes are sliced into groups of 50. Selecting a book or
+// a group loads the existing cards those lexemes link to (see
+// resolveBookVocabCards in domain/deck/filters.js).
+const BOOK_VOCAB_GROUP_SIZE = 50;
+
+function getBookVocabData() {
+  const data = window.NT_BOOK_VOCAB;
+  const books = data && Array.isArray(data.books) ? data.books : [];
+  const size = (data && Number(data.groupSize)) || BOOK_VOCAB_GROUP_SIZE;
+  return { books, size };
+}
+
+function getBookGroups(refsLength, size) {
+  const groups = [];
+  for (let start = 0; start < refsLength; start += size) {
+    const end = Math.min(start + size, refsLength);
+    groups.push({ group: groups.length + 1, start, end, count: end - start });
+  }
+  return groups;
+}
+
+export function toggleBookGroup(bookKey, groupNum) {
+  toggleSet(`NTB::${bookKey}::g::${groupNum}`);
+}
+
+export function deselectAllBooks() {
+  const remaining = runtime.selectedKeys.filter(k => {
+    const base = getParadigmBaseKey(k) || k;
+    return !isBookKey(base);
+  });
+  if (remaining.length === runtime.selectedKeys.length) return;
+  host.saveCurrentDeckStateToBank();
+  runtime.currentSession = null;
+  runtime.selectedKeys = remaining;
+  if (!runtime.selectedKeys.length) {
+    clearAndRenderEmpty();
+    return;
+  }
+  loadDeckFromKeys(runtime.selectedKeys, null, { clearUnspacedMarks: true });
+}
+
+export function buildBookVocabSelector() {
+  const list = document.getElementById('bookVocabGrid');
+  if (!list) return;
+  list.innerHTML = '';
+
+  const { books, size } = getBookVocabData();
+  const ordered = [...books].sort((a, b) => (a.order || 0) - (b.order || 0));
+
+  const meta = document.getElementById('bookVocabSectionMeta');
+  if (meta) {
+    if (!ordered.length) {
+      meta.textContent = '';
+    } else {
+      const totalLinks = ordered.reduce((sum, b) => sum + (Array.isArray(b.refs) ? b.refs.length : 0), 0);
+      meta.textContent = `${ordered.length} books · ${totalLinks.toLocaleString()} links`;
+    }
+  }
+
+  if (!ordered.length) {
+    const empty = document.createElement('div');
+    empty.className = 'advanced-empty';
+    empty.textContent = 'NT book vocabulary data has not loaded yet.';
+    list.appendChild(empty);
+    return;
+  }
+
+  const deselectBtn = document.createElement('button');
+  deselectBtn.type = 'button';
+  deselectBtn.className = 'chapter-btn supplemental-deselect-all';
+  deselectBtn.textContent = 'Deselect all book vocab';
+  deselectBtn.onclick = () => deselectAllBooks();
+  list.appendChild(deselectBtn);
+
+  const body = document.createElement('div');
+  body.className = 'advanced-week-body';
+
+  ordered.forEach(book => {
+    const refs = Array.isArray(book.refs) ? book.refs : [];
+    const count = refs.length;
+    if (!count) return;
+    const bookKey = `NTB::${book.key}`;
+    const groups = getBookGroups(count, size);
+
+    const details = document.createElement('details');
+    details.className = 'supplemental-set advanced-set book-vocab-set';
+    details.open = runtime.selectedKeys.some(k => k === bookKey || (getParadigmBaseKey(k) === bookKey));
+
+    const summary = document.createElement('summary');
+    summary.className = 'supplemental-summary advanced-summary';
+    summary.innerHTML = `<span>${book.name}</span><span class="chapter-count">${count.toLocaleString()} words</span>`;
+    details.appendChild(summary);
+
+    const controls = document.createElement('div');
+    controls.className = 'supplemental-paradigm-list advanced-sub-list';
+
+    const allBtn = document.createElement('button');
+    allBtn.className = 'chapter-btn supplemental-all-btn';
+    allBtn.dataset.key = bookKey;
+    allBtn.innerHTML = `All of ${book.name}<span class="chapter-count">${count.toLocaleString()} words</span>`;
+    allBtn.onclick = () => toggleSet(bookKey);
+    controls.appendChild(allBtn);
+
+    groups.forEach(group => {
+      const btn = document.createElement('button');
+      btn.className = 'chapter-btn supplemental-paradigm-btn advanced-sub-btn';
+      btn.dataset.key = `${bookKey}::g::${group.group}`;
+      const label = `${group.start + 1}–${group.end}`;
+      btn.innerHTML = `${label}<span class="chapter-count">${group.count} word${group.count === 1 ? '' : 's'}</span>`;
+      btn.onclick = () => toggleBookGroup(book.key, group.group);
+      controls.appendChild(btn);
+    });
+
+    details.appendChild(controls);
+    body.appendChild(details);
+  });
+
+  list.appendChild(body);
+  setActiveSetButtons();
+}
+
 export function deselectAllChapters() {
   const remaining = runtime.selectedKeys.filter(k => {
     const base = getParadigmBaseKey(k) || k;
@@ -686,7 +810,12 @@ export function getParadigmBaseKey(key) {
   const match = String(key).match(/^(.+)::(grammar|morph)::\d+$/);
   if (match) return match[1];
   const subMatch = String(key).match(/^(.+)::sub::.+$/);
-  return subMatch ? subMatch[1] : null;
+  if (subMatch) return subMatch[1];
+  // NT Book Vocab frequency groups collapse to their whole-book key, so
+  // selecting "All of <book>" replaces its groups (and vice-versa), the same
+  // way an advanced "All" replaces its sub-buckets.
+  const bookGroup = String(key).match(/^(NTB::[^:]+)::g::\d+$/);
+  return bookGroup ? bookGroup[1] : null;
 }
 
 export function toggleSet(key) {
