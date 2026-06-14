@@ -130,6 +130,24 @@ const PARADIGM_CATEGORIES = {
   'λύω → λῦσον':                       'Imperatives'
 };
 
+// Third-declension noun lemmas, derived from the paradigm catalog above. Their
+// gender is genuinely unpredictable from the form: σάρξ is feminine, πνεῦμα
+// neuter — and nothing in the nominative or oblique endings reliably announces
+// which (contrast λόγος, whose -ος all but declares 2nd-decl. masculine). So
+// even though each lemma is single-gender, parsing keeps the gender step for
+// them: recalling that σάρξ is feminine is exactly what third-declension
+// drilling is for. buildMorphSteps reads this set to opt these lemmas out of
+// the single-gender gender auto-skip. The gender *value* filter still treats
+// them as single-gender (see cardPassesDimValueFilters), so excluding a gender
+// distractor never prunes the paradigm. Sourcing it from PARADIGM_CATEGORIES
+// keeps a single source of truth: a new 3rd-decl. noun paradigm added to the
+// catalog becomes gender-testable automatically.
+export const THIRD_DECLENSION_NOUN_LEMMAS = new Set(
+  Object.keys(PARADIGM_CATEGORIES).filter(
+    (lemma) => PARADIGM_CATEGORIES[lemma] === 'Nouns · 3rd declension'
+  )
+);
+
 const PARADIGM_DISPLAY_OVERRIDES = {
   'σάρξ, σαρκός':       'σάρξ — 3rd-decl. feminine',
   'πνεῦμα, πνεύματος':  'πνεῦμα — 3rd-decl. neuter',
@@ -698,4 +716,66 @@ export function getAccessibleMorphCards(selectedKeys) {
   const eligibleSourceKeys = Object.keys(sets).filter((key) => sourcePassesLevel(key, levels));
   if (!eligibleSourceKeys.length) return [];
   return window.buildMorphologyCardsForKeys(eligibleSourceKeys);
+}
+
+// ─── "Shuffle all" parsing pools ────────────────────────────────────────
+//
+// The focused-paradigm dropdown normally holds a single lemma. It can also
+// hold a category sentinel — "shuffle every paradigm of this type" (e.g. all
+// 3rd-declension nouns) — encoded as CATEGORY_SHUFFLE_PREFIX + the category
+// label. The prefix can't collide with a real lemma (no lemma starts with it)
+// and survives save/restore untouched (morphFocusedParadigm persists as a
+// plain string). buildFilteredFocusedParadigmCards decodes it and pools every
+// in-scope lemma in that category instead of one. The separate global "shuffle
+// all paradigms" toggle pools every category at once.
+export const CATEGORY_SHUFFLE_PREFIX = '__shuffleType__:';
+export function makeCategoryShuffleValue(category) {
+  return CATEGORY_SHUFFLE_PREFIX + String(category || '');
+}
+export function parseCategoryShuffleValue(value) {
+  if (typeof value !== 'string' || !value.startsWith(CATEGORY_SHUFFLE_PREFIX)) return null;
+  return value.slice(CATEGORY_SHUFFLE_PREFIX.length);
+}
+
+// Pool every in-scope card across a list of lemmas, reusing the per-lemma
+// focused-paradigm builder (so optional-form expansion, source dedup, dim
+// filters and per-form dedup all apply per lemma) and concatenating. De-dups by
+// card id only, so two different lemmas that happen to share a surface form
+// both survive — they're different words. Non-parseable lemmas (stem-recall
+// drills, redirect-only paradigms) contribute nothing, since the per-lemma
+// builder already filters those out.
+function collectCardsForLemmas(selectedKeys, lemmas, options) {
+  const out = [];
+  const seenIds = new Set();
+  (lemmas || []).forEach((lemma) => {
+    getCardsForFocusedParadigm(selectedKeys, lemma, options).forEach((card) => {
+      if (!card || seenIds.has(card.id)) return;
+      seenIds.add(card.id);
+      out.push(card);
+    });
+  });
+  return out;
+}
+
+// Concrete (non-aggregate) lemmas in scope. The summative "— all forms"
+// aggregates are skipped: their member variants are listed individually and
+// already cover every form, so pooling the aggregate too would just re-walk
+// the same cards (id-dedup collapses them anyway).
+function inScopeConcreteLemmas(selectedKeys, categoryFilter) {
+  return listAvailableParadigms(selectedKeys)
+    .filter((p) => !p.isAggregate && (!categoryFilter || p.category === categoryFilter))
+    .map((p) => p.lemma);
+}
+
+// Every parseable card across ALL in-scope paradigms — the global "shuffle all
+// paradigms" parsing toggle. Chapter-gated by selectedKeys.
+export function getAllParsingCards(selectedKeys, options = {}) {
+  return collectCardsForLemmas(selectedKeys, inScopeConcreteLemmas(selectedKeys, null), options);
+}
+
+// Every parseable card across the in-scope paradigms of one category — the
+// dropdown's "shuffle all <type>" selections (e.g. all 3rd-decl. nouns).
+export function getCardsForParadigmCategory(selectedKeys, category, options = {}) {
+  if (!category) return [];
+  return collectCardsForLemmas(selectedKeys, inScopeConcreteLemmas(selectedKeys, category), options);
 }

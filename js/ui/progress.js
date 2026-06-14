@@ -147,7 +147,9 @@ export function renderReview() {
         <span class="stat-unsure">○ Low confidence: ${lowCount}</span>
       </div>`;
 
-  const sortMode = runtime.reviewSortMode === 'confidence' ? 'confidence' : 'alphabetical';
+  const sortMode = runtime.reviewSortMode === 'confidence' ? 'confidence'
+    : runtime.reviewSortMode === 'alphabetical' ? 'alphabetical'
+    : 'lastSeen';
   const sortRowEl = document.getElementById('reviewSortRow');
   if (sortRowEl) {
     const btn = (mode, label) => {
@@ -157,6 +159,7 @@ export function renderReview() {
     sortRowEl.innerHTML = `
       <span class="review-sort-label">Sort</span>
       <div class="review-sort-group" role="group" aria-label="Sort cards">
+        ${btn('lastSeen', 'Last seen')}
         ${btn('alphabetical', 'A–Ω')}
         ${btn('confidence', 'Confidence')}
       </div>`;
@@ -182,6 +185,16 @@ export function renderReview() {
       const va = pa === null ? -1 : pa;
       const vb = pb === null ? -1 : pb;
       if (va !== vb) return va - vb;
+      return compareGreekAlphabetical(a.card, b.card);
+    });
+  } else if (sortMode === 'lastSeen') {
+    // Most recently reviewed first, so the card just answered tops the list.
+    // Rows with no lastReviewedAt (marked but never graded, e.g. imported
+    // marks) sink to the bottom. Ties break alphabetically.
+    visibleRows.sort((a, b) => {
+      const ta = host.getWordProgress(a.card.id).lastReviewedAt || 0;
+      const tb = host.getWordProgress(b.card.id).lastReviewedAt || 0;
+      if (ta !== tb) return tb - ta;
       return compareGreekAlphabetical(a.card, b.card);
     });
   } else {
@@ -519,10 +532,10 @@ export function clearParsingMorph(encodedLemma, encodedCardId) {
 }
 
 // Sort-mode toggle for the per-deck progress list. Lives in runtime only —
-// the user's pick resets to 'alphabetical' on reload, matching how the
+// the user's pick resets to 'lastSeen' on reload, matching how the
 // analytics chapter sort behaves.
 export function setReviewSortMode(mode) {
-  const next = mode === 'confidence' ? 'confidence' : 'alphabetical';
+  const next = mode === 'confidence' || mode === 'alphabetical' ? mode : 'lastSeen';
   if (runtime.reviewSortMode === next) return;
   runtime.reviewSortMode = next;
   renderReview();

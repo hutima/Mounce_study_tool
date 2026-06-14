@@ -167,7 +167,7 @@ import { getSelectedVocabCards, getSelectedGrammarCards, getAllVocabKeys, getAll
 // Domain — Grammar
 import { buildGrammarSupportHtml } from '../domain/grammar/explanations.js';
 import { recordParadigmAttempt, inferredFollowupDims, buildInferredStep, structuralImpossibilityReason, paradigmGapReason, lemmaInventoryGapReason, isLemmaFormKnown, parseAnswerDimensions } from '../domain/grammar/morph_steps.js';
-import { listAvailableParadigms, listAvailableParadigmsByCategory, getCardsForFocusedParadigm } from '../domain/grammar/paradigm_focus.js';
+import { listAvailableParadigms, listAvailableParadigmsByCategory, getCardsForFocusedParadigm, getCardsForParadigmCategory, getAllParsingCards, parseCategoryShuffleValue, makeCategoryShuffleValue } from '../domain/grammar/paradigm_focus.js';
 
 // UI
 import {
@@ -259,6 +259,7 @@ import {
   toggleOptionalFormFilter,
   toggleDimValueFilter,
   toggleExcludeKnownMorphs,
+  toggleParsingShuffleAll,
   toggleParsingReverse,
   toggleAccentLookalikes,
   toggleUnspacedDailyReset,
@@ -421,11 +422,18 @@ configureRender({
   // deliberately NOT pruned by exclude-known or per-value dim filters, so the
   // present-values truth reflects the whole paradigm (e.g. ἐγώ/σύ has only
   // 1st/2nd person regardless of which forms the user has mastered/excluded).
-  getFocusedParadigmAllCards: () => {
-    if (!isParsingMode() || !runtime.morphFocusedParadigm) return [];
+  getFocusedParadigmAllCards: (card) => {
+    if (!isParsingMode()) return [];
+    // When the deck mixes paradigms — the global shuffle-all toggle, or a
+    // category "shuffle all of type" selection — the gap-detection pool must
+    // key off the CURRENT card's own lemma, since morphFocusedParadigm holds a
+    // sentinel, not a lemma. Otherwise use the focused lemma as before.
+    const mixing = runtime.parsingShuffleAll || !!parseCategoryShuffleValue(runtime.morphFocusedParadigm);
+    const lemma = mixing ? (card && card.lemma) : runtime.morphFocusedParadigm;
+    if (!lemma) return [];
     return getCardsForFocusedParadigm(
       getAggregateSelectionKeys(),
-      runtime.morphFocusedParadigm,
+      lemma,
       {
         includeOptional: !!runtime.includeOptionalForms,
         optionalFilters: runtime.optionalFormFilters
@@ -1225,29 +1233,62 @@ function syncParadigmFocusUi() {
     select.value = '';
     return;
   }
+  // Build the grouped option list first: the "shuffle all of type" entries and
+  // the current-pick fallback both depend on which categories have two or more
+  // concrete (non-aggregate) lemmas in scope.
+  const grouped = listAvailableParadigmsByCategory(aggregateKeys)
+    .map((g) => ({ category: g.category, lemmas: g.lemmas.filter((p) => !isHiddenFromParsing(p.lemma)) }))
+    .filter((g) => g.lemmas.length);
+  const shuffleableCategories = new Set(
+    grouped.filter((g) => g.lemmas.filter((p) => !p.isAggregate).length >= 2).map((g) => g.category)
+  );
+
   const currentValue = runtime.morphFocusedParadigm;
-  const substitutedCurrent = isHiddenFromParsing(currentValue)
-    ? PARSING_DROPDOWN_SUBSTITUTIONS[currentValue]
-    : currentValue;
-  const stillAvailable = substitutedCurrent && available.some((p) => p.lemma === substitutedCurrent);
-  const chosen = stillAvailable ? substitutedCurrent : available[0].lemma;
+  const currentCategory = parseCategoryShuffleValue(currentValue);
+  let chosen;
+  if (currentCategory) {
+    // A "shuffle all of type" selection stays put while its category still has
+    // two or more shuffleable lemmas in scope; otherwise it falls back to the
+    // first concrete lemma (e.g. the chapter dropped below where the type first
+    // appears).
+    chosen = shuffleableCategories.has(currentCategory) ? currentValue : available[0].lemma;
+  } else {
+    const substitutedCurrent = isHiddenFromParsing(currentValue)
+      ? PARSING_DROPDOWN_SUBSTITUTIONS[currentValue]
+      : currentValue;
+    const stillAvailable = substitutedCurrent && available.some((p) => p.lemma === substitutedCurrent);
+    chosen = stillAvailable ? substitutedCurrent : available[0].lemma;
+  }
   if (chosen !== currentValue) {
     runtime.morphFocusedParadigm = chosen;
     rebuildMorphDeckForStepMode();
   }
   // Render with native <optgroup>s — categories like "Verbs · standard
-  // ω-pattern (λύω)" head sections of lemmas, so the user can scan by
-  // paradigm type instead of reading a flat alphabetical list.
-  const grouped = listAvailableParadigmsByCategory(aggregateKeys)
-    .map((g) => ({ category: g.category, lemmas: g.lemmas.filter((p) => !isHiddenFromParsing(p.lemma)) }))
-    .filter((g) => g.lemmas.length);
+  // ω-pattern (λύω)" head sections of lemmas, so the user can scan by paradigm
+  // type instead of reading a flat alphabetical list. Categories with two or
+  // more concrete lemmas also get a "↯ Shuffle all — <type>" entry at the head
+  // of their group (single-lemma categories don't — that would just equal
+  // picking the lemma).
   select.innerHTML = grouped.map((g) => {
+    const shuffleOpt = shuffleableCategories.has(g.category)
+      ? `<option value="${escapeHtml(makeCategoryShuffleValue(g.category))}">${escapeHtml(categoryShuffleLabel(g.category))}</option>`
+      : '';
     const opts = g.lemmas
       .map((p) => `<option value="${escapeHtml(p.lemma)}">${escapeHtml(p.displayLabel)}</option>`)
       .join('');
-    return `<optgroup label="${escapeHtml(g.category)}">${opts}</optgroup>`;
+    return `<optgroup label="${escapeHtml(g.category)}">${shuffleOpt}${opts}</optgroup>`;
   }).join('');
   select.value = chosen;
+}
+
+// Label for a category's "shuffle all of type" dropdown entry. The optgroup
+// heading already names the category, so this reads as an action; we strip the
+// "Nouns · " style prefix to the subtype when present (→ "3rd declension"),
+// else use the whole category (→ "Adjectives").
+function categoryShuffleLabel(category) {
+  const text = String(category || '');
+  const sub = text.includes('·') ? text.split('·').pop().trim() : text;
+  return `↯ Shuffle all — ${sub}`;
 }
 
 function syncToggleButtons() {
@@ -1337,6 +1378,10 @@ function syncToggleButtons() {
   if (excludeKnownMorphsSwitch) excludeKnownMorphsSwitch.classList.toggle('on', !!runtime.excludeKnownMorphs);
   const excludeKnownMorphsToggle = document.getElementById('excludeKnownMorphsToggle');
   if (excludeKnownMorphsToggle) excludeKnownMorphsToggle.setAttribute('aria-checked', runtime.excludeKnownMorphs ? 'true' : 'false');
+  const parsingShuffleAllSwitch = document.getElementById('parsingShuffleAllBtn');
+  if (parsingShuffleAllSwitch) parsingShuffleAllSwitch.classList.toggle('on', !!runtime.parsingShuffleAll);
+  const parsingShuffleAllToggle = document.getElementById('parsingShuffleAllToggle');
+  if (parsingShuffleAllToggle) parsingShuffleAllToggle.setAttribute('aria-checked', runtime.parsingShuffleAll ? 'true' : 'false');
   const parsingReverseSwitch = document.getElementById('parsingReverseBtn');
   if (parsingReverseSwitch) parsingReverseSwitch.classList.toggle('on', !!runtime.parsingReverse);
   const parsingReverseToggleBtn = document.getElementById('parsingReverseToggle');
@@ -1476,13 +1521,18 @@ function syncLayoutVisibility() {
   const parsingChapterRow = document.getElementById('parsingChapterRow');
   if (parsingChapterRow) parsingChapterRow.style.display = isParsingMode() ? 'flex' : 'none';
   const paradigmFocusRowPrimary = document.getElementById('paradigmFocusRowPrimary');
-  if (paradigmFocusRowPrimary) paradigmFocusRowPrimary.style.display = isParsingMode() ? 'flex' : 'none';
+  // Shuffle-all parsing turns the focused paradigm off, so hide its dropdown
+  // while it's on (the deck is then a mix of every in-scope paradigm).
+  if (paradigmFocusRowPrimary) paradigmFocusRowPrimary.style.display = (isParsingMode() && !runtime.parsingShuffleAll) ? 'flex' : 'none';
   if (shuffleToggle) shuffleToggle.style.display = reviewDeckMode ? 'flex' : 'none';
   // Exclude-known-morphs is a parsing-only filter on the deck pool —
   // promoted from inside Parsing options to a top-level toggle next to
   // Shuffle so it's reachable without expanding the per-dim section.
   const excludeKnownMorphsToggle = document.getElementById('excludeKnownMorphsToggle');
   if (excludeKnownMorphsToggle) excludeKnownMorphsToggle.style.display = isParsingMode() ? 'flex' : 'none';
+  // Shuffle-all-paradigms: parsing-only, sits next to Exclude known morphs.
+  const parsingShuffleAllToggle = document.getElementById('parsingShuffleAllToggle');
+  if (parsingShuffleAllToggle) parsingShuffleAllToggle.style.display = isParsingMode() ? 'flex' : 'none';
   // English → Greek (pick the form) is also a parsing-only drill direction.
   const parsingReverseToggle = document.getElementById('parsingReverseToggle');
   if (parsingReverseToggle) parsingReverseToggle.style.display = isParsingMode() ? 'flex' : 'none';
@@ -1821,17 +1871,27 @@ function applyExcludeKnownMorphsFilter(cards) {
 // boundary (rebuildParsingCycle), so a form that crossed the 2/2 "known"
 // threshold mid-session drops out the moment the deck is next rebuilt.
 function buildFilteredFocusedParadigmCards() {
+  const keys = getAggregateSelectionKeys();
+  const opts = {
+    includeOptional: !!runtime.includeOptionalForms,
+    optionalFilters: runtime.optionalFormFilters,
+    dimValueFilters: runtime.dimValueFilters
+  };
+  // Global "shuffle all paradigms" toggle wins over the focused paradigm: pool
+  // every in-scope paradigm up to the chapter gate, shuffled together.
+  if (runtime.parsingShuffleAll) {
+    return applyExcludeKnownMorphsFilter(getAllParsingCards(keys, opts));
+  }
   ensureMorphFocusedParadigm();
-  if (!runtime.morphFocusedParadigm) return [];
-  return applyExcludeKnownMorphsFilter(getCardsForFocusedParadigm(
-    getAggregateSelectionKeys(),
-    runtime.morphFocusedParadigm,
-    {
-      includeOptional: !!runtime.includeOptionalForms,
-      optionalFilters: runtime.optionalFormFilters,
-      dimValueFilters: runtime.dimValueFilters
-    }
-  ));
+  const sel = runtime.morphFocusedParadigm;
+  if (!sel) return [];
+  // "Shuffle all of type" dropdown selection: pool every in-scope lemma in the
+  // chosen category instead of a single paradigm.
+  const category = parseCategoryShuffleValue(sel);
+  if (category) {
+    return applyExcludeKnownMorphsFilter(getCardsForParadigmCategory(keys, category, opts));
+  }
+  return applyExcludeKnownMorphsFilter(getCardsForFocusedParadigm(keys, sel, opts));
 }
 
 // Rebuild the parsing deck for a fresh cycle. Unlike startNextCycle's generic
@@ -2836,7 +2896,7 @@ const GLOBAL_CLICK_HANDLERS = {
   restoreSpacedUndo, setAppProfile, setStudyMode, setThemeMode, setFontFamily, setTextSize,
   showDisclaimerModal, startStudying, toggleDirection, toggleMorphSelfCheck,
   toggleMorphStepByStep, setMorphFocusedParadigm, setParsingChapter, goToStemDrillFromParsing,
-  toggleRequiredOnly, toggleHardVocabReview, toggleStemNotes, toggleSecondAoristCards, toggleShuffle, toggleSpacedRepetition, toggleSplitSelection, toggleAspectStep, toggleDimStep, toggleOptionalForms, toggleOptionalFormFilter, toggleDimValueFilter, toggleExcludeKnownMorphs, toggleParsingReverse, toggleAccentLookalikes, resetKnownMorphs, closeResetKnownModal, confirmResetKnownFocused, confirmResetKnownAll, clearParsingStats, toggleUnspacedDailyReset, triggerImportProgress,
+  toggleRequiredOnly, toggleHardVocabReview, toggleStemNotes, toggleSecondAoristCards, toggleShuffle, toggleSpacedRepetition, toggleSplitSelection, toggleAspectStep, toggleDimStep, toggleOptionalForms, toggleOptionalFormFilter, toggleDimValueFilter, toggleExcludeKnownMorphs, toggleParsingShuffleAll, toggleParsingReverse, toggleAccentLookalikes, resetKnownMorphs, closeResetKnownModal, confirmResetKnownFocused, confirmResetKnownAll, clearParsingStats, toggleUnspacedDailyReset, triggerImportProgress,
   openReaderTab, selectReaderDrillChoice, advanceReaderDrill,
   closeWhatsNewV1_1Modal,
   applyAppUpdate, dismissAppUpdate
