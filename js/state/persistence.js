@@ -78,12 +78,16 @@ const PARADIGM_STEP_ATTEMPT_CAP = 20;
 // grey/green/yellow/red based on the last 2 attempts. Each recent entry
 // carries either per-dim results (so disabled dims can be filtered out at
 // read time) or a legacy allDims fallback from pre-2-of-2 saves.
-const FORM_RECENT_CAP = 2;
+// Deeper than the morph_steps FORM_RECENT_CAP (2): persist up to
+// FORM_HISTORY_CAP recent per-form attempts so the confidence breakdown has more
+// than two to average; the exclude-known "2/2 known" filter and dots still read
+// only the last 2 (FORM_RECENT_CAP in morph_steps.js).
+const FORM_HISTORY_CAP = 10;
 function sanitizeFormRecentList(input, legacyLastCorrect) {
   if (Array.isArray(input)) {
     return input
       .filter((a) => isPlainObject(a))
-      .slice(-FORM_RECENT_CAP)
+      .slice(-FORM_HISTORY_CAP)
       .map((a) => {
         if (typeof a.allDims === 'boolean') return { allDims: a.allDims };
         const dims = isPlainObject(a.dims)
@@ -237,6 +241,7 @@ export function buildPersistedStatePayload(options = {}) {
     dimValueFilters: runtime.dimValueFilters,
     includeOptionalForms: runtime.includeOptionalForms,
     excludeKnownMorphs: runtime.excludeKnownMorphs,
+    parsingShuffleAll: runtime.parsingShuffleAll,
     parsingReverse: runtime.parsingReverse,
     accentLookalikes: runtime.accentLookalikes,
     optionalFormFilters: runtime.optionalFormFilters,
@@ -335,6 +340,8 @@ function sanitizeImportedState(candidate) {
   // strict 2/2 — the form's last two recorded attempts were both fully
   // correct under the current dim toggles.
   state.excludeKnownMorphs = !!candidate.excludeKnownMorphs;
+  // Shuffle-all-paradigms parsing toggle defaults to false (off).
+  state.parsingShuffleAll = !!candidate.parsingShuffleAll;
   // Sub-filters default to true (every category included) so toggling
   // the parent on without touching filters reproduces the original
   // "all optional forms" behavior. Missing keys from older exports
@@ -1010,6 +1017,8 @@ export function restoreState() {
     runtime.includeOptionalForms = !!saved.includeOptionalForms;
     // Exclude-known-morphs filter: rehydrate the toggle (default false).
     runtime.excludeKnownMorphs = !!saved.excludeKnownMorphs;
+    // Shuffle-all-paradigms parsing toggle: rehydrate (default false).
+    runtime.parsingShuffleAll = !!saved.parsingShuffleAll;
     // English → Greek parsing direction (default false).
     runtime.parsingReverse = !!saved.parsingReverse;
     // Accent/breathing look-alike distractors in the reverse drill (default false).

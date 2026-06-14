@@ -765,6 +765,10 @@ export function buildMorphSteps(card, accessiblePools = null, options = {}) {
   const dimToggles = (options.dimToggles && typeof options.dimToggles === 'object') ? options.dimToggles : null;
   const dimValueFilters = (options.dimValueFilters && typeof options.dimValueFilters === 'object') ? options.dimValueFilters : null;
   const multiGenderLemmas = options.multiGenderLemmas instanceof Set ? options.multiGenderLemmas : null;
+  // Third-declension nouns (σάρξ, πνεῦμα, …) are single-gender, but the gender
+  // doesn't follow from the ending, so the gender step stays IN rather than
+  // being auto-skipped. See THIRD_DECLENSION_NOUN_LEMMAS in paradigm_focus.js.
+  const thirdDeclensionNouns = options.thirdDeclensionNouns instanceof Set ? options.thirdDeclensionNouns : null;
   for (const dimKey of order) {
     const correct = dims[dimKey];
     if (!correct) continue;
@@ -806,8 +810,17 @@ export function buildMorphSteps(card, accessiblePools = null, options = {}) {
     // genuinely commits to a gender. The implied gender is auto-filled
     // for form lookup AND surfaced in the final parse summary so the
     // canonical label still reads e.g. "genitive singular masculine".
+    //
+    // Exception: third-declension nouns (σάρξ fem., ὄνομα/πνεῦμα neut.,
+    // βασιλεύς masc., …) keep the step — the ending doesn't betray the gender
+    // (σαρκός gives no tell the way λόγου announces masculine because λόγος
+    // does), so it has to be recalled. They're still single-gender; only the
+    // auto-skip is bypassed here, not the gender value-filter
+    // (cardPassesDimValueFilters), so a gender-exclude never wipes the paradigm.
+    const isThirdDeclNoun = !!(thirdDeclensionNouns && card.lemma && thirdDeclensionNouns.has(card.lemma));
     if (dimKey === 'gender' && multiGenderLemmas && card.lemma
-        && !multiGenderLemmas.has(card.lemma)) {
+        && !multiGenderLemmas.has(card.lemma)
+        && !isThirdDeclNoun) {
       skippedCorrect[dimKey] = correct;
       impliedDims[dimKey] = correct;
       continue;
@@ -893,12 +906,21 @@ function ensureLemmaEntry(entry) {
   return entry;
 }
 
+// Last-N window that defines "known" for the exclude-known-morphs filter and
+// the testable-forms dots. NOT the storage depth — see FORM_HISTORY_CAP. This
+// stays 2 so the 2/2 "known" rule is untouched.
 const FORM_RECENT_CAP = 2;
+// How many recent per-form attempts to STORE. Deeper than FORM_RECENT_CAP so
+// the confidence views (headline % + per-value bars) have more than two
+// attempts to average per form; the exclude-known filter and dots still only
+// read the last FORM_RECENT_CAP of these. Persisted per drilled form (see
+// sanitizeFormRecentList in persistence.js, which caps to the same depth).
+const FORM_HISTORY_CAP = 10;
 
 // Record one attempt: a fully walked card with per-dimension correctness.
 // stats: { byLemma: { lemma: { attempts: [{at, dims}],
 //                              forms: { [cardId]: { seen, recent: [{dims}] } } } } }
-// `formMeta` is optional: { cardId } stores the most recent FORM_RECENT_CAP
+// `formMeta` is optional: { cardId } stores the most recent FORM_HISTORY_CAP
 // per-dim results so the testable-forms list can dot each form by its last
 // 1–2 attempts, the exclude-known-morphs filter can skip mastered forms, and
 // the per-value breakdown can roll each form into its mood/tense/voice value.
@@ -912,7 +934,7 @@ export function recordParadigmAttempt(stats, lemma, dimResults, formMeta) {
     const prior = entry.forms[formMeta.cardId];
     const prevSeen = prior && Number.isFinite(prior.seen) ? prior.seen : 0;
     const priorRecent = Array.isArray(prior && prior.recent) ? prior.recent : [];
-    const recent = priorRecent.concat([{ dims: { ...dimResults } }]).slice(-FORM_RECENT_CAP);
+    const recent = priorRecent.concat([{ dims: { ...dimResults } }]).slice(-FORM_HISTORY_CAP);
     entry.forms[formMeta.cardId] = { seen: prevSeen + 1, recent };
   }
 
@@ -1002,22 +1024,27 @@ function evaluateRecentAttempt(attempt, enabledDims) {
   return true;
 }
 
-// Out-of-2 tally for one form, after filtering disabled dims. Returns
-// { correct, total } where total is the number of recorded recent
-// attempts (≤ FORM_RECENT_CAP) and correct is how many of those pass
-// every currently-enabled dim.
-export function countLemmaFormRecent(stats, lemma, cardId, enabledDims) {
+// Tally for one form, after filtering disabled dims. Returns { correct, total }
+// where total is the number of recorded recent attempts considered and correct
+// is how many of those pass every currently-enabled dim. `windowSize` limits the
+// count to the last N stored attempts: the exclude-known / dot callers pass
+// FORM_RECENT_CAP (the unchanged 2/2 rule), while the confidence breakdown omits
+// it to use the full FORM_HISTORY_CAP history for a steadier estimate.
+export function countLemmaFormRecent(stats, lemma, cardId, enabledDims, windowSize) {
   if (!cardId) return { correct: 0, total: 0 };
   const entry = stats?.byLemma?.[lemma];
   const form = entry?.forms && entry.forms[cardId];
   if (!form || !Array.isArray(form.recent) || !form.recent.length) {
     return { correct: 0, total: 0 };
   }
+  const list = (Number.isInteger(windowSize) && windowSize > 0)
+    ? form.recent.slice(-windowSize)
+    : form.recent;
   let correct = 0;
-  for (const a of form.recent) {
+  for (const a of list) {
     if (evaluateRecentAttempt(a, enabledDims)) correct += 1;
   }
-  return { correct, total: form.recent.length };
+  return { correct, total: list.length };
 }
 
 // Per-form recent-attempt status for the parsing-review "testable forms"
@@ -1033,7 +1060,10 @@ export function countLemmaFormRecent(stats, lemma, cardId, enabledDims) {
 // Parsing mode doesn't write to the directional progress store, so this is
 // the canonical source for "have I attempted this form yet and how did it go."
 export function getLemmaFormStatus(stats, lemma, cardId, enabledDims) {
-  const { correct, total } = countLemmaFormRecent(stats, lemma, cardId, enabledDims);
+  // Dots reflect the same last-FORM_RECENT_CAP window as the exclude-known
+  // filter, so a blue dot is exactly a form "skip confident" would drop —
+  // unaffected by the deeper history kept for the confidence breakdown.
+  const { correct, total } = countLemmaFormRecent(stats, lemma, cardId, enabledDims, FORM_RECENT_CAP);
   if (!total) return 'unseen';
   if (correct === total) return total >= FORM_RECENT_CAP ? 'known' : 'right';
   if (correct === 0) return 'wrong';
@@ -1059,7 +1089,9 @@ export function clearLemmaFormRecent(stats, lemma, cardId) {
 // single 1/1 is still green in the UI but isn't excluded here — the user
 // has to demonstrate the form twice before parsing mode skips it.
 export function isLemmaFormKnown(stats, lemma, cardId, enabledDims) {
-  const { correct, total } = countLemmaFormRecent(stats, lemma, cardId, enabledDims);
+  // Strictly the last FORM_RECENT_CAP attempts — the deeper confidence history
+  // must not change which forms count as "known" here.
+  const { correct, total } = countLemmaFormRecent(stats, lemma, cardId, enabledDims, FORM_RECENT_CAP);
   return total >= FORM_RECENT_CAP && correct >= FORM_RECENT_CAP;
 }
 

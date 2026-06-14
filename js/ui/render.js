@@ -9,7 +9,7 @@ import { runtime } from '../state/runtime.js';
 import { buildGrammarSupportHtml } from '../domain/grammar/explanations.js';
 import { renderProgress, renderReview } from './progress.js';
 import { buildMorphSteps, summarizeLemmaStats, getParadigmStepAttemptWindow, computeAccessibleDimensionPools, parseAnswerDimensions, aspectMistakeNote, isSecondPluralPresentMoodAmbiguity, computeParadigmPresentValues, accentLookalikesFor, confusableFormHints } from '../domain/grammar/morph_steps.js';
-import { getAccessibleMorphCards, deriveSelectionLevels, buildMultiGenderLemmas } from '../domain/grammar/paradigm_focus.js';
+import { getAccessibleMorphCards, deriveSelectionLevels, buildMultiGenderLemmas, THIRD_DECLENSION_NOUN_LEMMAS } from '../domain/grammar/paradigm_focus.js';
 
 let host = {
   saveState: () => {},
@@ -413,6 +413,12 @@ export function renderCard() {
   // Verbs with irregular principal parts get them in one small bracketed line
   // under the Greek headword (2 aor. / fut. / aor. pass. / pf.).
   const verbStemAltHTML = notesOn ? verbStemAltHtml(card, maxCh) : '';
+  // On a standalone second-aorist card ("Second aorists as cards" toggle) that
+  // line reads "2 aor. of [parent]" — and the parent present IS the answer
+  // being drilled, so it must not appear on the question face before the flip.
+  // The question (Greek front) face gets nothing; the answer faces keep the
+  // full line as the reveal payoff.
+  const verbStemAltQuestionHTML = card.secondAoristOf ? '' : verbStemAltHTML;
   // Third-declension nouns carry a "declines like σάρξ" pointer in the hint
   // line of the Greek-bearing face, anchoring each noun to its model paradigm.
   const declModelTag = notesOn ? nounDeclensionModelSuffix(card, maxCh) : '';
@@ -468,7 +474,7 @@ export function renderCard() {
           ${requiredLabelHTML}
           <span class="card-label">Greek</span>
           <div class="card-greek">${greekDisplay}</div>
-          ${verbStemAltHTML}
+          ${verbStemAltQuestionHTML}
           <div class="card-hint">${sourceLabelDisplay}${declModelTag}</div>
           <div class="flip-hint">click to reveal →</div>
         </div>`;
@@ -532,7 +538,8 @@ function ensureStepStateForCard(card) {
     maxChapter: levels.maxEffectiveChapter,
     dimToggles: runtime.dimToggles,
     dimValueFilters: runtime.dimValueFilters,
-    multiGenderLemmas
+    multiGenderLemmas,
+    thirdDeclensionNouns: THIRD_DECLENSION_NOUN_LEMMAS
   });
   // Values the focused paradigm actually carries per dimension, from its full
   // (unfiltered) pool. Lets answerMorphologyStep cut the walk off when a pick
@@ -540,7 +547,7 @@ function ensureStepStateForCard(card) {
   // ἐγώ/σύ, which has only 1st/2nd-person forms. Falls back to the current
   // card's own dims so a present-only-truth still includes the right answer
   // when the full pool is unavailable.
-  const paradigmCards = host.getFocusedParadigmAllCards();
+  const paradigmCards = host.getFocusedParadigmAllCards(card);
   const paradigmPresentValues = computeParadigmPresentValues(
     Array.isArray(paradigmCards) && paradigmCards.length ? paradigmCards : [card]
   );

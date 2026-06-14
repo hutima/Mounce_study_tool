@@ -44,10 +44,11 @@ export const runtime = {
   // all-paradigms summary row, or null when nothing is expanded.
   analyticsParadigmExpanded: null,
   parsingReviewExpanded: null,
-  // Sort order of the per-deck progress card list. Defaults to alphabetical
-  // because that's the predictable "find a word" lookup; confidence flips it
-  // to lowest-raw-pct-first for the "what should I drill next" view.
-  reviewSortMode: 'alphabetical', // 'alphabetical' | 'confidence'
+  // Sort order of the per-deck progress card list. Defaults to last-seen
+  // (most recently reviewed first) so the words just studied sit on top;
+  // alphabetical is the predictable "find a word" lookup, and confidence
+  // flips it to lowest-raw-pct-first for the "what should I drill next" view.
+  reviewSortMode: 'lastSeen', // 'lastSeen' | 'alphabetical' | 'confidence'
   // Word IDs currently expanded inside the stubborn / improved / slipping
   // lists. Keyed by the list's collapseKey so each list tracks its own
   // expansion independently — opening a row in "Most stubborn" doesn't
@@ -165,6 +166,10 @@ export const runtime = {
   // deck so the user still verifies it). Default off so the full
   // focused-paradigm pool is the baseline.
   excludeKnownMorphs: false,
+  // Parsing mode only: when on, the deck ignores the focused paradigm and pools
+  // every in-scope paradigm up to the current parsing chapter, shuffled together
+  // (the focused-paradigm dropdown is hidden). Off by default.
+  parsingShuffleAll: false,
   // Transient (not persisted): set by the parsing deck builder to true only
   // when a non-empty focused-paradigm pool was emptied by the
   // exclude-known-morphs filter — i.e. every in-scope form is 2/2 known. The
