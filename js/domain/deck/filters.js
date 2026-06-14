@@ -1,5 +1,5 @@
 // Card selection / filtering helpers
-import { isChapterKey, sourceHint, getChapterForKey, getWeekForKey } from './ordering.js';
+import { isChapterKey, isBookKey, sourceHint, getChapterForKey, getWeekForKey } from './ordering.js';
 import { isMorphCard } from '../grammar/explanations.js';
 import { getConfidencePct } from '../srs/confidence.js';
 
@@ -65,6 +65,73 @@ function parseParadigmBaseKey(rawKey) {
   return match ? match[1] : null;
 }
 
+// ── NT Book Vocab resolution ────────────────────────────────────────────
+// Book pseudo-keys don't carry their own cards: each book lists the exact
+// headwords (`g`) of existing cards, and we resolve those back to the live
+// card objects so progress is shared with the card's home chapter/bucket.
+const NTB_GROUP_SIZE_DEFAULT = 50;
+function ntbGroupSize() {
+  const n = window.NT_BOOK_VOCAB && Number(window.NT_BOOK_VOCAB.groupSize);
+  return n > 0 ? n : NTB_GROUP_SIZE_DEFAULT;
+}
+
+// Index of every real vocab card by its exact headword `g`, deduped by the
+// same chapter > advanced > supplemental priority the generator used (so a
+// lemma present in two sets resolves to its canonical card). Memoized; the
+// signature invalidates the cache if the loaded card data changes.
+let ntbCardIndex = null;
+let ntbCardIndexSig = '';
+function cardPriorityRank(card) {
+  if (card && card.chapter != null) return 0;
+  if (card && card.advanced) return 1;
+  return 2;
+}
+function getRealCardIndexByHeadword() {
+  const sets = getSets();
+  const keys = Object.keys(sets).filter(k => !isBookKey(k) && Array.isArray(sets[k]?.cards) && sets[k].cards.length);
+  const sig = keys.length + ':' + keys.reduce((n, k) => n + sets[k].cards.length, 0);
+  if (ntbCardIndex && ntbCardIndexSig === sig) return ntbCardIndex;
+  const idx = new Map();
+  // requiredFlag false: index the full inventory; required-only filtering is
+  // applied per-card when the book deck is emitted.
+  getSelectedVocabCards(keys, false).forEach(card => {
+    const cur = idx.get(card.g);
+    if (!cur || cardPriorityRank(card) < cardPriorityRank(cur)) idx.set(card.g, card);
+  });
+  ntbCardIndex = idx;
+  ntbCardIndexSig = sig;
+  return idx;
+}
+function parseBookKey(rawKey) {
+  const m = String(rawKey).match(/^NTB::([^:]+)(?:::g::(\d+))?$/);
+  return m ? { book: m[1], group: m[2] ? Number(m[2]) : null } : null;
+}
+export function resolveBookVocabCards(rawKey, requiredFlag = false) {
+  const parsed = parseBookKey(rawKey);
+  if (!parsed) return [];
+  const books = (window.NT_BOOK_VOCAB && Array.isArray(window.NT_BOOK_VOCAB.books)) ? window.NT_BOOK_VOCAB.books : [];
+  const book = books.find(b => b.key === parsed.book);
+  if (!book || !Array.isArray(book.refs)) return [];
+  let refs = book.refs;
+  if (parsed.group) {
+    const size = ntbGroupSize();
+    const start = (parsed.group - 1) * size;
+    refs = refs.slice(start, start + size);
+  }
+  const index = getRealCardIndexByHeadword();
+  const out = [];
+  const seen = new Set();
+  refs.forEach(g => {
+    const card = index.get(g);
+    if (!card) return;                          // headword no longer a live card
+    if (requiredFlag && !card.required) return;
+    if (seen.has(card.id)) return;              // a book lists each lexeme once
+    seen.add(card.id);
+    out.push({ ...card });
+  });
+  return out;
+}
+
 export function getSelectedVocabCards(keys, requiredFlag = false) {
   const cards = [];
   // A supplemental set's vocab pool is shared by its flat key and every one
@@ -89,8 +156,13 @@ export function getSelectedVocabCards(keys, requiredFlag = false) {
     }
   });
   const chapterCap = maxSelectedChapter || null;
+  const hasBookKeys = (keys || []).some(isBookKey);
   (keys || []).forEach(key => {
     const rawKey = String(key);
+    if (isBookKey(rawKey)) {
+      resolveBookVocabCards(rawKey, requiredFlag).forEach(card => cards.push(card));
+      return;
+    }
     const sub = parseSubKey(rawKey);
     const paradigmBase = sub ? null : parseParadigmBaseKey(rawKey);
     const lookupKey = sub ? sub.baseKey : (paradigmBase || rawKey);
@@ -124,6 +196,18 @@ export function getSelectedVocabCards(keys, requiredFlag = false) {
       });
     });
   });
+  // Book vocab links to cards that may also be reachable via their home
+  // chapter/bucket (or via another selected book), so collapse duplicate ids
+  // when any book key is in play. The non-book path can't produce dupes, so it
+  // skips this to preserve the original card order exactly.
+  if (hasBookKeys) {
+    const seen = new Set();
+    return cards.filter(card => {
+      if (seen.has(card.id)) return false;
+      seen.add(card.id);
+      return true;
+    });
+  }
   return cards;
 }
 

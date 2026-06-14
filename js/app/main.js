@@ -225,8 +225,10 @@ import {
   buildChapterSelector,
   buildSupplementalSelector,
   buildAdvancedSelector,
+  buildBookVocabSelector,
   deselectAllSupplementals,
   deselectAllAdvanced,
+  deselectAllBooks,
   deselectAllChapters,
   deselectAll,
   toggleAdvancedSubGroup,
@@ -356,6 +358,7 @@ configureModals({
   buildChapterSelector: () => buildChapterSelector(),
   buildSupplementalSelector: () => buildSupplementalSelector(),
   buildAdvancedSelector: () => buildAdvancedSelector(),
+  buildBookVocabSelector: () => buildBookVocabSelector(),
   getHasAcceptedDisclaimer: () => runtime.hasAcceptedDisclaimer,
   setHasAcceptedDisclaimer: (v) => { runtime.hasAcceptedDisclaimer = v; },
   getDisclaimerModalRequiresAgreement: () => runtime.disclaimerModalRequiresAgreement,
@@ -2881,7 +2884,7 @@ const GLOBAL_CLICK_HANDLERS = {
   returnSeenCardToDeck, clearParsingMorph,
   closeAnalyticsOverlay, closeTransferModal, exportProgressJson,
   closeShortcutsModal, closeStudySelector,
-  deselectAllChapters, deselectAllSupplementals, deselectAllAdvanced, deselectAll,
+  deselectAllChapters, deselectAllSupplementals, deselectAllAdvanced, deselectAllBooks, deselectAll,
   handleConsentAction, handleTransferPrimaryAction, handleTransferSecondaryAction,
   openShortcutsModal, openStudySelector,
   openAnalyticsOverlay, resetAllStats, resetCurrentDeck, resetRequiredOnly,
@@ -2912,6 +2915,7 @@ buildSessions();
 buildChapterSelector();
 buildSupplementalSelector();
 buildAdvancedSelector();
+buildBookVocabSelector();
 if (!restoreState()) {
   syncToggleButtons(); // reflect default controls on load
 }
@@ -2920,6 +2924,7 @@ buildSessions();
 buildChapterSelector();
 buildSupplementalSelector();
 buildAdvancedSelector();
+buildBookVocabSelector();
 initializeConsentGate();
 if (isReaderMode()) renderReaderModule();
 
@@ -2928,6 +2933,7 @@ window.addEventListener('greekSupplementalDataChanged', () => {
   buildChapterSelector();
   buildSupplementalSelector();
   buildAdvancedSelector();
+  buildBookVocabSelector();
   if (runtime.selectedKeys.length && runtime.selectedKeys.some(key => window.SETS?.[key]?.type === 'other')) {
     const keysToLoad = runtime.currentSession ? expandSessionSets(runtime.currentSession) : runtime.selectedKeys;
     loadDeckFromKeys(keysToLoad, runtime.currentSession ? runtime.currentSession.id : null);

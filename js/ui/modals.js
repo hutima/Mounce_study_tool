@@ -20,6 +20,7 @@ let host = {
   buildChapterSelector: () => {},
   buildSupplementalSelector: () => {},
   buildAdvancedSelector: () => {},
+  buildBookVocabSelector: () => {},
   getHasAcceptedDisclaimer: () => false,
   setHasAcceptedDisclaimer: () => {},
   setDisclaimerModalRequiresAgreement: () => {},
@@ -167,6 +168,7 @@ export function openStudySelector() {
   host.buildChapterSelector();
   host.buildSupplementalSelector();
   host.buildAdvancedSelector();
+  host.buildBookVocabSelector();
 
   const overlay = document.getElementById('studySelectorOverlay');
   if (!overlay) return;

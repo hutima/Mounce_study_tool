@@ -17,6 +17,13 @@ export function isAdvancedKey(key) {
   return /^ADV\d+$/i.test(String(key || ''));
 }
 
+// NT Book Vocab pseudo-keys: "NTB::<BOOK>" (whole book) and
+// "NTB::<BOOK>::g::<N>" (frequency group of 50). These never live in
+// window.SETS — they resolve to existing cards at deck-build time.
+export function isBookKey(key) {
+  return /^NTB::/.test(String(key || ''));
+}
+
 export function sortSetKeys(keys) {
   function score(key) {
     const raw = String(key);
@@ -30,6 +37,7 @@ export function sortSetKeys(keys) {
     if (legacyWeek) return 600 + Number(legacyWeek[1]);
     const adv = raw.match(/^ADV(\d+)$/i);
     if (adv) return 1000 + Number(adv[1]);
+    if (/^NTB::/.test(raw)) return 2000; // book-vocab pseudo-keys sort last
     return 999;
   }
   return [...keys].sort((a, b) => {

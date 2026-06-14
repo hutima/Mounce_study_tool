@@ -29,7 +29,8 @@ import {
   buildSessions,
   buildChapterSelector,
   buildSupplementalSelector,
-  buildAdvancedSelector
+  buildAdvancedSelector,
+  buildBookVocabSelector
 } from './selectors.js';
 import { resolveFocusedLemmas } from '../domain/grammar/paradigm_focus.js';
 
@@ -590,6 +591,7 @@ export function setAppProfile(profile) {
   buildChapterSelector();
   buildSupplementalSelector();
   buildAdvancedSelector();
+  buildBookVocabSelector();
   host.syncToggleButtons();
 
   if (!runtime.selectedKeys.length) {
