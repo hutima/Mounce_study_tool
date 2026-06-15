@@ -1,5 +1,5 @@
 // SRS scheduling logic — pure functions, no state access
-import { SRS_DAY_MS, SRS_AGAIN_MS, SRS_UNCERTAIN_MIN_MS, SRS_UNSPACED_RECOVERY_MS, DEFAULT_SRS_CADENCE, getCadencePreset } from './constants.js';
+import { SRS_DAY_MS, SRS_FULL_DAY_MS, SRS_AGAIN_MS, SRS_UNCERTAIN_MIN_MS, SRS_UNSPACED_RECOVERY_MS, DEFAULT_SRS_CADENCE, getCadencePreset } from './constants.js';
 import { clamp } from '../../utils/helpers.js';
 import { getConfidencePct } from './confidence.js';
 
@@ -14,8 +14,21 @@ function easyMultiplierFor(recentPct, curve) {
   return curve.lowBase + (recentPct - 50) / curve.lowDiv;
 }
 
+// An N-day interval is due in 24N - 2 hours: the first day is pulled in 2h
+// (SRS_DAY_MS = 22h) and every later day is a full calendar day
+// (SRS_FULL_DAY_MS = 24h), so a card's due time never drifts later into a day.
+// Fractional sub-day intervals scale by the first-day rate. msFromDays and
+// daysFromMs are exact inverses (integer day counts round-trip).
 export function msFromDays(days) {
-  return Math.round(days * SRS_DAY_MS);
+  if (!(days > 0)) return 0;
+  if (days <= 1) return Math.round(days * SRS_DAY_MS);
+  return Math.round(SRS_DAY_MS + (days - 1) * SRS_FULL_DAY_MS);
+}
+
+export function daysFromMs(ms) {
+  if (!(ms > 0)) return 0;
+  if (ms <= SRS_DAY_MS) return ms / SRS_DAY_MS;
+  return 1 + (ms - SRS_DAY_MS) / SRS_FULL_DAY_MS;
 }
 
 export function msFromHours(hours) {
@@ -23,7 +36,7 @@ export function msFromHours(hours) {
 }
 
 export function setProgressDelay(progress, delayMs, now = Date.now()) {
-  progress.intervalDays = delayMs / SRS_DAY_MS;
+  progress.intervalDays = daysFromMs(delayMs);
   progress.dueAt = now + delayMs;
 }
 
@@ -38,7 +51,7 @@ export function setMinimumProgressDelay(progress, minimumDelayMs, now = Date.now
     setProgressDelay(progress, minimumDelayMs, now);
     return true;
   }
-  progress.intervalDays = remainingDelayMs / SRS_DAY_MS;
+  progress.intervalDays = daysFromMs(remainingDelayMs);
   return false;
 }
 
@@ -103,7 +116,7 @@ export function getNextEasyIntervalDays(progress, cadence = DEFAULT_CADENCE) {
   // the SRS_MAX_INTERVAL_DAYS cap when stricter.
   const uncertainCeilingMs = getRecentUncertainCeilingMs(progress, { capDays: 1, floorMs: 60 * 60 * 1000 });
   if (uncertainCeilingMs !== null) {
-    const uncertainCeilingDays = uncertainCeilingMs / SRS_DAY_MS;
+    const uncertainCeilingDays = daysFromMs(uncertainCeilingMs);
     cappedDays = Math.min(cappedDays, uncertainCeilingDays);
   }
   return cappedDays;
@@ -151,7 +164,7 @@ export function formatRemainingForTable(dueAt) {
   if (!dueAt || dueAt <= now) return 'now';
   const remaining = dueAt - now;
   if (remaining > 12 * 60 * 60 * 1000) {
-    return `${Math.max(1, Math.ceil(remaining / SRS_DAY_MS))}d`;
+    return `${Math.max(1, Math.ceil(daysFromMs(remaining)))}d`;
   }
   if (remaining >= 60 * 60 * 1000) {
     return `${Math.max(1, Math.ceil(remaining / (60 * 60 * 1000)))}h`;

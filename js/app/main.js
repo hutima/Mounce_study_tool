@@ -138,8 +138,8 @@ import { getStorage, isLikelyIOS } from '../utils/storage.js';
 import { compareGreekAlphabetical } from '../utils/greekSort.js';
 
 // Domain — SRS
-import { SRS_DAY_MS, SRS_NEAR_WINDOW_MS, SRS_CYCLE_ADVANCE_MS, SESSION_IDLE_RESET_MS, getCadencePreset } from '../domain/srs/constants.js';
-import { msFromDays, setProgressDelay,
+import { SRS_NEAR_WINDOW_MS, SRS_CYCLE_ADVANCE_MS, SESSION_IDLE_RESET_MS, getCadencePreset } from '../domain/srs/constants.js';
+import { msFromDays, daysFromMs, setProgressDelay,
          getSrsEase, getSrsStage, getLastEasyIntervalDays, getNextEasyIntervalDays,
          getEasyDelayMs, getUncertainDelayMs, formatRemainingForTable } from '../domain/srs/scheduler.js';
 import { recordConfidenceSample, getConfidencePct, computeCardXpAward } from '../domain/srs/confidence.js';
@@ -2116,7 +2116,7 @@ function advanceScheduledCards(cards = runtime.originalDeck, advanceMs = SRS_CYC
     const progress = getWordProgress(card.id);
     if (progress.dueAt && progress.dueAt > now) {
       progress.dueAt = Math.max(now, progress.dueAt - advanceMs);
-      progress.intervalDays = Math.max(0, (progress.dueAt - now) / SRS_DAY_MS);
+      progress.intervalDays = Math.max(0, daysFromMs(progress.dueAt - now));
     }
   });
 }

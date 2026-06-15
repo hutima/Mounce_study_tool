@@ -9,7 +9,8 @@
 
 import { runtime } from '../state/runtime.js';
 import { shuffleArray } from '../utils/helpers.js';
-import { SRS_DAY_MS, SRS_CYCLE_ADVANCE_MS } from '../domain/srs/constants.js';
+import { SRS_CYCLE_ADVANCE_MS } from '../domain/srs/constants.js';
+import { msFromDays, daysFromMs } from '../domain/srs/scheduler.js';
 import { expandSessionSets, sortSetKeys } from '../domain/deck/ordering.js';
 import {
   sanitizeGamificationState,
@@ -1266,7 +1267,7 @@ function fastForwardScheduling(advanceMs) {
 }
 
 export function fastForwardOneDay() {
-  fastForwardScheduling(SRS_DAY_MS);
+  fastForwardScheduling(msFromDays(1));
 }
 
 export function fastForwardOneWeek() {
@@ -1278,7 +1279,7 @@ export function fastForwardOneWeek() {
   if (!window.confirm('Fast-forward the review schedule by 1 week?\n\nEvery card\'s due date moves 7 days earlier, so a large batch may come due at once. This can\'t be undone.')) {
     return;
   }
-  fastForwardScheduling(7 * SRS_DAY_MS);
+  fastForwardScheduling(msFromDays(7));
 }
 
 export function resetCurrentDeck() {
@@ -1439,7 +1440,7 @@ function performSpacedTimingReset(requiredOnly) {
 function performSpacedScheduleSmooth(requiredOnly) {
   const directionalProgress = host.getDirectionalProgressStore();
   const now = Date.now();
-  const protectedUntil = now + 3 * SRS_DAY_MS;
+  const protectedUntil = now + msFromDays(3);
 
   const entries = [];
   getResetScopeCards().forEach(card => {
@@ -1462,7 +1463,7 @@ function performSpacedScheduleSmooth(requiredOnly) {
   // filled day ends at the average or higher, and no card is ever delayed.
   const FIRST_DAY = 4;
   const MAX_SMOOTH_DAY = 366;  // bound the bucket array against any corrupt far-future dueAt
-  const dayOf = (dueAt) => Math.min(MAX_SMOOTH_DAY, Math.max(FIRST_DAY, Math.ceil((dueAt - now) / SRS_DAY_MS)));
+  const dayOf = (dueAt) => Math.min(MAX_SMOOTH_DAY, Math.max(FIRST_DAY, Math.ceil(daysFromMs(dueAt - now))));
   const lastDay = dayOf(entries[entries.length - 1].dueAt);
   if (lastDay - FIRST_DAY < 1) return;  // everything already lands within one day-slot
 
@@ -1490,7 +1491,7 @@ function performSpacedScheduleSmooth(requiredOnly) {
       if (counts[day] < counts[best]) best = day;
     }
     counts[best] += 1;
-    const targetDueAt = now + best * SRS_DAY_MS;
+    const targetDueAt = now + msFromDays(best);
     if (targetDueAt < p.dueAt) p.dueAt = targetDueAt;  // earlier-only guard
   });
 

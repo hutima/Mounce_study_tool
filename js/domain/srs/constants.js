@@ -1,6 +1,13 @@
 // SRS scheduling constants
 
+// Day model (see msFromDays/daysFromMs in scheduler.js): an N-day interval is
+// due in 24N - 2 hours. The FIRST day is pulled in 2h (SRS_DAY_MS = 22h) so a
+// daily card settles a touch earlier than its first review; every later day is
+// a full calendar day (SRS_FULL_DAY_MS = 24h), so the cadence tracks the
+// calendar and a card is never pushed later into a day. 1d = 22h, 2d = 46h,
+// 3d = 70h, …
 export const SRS_DAY_MS = 22 * 60 * 60 * 1000;
+export const SRS_FULL_DAY_MS = 24 * 60 * 60 * 1000;
 export const SRS_AGAIN_MS = 5 * 60 * 1000;
 // 2h floor for uncertain spaced reviews. Spaced 'again' marks no longer set
 // a 5-min deferred timer (they route to the middle pile instead and resurface

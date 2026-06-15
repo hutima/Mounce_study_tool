@@ -6,7 +6,7 @@
 import { runtime } from '../state/runtime.js';
 import { compareGreekAlphabetical } from '../utils/greekSort.js';
 import { getConfidencePct } from '../domain/srs/confidence.js';
-import { formatRemainingForTable, getSrsStage } from '../domain/srs/scheduler.js';
+import { formatRemainingForTable, getSrsStage, daysFromMs } from '../domain/srs/scheduler.js';
 import { getCardReviewLeft, getCardReviewRight, getCardMetaLine } from '../domain/deck/filters.js';
 import { isAnalyticsModalOpen } from './modals.js';
 import {
@@ -85,34 +85,46 @@ export function renderProgress() {
   if (isAnalyticsModalOpen()) host.renderAnalyticsOverlay();
 }
 
-// Bar columns + total for the "cards due by day" histogram. Buckets cards by
-// calendar-day offset from today — day 0 = "now" (due/overdue AND never-seen
-// cards, which are immediately reviewable), then one bar per day out to two
-// weeks, with a final "14d+" overflow bar so a long-cadence (8-month) tail
-// stays bounded. The day-0 count therefore matches the "Due now" stat
-// (host.getDueCount), which also treats never-seen cards as due. Returns null
-// in unspaced mode or when the deck is empty. dueNow is the day-0 count.
+// Bar columns + total for the "cards due by day" histogram. Columns:
+//   now    — the current study session: the active rotation + the middle pile
+//            (due cards parked to shuffle in before the session ends), i.e. the
+//            first activeDeckCount+middleDeckCount entries of runtime.deck.
+//            Matches the panel's "Due now" stat; the middle pile grows as cards
+//            come due across rebuilds, so this tracks the session rather than
+//            the raw dueAt<=now set (an Uncertain card bumped a couple of hours
+//            leaves the session and lands in "today" instead).
+//   today  — deferred but due in under one study day (next session, not now).
+//   k      — deferred, due in [k, k+1) study days (k = 1..13), then a "14d+"
+//            overflow so a long-cadence (8-month) tail stays bounded.
+// Day buckets use the SRS day model (daysFromMs: 1d = 22h, then +24h/day), so
+// an N-day-interval card lands in its matching bar. Returns null in unspaced
+// mode or when the deck is empty. dueNow is the "now"-column count
+// (= active+middle).
 function buildDueHistogramBars() {
   if (!runtime.spacedRepetition) return null;
   const now = Date.now();
-  const DAY_MS = 24 * 60 * 60 * 1000;
-  const startOfToday = new Date(now); startOfToday.setHours(0, 0, 0, 0);
-  const OVERFLOW = 14;                       // bars 0..13 + a "14d+" overflow at index 14
-  const counts = new Array(OVERFLOW + 1).fill(0);
+  const MAX_DAY = 14;                         // day bars 1..13, then a 14d+ overflow
+  const COL_NOW = 0, COL_TODAY = 1;
+  const COL_OVERFLOW = MAX_DAY + 1;           // index of the "14d+" bucket
+  const counts = new Array(COL_OVERFLOW + 1).fill(0);
+  const sessionCount = (runtime.activeDeckCount || 0) + (runtime.middleDeckCount || 0);
+  const sessionIds = new Set((runtime.deck || []).slice(0, sessionCount).map(c => c.id));
   let total = 0;
   let lastIdx = 0;
   (runtime.originalDeck || []).forEach(card => {
     const p = host.getWordProgress(card.id);
     total += 1;
-    let offset;
-    if (!p.dueAt || p.dueAt <= now) offset = 0;   // never-seen or overdue → due now
-    else {
-      const sod = new Date(p.dueAt); sod.setHours(0, 0, 0, 0);
-      offset = Math.max(0, Math.round((sod.getTime() - startOfToday.getTime()) / DAY_MS));
+    let col;
+    if (sessionIds.has(card.id)) {
+      col = COL_NOW;                          // active + middle = the current session
+    } else {
+      // Deferred (not in the session). Never-seen cards are always due, so they
+      // live in the active section above and never reach this branch.
+      const studyDays = Math.max(0, Math.floor(daysFromMs(p.dueAt - now)));
+      col = studyDays === 0 ? COL_TODAY : Math.min(studyDays + 1, COL_OVERFLOW);
     }
-    const idx = Math.min(offset, OVERFLOW);
-    counts[idx] += 1;
-    if (idx > lastIdx) lastIdx = idx;
+    counts[col] += 1;
+    if (col > lastIdx) lastIdx = col;
   });
   if (!total) return null;
   const maxCount = Math.max(...counts.slice(0, lastIdx + 1), 1);
@@ -120,16 +132,21 @@ function buildDueHistogramBars() {
   for (let i = 0; i <= lastIdx; i++) {
     const c = counts[i];
     const h = c === 0 ? 2 : Math.max(4, Math.round((c / maxCount) * 48));
-    const label = i === 0 ? 'now' : (i === OVERFLOW ? `${OVERFLOW}d+` : `${i}`);
-    const title = i === 0 ? `Due now: ${c}`
-      : i === OVERFLOW ? `Due in ${OVERFLOW} or more days: ${c}`
-      : `Due in ${i} day${i === 1 ? '' : 's'}: ${c}`;
-    bars += `<div class="due-hist-col${i === 0 ? ' due-hist-now' : ''}" title="${title}">`
+    const days = i - 1;                       // i>=2 → that many study days
+    const label = i === COL_NOW ? 'now'
+      : i === COL_TODAY ? 'today'
+      : i === COL_OVERFLOW ? `${MAX_DAY}d+`
+      : `${days}`;
+    const title = i === COL_NOW ? `Due now: ${c}`
+      : i === COL_TODAY ? `Due later today: ${c}`
+      : i === COL_OVERFLOW ? `Due in ${MAX_DAY} or more days: ${c}`
+      : `Due in ${days} day${days === 1 ? '' : 's'}: ${c}`;
+    bars += `<div class="due-hist-col${i === COL_NOW ? ' due-hist-now' : ''}" title="${title}">`
       + `<span class="due-hist-count">${c || ''}</span>`
       + `<span class="due-hist-bar" style="height:${h}px"></span>`
       + `<span class="due-hist-label">${label}</span></div>`;
   }
-  return { total, bars, dueNow: counts[0] };
+  return { total, bars, dueNow: counts[COL_NOW] };
 }
 
 // Collapsible "Due by day" histogram. Two variants:
@@ -193,15 +210,13 @@ export function renderReview() {
     ? (runtime.middleDeckCount || 0)
     : (runtime.unspacedMiddleCount || 0);
   const totalCount = runtime.originalDeck.length;
-  // In spaced mode "Due now" must reflect the cards actually due at render time
-  // — NOT the active+middle snapshot from the last buildStudyDeck, which goes
-  // stale as more cards come due mid-session. Take it from the same live
-  // computation as the due-by-day histogram (its day-0 bucket) so the stat, the
-  // "Due later" remainder, and the histogram always agree.
+  // "Due now" is the current study session: the active rotation + the middle
+  // pile (due cards parked to shuffle in before the session ends). The middle
+  // pile grows as cards come due across rebuilds. The histogram's "now" column
+  // is built from the same active+middle set, so the stat, the "Due later"
+  // remainder, and the chart agree.
   const histData = runtime.spacedRepetition ? buildDueHistogramBars() : null;
-  const sessionDueCount = runtime.spacedRepetition
-    ? (histData ? histData.dueNow : 0)
-    : inDeckCount + middleCount;
+  const sessionDueCount = inDeckCount + middleCount;
   const laterCount = runtime.spacedRepetition
     ? Math.max(totalCount - sessionDueCount, 0)
     : host.getKnownCount();
