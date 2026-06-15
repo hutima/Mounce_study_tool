@@ -180,7 +180,7 @@ import {
 import { installKeyboardShortcuts } from '../ui/keyboard.js';
 import { showLevelToast, showBadgeToast } from '../ui/toast.js';
 import { installTouchSafeTapBridge } from '../ui/touchTapBridge.js';
-import { installClickShield } from '../utils/clickShield.js';
+import { installClickShield, shieldClicksBriefly } from '../utils/clickShield.js';
 import {
   configureModals,
   updateConsentButtonState,
@@ -1388,6 +1388,10 @@ function closeToggleInfoModal() {
   overlay.classList.remove('show');
   overlay.setAttribute('aria-hidden', 'true');
   if (!document.querySelector('.consent-overlay.show')) document.body.classList.remove('modal-open');
+  // Absorb the iOS ghost click (~300 ms after the "Got it" tap) so it can't
+  // land on the Advanced-settings toggle now sitting under the finger. Same
+  // guard every other modal close handler uses.
+  shieldClicksBriefly();
 }
 
 function isToggleInfoModalOpen() {
