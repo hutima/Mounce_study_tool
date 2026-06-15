@@ -138,8 +138,8 @@ import { getStorage, isLikelyIOS } from '../utils/storage.js';
 import { compareGreekAlphabetical } from '../utils/greekSort.js';
 
 // Domain — SRS
-import { SRS_DAY_MS, SRS_NEAR_WINDOW_MS, SRS_CYCLE_ADVANCE_MS, SESSION_IDLE_RESET_MS } from '../domain/srs/constants.js';
-import { msFromDays, setProgressDelay,
+import { SRS_NEAR_WINDOW_MS, SRS_CYCLE_ADVANCE_MS, SESSION_IDLE_RESET_MS, getCadencePreset } from '../domain/srs/constants.js';
+import { msFromDays, daysFromMs, setProgressDelay,
          getSrsEase, getSrsStage, getLastEasyIntervalDays, getNextEasyIntervalDays,
          getEasyDelayMs, getUncertainDelayMs, formatRemainingForTable } from '../domain/srs/scheduler.js';
 import { recordConfidenceSample, getConfidencePct, computeCardXpAward } from '../domain/srs/confidence.js';
@@ -167,7 +167,7 @@ import { getSelectedVocabCards, getSelectedGrammarCards, getAllVocabKeys, getAll
 // Domain — Grammar
 import { buildGrammarSupportHtml } from '../domain/grammar/explanations.js';
 import { recordParadigmAttempt, inferredFollowupDims, buildInferredStep, structuralImpossibilityReason, paradigmGapReason, lemmaInventoryGapReason, isLemmaFormKnown, parseAnswerDimensions } from '../domain/grammar/morph_steps.js';
-import { listAvailableParadigms, listAvailableParadigmsByCategory, getCardsForFocusedParadigm, getCardsForParadigmCategory, getAllParsingCards, parseCategoryShuffleValue, makeCategoryShuffleValue } from '../domain/grammar/paradigm_focus.js';
+import { listAvailableParadigms, listAvailableParadigmsByCategory, getCardsForFocusedParadigm, getCardsForParadigmCategory, getCardsForParadigmLemmas, getAllParsingCards, parseCategoryShuffleValue, makeCategoryShuffleValue } from '../domain/grammar/paradigm_focus.js';
 
 // UI
 import {
@@ -254,6 +254,7 @@ import {
   toggleSecondAoristCards,
   toggleDirection,
   toggleSpacedRepetition,
+  toggleSpacingCadence,
   toggleSplitSelection,
   toggleAspectStep,
   toggleDimStep,
@@ -262,6 +263,9 @@ import {
   toggleDimValueFilter,
   toggleExcludeKnownMorphs,
   toggleParsingShuffleAll,
+  toggleParsingCustomReview,
+  toggleParsingCustomParadigm,
+  setAllParsingCustomParadigms,
   toggleParsingReverse,
   toggleAccentLookalikes,
   toggleUnspacedDailyReset,
@@ -431,7 +435,7 @@ configureRender({
     // category "shuffle all of type" selection — the gap-detection pool must
     // key off the CURRENT card's own lemma, since morphFocusedParadigm holds a
     // sentinel, not a lemma. Otherwise use the focused lemma as before.
-    const mixing = runtime.parsingShuffleAll || !!parseCategoryShuffleValue(runtime.morphFocusedParadigm);
+    const mixing = runtime.parsingShuffleAll || runtime.parsingCustomReview || !!parseCategoryShuffleValue(runtime.morphFocusedParadigm);
     const lemma = mixing ? (card && card.lemma) : runtime.morphFocusedParadigm;
     if (!lemma) return [];
     return getCardsForFocusedParadigm(
@@ -508,7 +512,10 @@ configureNavigation({
   resetMorphStepState: () => resetMorphStepState(),
   ensureMorphFocusedParadigm: () => ensureMorphFocusedParadigm(),
   rebuildMorphDeckForStepMode: () => rebuildMorphDeckForStepMode(),
-  rebuildParsingCycle: (opts) => rebuildParsingCycle(opts)
+  rebuildParsingCycle: (opts) => rebuildParsingCycle(opts),
+  // In-scope paradigm lemmas at the current selection — used by the custom
+  // paradigm set's "Select all" action.
+  listAvailableParadigmLemmas: () => listAvailableParadigms(getAggregateSelectionKeys()).map((p) => p.lemma)
 });
 configureAnalytics({
   ensureUsageStats: () => ensureUsageStats(),
@@ -1217,6 +1224,45 @@ function syncParsingChapterUi() {
 // Populate the primary focused-paradigm dropdown from the current selection
 // when parsing mode is active, and resync runtime.morphFocusedParadigm if
 // the current pick is no longer available (e.g. user changed chapters).
+// Populate the "custom paradigm set" checkbox selector from the current
+// selection's in-scope paradigms, grouped by category to mirror the
+// focused-paradigm dropdown. Each checkbox reflects (and writes back via its
+// onchange) runtime.parsingCustomParadigms[lemma]. Scroll position is preserved
+// across the re-render so ticking a box deep in the list doesn't jump it.
+function syncParsingCustomParadigmsUi() {
+  const list = document.getElementById('parsingCustomParadigmsList');
+  const countEl = document.getElementById('parsingCustomParadigmsCount');
+  if (!list) return;
+  if (!isParsingMode()) return;
+  const aggregateKeys = getAggregateSelectionKeys();
+  const grouped = listAvailableParadigmsByCategory(aggregateKeys);
+  const selected = runtime.parsingCustomParadigms || {};
+  if (!grouped.length) {
+    list.innerHTML = '<div class="paradigm-custom-empty">No paradigms in the current selection. Choose a chapter (or raise the parsing chapter) to pick paradigms.</div>';
+    if (countEl) countEl.textContent = 'none selected';
+    return;
+  }
+  let checkedInScope = 0;
+  const html = grouped.map((g) => {
+    const items = g.lemmas.map((p) => {
+      const isChecked = !!selected[p.lemma];
+      if (isChecked) checkedInScope += 1;
+      return `<label class="paradigm-custom-item">`
+        + `<input type="checkbox" value="${escapeAttr(p.lemma)}"${isChecked ? ' checked' : ''} onchange="toggleParsingCustomParadigm(this.value, this.checked)">`
+        + `<span class="paradigm-custom-item-text">${escapeAttr(p.displayLabel)}</span>`
+        + `</label>`;
+    }).join('');
+    return `<div class="paradigm-custom-group">`
+      + `<div class="paradigm-custom-group-label">${escapeAttr(g.category)}</div>`
+      + `<div class="paradigm-custom-group-items">${items}</div>`
+      + `</div>`;
+  }).join('');
+  const prevScroll = list.scrollTop;
+  list.innerHTML = html;
+  list.scrollTop = prevScroll;
+  if (countEl) countEl.textContent = checkedInScope ? `${checkedInScope} selected` : 'none selected';
+}
+
 function syncParadigmFocusUi() {
   const select = document.getElementById('paradigmFocusSelectPrimary');
   if (!select) return;
@@ -1294,6 +1340,72 @@ function categoryShuffleLabel(category) {
   return `↯ Shuffle all — ${sub}`;
 }
 
+// ── Per-toggle info modal ────────────────────────────────────────────────
+// Each Advanced-settings master toggle gets a small (i) button that opens a
+// modal describing what it does — sourced from the toggle's own `title`, so one
+// description serves as both the desktop tooltip and (more importantly) surfaces
+// on touch devices where hover tooltips never appear. The per-value exclude
+// sub-filters (dimValueFilter_* / optionalFilter_*) are skipped: their labels
+// already name the value (e.g. "Aorist (Ch. 22)").
+function installToggleInfoButtons() {
+  const bar = document.getElementById('controlsBar');
+  if (!bar) return;
+  bar.querySelectorAll('.toggle-label').forEach(label => {
+    if (/^(dimValueFilter_|optionalFilter_)/.test(label.id)) return;
+    if (!label.getAttribute('title')) return;
+    if (label.querySelector('.toggle-info')) return; // idempotent
+    const info = document.createElement('span');
+    info.className = 'toggle-info';
+    info.setAttribute('role', 'button');
+    info.setAttribute('tabindex', '0');
+    info.setAttribute('aria-label', 'What this setting does');
+    info.textContent = 'i';
+    const open = (e) => { e.preventDefault(); e.stopPropagation(); showToggleInfo(label); };
+    info.addEventListener('click', open);
+    info.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') open(e); });
+    const textEl = label.querySelector('.toggle-text');
+    if (textEl) textEl.insertAdjacentElement('afterend', info);
+    else label.appendChild(info);
+  });
+}
+
+function showToggleInfo(label) {
+  const overlay = document.getElementById('toggleInfoOverlay');
+  if (!label || !overlay) return;
+  const textEl = label.querySelector('.toggle-text');
+  const titleEl = document.getElementById('toggleInfoTitle');
+  const bodyEl = document.getElementById('toggleInfoBody');
+  if (titleEl) titleEl.textContent = textEl ? textEl.textContent.trim() : 'Setting';
+  if (bodyEl) bodyEl.textContent = label.getAttribute('title') || '';
+  overlay.classList.add('show');
+  overlay.setAttribute('aria-hidden', 'false');
+  document.body.classList.add('modal-open');
+}
+
+function closeToggleInfoModal() {
+  const overlay = document.getElementById('toggleInfoOverlay');
+  if (!overlay) return;
+  overlay.classList.remove('show');
+  overlay.setAttribute('aria-hidden', 'true');
+  if (!document.querySelector('.consent-overlay.show')) document.body.classList.remove('modal-open');
+}
+
+function isToggleInfoModalOpen() {
+  const overlay = document.getElementById('toggleInfoOverlay');
+  return !!overlay && overlay.classList.contains('show');
+}
+
+// Persist the review-panel due-histogram's collapsed state. Reuses the already-
+// persisted runtime.analyticsCollapsed map (so no extra save field is needed);
+// the analytics-overlay copy is handled by that overlay's own collapse-sync.
+// Called from the histogram <details>'s inline ontoggle.
+function onDueHistogramToggle(key, el) {
+  if (!key || !el) return;
+  if (!runtime.analyticsCollapsed || typeof runtime.analyticsCollapsed !== 'object') runtime.analyticsCollapsed = {};
+  runtime.analyticsCollapsed[key] = !el.open;
+  saveState();
+}
+
 function syncToggleButtons() {
   const requiredSwitch  = document.getElementById('requiredBtn');
   const shuffleSwitch   = document.getElementById('shuffleBtn');
@@ -1354,6 +1466,12 @@ function syncToggleButtons() {
   if (requiredSwitch)  requiredSwitch.classList.toggle('on',  !!runtime.requiredOnly);
   if (directionSwitch) directionSwitch.classList.toggle('on', !!runtime.directionToGreek);
   if (spacedSwitch)    spacedSwitch.classList.toggle('on',    !!runtime.spacedRepetition);
+  // Spacing cadence: ON = relaxed (8-month course), OFF = intensive (2-month, default).
+  const cadenceRelaxed = runtime.spacingCadence === 'relaxed';
+  const cadenceSwitch = document.getElementById('cadenceBtn');
+  if (cadenceSwitch) cadenceSwitch.classList.toggle('on', cadenceRelaxed);
+  const cadenceToggleEl = document.getElementById('cadenceToggle');
+  if (cadenceToggleEl) cadenceToggleEl.setAttribute('aria-checked', cadenceRelaxed ? 'true' : 'false');
   if (hardReviewSwitch) hardReviewSwitch.classList.toggle('on', !!runtime.hardVocabReviewMode);
   const stemNotesSwitch = document.getElementById('stemNotesBtn');
   if (stemNotesSwitch) stemNotesSwitch.classList.toggle('on', runtime.stemNotes !== false);
@@ -1385,6 +1503,10 @@ function syncToggleButtons() {
   if (parsingShuffleAllSwitch) parsingShuffleAllSwitch.classList.toggle('on', !!runtime.parsingShuffleAll);
   const parsingShuffleAllToggle = document.getElementById('parsingShuffleAllToggle');
   if (parsingShuffleAllToggle) parsingShuffleAllToggle.setAttribute('aria-checked', runtime.parsingShuffleAll ? 'true' : 'false');
+  const parsingCustomReviewSwitch = document.getElementById('parsingCustomReviewBtn');
+  if (parsingCustomReviewSwitch) parsingCustomReviewSwitch.classList.toggle('on', !!runtime.parsingCustomReview);
+  const parsingCustomReviewToggle = document.getElementById('parsingCustomReviewToggle');
+  if (parsingCustomReviewToggle) parsingCustomReviewToggle.setAttribute('aria-checked', runtime.parsingCustomReview ? 'true' : 'false');
   const parsingReverseSwitch = document.getElementById('parsingReverseBtn');
   if (parsingReverseSwitch) parsingReverseSwitch.classList.toggle('on', !!runtime.parsingReverse);
   const parsingReverseToggleBtn = document.getElementById('parsingReverseToggle');
@@ -1412,6 +1534,7 @@ function syncToggleButtons() {
   });
   syncParsingChapterUi();
   syncParadigmFocusUi();
+  syncParsingCustomParadigmsUi();
   if (dailyResetSwitch) dailyResetSwitch.classList.toggle('on', !!runtime.unspacedAutoResetEnabled);
   if (shuffleToggle)   shuffleToggle.setAttribute('aria-checked',   runtime.shuffled ? 'true' : 'false');
   if (requiredToggle)  requiredToggle.setAttribute('aria-checked',  runtime.requiredOnly ? 'true' : 'false');
@@ -1509,6 +1632,10 @@ function syncLayoutVisibility() {
   if (fastForwardRow) fastForwardRow.style.display = reviewDeckMode && runtime.selectedKeys.length && runtime.spacedRepetition && !isParsingMode() ? 'flex' : 'none';
   if (directionToggle) directionToggle.style.display = (runtime.studyMode === 'vocab' || runtime.studyMode === 'morph') ? 'flex' : 'none';
   if (requiredToggle) requiredToggle.style.display = runtime.studyMode === 'vocab' ? 'flex' : 'none';
+  // Spacing cadence only affects the spaced scheduler, so show it only when
+  // spaced review is on for the current (vocab/grammar) mode.
+  const cadenceToggle = document.getElementById('cadenceToggle');
+  if (cadenceToggle) cadenceToggle.style.display = (runtime.spacedRepetition && (runtime.studyMode === 'vocab' || runtime.studyMode === 'morph')) ? 'flex' : 'none';
   if (hardReviewToggle) hardReviewToggle.style.display = runtime.studyMode === 'vocab' ? 'flex' : 'none';
   // Stem & declension notes annotate standard vocab cards only.
   const stemNotesToggleVis = document.getElementById('stemNotesToggle');
@@ -1524,9 +1651,14 @@ function syncLayoutVisibility() {
   const parsingChapterRow = document.getElementById('parsingChapterRow');
   if (parsingChapterRow) parsingChapterRow.style.display = isParsingMode() ? 'flex' : 'none';
   const paradigmFocusRowPrimary = document.getElementById('paradigmFocusRowPrimary');
-  // Shuffle-all parsing turns the focused paradigm off, so hide its dropdown
-  // while it's on (the deck is then a mix of every in-scope paradigm).
-  if (paradigmFocusRowPrimary) paradigmFocusRowPrimary.style.display = (isParsingMode() && !runtime.parsingShuffleAll) ? 'flex' : 'none';
+  // Shuffle-all and the custom paradigm set both turn the single focused
+  // paradigm off, so hide its dropdown whenever either is on (the deck is then
+  // a mix of multiple paradigms).
+  if (paradigmFocusRowPrimary) paradigmFocusRowPrimary.style.display = (isParsingMode() && !runtime.parsingShuffleAll && !runtime.parsingCustomReview) ? 'flex' : 'none';
+  // Custom paradigm set: the checkbox selector takes the dropdown's place while
+  // the toggle is on.
+  const parsingCustomParadigmsRow = document.getElementById('parsingCustomParadigmsRow');
+  if (parsingCustomParadigmsRow) parsingCustomParadigmsRow.style.display = (isParsingMode() && runtime.parsingCustomReview) ? 'flex' : 'none';
   if (shuffleToggle) shuffleToggle.style.display = reviewDeckMode ? 'flex' : 'none';
   // Exclude-known-morphs is a parsing-only filter on the deck pool —
   // promoted from inside Parsing options to a top-level toggle next to
@@ -1536,6 +1668,9 @@ function syncLayoutVisibility() {
   // Shuffle-all-paradigms: parsing-only, sits next to Exclude known morphs.
   const parsingShuffleAllToggle = document.getElementById('parsingShuffleAllToggle');
   if (parsingShuffleAllToggle) parsingShuffleAllToggle.style.display = isParsingMode() ? 'flex' : 'none';
+  // Custom paradigm set: parsing-only, sits next to Shuffle all paradigms.
+  const parsingCustomReviewToggle = document.getElementById('parsingCustomReviewToggle');
+  if (parsingCustomReviewToggle) parsingCustomReviewToggle.style.display = isParsingMode() ? 'flex' : 'none';
   // English → Greek (pick the form) is also a parsing-only drill direction.
   const parsingReverseToggle = document.getElementById('parsingReverseToggle');
   if (parsingReverseToggle) parsingReverseToggle.style.display = isParsingMode() ? 'flex' : 'none';
@@ -1873,6 +2008,16 @@ function applyExcludeKnownMorphsFilter(cards) {
 // (getFocusedParadigmCards / getSelectedCards) and at every parsing cycle
 // boundary (rebuildParsingCycle), so a form that crossed the 2/2 "known"
 // threshold mid-session drops out the moment the deck is next rebuilt.
+// The lemmas the user has ticked for the custom paradigm set — the truthy keys
+// of runtime.parsingCustomParadigms. Order is irrelevant here; the pool builder
+// re-orders by course progression. Out-of-scope lemmas can be in the map (a
+// saved tick from a higher chapter); the builder drops them.
+function getSelectedCustomParadigmLemmas() {
+  const map = runtime.parsingCustomParadigms;
+  if (!map || typeof map !== 'object') return [];
+  return Object.keys(map).filter((lemma) => map[lemma]);
+}
+
 function buildFilteredFocusedParadigmCards() {
   const keys = getAggregateSelectionKeys();
   const opts = {
@@ -1880,6 +2025,14 @@ function buildFilteredFocusedParadigmCards() {
     optionalFilters: runtime.optionalFormFilters,
     dimValueFilters: runtime.dimValueFilters
   };
+  // "Custom paradigm set" wins over everything else: pool only the paradigms the
+  // user has ticked, shuffled together. (Mutually exclusive with shuffle-all,
+  // but checked first regardless so it takes precedence if both somehow set.)
+  if (runtime.parsingCustomReview) {
+    return applyExcludeKnownMorphsFilter(
+      getCardsForParadigmLemmas(keys, getSelectedCustomParadigmLemmas(), opts)
+    );
+  }
   // Global "shuffle all paradigms" toggle wins over the focused paradigm: pool
   // every in-scope paradigm up to the chapter gate, shuffled together.
   if (runtime.parsingShuffleAll) {
@@ -1963,7 +2116,7 @@ function advanceScheduledCards(cards = runtime.originalDeck, advanceMs = SRS_CYC
     const progress = getWordProgress(card.id);
     if (progress.dueAt && progress.dueAt > now) {
       progress.dueAt = Math.max(now, progress.dueAt - advanceMs);
-      progress.intervalDays = Math.max(0, (progress.dueAt - now) / SRS_DAY_MS);
+      progress.intervalDays = Math.max(0, daysFromMs(progress.dueAt - now));
     }
   });
 }
@@ -2381,9 +2534,16 @@ function recordStudyOutcome(cardId, outcome, reviewedAt = Date.now()) {
   return progress;
 }
 
+// Active SRS spacing-cadence preset (2-month intensive vs 8-month). Read by the
+// schedulers so the same flip lands a shorter or longer next interval depending
+// on the course-length toggle in Advanced settings.
+function getActiveCadence() {
+  return getCadencePreset(runtime.spacingCadence);
+}
+
 function seedMinimumUncertainSchedule(cardId, reviewedAt = Date.now()) {
   const progress = getWordProgress(cardId, { persist: true });
-  const minimumDelayMs = getUncertainDelayMs(progress);
+  const minimumDelayMs = getUncertainDelayMs(progress, getActiveCadence());
   const minimumDueAt = reviewedAt + minimumDelayMs;
   if (!progress.dueAt || progress.dueAt < minimumDueAt) {
     setProgressDelay(progress, minimumDelayMs, reviewedAt);
@@ -2440,8 +2600,9 @@ function applySpacedReview(card, outcome) {
   const normalizedOutcome = resolveSharedFaceOutcome(card, ratedOutcome);
   const progress = recordStudyOutcome(card.id, normalizedOutcome, now);
 
+  const cadence = getActiveCadence();
   if (normalizedOutcome === 'easy') {
-    const nextIntervalDays = getNextEasyIntervalDays(progress);
+    const nextIntervalDays = getNextEasyIntervalDays(progress, cadence);
     progress.streak += 1;
     progress.easyStreak = (progress.easyStreak || 0) + 1;
     progress.srsStage = getSrsStage(progress) + 1;
@@ -2455,7 +2616,7 @@ function applySpacedReview(card, outcome) {
     progress.easyStreak = 0;
     progress.ease = clamp(getSrsEase(progress) - 0.05, 1.3, 3.0);
     progress.lastEasyIntervalDays = Math.max(getLastEasyIntervalDays(progress), progress.intervalDays || 0);
-    setProgressDelay(progress, getUncertainDelayMs(progress), now);
+    setProgressDelay(progress, getUncertainDelayMs(progress, cadence), now);
     getDirectionalMarksStore()[card.id] = 'unsure';
   } else {
     // 'again' (default for any unknown outcome).
@@ -2860,6 +3021,7 @@ installKeyboardShortcuts({
   isStudySelectorOpen, closeStudySelector,
   isShortcutsModalOpen, closeShortcutsModal,
   isWhatsNewV1_1ModalOpen, closeWhatsNewV1_1Modal,
+  isToggleInfoModalOpen, closeToggleInfoModal,
   isDisclaimerModalOpen, isTransferModalOpen, closeTransferModal,
   isReviewDeckMode,
   getSelectedKeys: () => runtime.selectedKeys,
@@ -2899,13 +3061,14 @@ const GLOBAL_CLICK_HANDLERS = {
   restoreSpacedUndo, setAppProfile, setStudyMode, setThemeMode, setFontFamily, setTextSize,
   showDisclaimerModal, startStudying, toggleDirection, toggleMorphSelfCheck,
   toggleMorphStepByStep, setMorphFocusedParadigm, setParsingChapter, goToStemDrillFromParsing,
-  toggleRequiredOnly, toggleHardVocabReview, toggleStemNotes, toggleSecondAoristCards, toggleShuffle, toggleSpacedRepetition, toggleSplitSelection, toggleAspectStep, toggleDimStep, toggleOptionalForms, toggleOptionalFormFilter, toggleDimValueFilter, toggleExcludeKnownMorphs, toggleParsingShuffleAll, toggleParsingReverse, toggleAccentLookalikes, resetKnownMorphs, closeResetKnownModal, confirmResetKnownFocused, confirmResetKnownAll, clearParsingStats, toggleUnspacedDailyReset, triggerImportProgress,
+  toggleRequiredOnly, toggleHardVocabReview, toggleStemNotes, toggleSecondAoristCards, toggleShuffle, toggleSpacedRepetition, toggleSpacingCadence, toggleSplitSelection, toggleAspectStep, toggleDimStep, toggleOptionalForms, toggleOptionalFormFilter, toggleDimValueFilter, toggleExcludeKnownMorphs, toggleParsingShuffleAll, toggleParsingCustomReview, toggleParsingCustomParadigm, setAllParsingCustomParadigms, toggleParsingReverse, toggleAccentLookalikes, resetKnownMorphs, closeResetKnownModal, confirmResetKnownFocused, confirmResetKnownAll, clearParsingStats, toggleUnspacedDailyReset, triggerImportProgress,
   openReaderTab, selectReaderDrillChoice, advanceReaderDrill,
-  closeWhatsNewV1_1Modal,
+  closeWhatsNewV1_1Modal, closeToggleInfoModal, onDueHistogramToggle,
   applyAppUpdate, dismissAppUpdate
 };
 if (typeof globalThis !== 'undefined') Object.assign(globalThis, GLOBAL_CLICK_HANDLERS);
 if (typeof window !== 'undefined' && window !== globalThis) Object.assign(window, GLOBAL_CLICK_HANDLERS);
+installToggleInfoButtons(); // add (i) info buttons to Advanced-settings toggles
 
 initializeThemeMode();
 initializeFontFamily();

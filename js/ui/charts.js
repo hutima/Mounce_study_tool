@@ -8,6 +8,12 @@ import { formatRemainingForTable } from '../domain/srs/scheduler.js';
 import { getConfidencePct } from '../domain/srs/confidence.js';
 import { XP_LEVELS } from '../domain/gamification/levels.js';
 
+// Activity views (study-time heatmap + cumulative charts) show a rolling window
+// of the most recent N days, sliding forward each day, rather than all history.
+// Cumulative totals still fold in earlier days so the curve doesn't reset —
+// only the plotted/visible range is capped.
+export const ANALYTICS_WINDOW_DAYS = 60;
+
 // Backfill `firstSeenAt` / `firstConfirmedAt` on existing per-card progress
 // records that pre-date those fields. Mutates the progress objects in place.
 export function backfillConfirmedMilestones(cards, marksStore, progressStore) {
@@ -27,12 +33,16 @@ export function buildDailyCumulativeSeriesFromMap(dailyMap, startTs = 0) {
   const lastKey = getUsageDayKey();
   let cursor = new Date(`${firstKey}T00:00:00`);
   const last = new Date(`${lastKey}T00:00:00`);
+  // Rolling window: fold earlier days into the running total but only plot the
+  // most recent ANALYTICS_WINDOW_DAYS, so the chart slides forward each day.
+  const windowStart = new Date(last);
+  windowStart.setDate(windowStart.getDate() - (ANALYTICS_WINDOW_DAYS - 1));
   let cumulative = 0;
   const series = [];
   while (cursor <= last) {
     const key = getUsageDayKey(cursor.getTime());
     cumulative += dailyMap[key] || 0;
-    series.push({ key, ts: cursor.getTime(), value: cumulative / (60 * 60 * 1000) });
+    if (cursor >= windowStart) series.push({ key, ts: cursor.getTime(), value: cumulative / (60 * 60 * 1000) });
     cursor.setDate(cursor.getDate() + 1);
   }
   return series;
@@ -56,12 +66,16 @@ export function buildCumulativeConfirmationSeries(cards, marksStore, progressSto
   const lastKey = getUsageDayKey();
   let cursor = new Date(`${firstKey}T00:00:00`);
   const last = new Date(`${lastKey}T00:00:00`);
+  // Rolling window: keep the cumulative count accurate but only plot the most
+  // recent ANALYTICS_WINDOW_DAYS.
+  const windowStart = new Date(last);
+  windowStart.setDate(windowStart.getDate() - (ANALYTICS_WINDOW_DAYS - 1));
   let cumulative = 0;
   const series = [];
   while (cursor <= last) {
     const key = getUsageDayKey(cursor.getTime());
     cumulative += dailyAdds[key] || 0;
-    series.push({ key, ts: cursor.getTime(), value: cumulative / total, count: cumulative });
+    if (cursor >= windowStart) series.push({ key, ts: cursor.getTime(), value: cumulative / total, count: cumulative });
     cursor.setDate(cursor.getDate() + 1);
   }
   const cutoff = Date.now() - (7 * 24 * 60 * 60 * 1000);
@@ -254,7 +268,10 @@ export function buildBarChartSvg(buckets, options = {}) {
 }
 
 export function buildHeatmapSvg(activeDailyMs) {
-  const weeks = 15;
+  // Show a rolling ~ANALYTICS_WINDOW_DAYS window. The grid is whole weeks, so
+  // use enough columns to cover the window; cells older than the window (the
+  // few leading cells in the first column) render blank.
+  const weeks = Math.ceil((ANALYTICS_WINDOW_DAYS + 7) / 7); // 9 weeks for a 60-day window
   const cellSize = 13;
   const cellGap = 3;
   const totalDays = weeks * 7;
@@ -265,6 +282,9 @@ export function buildHeatmapSvg(activeDailyMs) {
   // that matches its day of week (`i % 7`).
   const startDate = new Date(today);
   startDate.setDate(startDate.getDate() - ((weeks - 1) * 7) - dayOfWeek);
+  // Rolling cutoff: only the most recent ANALYTICS_WINDOW_DAYS count as active.
+  const windowStart = new Date(today);
+  windowStart.setDate(windowStart.getDate() - (ANALYTICS_WINDOW_DAYS - 1));
 
   // collect values
   const cells = [];
@@ -272,10 +292,12 @@ export function buildHeatmapSvg(activeDailyMs) {
   const cursor = new Date(startDate);
   for (let i = 0; i < totalDays; i++) {
     const key = getUsageDayKey(cursor.getTime());
+    const cDate = new Date(cursor);
+    const inWindow = cDate >= windowStart && cDate <= today;
     const val = (activeDailyMs || {})[key] || 0;
     const msVal = val / (60 * 1000); // minutes
-    if (msVal > maxVal) maxVal = msVal;
-    cells.push({ key, val: msVal, date: new Date(cursor), dow: cursor.getDay() });
+    if (inWindow && msVal > maxVal) maxVal = msVal;
+    cells.push({ key, val: msVal, date: cDate, dow: cursor.getDay(), inWindow });
     cursor.setDate(cursor.getDate() + 1);
   }
 
@@ -310,8 +332,9 @@ export function buildHeatmapSvg(activeDailyMs) {
     const x = labelWidth + week * (cellSize + cellGap);
     const y = topPad + dow * (cellSize + cellGap);
     const isFuture = cell.date > today;
+    const outOfWindow = !cell.inWindow;
     let fill;
-    if (isFuture) {
+    if (isFuture || outOfWindow) {
       fill = 'rgba(255,255,255,0.02)';
     } else if (cell.val === 0) {
       fill = 'rgba(255,255,255,0.05)';
@@ -320,7 +343,7 @@ export function buildHeatmapSvg(activeDailyMs) {
       const alpha = 0.2 + intensity * 0.7;
       fill = `rgba(201,168,76,${alpha.toFixed(2)})`;
     }
-    const title = `${cell.key}: ${Math.round(cell.val)}m`;
+    const title = (isFuture || outOfWindow) ? cell.key : `${cell.key}: ${Math.round(cell.val)}m`;
     return `<rect x="${x}" y="${y}" width="${cellSize}" height="${cellSize}" rx="3" fill="${fill}"><title>${escapeHtml(title)}</title></rect>`;
   }).join('');
 

@@ -170,6 +170,19 @@ export const runtime = {
   // every in-scope paradigm up to the current parsing chapter, shuffled together
   // (the focused-paradigm dropdown is hidden). Off by default.
   parsingShuffleAll: false,
+  // "Custom paradigm set" parsing toggle. When on, parsing ignores the single
+  // focused paradigm and instead pools the specific paradigms the user has
+  // hand-picked in the custom-set selector (parsingCustomParadigms), shuffled
+  // together. Off by default; only parsing mode reads it. Mutually exclusive
+  // with parsingShuffleAll (turning one on turns the other off). While on, the
+  // focused-paradigm dropdown is hidden and the checkbox selector shown.
+  parsingCustomReview: false,
+  // Map of lemma → true for the paradigms the user has checked for the custom
+  // set. Only consulted when parsingCustomReview is on. Lemmas that fall out of
+  // chapter scope are kept (so re-raising the chapter restores the tick) but
+  // contribute no cards while out of scope. Empty map ⇒ empty deck (the "pick
+  // at least one paradigm" prompt state).
+  parsingCustomParadigms: {},
   // Transient (not persisted): set by the parsing deck builder to true only
   // when a non-empty focused-paradigm pool was emptied by the
   // exclude-known-morphs filter — i.e. every in-scope form is 2/2 known. The
@@ -227,6 +240,11 @@ export const runtime = {
   // SRS deck — while vocab stays spaced. setStudyMode swaps the active value
   // into `spacedRepetition`; toggleSpacedRepetition writes back here.
   spacedByMode: { vocab: true, morph: false },
+  // SRS spacing-cadence preset: 'intensive' (2-month course, default) keeps the
+  // tight easy-interval growth + ~2-week cap; 'relaxed' (8-month course)
+  // stretches both and blends in per-card difficulty. Read by applySpacedReview
+  // via getActiveCadence(); changing it only affects how future flips schedule.
+  spacingCadence: 'intensive',
   hardVocabReviewMode: false, // restrict vocab deck to cards missed >10× and still under 40% confidence
   activeDeckCount: 0,
   // Cards in the "middle deck" — currently due but not yet seen this session.

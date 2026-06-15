@@ -101,12 +101,17 @@ export function renderCard() {
   // none. Reset that here so the nav row reappears when the user switches
   // off the redirect (e.g. picks a normal paradigm); inner button state
   // is then re-synced by syncLayoutVisibility above.
+  // The stem-recall redirect is about the single focused lemma; when the deck
+  // mixes paradigms (shuffle-all or the custom set) morphFocusedParadigm may
+  // still hold a stem-recall lemma the user last focused, but the deck has real
+  // cards — so don't hijack it with the redirect.
+  const mixingParadigms = runtime.parsingShuffleAll || runtime.parsingCustomReview;
   const navRow = document.getElementById('navRow');
-  if (navRow && navRow.style.display === 'none' && !(host.isParsingMode() && runtime.morphFocusedParadigm && Object.prototype.hasOwnProperty.call(PARSING_INCOMPATIBLE_LEMMAS, runtime.morphFocusedParadigm))) {
+  if (navRow && navRow.style.display === 'none' && !(host.isParsingMode() && !mixingParadigms && runtime.morphFocusedParadigm && Object.prototype.hasOwnProperty.call(PARSING_INCOMPATIBLE_LEMMAS, runtime.morphFocusedParadigm))) {
     navRow.style.display = '';
   }
 
-  if (host.isParsingMode() && runtime.morphFocusedParadigm && Object.prototype.hasOwnProperty.call(PARSING_INCOMPATIBLE_LEMMAS, runtime.morphFocusedParadigm)) {
+  if (host.isParsingMode() && !mixingParadigms && runtime.morphFocusedParadigm && Object.prototype.hasOwnProperty.call(PARSING_INCOMPATIBLE_LEMMAS, runtime.morphFocusedParadigm)) {
     const lemma = runtime.morphFocusedParadigm;
     const drillKey = PARSING_INCOMPATIBLE_LEMMAS[lemma];
     area.innerHTML = `
@@ -145,9 +150,22 @@ export function renderCard() {
       // pick one they've already picked. A pool emptied by value/optional
       // filters leaves the flag false and falls through to the generic
       // prompt, so the mastery claim can't false-positive.
-      emptyMessage = (runtime.morphFocusedParadigm && runtime.excludeKnownMorphs && runtime.parsingAllMastered)
-        ? 'Every form in this paradigm is mastered (both of the last two attempts correct under your current parsing toggles). Pick another paradigm above, clear a form’s tally with the ✕ in the progress panel below, or turn off “Exclude known morphs” to drill them again.'
-        : 'Pick a focused paradigm from the dropdown above to start parsing.';
+      if (runtime.parsingCustomReview) {
+        // Custom paradigm set: the dropdown is hidden, so steer the student to
+        // the checklist instead. Distinguish "nothing ticked yet" from "ticked
+        // but the pool came back empty" (everything mastered / out of scope).
+        const anySelected = !!(runtime.parsingCustomParadigms
+          && Object.values(runtime.parsingCustomParadigms).some(Boolean));
+        emptyMessage = !anySelected
+          ? 'Custom paradigm set is on, but no paradigms are ticked yet. Tick one or more paradigms in the selector above to build your review deck.'
+          : runtime.excludeKnownMorphs
+            ? 'Every parseable form in your selected paradigms is mastered (both of the last two attempts correct under your current parsing toggles). Tick more paradigms above, clear a form’s tally with the ✕ in the progress panel below, or turn off “Exclude known morphs” to drill them again.'
+            : 'No parseable forms are in scope for the selected paradigms at the current chapter. Tick different paradigms above or raise the parsing chapter.';
+      } else {
+        emptyMessage = (runtime.morphFocusedParadigm && runtime.excludeKnownMorphs && runtime.parsingAllMastered)
+          ? 'Every form in this paradigm is mastered (both of the last two attempts correct under your current parsing toggles). Pick another paradigm above, clear a form’s tally with the ✕ in the progress panel below, or turn off “Exclude known morphs” to drill them again.'
+          : 'Pick a focused paradigm from the dropdown above to start parsing.';
+      }
     } else if (host.isMorphologyMode()) {
       emptyMessage = host.isReverseGrammarActive()
         ? 'No reversible grammar items in this selection. Toggle “English → Greek” off to see all questions.'

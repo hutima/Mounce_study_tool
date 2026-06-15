@@ -12,7 +12,7 @@ import { getStorage, isLikelyIOS } from '../utils/storage.js';
 import { shieldClicksBriefly } from '../utils/clickShield.js';
 import { sortSetKeys } from '../domain/deck/ordering.js';
 import { filterHardVocabCards } from '../domain/deck/filters.js';
-import { SESSION_IDLE_RESET_MS } from '../domain/srs/constants.js';
+import { SESSION_IDLE_RESET_MS, SRS_CADENCE_PRESETS, DEFAULT_SRS_CADENCE } from '../domain/srs/constants.js';
 import { STATE_MIGRATIONS, summarizePersistedState, formatPersistedStateSummary, compactPersistedState, compactRuntimeStores } from './migrations.js';
 import {
   sanitizeGamificationState,
@@ -138,6 +138,13 @@ function sanitizeSpacedByMode(input, legacySpaced) {
   };
 }
 
+// SRS spacing-cadence preset. Validate against the known presets so an old save
+// (no field) or a bad value falls back to the 2-month intensive default rather
+// than handing the scheduler an undefined preset.
+function sanitizeSpacingCadence(value) {
+  return (typeof value === 'string' && SRS_CADENCE_PRESETS[value]) ? value : DEFAULT_SRS_CADENCE;
+}
+
 function sanitizeParadigmStepStats(input) {
   const out = { byLemma: {} };
   if (!isPlainObject(input)) return out;
@@ -191,6 +198,18 @@ function sanitizeDimValueFilters(input) {
   return out;
 }
 
+// Normalizes a persisted "lemma → true" map (the custom paradigm set) to a
+// plain object keeping only truthy entries. Tolerates a missing/garbage value
+// (returns {}). Keys are kept verbatim — paradigm lemmas are matched against
+// catalog lemma strings, so they must survive the round trip unchanged.
+function sanitizeParadigmKeyMap(input) {
+  const out = {};
+  if (input && typeof input === 'object') {
+    Object.keys(input).forEach((key) => { if (input[key]) out[String(key)] = true; });
+  }
+  return out;
+}
+
 // ── Persisted-state payload + sanitization for import ────────────────────
 
 export function buildPersistedStatePayload(options = {}) {
@@ -226,6 +245,7 @@ export function buildPersistedStatePayload(options = {}) {
     directionToGreek: runtime.directionToGreek,
     spacedRepetition: runtime.spacedRepetition,
     spacedByMode: runtime.spacedByMode,
+    spacingCadence: runtime.spacingCadence,
     hardVocabReviewMode: runtime.hardVocabReviewMode,
     studyMode: runtime.studyMode,
     appProfile: runtime.appProfile,
@@ -242,6 +262,8 @@ export function buildPersistedStatePayload(options = {}) {
     includeOptionalForms: runtime.includeOptionalForms,
     excludeKnownMorphs: runtime.excludeKnownMorphs,
     parsingShuffleAll: runtime.parsingShuffleAll,
+    parsingCustomReview: runtime.parsingCustomReview,
+    parsingCustomParadigms: runtime.parsingCustomParadigms,
     parsingReverse: runtime.parsingReverse,
     accentLookalikes: runtime.accentLookalikes,
     optionalFormFilters: runtime.optionalFormFilters,
@@ -301,6 +323,7 @@ function sanitizeImportedState(candidate) {
   state.directionToGreek = !!candidate.directionToGreek;
   state.spacedRepetition = candidate.spacedRepetition !== false;
   state.spacedByMode = sanitizeSpacedByMode(candidate.spacedByMode, candidate.spacedRepetition);
+  state.spacingCadence = sanitizeSpacingCadence(candidate.spacingCadence);
   state.hardVocabReviewMode = !!candidate.hardVocabReviewMode;
   state.splitSelection = !!candidate.splitSelection;
   state.modeSelections = isPlainObject(candidate.modeSelections) ? candidate.modeSelections : {};
@@ -342,6 +365,11 @@ function sanitizeImportedState(candidate) {
   state.excludeKnownMorphs = !!candidate.excludeKnownMorphs;
   // Shuffle-all-paradigms parsing toggle defaults to false (off).
   state.parsingShuffleAll = !!candidate.parsingShuffleAll;
+  // "Custom paradigm set" parsing toggle + the ticked-lemma map (default off /
+  // empty). Both shuffle-all and the custom set hide the focused dropdown; kept
+  // independent in storage even though the UI keeps only one on.
+  state.parsingCustomReview = !!candidate.parsingCustomReview;
+  state.parsingCustomParadigms = sanitizeParadigmKeyMap(candidate.parsingCustomParadigms);
   // Sub-filters default to true (every category included) so toggling
   // the parent on without touching filters reproduces the original
   // "all optional forms" behavior. Missing keys from older exports
@@ -987,6 +1015,7 @@ export function restoreState() {
     // active mode's value into the live `spacedRepetition` the rest of the load
     // (deck build, cursor clamp) reads below.
     runtime.spacedByMode = sanitizeSpacedByMode(saved.spacedByMode, saved.spacedRepetition);
+    runtime.spacingCadence = sanitizeSpacingCadence(saved.spacingCadence);
     if (runtime.studyMode === 'vocab' || runtime.studyMode === 'morph') {
       runtime.spacedRepetition = runtime.spacedByMode[runtime.studyMode];
     }
@@ -1019,6 +1048,9 @@ export function restoreState() {
     runtime.excludeKnownMorphs = !!saved.excludeKnownMorphs;
     // Shuffle-all-paradigms parsing toggle: rehydrate (default false).
     runtime.parsingShuffleAll = !!saved.parsingShuffleAll;
+    // "Custom paradigm set" parsing toggle + ticked-lemma map (default off/empty).
+    runtime.parsingCustomReview = !!saved.parsingCustomReview;
+    runtime.parsingCustomParadigms = sanitizeParadigmKeyMap(saved.parsingCustomParadigms);
     // English → Greek parsing direction (default false).
     runtime.parsingReverse = !!saved.parsingReverse;
     // Accent/breathing look-alike distractors in the reverse drill (default false).

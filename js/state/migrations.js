@@ -1,6 +1,7 @@
 // State migrations — applied in order during restoreState
 import { isPlainObject } from '../utils/helpers.js';
-import { SRS_DAY_MS, SRS_MAX_INTERVAL_DAYS } from '../domain/srs/constants.js';
+import { SRS_MAX_INTERVAL_DAYS } from '../domain/srs/constants.js';
+import { msFromDays } from '../domain/srs/scheduler.js';
 import { MAX_DECK_STATE_ENTRIES, ANALYTICS_COLLAPSED_DEFAULTS } from './store.js';
 
 // Old → new analyticsCollapsed keys (introduced when the analytics overlay
@@ -417,7 +418,7 @@ export const STATE_MIGRATIONS = [
     migrate(saved) {
       const factor = SRS_MAX_INTERVAL_DAYS / LEGACY_SRS_MAX_INTERVAL_DAYS;
       const capDays = SRS_MAX_INTERVAL_DAYS;
-      const capMs = capDays * SRS_DAY_MS;
+      const capMs = msFromDays(capDays);
 
       // Only rescale entries whose value still exceeds the new cap: anything
       // already at or below 14 days was written under the new schedule and

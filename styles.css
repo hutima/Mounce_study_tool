@@ -266,7 +266,9 @@
     letter-spacing: 0.04em;
   }
 
-  .supplemental-week-summary:hover { background: rgba(201,168,76,0.08); }
+  /* Hover gated to hover-capable pointers — on iOS the :hover tint otherwise
+     sticks to the last-tapped row/button after a tap (see the .choice-btn note). */
+  @media (hover: hover) { .supplemental-week-summary:hover { background: rgba(201,168,76,0.08); } }
   .supplemental-week-summary .chapter-count { color: var(--muted); font-family: var(--font-body); font-size: 12px; font-weight: normal; letter-spacing: 0; }
 
   .supplemental-week-body {
@@ -295,7 +297,7 @@
     line-height: 1.25;
   }
 
-  .supplemental-summary:hover { background: rgba(201,168,76,0.06); }
+  @media (hover: hover) { .supplemental-summary:hover { background: rgba(201,168,76,0.06); } }
   .supplemental-summary .chapter-count { color: var(--muted); font-family: var(--font-body); font-size: 12px; }
 
   .supplemental-paradigm-list {
@@ -314,7 +316,7 @@
     font-family: var(--font-display);
     letter-spacing: 0.03em;
   }
-  .supplemental-select-all-week:hover { background: rgba(201,168,76,0.1); }
+  @media (hover: hover) { .supplemental-select-all-week:hover { background: rgba(201,168,76,0.1); } }
 
   .supplemental-set-flat {
     display: flex;
@@ -356,7 +358,7 @@
     letter-spacing: 0.04em;
   }
   .advanced-section-summary::-webkit-details-marker { display: none; }
-  .advanced-section-summary:hover { background: rgba(201,168,76,0.06); }
+  @media (hover: hover) { .advanced-section-summary:hover { background: rgba(201,168,76,0.06); } }
   .advanced-section-meta {
     color: var(--muted);
     font-family: var(--font-body);
@@ -410,7 +412,7 @@
     transition: all 0.08s;
     line-height: 1.3;
   }
-  .session-btn:hover { border-color: var(--gold-dim); background: #1e2030; }
+  @media (hover: hover) { .session-btn:hover { border-color: var(--gold-dim); background: #1e2030; } }
   .session-btn.active { border-color: var(--gold); background: #1e1e2a; color: var(--gold-light); }
   .session-btn .session-tag {
     display: block;
@@ -438,7 +440,9 @@
     transition: all 0.08s;
     line-height: 1.2;
   }
-  .chapter-btn:hover { border-color: var(--gold-dim); background: #1e2030; }
+  /* Select/deselect buttons share .chapter-btn; gate hover so the highlight
+     doesn't stick after a tap on iOS (see the .choice-btn hover note). */
+  @media (hover: hover) { .chapter-btn:hover { border-color: var(--gold-dim); background: #1e2030; } }
   .chapter-btn.active { border-color: var(--gold); background: #1e1e2a; color: var(--gold-light); }
   .chapter-btn .chapter-count {
     display: block;
@@ -1006,6 +1010,57 @@
     transform: translateX(16px);
     background: var(--gold);
   }
+  /* Advanced review settings: stack the master toggles in a single vertical
+     column with the switch on the LEFT of the label, so every switch lines up
+     at the same left edge. Scoped to direct children of #controlsBar so the
+     nested Parsing-options sub-toggles (right-aligned switches) are unaffected. */
+  #controlsBar { flex-direction: column; align-items: stretch; gap: 10px; }
+  #controlsBar > .toggle-label { justify-content: flex-start; gap: 10px; }
+  #controlsBar > .toggle-label > .toggle-switch { order: -1; }
+  /* (i) info button injected into each master toggle (opens a describe-modal). */
+  .toggle-info {
+    flex-shrink: 0;
+    width: 15px; height: 15px;
+    display: inline-flex; align-items: center; justify-content: center;
+    border: 1px solid var(--gold-dim); border-radius: 50%;
+    color: var(--gold-dim);
+    font-family: var(--font-display);
+    font-size: 10px; font-style: italic; line-height: 1;
+    letter-spacing: 0; text-transform: none;
+    cursor: pointer;
+    transition: color 0.1s, border-color 0.1s, background 0.1s;
+  }
+  .toggle-info:hover, .toggle-info:focus-visible {
+    color: var(--gold); border-color: var(--gold);
+    background: rgba(201,168,76,0.12);
+    outline: none;
+  }
+  /* Due-by-day histogram (collapsible) in the spaced review panel. */
+  .due-histogram { margin-top: 14px; }
+  .due-hist-summary {
+    cursor: pointer; list-style: none;
+    display: flex; align-items: center; gap: 6px;
+    font-family: var(--font-display); font-size: 11px; letter-spacing: 1px;
+    text-transform: uppercase; color: var(--muted);
+  }
+  .due-hist-summary::-webkit-details-marker { display: none; }
+  .due-hist-summary::before {
+    content: '\25B8'; color: var(--gold-dim); display: inline-block; transition: transform 0.15s;
+  }
+  .due-histogram[open] .due-hist-summary::before { transform: rotate(90deg); }
+  .due-hist-meta { color: var(--gold-dim); font-style: italic; text-transform: none; letter-spacing: 0; }
+  .due-hist-bars { display: flex; align-items: flex-end; gap: 3px; min-height: 64px; margin-top: 10px; }
+  .due-hist-col {
+    display: flex; flex-direction: column; align-items: center; justify-content: flex-end;
+    flex: 1 1 0; min-width: 0;
+  }
+  .due-hist-count { font-size: 9px; color: var(--muted); line-height: 1; margin-bottom: 2px; min-height: 10px; }
+  .due-hist-bar {
+    width: 100%; max-width: 22px;
+    background: var(--gold-dim); border-radius: 3px 3px 0 0;
+  }
+  .due-hist-now .due-hist-bar { background: var(--gold); }
+  .due-hist-label { font-size: 9px; color: var(--muted); margin-top: 4px; white-space: nowrap; }
 
   @media (max-width: 500px) {
     .sessions-grid { grid-template-columns: 1fr 1fr; }
@@ -1755,6 +1810,134 @@
       width: 100%;
       flex: 1 1 auto;
     }
+  }
+
+  /* "Custom paradigm set" checkbox selector — sits in the focused-paradigm
+   * dropdown's place (same framed primary box) while that toggle is on. Stacks
+   * a header row (label + count + actions) over a scrollable, category-grouped
+   * checklist. */
+  .paradigm-custom-row {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 10px;
+  }
+  .paradigm-custom-head {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 10px;
+    width: 100%;
+  }
+  /* Collapsible: the row is a <details>, its head the <summary>. */
+  .paradigm-custom-row > summary {
+    cursor: pointer;
+    list-style: none;
+  }
+  .paradigm-custom-row > summary::-webkit-details-marker { display: none; }
+  .paradigm-custom-row > summary .paradigm-focus-label::before {
+    content: '\25B8';            /* ▸ */
+    display: inline-block;
+    margin-right: 6px;
+    color: var(--gold-dim);
+    transition: transform 0.15s;
+  }
+  .paradigm-custom-row[open] > summary .paradigm-focus-label::before {
+    transform: rotate(90deg);
+  }
+  .paradigm-custom-body {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+  .paradigm-custom-meta {
+    font-size: 12px;
+    color: var(--muted);
+    font-style: italic;
+  }
+  .paradigm-custom-actions {
+    display: flex;
+    gap: 8px;
+    margin-left: auto;
+  }
+  .paradigm-custom-btn {
+    background: var(--surface);
+    color: var(--gold-dim);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 5px 12px;
+    font-family: var(--font-display);
+    font-size: 11px;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    cursor: pointer;
+    transition: all 0.08s;
+  }
+  .paradigm-custom-list {
+    width: 100%;
+    max-height: 320px;
+    overflow-y: auto;
+    box-sizing: border-box;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 12px 14px;
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(230px, 1fr));
+    gap: 12px 22px;
+    align-content: start;
+  }
+  .paradigm-custom-group {
+    min-width: 0;
+  }
+  .paradigm-custom-group-label {
+    font-family: var(--font-display);
+    font-size: 10px;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    color: var(--gold-dim);
+    margin-bottom: 6px;
+    padding-bottom: 4px;
+    border-bottom: 1px solid var(--border);
+  }
+  .paradigm-custom-group-items {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+  .paradigm-custom-item {
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+    padding: 4px 4px;
+    border-radius: 5px;
+    cursor: pointer;
+    color: var(--cream);
+    font-size: 14px;
+    line-height: 1.3;
+  }
+  .paradigm-custom-item input[type="checkbox"] {
+    flex: 0 0 auto;
+    width: 15px;
+    height: 15px;
+    accent-color: var(--gold);
+    cursor: pointer;
+    position: relative;
+    top: 2px;
+  }
+  .paradigm-custom-item-text {
+    min-width: 0;
+    word-break: break-word;
+  }
+  .paradigm-custom-empty {
+    grid-column: 1 / -1;
+    color: var(--muted);
+    font-style: italic;
+    font-size: 13px;
+    line-height: 1.4;
+  }
+  @media (hover: hover) and (pointer: fine) {
+    .paradigm-custom-btn:hover { border-color: var(--gold-dim); color: var(--gold); }
+    .paradigm-custom-item:hover { background: var(--surface); }
   }
 
   .morph-step-breadcrumb {
@@ -2791,9 +2974,11 @@
   }
 
   html[data-theme="light"] body::before { opacity: 0.015; }
-  html[data-theme="light"] .session-btn:hover,
-  html[data-theme="light"] .chapter-btn:hover {
-    background: #f5eddc;
+  @media (hover: hover) {
+    html[data-theme="light"] .session-btn:hover,
+    html[data-theme="light"] .chapter-btn:hover {
+      background: #f5eddc;
+    }
   }
   /* See the hover-capability note on .choice-btn above — same iOS sticky-hover
      fix, applied to the light theme's choice-button hover tint. */
