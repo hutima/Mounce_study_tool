@@ -779,3 +779,19 @@ export function getCardsForParadigmCategory(selectedKeys, category, options = {}
   if (!category) return [];
   return collectCardsForLemmas(selectedKeys, inScopeConcreteLemmas(selectedKeys, category), options);
 }
+
+// Every parseable card across an explicit, user-chosen list of paradigm lemmas
+// — the "custom paradigm set" parsing toggle, where the student ticks exactly
+// which paradigms to pool. Chapter-gated by selectedKeys: a ticked lemma above
+// the current chapter gate (or otherwise out of scope) contributes nothing
+// rather than erroring. Iterates in listAvailableParadigms order (course
+// progression) so the unshuffled pool matches the checkbox list, then de-dups
+// exactly like the other pooled builders.
+export function getCardsForParadigmLemmas(selectedKeys, lemmas, options = {}) {
+  const wanted = new Set((lemmas || []).filter(Boolean));
+  if (!wanted.size) return [];
+  const ordered = listAvailableParadigms(selectedKeys)
+    .map((p) => p.lemma)
+    .filter((lemma) => wanted.has(lemma));
+  return collectCardsForLemmas(selectedKeys, ordered, options);
+}

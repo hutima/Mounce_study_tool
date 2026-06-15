@@ -264,6 +264,14 @@ export function buildSupplementalSelector() {
     return a - b;
   });
 
+  const meta = document.getElementById('supplementalSectionMeta');
+  if (meta) {
+    const totalSets = orderedWeeks.reduce((n, w) => n + (weekGroups.get(w)?.length || 0), 0);
+    meta.textContent = totalSets
+      ? `${orderedWeeks.length} week${orderedWeeks.length === 1 ? '' : 's'} · ${totalSets} set${totalSets === 1 ? '' : 's'}`
+      : '';
+  }
+
   orderedWeeks.forEach(weekNum => {
     const entries = weekGroups.get(weekNum);
     if (!entries || !entries.length) return;

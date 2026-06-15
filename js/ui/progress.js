@@ -85,6 +85,77 @@ export function renderProgress() {
   if (isAnalyticsModalOpen()) host.renderAnalyticsOverlay();
 }
 
+// Bar columns + total for the "cards due by day" histogram. Buckets cards by
+// calendar-day offset from today — day 0 = "now" (due/overdue AND never-seen
+// cards, which are immediately reviewable), then one bar per day out to two
+// weeks, with a final "14d+" overflow bar so a long-cadence (8-month) tail
+// stays bounded. The day-0 count therefore matches the "Due now" stat
+// (host.getDueCount), which also treats never-seen cards as due. Returns null
+// in unspaced mode or when the deck is empty. dueNow is the day-0 count.
+function buildDueHistogramBars() {
+  if (!runtime.spacedRepetition) return null;
+  const now = Date.now();
+  const DAY_MS = 24 * 60 * 60 * 1000;
+  const startOfToday = new Date(now); startOfToday.setHours(0, 0, 0, 0);
+  const OVERFLOW = 14;                       // bars 0..13 + a "14d+" overflow at index 14
+  const counts = new Array(OVERFLOW + 1).fill(0);
+  let total = 0;
+  let lastIdx = 0;
+  (runtime.originalDeck || []).forEach(card => {
+    const p = host.getWordProgress(card.id);
+    total += 1;
+    let offset;
+    if (!p.dueAt || p.dueAt <= now) offset = 0;   // never-seen or overdue → due now
+    else {
+      const sod = new Date(p.dueAt); sod.setHours(0, 0, 0, 0);
+      offset = Math.max(0, Math.round((sod.getTime() - startOfToday.getTime()) / DAY_MS));
+    }
+    const idx = Math.min(offset, OVERFLOW);
+    counts[idx] += 1;
+    if (idx > lastIdx) lastIdx = idx;
+  });
+  if (!total) return null;
+  const maxCount = Math.max(...counts.slice(0, lastIdx + 1), 1);
+  let bars = '';
+  for (let i = 0; i <= lastIdx; i++) {
+    const c = counts[i];
+    const h = c === 0 ? 2 : Math.max(4, Math.round((c / maxCount) * 48));
+    const label = i === 0 ? 'now' : (i === OVERFLOW ? `${OVERFLOW}d+` : `${i}`);
+    const title = i === 0 ? `Due now: ${c}`
+      : i === OVERFLOW ? `Due in ${OVERFLOW} or more days: ${c}`
+      : `Due in ${i} day${i === 1 ? '' : 's'}: ${c}`;
+    bars += `<div class="due-hist-col${i === 0 ? ' due-hist-now' : ''}" title="${title}">`
+      + `<span class="due-hist-count">${c || ''}</span>`
+      + `<span class="due-hist-bar" style="height:${h}px"></span>`
+      + `<span class="due-hist-label">${label}</span></div>`;
+  }
+  return { total, bars, dueNow: counts[0] };
+}
+
+// Collapsible "Due by day" histogram. Two variants:
+//   - default (review panel): a <details> that self-persists open/closed in
+//     runtime.analyticsCollapsed['dueByDayPanel'] via an inline ontoggle.
+//   - { collapseKey } (analytics overlay): a data-collapse-key <details> that
+//     the overlay's own collapse-sync manages + persists.
+// `{ data }` lets a caller reuse an already-computed bar set (renderReview
+// shares the same buildDueHistogramBars result that feeds its "Due now" stat).
+// Both variants default to open.
+export function buildDueHistogramHtml(opts = {}) {
+  const data = opts.data || buildDueHistogramBars();
+  if (!data) return '';
+  const { total, bars } = data;
+  if (opts.collapseKey) {
+    return `<details class="analytics-collapse due-histogram-collapse" data-collapse-key="${opts.collapseKey}">`
+      + `<summary class="analytics-collapse-summary"><span class="analytics-collapse-caret" aria-hidden="true">▾</span>`
+      + `<div class="analytics-collapse-title-wrap"><h4>Due by day <span class="analytics-collapse-meta">${total}</span></h4></div></summary>`
+      + `<div class="analytics-collapse-body"><div class="due-hist-bars">${bars}</div></div></details>`;
+  }
+  const collapsed = (runtime.analyticsCollapsed || {})['dueByDayPanel'] === true;
+  return `<details class="due-histogram"${collapsed ? '' : ' open'} ontoggle="onDueHistogramToggle('dueByDayPanel', this)">`
+    + `<summary class="due-hist-summary">Due by day <span class="due-hist-meta">${total}</span></summary>`
+    + `<div class="due-hist-bars">${bars}</div></details>`;
+}
+
 export function renderReview() {
   const panel = document.getElementById('reviewPanel');
   if (!panel) return;
@@ -121,8 +192,16 @@ export function renderReview() {
   const middleCount = runtime.spacedRepetition
     ? (runtime.middleDeckCount || 0)
     : (runtime.unspacedMiddleCount || 0);
-  const sessionDueCount = inDeckCount + middleCount;
   const totalCount = runtime.originalDeck.length;
+  // In spaced mode "Due now" must reflect the cards actually due at render time
+  // — NOT the active+middle snapshot from the last buildStudyDeck, which goes
+  // stale as more cards come due mid-session. Take it from the same live
+  // computation as the due-by-day histogram (its day-0 bucket) so the stat, the
+  // "Due later" remainder, and the histogram always agree.
+  const histData = runtime.spacedRepetition ? buildDueHistogramBars() : null;
+  const sessionDueCount = runtime.spacedRepetition
+    ? (histData ? histData.dueNow : 0)
+    : inDeckCount + middleCount;
   const laterCount = runtime.spacedRepetition
     ? Math.max(totalCount - sessionDueCount, 0)
     : host.getKnownCount();
@@ -145,7 +224,8 @@ export function renderReview() {
       <div class="review-stats-row">
         <span class="stat-known">✓ High confidence: ${highCount}</span>
         <span class="stat-unsure">○ Low confidence: ${lowCount}</span>
-      </div>`;
+      </div>
+      ${buildDueHistogramHtml({ data: histData })}`;
 
   const sortMode = runtime.reviewSortMode === 'confidence' ? 'confidence'
     : runtime.reviewSortMode === 'alphabetical' ? 'alphabetical'

@@ -74,7 +74,8 @@ let host = {
   resetMorphStepState: () => {},
   ensureMorphFocusedParadigm: () => {},
   rebuildMorphDeckForStepMode: () => {},
-  rebuildParsingCycle: () => {}
+  rebuildParsingCycle: () => {},
+  listAvailableParadigmLemmas: () => []
 };
 
 export function configureNavigation(deps) {
@@ -737,6 +738,19 @@ export function toggleDirection() {
   host.saveState();
 }
 
+// Switch the spaced-review spacing cadence between the 2-month intensive
+// default ('intensive') and the relaxed 8-month course pace ('relaxed'). Only
+// changes how *future* flips are scheduled (the easy-interval growth curve and
+// the max-interval cap) — already-scheduled cards keep their due dates, so the
+// deck and current due states are untouched and there's nothing to rebuild.
+export function toggleSpacingCadence() {
+  runtime.spacingCadence = runtime.spacingCadence === 'relaxed' ? 'intensive' : 'relaxed';
+  host.syncToggleButtons();
+  renderProgress();
+  renderReview();
+  host.saveState();
+}
+
 export function toggleSpacedRepetition() {
   if (host.isReaderMode()) return;
   runtime.spacedRepetition = !runtime.spacedRepetition;
@@ -871,9 +885,84 @@ export function toggleExcludeKnownMorphs() {
 export function toggleParsingShuffleAll() {
   if (!host.isParsingMode()) return;
   runtime.parsingShuffleAll = !runtime.parsingShuffleAll;
+  // Shuffle-all and the custom paradigm set are mutually exclusive deck
+  // sources — turning one on turns the other off.
+  if (runtime.parsingShuffleAll) runtime.parsingCustomReview = false;
   host.syncToggleButtons();
   host.syncLayoutVisibility();
   if (!runtime.selectedKeys.length) {
+    host.saveState();
+    return;
+  }
+  const keysToLoad = runtime.currentSession ? expandSessionSets(runtime.currentSession) : runtime.selectedKeys;
+  loadDeckFromKeys(keysToLoad, runtime.currentSession ? runtime.currentSession.id : null);
+}
+
+// "Custom paradigm set": ignore the single focused paradigm and draw the
+// parsing deck from the specific paradigms the user has ticked in the checkbox
+// selector, shuffled together. Off by default. Mutually exclusive with
+// shuffle-all. Only parsing mode reads it; outside parsing the flag still flips
+// and persists but no rebuild happens. Swaps the focused-paradigm dropdown for
+// the checklist (handled in syncLayoutVisibility), then rebuilds the deck.
+export function toggleParsingCustomReview() {
+  if (!host.isParsingMode()) return;
+  runtime.parsingCustomReview = !runtime.parsingCustomReview;
+  if (runtime.parsingCustomReview) {
+    runtime.parsingShuffleAll = false;
+    // Expand the (collapsible) checklist fresh each time it's switched on.
+    const customRow = document.getElementById('parsingCustomParadigmsRow');
+    if (customRow) customRow.open = true;
+  }
+  host.resetMorphStepState();
+  host.resetMorphAnswerState();
+  host.syncToggleButtons();
+  host.syncLayoutVisibility();
+  if (!runtime.selectedKeys.length) {
+    host.saveState();
+    return;
+  }
+  const keysToLoad = runtime.currentSession ? expandSessionSets(runtime.currentSession) : runtime.selectedKeys;
+  loadDeckFromKeys(keysToLoad, runtime.currentSession ? runtime.currentSession.id : null);
+}
+
+// Tick / untick one paradigm in the custom set. `checked` comes straight from
+// the checkbox. Writes lemma → true into runtime.parsingCustomParadigms
+// (deleting on untick so the map stays minimal), then rebuilds the deck so the
+// change takes effect immediately. Guarded so a stray call outside parsing mode
+// just records the tick and persists.
+export function toggleParsingCustomParadigm(lemma, checked) {
+  if (!lemma) return;
+  if (!runtime.parsingCustomParadigms || typeof runtime.parsingCustomParadigms !== 'object') {
+    runtime.parsingCustomParadigms = {};
+  }
+  if (checked) runtime.parsingCustomParadigms[lemma] = true;
+  else delete runtime.parsingCustomParadigms[lemma];
+  host.resetMorphStepState();
+  host.resetMorphAnswerState();
+  host.syncToggleButtons();
+  if (!host.isParsingMode() || !runtime.parsingCustomReview || !runtime.selectedKeys.length) {
+    host.saveState();
+    return;
+  }
+  const keysToLoad = runtime.currentSession ? expandSessionSets(runtime.currentSession) : runtime.selectedKeys;
+  loadDeckFromKeys(keysToLoad, runtime.currentSession ? runtime.currentSession.id : null);
+}
+
+// "Select all" / "Clear" for the custom set. `select` true ticks every in-scope
+// paradigm (so the set follows the current chapter scope); false wipes the map.
+// Then rebuilds the deck like a per-paradigm tick.
+export function setAllParsingCustomParadigms(select) {
+  if (select) {
+    const next = {};
+    host.listAvailableParadigmLemmas().forEach((lemma) => { if (lemma) next[lemma] = true; });
+    runtime.parsingCustomParadigms = next;
+  } else {
+    runtime.parsingCustomParadigms = {};
+  }
+  host.resetMorphStepState();
+  host.resetMorphAnswerState();
+  host.syncToggleButtons();
+  if (!host.isParsingMode() || !runtime.parsingCustomReview || !runtime.selectedKeys.length) {
     host.saveState();
     return;
   }
@@ -1181,6 +1270,14 @@ export function fastForwardOneDay() {
 }
 
 export function fastForwardOneWeek() {
+  // A full week pulls every scheduled card 7 days earlier in one step, which
+  // can dump a large batch into "due now" and effectively collapse the spacing
+  // — and fast-forward has no undo. Confirm before applying. (Skip the prompt
+  // when there's nothing scheduled to advance.)
+  if (!runtime.spacedRepetition || !runtime.originalDeck.length) return;
+  if (!window.confirm('Fast-forward the review schedule by 1 week?\n\nEvery card\'s due date moves 7 days earlier, so a large batch may come due at once. This can\'t be undone.')) {
+    return;
+  }
   fastForwardScheduling(7 * SRS_DAY_MS);
 }
 
@@ -1353,16 +1450,48 @@ function performSpacedScheduleSmooth(requiredOnly) {
   if (entries.length < 2) return;
   entries.sort((a, b) => a.dueAt - b.dueAt);
 
-  // Spread across study-days 4..lastDay, where lastDay is the latest
-  // currently-scheduled day — smoothing flattens the curve, it never
-  // extends it.
-  const lastDay = Math.ceil((entries[entries.length - 1].dueAt - now) / SRS_DAY_MS);
-  const spreadDays = lastDay - 3;
-  if (spreadDays < 2) return;
-  entries.forEach((p, i) => {
-    const targetDay = 4 + Math.floor((i * spreadDays) / entries.length);
-    const targetDueAt = now + targetDay * SRS_DAY_MS;
-    if (targetDueAt < p.dueAt) p.dueAt = targetDueAt;
+  // Smoothing can only move a card EARLIER (never delay one), so each card's
+  // reachable window is [day 4 .. its own due-day]. Aim for the average daily
+  // load A = (cards due day 4+) / (max due-day - 3), and only relieve genuine
+  // pile-ups: a day whose card-count is at or below that average (or that holds
+  // just a lone card) is left exactly where it is, so an isolated far-out card
+  // is never dragged earlier for no benefit. The cards on over-average days are
+  // the movable ones; place each (earliest-due first, so its window is a
+  // growing prefix) on the LEAST-loaded day within its own window, ties to the
+  // earliest day. That flattens the busiest day wherever the pile sits, every
+  // filled day ends at the average or higher, and no card is ever delayed.
+  const FIRST_DAY = 4;
+  const MAX_SMOOTH_DAY = 366;  // bound the bucket array against any corrupt far-future dueAt
+  const dayOf = (dueAt) => Math.min(MAX_SMOOTH_DAY, Math.max(FIRST_DAY, Math.ceil((dueAt - now) / SRS_DAY_MS)));
+  const lastDay = dayOf(entries[entries.length - 1].dueAt);
+  if (lastDay - FIRST_DAY < 1) return;  // everything already lands within one day-slot
+
+  // Per-day counts and the target average over [day 4 .. lastDay].
+  const dayCounts = {};
+  entries.forEach((p) => { const d = dayOf(p.dueAt); dayCounts[d] = (dayCounts[d] || 0) + 1; });
+  const average = entries.length / (lastDay - FIRST_DAY + 1);  // = N / (max due-day - 3)
+  const pileThreshold = Math.max(1, average);
+
+  // Split into frozen (at-or-below-average days, and any lone card — left in
+  // place) and movable (the over-average pile-ups). Frozen cards still occupy
+  // their day so the redistribution below counts them.
+  const counts = new Array(lastDay + 1).fill(0);
+  const movable = [];
+  entries.forEach((p) => {
+    const d = dayOf(p.dueAt);
+    if (dayCounts[d] <= pileThreshold) counts[d] += 1;
+    else movable.push(p);
+  });
+
+  movable.forEach((p) => {
+    const ceilingDay = dayOf(p.dueAt);
+    let best = FIRST_DAY;
+    for (let day = FIRST_DAY + 1; day <= ceilingDay; day++) {
+      if (counts[day] < counts[best]) best = day;
+    }
+    counts[best] += 1;
+    const targetDueAt = now + best * SRS_DAY_MS;
+    if (targetDueAt < p.dueAt) p.dueAt = targetDueAt;  // earlier-only guard
   });
 
   // Nothing becomes due immediately (earliest target is day 4), so the

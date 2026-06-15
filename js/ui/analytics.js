@@ -55,6 +55,7 @@ import {
   buildDimValueBarsHtml
 } from './charts.js';
 import { showLevelToast, showBadgeToast } from './toast.js';
+import { buildDueHistogramHtml } from './progress.js';
 
 let host = {
   ensureUsageStats: () => runtime.appUsageStats,
@@ -1850,6 +1851,8 @@ export function renderAnalyticsOverlay() {
          </div>`
       : '';
   }
+  const dueHistEl = document.getElementById('analyticsDueHistogram');
+  if (dueHistEl) dueHistEl.innerHTML = buildDueHistogramHtml({ collapseKey: 'dueByDay' });
   const overallMetricsEl = document.getElementById('analyticsOverallMetrics');
   const overallChartEl = document.getElementById('analyticsTimeChart');
   const sessionEl = document.getElementById('analyticsSessionSummary');

@@ -1,7 +1,18 @@
 // SRS scheduling logic — pure functions, no state access
-import { SRS_DAY_MS, SRS_AGAIN_MS, SRS_UNCERTAIN_MIN_MS, SRS_UNSPACED_RECOVERY_MS, SRS_MAX_INTERVAL_DAYS } from './constants.js';
+import { SRS_DAY_MS, SRS_AGAIN_MS, SRS_UNCERTAIN_MIN_MS, SRS_UNSPACED_RECOVERY_MS, DEFAULT_SRS_CADENCE, getCadencePreset } from './constants.js';
 import { clamp } from '../../utils/helpers.js';
 import { getConfidencePct } from './confidence.js';
+
+// Default cadence preset used when a caller doesn't pass one (keeps these pure
+// functions and any legacy call site on the historical 2-month tuning).
+const DEFAULT_CADENCE = getCadencePreset(DEFAULT_SRS_CADENCE);
+
+// Confidence → "easy" growth multiplier for a cadence's piecewise curve.
+function easyMultiplierFor(recentPct, curve) {
+  if (recentPct >= 90) return curve.high;
+  if (recentPct >= 70) return curve.midBase + (recentPct - 70) / curve.midDiv;
+  return curve.lowBase + (recentPct - 50) / curve.lowDiv;
+}
 
 export function msFromDays(days) {
   return Math.round(days * SRS_DAY_MS);
@@ -48,7 +59,7 @@ export function getLastEasyIntervalDays(progress) {
   return Number.isFinite(rawDays) ? Math.max(0, rawDays) : 0;
 }
 
-export function getNextEasyIntervalDays(progress) {
+export function getNextEasyIntervalDays(progress, cadence = DEFAULT_CADENCE) {
   // Stabilization rule: cap "easy" at 1 day until the card has 5+ recent flips
   // AND ≥50% last-10-flip confidence. This prevents a fresh card from jumping
   // straight to multi-day intervals after a few lucky guesses; intervals only
@@ -63,14 +74,19 @@ export function getNextEasyIntervalDays(progress) {
   if (history.length < 5 || pct < 50) return 1;
 
   // Post-stabilization: confidence-scaled multiplier resumes growth from the
-  // actual previous interval. Confidence pct → multiplier:
-  //   90–100% → 2.5  (reaches the cap quickly: 1 → 3 → 8 → 14)
-  //   70–89%  → 1.5–2.0  (steady confirmed growth)
-  //   50–69%  → 1.2–1.4  (shaky, grow slowly)
-  let multiplier;
-  if (pct >= 90)      multiplier = 2.5;
-  else if (pct >= 70) multiplier = 1.5 + (pct - 70) / 40;  // 1.5→2.0 across 70–90%
-  else                multiplier = 1.2 + (pct - 50) / 100; // 1.2→1.4 across 50–70%
+  // actual previous interval. The cadence preset supplies the curve and cap
+  // (intensive 1 → 3 → 8 → 14; relaxed base 1 → 4 → 14 → 49 → 120, then
+  // modulated per-card below).
+  let multiplier = easyMultiplierFor(pct, cadence.easyCurve);
+  if (cadence.useCardDifficulty) {
+    // Blend the card's persistent ease (per-card difficulty, 1.3–3.0) into the
+    // confidence multiplier: a stubborn card grows slower, a consistently-easy
+    // one faster. Neutral at the cadence's reference ease so a fresh card still
+    // matches the base curve; the minNext floor below keeps even a hard card
+    // growing by at least 1 day rather than shrinking.
+    const neutralEase = cadence.difficultyNeutralEase || 2.3;
+    multiplier *= getSrsEase(progress) / neutralEase;
+  }
 
   const previousDays = Math.max(
     1,
@@ -79,7 +95,7 @@ export function getNextEasyIntervalDays(progress) {
   );
   const proposedDays = previousDays * multiplier;
   const minNext = Math.ceil(previousDays + 1);
-  let cappedDays = Math.min(SRS_MAX_INTERVAL_DAYS, Math.max(Math.round(proposedDays), minNext));
+  let cappedDays = Math.min(cadence.maxIntervalDays, Math.max(Math.round(proposedDays), minNext));
 
   // Recent-3-flip uncertain ceiling: any shaky flip in the last 3 caps the
   // next 'easy' interval at 1 day × certainty, floored at 1 hour so a run
@@ -93,8 +109,8 @@ export function getNextEasyIntervalDays(progress) {
   return cappedDays;
 }
 
-export function getEasyDelayMs(progress) {
-  return msFromDays(getNextEasyIntervalDays(progress));
+export function getEasyDelayMs(progress, cadence = DEFAULT_CADENCE) {
+  return msFromDays(getNextEasyIntervalDays(progress, cadence));
 }
 
 // If any of the last 3 flips were uncertain or unknown (sample < 1), the
@@ -114,18 +130,18 @@ export function getRecentUncertainCeilingMs(progress, { capDays = 7, floorMs = 0
   return Math.max(floorMs, msFromDays(capDays * certainty));
 }
 
-export function getUncertainDelayMs(progress) {
+export function getUncertainDelayMs(progress, cadence = DEFAULT_CADENCE) {
   // Delay for an 'uncertain/pass' outcome:
   //   <70% confidence → 2h floor (SRS_UNCERTAIN_MIN_MS)
-  //   otherwise       → ½ previous interval, capped at 7 days × recent
-  //                     certainty (last-3-flip avg; falls back to the
-  //                     global max otherwise).
+  //   otherwise       → ½ previous interval, capped at the cadence's uncertain
+  //                     ceiling × recent certainty (last-3-flip avg; falls back
+  //                     to the cadence max interval otherwise).
   const pct = getConfidencePct(progress);
   if (pct === null || pct < 70) return SRS_UNCERTAIN_MIN_MS;
   const prevIntervalDays = Number(progress?.intervalDays) || 0;
   if (prevIntervalDays <= 0) return SRS_UNCERTAIN_MIN_MS;
   const halfMs = msFromDays(prevIntervalDays * 0.5);
-  const rawCeiling = getRecentUncertainCeilingMs(progress) ?? msFromDays(SRS_MAX_INTERVAL_DAYS);
+  const rawCeiling = getRecentUncertainCeilingMs(progress, { capDays: cadence.uncertainCeilingDays }) ?? msFromDays(cadence.maxIntervalDays);
   const ceiling = Math.max(rawCeiling, SRS_UNCERTAIN_MIN_MS);
   return clamp(halfMs, SRS_UNCERTAIN_MIN_MS, ceiling);
 }

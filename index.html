@@ -19,11 +19,11 @@ update that doc in the same commit. Line numbers in the doc are approximate.
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="Mounce Greek">
-<link rel="manifest" href="manifest.json?v=128">
-<link rel="apple-touch-icon" href="icons/apple-touch-icon.png?v=128">
-<link rel="icon" type="image/svg+xml" href="favicon.svg?v=128">
+<link rel="manifest" href="manifest.json?v=129">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png?v=129">
+<link rel="icon" type="image/svg+xml" href="favicon.svg?v=129">
 <title>Mounce BBG Greek — Flashcards</title>
-<link rel="stylesheet" href="styles.css?v=128">
+<link rel="stylesheet" href="styles.css?v=129">
 <script>
 (function(){
   try {
@@ -113,7 +113,7 @@ update that doc in the same commit. Line numbers in the doc are approximate.
       </div>
     </div>
 <div class="controls-bar" id="controlsBar">
-<button class="toggle-label" id="shuffleToggle" type="button" role="switch" aria-checked="false" onclick="toggleShuffle()">
+<button class="toggle-label" id="shuffleToggle" type="button" role="switch" aria-checked="false" onclick="toggleShuffle()" title="Shuffle the deck order. Off keeps a fixed order (by chapter, then frequency); on randomises the order each time the deck is built or reshuffled.">
       <span class="toggle-text">Shuffle</span>
       <span class="toggle-switch" id="shuffleBtn" aria-hidden="true"></span>
     </button>
@@ -125,6 +125,10 @@ update that doc in the same commit. Line numbers in the doc are approximate.
       <span class="toggle-text">Shuffle all paradigms (to chapter)</span>
       <span class="toggle-switch" id="parsingShuffleAllBtn" aria-hidden="true"></span>
     </button>
+    <button class="toggle-label" id="parsingCustomReviewToggle" type="button" role="switch" aria-checked="false" onclick="toggleParsingCustomReview()" title="Build a custom review deck from the paradigms you pick by hand. When on, the focused-paradigm dropdown is replaced by a checklist — tick the paradigms you want and parsing draws a shuffled mix from just those (chapter-gated as usual). Turn it off to go back to one focused paradigm.">
+      <span class="toggle-text">Custom paradigm set</span>
+      <span class="toggle-switch" id="parsingCustomReviewBtn" aria-hidden="true"></span>
+    </button>
     <button class="toggle-label" id="parsingReverseToggle" type="button" role="switch" aria-checked="false" onclick="toggleParsingReverse()" title="English → Greek: instead of parsing a Greek form, you're shown the parse you want (the chapter-gated dimensions you have enabled) and pick the matching Greek form from the same focused paradigm.">
       <span class="toggle-text">English → Greek (pick the form)</span>
       <span class="toggle-switch" id="parsingReverseBtn" aria-hidden="true"></span>
@@ -133,7 +137,7 @@ update that doc in the same commit. Line numbers in the doc are approximate.
       <span class="toggle-text">Accent/breathing look-alike distractors</span>
       <span class="toggle-switch" id="accentLookalikeBtn" aria-hidden="true"></span>
     </button>
-    <button class="toggle-label" id="requiredToggle" type="button" role="switch" aria-checked="false" onclick="toggleRequiredOnly()">
+    <button class="toggle-label" id="requiredToggle" type="button" role="switch" aria-checked="false" onclick="toggleRequiredOnly()" title="Limit the deck to required (graded) vocabulary for your selection, leaving out optional and supplemental words.">
       <span class="toggle-text">Required only</span>
       <span class="toggle-switch" id="requiredBtn" aria-hidden="true"></span>
     </button>
@@ -149,13 +153,17 @@ update that doc in the same commit. Line numbers in the doc are approximate.
       <span class="toggle-text">Second aorists as cards</span>
       <span class="toggle-switch" id="secondAoristCardsBtn" aria-hidden="true"></span>
     </button>
-    <button class="toggle-label" id="directionToggle" type="button" role="switch" aria-checked="false" onclick="toggleDirection()">
+    <button class="toggle-label" id="directionToggle" type="button" role="switch" aria-checked="false" onclick="toggleDirection()" title="Card direction. Off shows the Greek first (you recall the English meaning); on shows the English first (you recall the Greek form).">
       <span class="toggle-text">Eng → Gk</span>
       <span class="toggle-switch" id="directionBtn" aria-hidden="true"></span>
     </button>
-    <button class="toggle-label" id="spacedToggle" type="button" role="switch" aria-checked="false" onclick="toggleSpacedRepetition()">
+    <button class="toggle-label" id="spacedToggle" type="button" role="switch" aria-checked="false" onclick="toggleSpacedRepetition()" title="Spaced review. On schedules each card by how well you know it and only resurfaces it when it's due; off is a plain flip-through deck you mark until it's cleared.">
       <span class="toggle-text">Spaced review</span>
       <span class="toggle-switch" id="spacedBtn" aria-hidden="true"></span>
+    </button>
+    <button class="toggle-label" id="cadenceToggle" type="button" role="switch" aria-checked="false" onclick="toggleSpacingCadence()" title="8-month pace: switch spaced review from the 2-month intensive cadence (tight ~2-week interval cap) to a relaxed 8-month cadence — faster easy-interval growth and a ~120-day cap, with per-card difficulty blended in, so it doubles as an indefinite retention deck. Only changes how future flips schedule; already-due cards keep their dates.">
+      <span class="toggle-text">8-month pace</span>
+      <span class="toggle-switch" id="cadenceBtn" aria-hidden="true"></span>
     </button>
     <button class="toggle-label" id="unspacedDailyResetToggle" type="button" role="switch" aria-checked="false" onclick="toggleUnspacedDailyReset()" title="Auto-clear archived (Easy) cards once a day around 5 AM local time so you wake up to a fresh deck.">
       <span class="toggle-text">Daily archive reset</span>
@@ -165,7 +173,7 @@ update that doc in the same commit. Line numbers in the doc are approximate.
       <span class="toggle-text">Split vocab/grammar selection</span>
       <span class="toggle-switch" id="splitSelectionBtn" aria-hidden="true"></span>
     </button>
-    <button class="toggle-label" id="selfCheckToggle" type="button" role="switch" aria-checked="false" onclick="toggleMorphSelfCheck()" style="display:none">
+    <button class="toggle-label" id="selfCheckToggle" type="button" role="switch" aria-checked="false" onclick="toggleMorphSelfCheck()" style="display:none" title="Self-check. Hides the multiple-choice options so you answer in your head, reveal the answer, then rate whether you got it — instead of picking from a list.">
       <span class="toggle-text">Self-check</span>
       <span class="toggle-switch" id="selfCheckBtn" aria-hidden="true"></span>
     </button>
@@ -400,6 +408,20 @@ update that doc in the same commit. Line numbers in the doc are approximate.
     <label class="paradigm-focus-label" for="paradigmFocusSelectPrimary">Focused paradigm</label>
     <select id="paradigmFocusSelectPrimary" class="paradigm-focus-select" onchange="setMorphFocusedParadigm(this.value)"></select>
   </div>
+
+  <details class="paradigm-focus-row paradigm-focus-row-primary paradigm-custom-row" id="parsingCustomParadigmsRow" style="display:none">
+    <summary class="paradigm-custom-head">
+      <span class="paradigm-focus-label">Custom paradigm set</span>
+      <span class="paradigm-custom-meta" id="parsingCustomParadigmsCount">none selected</span>
+    </summary>
+    <div class="paradigm-custom-body">
+      <span class="paradigm-custom-actions">
+        <button type="button" class="paradigm-custom-btn" onclick="setAllParsingCustomParadigms(true)">Select all</button>
+        <button type="button" class="paradigm-custom-btn" onclick="setAllParsingCustomParadigms(false)">Clear</button>
+      </span>
+      <div class="paradigm-custom-list" id="parsingCustomParadigmsList"></div>
+    </div>
+  </details>
 
   <div class="card-area" id="cardArea">
     <div class="empty-state">
@@ -641,6 +663,7 @@ update that doc in the same commit. Line numbers in the doc are approximate.
       <div class="analytics-collapse-body">
         <div id="analyticsRecords"></div>
         <div id="analyticsHeatmap"></div>
+        <div id="analyticsDueHistogram"></div>
         <div class="analytics-metrics-grid" id="analyticsOverallMetrics"></div>
         <div class="analytics-chart-card">
           <div class="analytics-chart-title">Cumulative active study time</div>
@@ -697,8 +720,13 @@ update that doc in the same commit. Line numbers in the doc are approximate.
       <div class="sessions-grid" id="chaptersGrid"></div>
     </div>
     <div class="selector-section" id="supplementalSection">
-      <span class="selector-label">Supplemental</span>
-      <div id="supplementalGrid"></div>
+      <details class="advanced-section-shell" id="supplementalSectionShell">
+        <summary class="advanced-section-summary">
+          <span class="selector-label" style="margin-bottom:0">Supplemental</span>
+          <span class="advanced-section-meta" id="supplementalSectionMeta"></span>
+        </summary>
+        <div id="supplementalGrid"></div>
+      </details>
     </div>
     <div class="selector-section" id="advancedSection">
       <details class="advanced-section-shell" id="advancedSectionShell">
@@ -889,6 +917,18 @@ update that doc in the same commit. Line numbers in the doc are approximate.
   </div>
 </div>
 
+<div class="consent-overlay" id="toggleInfoOverlay" aria-hidden="true">
+  <div class="consent-modal" role="dialog" aria-modal="true" aria-labelledby="toggleInfoTitle">
+    <h2 id="toggleInfoTitle">Setting</h2>
+    <div class="consent-copy">
+      <p id="toggleInfoBody"></p>
+    </div>
+    <div class="consent-actions">
+      <button class="ctrl-btn consent-primary" type="button" onclick="closeToggleInfoModal()">Got it</button>
+    </div>
+  </div>
+</div>
+
 <div class="consent-overlay" id="whatsNewV1_1Overlay" aria-hidden="true">
   <div class="consent-modal" role="dialog" aria-modal="true" aria-labelledby="whatsNewV1_1Title">
     <div class="consent-label">Mounce variant</div>
@@ -911,48 +951,48 @@ update that doc in the same commit. Line numbers in the doc are approximate.
   <button class="update-banner-dismiss" type="button" onclick="dismissAppUpdate()" aria-label="Dismiss">×</button>
 </div>
 
-<script defer src="js/data/words.js?v=128"></script>
-<script defer src="js/data/morphology.js?v=128"></script>
-<script defer src="js/data/lemma_inventory.js?v=128"></script>
-<script defer src="js/data/supplemental.js?v=128"></script>
-<script defer src="js/data/grammar.js?v=128"></script>
-<script defer src="js/data/supplementals/mounce_paradigms.js?v=128"></script>
-<script defer src="js/data/supplementals/stem_change_drills.js?v=128"></script>
-<script defer src="js/data/supplementals/second_aorist_flip.js?v=128"></script>
-<script defer src="js/data/supplementals/liquid_future_flip.js?v=128"></script>
-<script defer src="js/data/supplementals/w3_aorist_passive_flip.js?v=128"></script>
-<script defer src="js/data/supplementals/w3_perfect_active_flip.js?v=128"></script>
-<script defer src="js/data/supplementals/w4_mi_verb_principal_parts_flip.js?v=128"></script>
-<script defer src="js/data/advanced/advanced_01.js?v=128"></script>
-<script defer src="js/data/advanced/advanced_02.js?v=128"></script>
-<script defer src="js/data/advanced/advanced_03.js?v=128"></script>
-<script defer src="js/data/advanced/advanced_04.js?v=128"></script>
-<script defer src="js/data/advanced/advanced_05.js?v=128"></script>
-<script defer src="js/data/advanced/advanced_06.js?v=128"></script>
-<script defer src="js/data/advanced/advanced_07.js?v=128"></script>
-<script defer src="js/data/advanced/advanced_08.js?v=128"></script>
-<script defer src="js/data/advanced/advanced_09.js?v=128"></script>
-<script defer src="js/data/advanced/advanced_10.js?v=128"></script>
-<script defer src="js/data/advanced/advanced_11.js?v=128"></script>
-<script defer src="js/data/advanced/advanced_12.js?v=128"></script>
-<script defer src="js/data/advanced/advanced_13.js?v=128"></script>
-<script defer src="js/data/advanced/advanced_14.js?v=128"></script>
-<script defer src="js/data/advanced/advanced_15.js?v=128"></script>
-<script defer src="js/data/advanced/advanced_16.js?v=128"></script>
-<script defer src="js/data/advanced/advanced_17.js?v=128"></script>
-<script defer src="js/data/advanced/advanced_18.js?v=128"></script>
-<script defer src="js/data/advanced/advanced_19.js?v=128"></script>
-<script defer src="js/data/advanced/advanced_20.js?v=128"></script>
-<script defer src="js/data/advanced/advanced_21.js?v=128"></script>
-<script defer src="js/data/advanced/advanced_22.js?v=128"></script>
-<script defer src="js/data/advanced/advanced_23.js?v=128"></script>
-<script defer src="js/data/advanced/advanced_24.js?v=128"></script>
-<script defer src="js/data/advanced/advanced_25.js?v=128"></script>
-<script defer src="js/data/nt_book_vocab.js?v=128"></script>
-<script defer src="js/data/reader.js?v=128"></script>
-<script defer src="js/data/reader_verse_literals.js?v=128"></script>
-<script defer src="js/data/reader_translations.js?v=128"></script>
-<script defer src="js/logic/pos_logic.js?v=128"></script>
-<script type="module" src="js/app/main.js?v=128"></script>
+<script defer src="js/data/words.js?v=129"></script>
+<script defer src="js/data/morphology.js?v=129"></script>
+<script defer src="js/data/lemma_inventory.js?v=129"></script>
+<script defer src="js/data/supplemental.js?v=129"></script>
+<script defer src="js/data/grammar.js?v=129"></script>
+<script defer src="js/data/supplementals/mounce_paradigms.js?v=129"></script>
+<script defer src="js/data/supplementals/stem_change_drills.js?v=129"></script>
+<script defer src="js/data/supplementals/second_aorist_flip.js?v=129"></script>
+<script defer src="js/data/supplementals/liquid_future_flip.js?v=129"></script>
+<script defer src="js/data/supplementals/w3_aorist_passive_flip.js?v=129"></script>
+<script defer src="js/data/supplementals/w3_perfect_active_flip.js?v=129"></script>
+<script defer src="js/data/supplementals/w4_mi_verb_principal_parts_flip.js?v=129"></script>
+<script defer src="js/data/advanced/advanced_01.js?v=129"></script>
+<script defer src="js/data/advanced/advanced_02.js?v=129"></script>
+<script defer src="js/data/advanced/advanced_03.js?v=129"></script>
+<script defer src="js/data/advanced/advanced_04.js?v=129"></script>
+<script defer src="js/data/advanced/advanced_05.js?v=129"></script>
+<script defer src="js/data/advanced/advanced_06.js?v=129"></script>
+<script defer src="js/data/advanced/advanced_07.js?v=129"></script>
+<script defer src="js/data/advanced/advanced_08.js?v=129"></script>
+<script defer src="js/data/advanced/advanced_09.js?v=129"></script>
+<script defer src="js/data/advanced/advanced_10.js?v=129"></script>
+<script defer src="js/data/advanced/advanced_11.js?v=129"></script>
+<script defer src="js/data/advanced/advanced_12.js?v=129"></script>
+<script defer src="js/data/advanced/advanced_13.js?v=129"></script>
+<script defer src="js/data/advanced/advanced_14.js?v=129"></script>
+<script defer src="js/data/advanced/advanced_15.js?v=129"></script>
+<script defer src="js/data/advanced/advanced_16.js?v=129"></script>
+<script defer src="js/data/advanced/advanced_17.js?v=129"></script>
+<script defer src="js/data/advanced/advanced_18.js?v=129"></script>
+<script defer src="js/data/advanced/advanced_19.js?v=129"></script>
+<script defer src="js/data/advanced/advanced_20.js?v=129"></script>
+<script defer src="js/data/advanced/advanced_21.js?v=129"></script>
+<script defer src="js/data/advanced/advanced_22.js?v=129"></script>
+<script defer src="js/data/advanced/advanced_23.js?v=129"></script>
+<script defer src="js/data/advanced/advanced_24.js?v=129"></script>
+<script defer src="js/data/advanced/advanced_25.js?v=129"></script>
+<script defer src="js/data/nt_book_vocab.js?v=129"></script>
+<script defer src="js/data/reader.js?v=129"></script>
+<script defer src="js/data/reader_verse_literals.js?v=129"></script>
+<script defer src="js/data/reader_translations.js?v=129"></script>
+<script defer src="js/logic/pos_logic.js?v=129"></script>
+<script type="module" src="js/app/main.js?v=129"></script>
 </body>
 </html>
