@@ -141,8 +141,14 @@
     font-size-adjust: 0.454;
   }
 
-  /* Text size: uses `zoom` so padding scales with the text — buttons keep
-     proportions instead of overflowing when the user picks a larger size. */
+  /* Text size: scales the rendered glyphs via a single multiplier that every
+     `font-size` reads through `calc(… * var(--text-scale))`. This replaces a
+     `zoom` on <body>, which iOS scaled unreliably — it grew the layout/spacing
+     but left glyph size untouched, so larger settings only added whitespace
+     without improving legibility. Scaling font-size enlarges the letters on
+     every engine. Padding/spacing is intentionally left fixed; labels wrap
+     instead of overflowing (see `white-space` on .toggle-label). The variable
+     lives on the root so it inherits into the overlays (siblings of .app) too. */
   html { --text-scale: 1; }
   html[data-text-size="large"] { --text-scale: 1.12; }
   html[data-text-size="x-large"] { --text-scale: 1.25; }
@@ -689,7 +695,7 @@
   /* Verbal stem printed inline after the form (", λαβ-") on both faces of a
    * stem-flip card. Smaller and muted so the inflected form stays dominant. */
   .card-stem-inline {
-    font-size: 0.6em;
+    font-size: calc((0.6em) * var(--text-scale));
     color: var(--gold-dim);
     letter-spacing: 0.5px;
     white-space: nowrap;
@@ -979,6 +985,10 @@
     display: flex; align-items: center; gap: 8px; cursor: pointer;
     font-family: var(--font-display); font-size: calc((11px) * var(--text-scale)); letter-spacing: 1px;
     text-transform: uppercase; color: var(--muted);
+    /* Wrap (don't clip) when the text-size multiplier enlarges the glyphs:
+       the switch and (i) button keep their size (flex-shrink:0), so a long
+       label like "Shuffle all paradigms (to chapter)" reflows onto a second
+       line instead of overflowing the row. */
     user-select: none; white-space: normal; overflow-wrap: break-word;
     -webkit-appearance: none; appearance: none;
     background: transparent; border: 0; padding: 0; margin: 0;
@@ -3609,7 +3619,7 @@
     font-size: calc((10px) * var(--text-scale));
   }
   .heatmap-day-label {
-    font-size: calc((9px !important) * var(--text-scale));
+    font-size: calc((9px) * var(--text-scale)) !important;
   }
 
   .heatmap-legend {
@@ -3926,7 +3936,7 @@
   }
   .chapter-detail-row.grammar-concept-row .grammar-review-detail {
     color: var(--muted, #8a8a8a);
-    font-size: 0.85em;
+    font-size: calc((0.85em) * var(--text-scale));
   }
 
   /* ── Per-chapter word breakdown (revealed by tapping a tile) ── */
