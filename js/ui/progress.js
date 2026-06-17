@@ -6,7 +6,7 @@
 import { runtime } from '../state/runtime.js';
 import { compareGreekAlphabetical } from '../utils/greekSort.js';
 import { getConfidencePct } from '../domain/srs/confidence.js';
-import { formatRemainingForTable, getSrsStage, daysFromMs } from '../domain/srs/scheduler.js';
+import { formatRemainingForTable, getSrsStage } from '../domain/srs/scheduler.js';
 import { getCardReviewLeft, getCardReviewRight, getCardMetaLine } from '../domain/deck/filters.js';
 import { isAnalyticsModalOpen } from './modals.js';
 import {
@@ -93,16 +93,19 @@ export function renderProgress() {
 //            come due across rebuilds, so this tracks the session rather than
 //            the raw dueAt<=now set (an Uncertain card bumped a couple of hours
 //            leaves the session and lands in "today" instead).
-//   today  — deferred but due in under one study day (next session, not now).
-//   k      — deferred, due in [k, k+1) study days (k = 1..13), then a "14d+"
-//            overflow so a long-cadence (8-month) tail stays bounded.
-// Day buckets use the SRS day model (daysFromMs: 1d = 22h, then +24h/day), so
-// an N-day-interval card lands in its matching bar. Returns null in unspaced
-// mode or when the deck is empty. dueNow is the "now"-column count
+//   today  — deferred but due later today (before tonight's midnight).
+//   k      — deferred, due k calendar days from today (k = 1 is tomorrow, …),
+//            out to a "14d+" overflow so a long-cadence (8-month) tail stays
+//            bounded.
+// Day buckets are CALENDAR days (local time): "today" runs until midnight, then
+// one column per calendar day — not rolling 24h periods from now. Returns null
+// in unspaced mode or when the deck is empty. dueNow is the "now"-column count
 // (= active+middle).
 function buildDueHistogramBars() {
   if (!runtime.spacedRepetition) return null;
   const now = Date.now();
+  const DAY_MS = 24 * 60 * 60 * 1000;
+  const startOfToday = new Date(now); startOfToday.setHours(0, 0, 0, 0);
   const MAX_DAY = 14;                         // day bars 1..13, then a 14d+ overflow
   const COL_NOW = 0, COL_TODAY = 1;
   const COL_OVERFLOW = MAX_DAY + 1;           // index of the "14d+" bucket
@@ -118,10 +121,12 @@ function buildDueHistogramBars() {
     if (sessionIds.has(card.id)) {
       col = COL_NOW;                          // active + middle = the current session
     } else {
-      // Deferred (not in the session). Never-seen cards are always due, so they
-      // live in the active section above and never reach this branch.
-      const studyDays = Math.max(0, Math.floor(daysFromMs(p.dueAt - now)));
-      col = studyDays === 0 ? COL_TODAY : Math.min(studyDays + 1, COL_OVERFLOW);
+      // Deferred (not in the session). Bucket by CALENDAR day from today's
+      // midnight. Never-seen cards are always due, so they live in the active
+      // section above and never reach this branch.
+      const dueDay = new Date(p.dueAt); dueDay.setHours(0, 0, 0, 0);
+      const calDays = Math.max(0, Math.round((dueDay.getTime() - startOfToday.getTime()) / DAY_MS));
+      col = calDays === 0 ? COL_TODAY : Math.min(calDays + 1, COL_OVERFLOW);
     }
     counts[col] += 1;
     if (col > lastIdx) lastIdx = col;

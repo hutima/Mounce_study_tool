@@ -166,7 +166,7 @@ import { getSelectedVocabCards, getSelectedGrammarCards, getAllVocabKeys, getAll
 
 // Domain — Grammar
 import { buildGrammarSupportHtml } from '../domain/grammar/explanations.js';
-import { recordParadigmAttempt, inferredFollowupDims, buildInferredStep, structuralImpossibilityReason, paradigmGapReason, lemmaInventoryGapReason, isLemmaFormKnown, parseAnswerDimensions } from '../domain/grammar/morph_steps.js';
+import { recordParadigmAttempt, inferredFollowupDims, buildInferredStep, structuralImpossibilityReason, paradigmGapReason, lemmaInventoryGapReason, isLemmaFormKnown, getLemmaFormStatus, parseAnswerDimensions } from '../domain/grammar/morph_steps.js';
 import { listAvailableParadigms, listAvailableParadigmsByCategory, getCardsForFocusedParadigm, getCardsForParadigmCategory, getCardsForParadigmLemmas, getAllParsingCards, parseCategoryShuffleValue, makeCategoryShuffleValue } from '../domain/grammar/paradigm_focus.js';
 
 // UI
@@ -419,6 +419,7 @@ configureRender({
   reverseDisplayActive: (card) => reverseDisplayActive(card),
   startNextCycle: (mode, opts) => startNextCycle(mode, opts),
   resetMorphAnswerState: () => resetMorphAnswerState(),
+  noteParsingCardShown: (cardId) => noteParsingCardShown(cardId),
   maybeReturnKnownCardToActivePile: () => maybeReturnKnownCardToActivePile(),
   formatGreekHeadword: (g) => typeof window !== 'undefined' && typeof window.formatGreekHeadword === 'function' ? window.formatGreekHeadword(g) : (g || '—'),
   transliterateGreek: (s) => typeof window !== 'undefined' && typeof window.transliterateGreek === 'function' ? window.transliterateGreek(s) : s,
@@ -454,6 +455,7 @@ configureSelectors({
   getDirectionalMarksStore: () => getDirectionalMarksStore(),
   getDirectionalProgressStore: () => getDirectionalProgressStore(),
   resetMorphAnswerState: () => resetMorphAnswerState(),
+  resetParsingShowCounts: () => resetParsingShowCounts(),
   getDeckStateKey: (keys, req, spaced) => getDeckStateKey(keys, req, spaced),
   reorderDeckFromIds: (cards, ids) => reorderDeckFromIds(cards, ids),
   buildStudyDeck: (cards, opts) => buildStudyDeck(cards, opts),
@@ -809,6 +811,13 @@ function setParsingChapter(value) {
 function maybeInjectInferredSteps(state, stepKey, picked) {
   if (!state || !Array.isArray(state.steps)) return 0;
   const existing = new Set(state.steps.map((s) => s.key));
+  // Dims that were auto-resolved (chapter-gated, user-toggled off, or the
+  // single-gender auto-skip) count as already present: their value is filled in
+  // silently and surfaced via impliedDims, so injecting an inferred step for
+  // them would re-ask a dim we deliberately didn't ask — and double-count it in
+  // the parse summary (e.g. a single-gender lemma's gender showing twice when
+  // the student picks mood=participle).
+  Object.keys(state.autoFilledDims || {}).forEach((k) => existing.add(k));
   const needs = inferredFollowupDims(stepKey, picked, existing);
   if (!needs.length) return 0;
   const pools = state.accessiblePools || {};
@@ -1163,6 +1172,10 @@ function syncFontFamilyButtons() {
 
 function setFontFamily(value) {
   applyFontFamily(value, true);
+  // Swapping serif/sans changes glyph metrics, so the layout reflows and a
+  // button can slide under the finger before the iOS ghost click lands. Same
+  // document-wide guard the modal closers use.
+  shieldClicksBriefly();
 }
 
 function initializeFontFamily() {
@@ -1194,6 +1207,10 @@ function syncTextSizeButtons() {
 
 function setTextSize(value) {
   applyTextSize(value, true);
+  // Changing text size grows the glyphs and reflows spacing, so a button can
+  // slide under the finger between the tap and the iOS ghost click ~300 ms
+  // later. Shield clicks document-wide to absorb that stray press.
+  shieldClicksBriefly();
 }
 
 function initializeTextSize() {
@@ -2054,6 +2071,87 @@ function buildFilteredFocusedParadigmCards() {
   return applyExcludeKnownMorphsFilter(getCardsForFocusedParadigm(keys, sel, opts));
 }
 
+// Status-weighted ordering for the parsing deck. A plain shuffle treats a form
+// the student has never seen exactly like one they've already nailed twice, so
+// (especially with "Exclude known morphs" off) a review run can open with a
+// stack of mastered 2/2 forms while the unseen ones wait at the back. Two
+// things shape the order instead:
+//
+// 1. Session show-count (the hard rule). Every time a form is displayed this
+//    run we bump runtime.parsingShowCounts (see noteParsingCardShown). The deck
+//    is bucketed by that count, fewest-shown first, so a form can't be shown a
+//    third time until every less-shown form — the never-seen ones included —
+//    has had its turn. In practice: while any unseen form remains, nothing gets
+//    shown more than twice.
+//
+// 2. Status weight (the soft bias, applied within a show-count bucket). We lean
+//    on each form's per-form recent status (the same 0/2 → 2/2 tally the dots
+//    and the exclude-known filter read via getLemmaFormStatus): unseen > wrong >
+//    uncertain > right > known. Efraimidis–Spirakis weighted-random ordering
+//    (key = random^(1/weight), sort descending) gives, for any two forms in the
+//    same bucket, P(a before b) = weight_a/(weight_a+weight_b) — a soft bias,
+//    not a hard sort, so the deck still feels shuffled while leaning toward
+//    what needs work.
+//
+// Shuffle off keeps strict paradigm order (neither rule applies).
+const PARSING_PRIORITY_WEIGHTS = {
+  unseen: 6,
+  wrong: 4,
+  uncertain: 3,
+  right: 1.5,
+  known: 1
+};
+function parsingFormPriorityWeight(card, stats, enabledDims) {
+  if (!card) return PARSING_PRIORITY_WEIGHTS.right;
+  const status = getLemmaFormStatus(stats, card.lemma, card.id, enabledDims);
+  return PARSING_PRIORITY_WEIGHTS[status] || PARSING_PRIORITY_WEIGHTS.right;
+}
+function orderParsingPool(pool) {
+  const list = Array.isArray(pool) ? [...pool] : [];
+  if (!runtime.shuffled || list.length < 2) return list;
+  const stats = runtime.paradigmStepStats || {};
+  const enabledDims = getEnabledParsingDims();
+  const counts = runtime.parsingShowCounts || {};
+  return list
+    .map((card) => {
+      const shows = card && card.id ? (counts[card.id] || 0) : 0;
+      const weight = parsingFormPriorityWeight(card, stats, enabledDims);
+      // Math.random() can return 0; clamp away from it so the pow stays finite
+      // (a 0 key would otherwise pin that card to the back of its bucket).
+      const r = Math.random() || Number.MIN_VALUE;
+      return { card, shows, key: Math.pow(r, 1 / weight) };
+    })
+    // Primary: fewest session-shows first (the "max two until unseen expended"
+    // rule). Secondary: the status-weighted random key, so within an equal
+    // show-count the unseen > wrong > … > known priority still applies.
+    .sort((a, b) => (a.shows - b.shows) || (b.key - a.key))
+    .map((entry) => entry.card);
+}
+
+// Record that a parsing card is now on screen. Called from the render layer
+// each time it paints a parsing card; the parsingLastShownCardId guard means
+// the many re-renders of one card during its dimensional walk count as a single
+// show, while genuinely moving to (or cycling back to) another card bumps its
+// tally. Feeds orderParsingPool's fewest-shown-first ordering.
+function noteParsingCardShown(cardId) {
+  if (!cardId || runtime.parsingLastShownCardId === cardId) return;
+  runtime.parsingLastShownCardId = cardId;
+  if (!runtime.parsingShowCounts || typeof runtime.parsingShowCounts !== 'object') {
+    runtime.parsingShowCounts = {};
+  }
+  runtime.parsingShowCounts[cardId] = (runtime.parsingShowCounts[cardId] || 0) + 1;
+}
+
+// Wipe the per-session parsing display tally — called when the parsing pool is
+// rebuilt for a genuinely new scope (paradigm / chapter / pool-toggle change,
+// all routed through loadDeckFromKeys) so the "shown at most twice" budget
+// starts fresh. A plain reshuffle deliberately does NOT reset it: the budget
+// should keep bounding repeats across reshuffles within the same run.
+function resetParsingShowCounts() {
+  runtime.parsingShowCounts = {};
+  runtime.parsingLastShownCardId = null;
+}
+
 // Rebuild the parsing deck for a fresh cycle. Unlike startNextCycle's generic
 // 'remaining' path — which reshuffles the existing originalDeck and never
 // re-runs the exclude-known filter — this re-derives the filtered focused
@@ -2064,7 +2162,7 @@ function buildFilteredFocusedParadigmCards() {
 function rebuildParsingCycle(options = {}) {
   const pool = buildFilteredFocusedParadigmCards();
   runtime.originalDeck = pool;
-  const ordered = runtime.shuffled ? shuffleArray([...pool]) : [...pool];
+  const ordered = orderParsingPool(pool);
   avoidHeadCollision(ordered, options.avoidHeadId);
   runtime.deck = ordered;
   runtime.activeDeckCount = ordered.length;
@@ -2387,6 +2485,18 @@ function avoidHeadCollision(deck, avoidHeadId) {
 }
 
 function buildStudyDeck(cards, options = {}) {
+  // Parsing owns its deck ordering: a status-weighted shuffle (orderParsingPool)
+  // that floats unseen/wrong forms ahead of mastered ones, rather than the
+  // spaced/unspaced pile machinery below. It carries no SRS schedule and no
+  // archive pile — every in-scope form is part of the active deck — so the
+  // ordered pool is the whole deck. (Cycle boundaries go through
+  // rebuildParsingCycle, which shares the same ordering.)
+  if (isParsingMode()) {
+    const ordered = orderParsingPool(cards || []);
+    avoidHeadCollision(ordered, options.avoidHeadId);
+    runtime.activeDeckCount = ordered.length;
+    return ordered;
+  }
   if (!runtime.spacedRepetition) {
     // Unspaced flip deck has three sections: [active..., middle..., known...].
     //   active — cards not yet seen this round (the in-flight pile).

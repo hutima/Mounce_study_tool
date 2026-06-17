@@ -644,6 +644,20 @@ export function toggleShuffle() {
   runtime.flipsSinceReshuffle = 0;
   host.syncToggleButtons();
 
+  // Parsing owns its ordering (orderParsingPool: shown-fewest-first, then the
+  // status-weighted bias when shuffle is on; strict paradigm order when off).
+  // Rebuild through its canonical builder so the toggle applies the same way
+  // regardless of parsing's inherited spaced/unspaced flag.
+  if (host.isParsingMode()) {
+    host.rebuildParsingCycle();
+    runtime.isFlipped = false;
+    renderCard();
+    renderProgress();
+    renderReview();
+    host.saveState();
+    return;
+  }
+
   if (runtime.spacedRepetition) {
     runtime.deck = host.buildStudyDeck(runtime.originalDeck, { forceShuffle: runtime.shuffled });
     runtime.currentIdx = Math.min(runtime.currentIdx, runtime.activeDeckCount);
@@ -1224,6 +1238,19 @@ export function toggleDimValueFilter(dimKey, value) {
 
 export function reshuffleEligible() {
   if (!runtime.selectedKeys.length) return;
+
+  // Parsing: rebuild through its canonical builder so the reshuffle honours
+  // orderParsingPool. The per-session show-count budget is deliberately kept
+  // (not reset) so repeats stay bounded across reshuffles within the run.
+  if (host.isParsingMode()) {
+    host.rebuildParsingCycle();
+    runtime.isFlipped = false;
+    renderCard();
+    renderProgress();
+    renderReview();
+    host.saveState();
+    return;
+  }
 
   if (runtime.spacedRepetition) {
     // Shuffle only currently-eligible (due) cards. SRS progress and
