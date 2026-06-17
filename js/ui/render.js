@@ -23,6 +23,7 @@ let host = {
   reverseDisplayActive: () => false,
   startNextCycle: () => {},
   resetMorphAnswerState: () => {},
+  noteParsingCardShown: () => {},
   maybeReturnKnownCardToActivePile: () => false,
   // window-global text formatters are wrapped so the module doesn't depend on
   // load order between this ES module and the legacy <script defer> data files.
@@ -241,6 +242,9 @@ export function renderCard() {
   // card.dimensional === false; those fall through to the standard MC
   // renderer below regardless of mode.
   if (host.isMorphCard(card) && host.isParsingMode() && card.dimensional !== false) {
+    // Tally this display for orderParsingPool's fewest-shown-first ordering.
+    // The id guard inside the hook means the walk's many re-renders count once.
+    host.noteParsingCardShown(card.id);
     if (runtime.parsingReverse) {
       renderParsingReverseCard(area, card);
       return;

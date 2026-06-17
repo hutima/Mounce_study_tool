@@ -35,6 +35,7 @@ let host = {
   getDueCount: () => 0,
   resetUnspacedCycleState: () => {},
   resetStudyState: () => {},
+  resetParsingShowCounts: () => {},
   syncToggleButtons: () => {},
   clearSpacedUndoSnapshot: () => {},
   saveCurrentDeckStateToBank: () => {},
@@ -702,6 +703,10 @@ export function loadDeckFromKeys(keys, sessionId = null, options = {}) {
   if (host.isMorphStepByStepActive()) {
     const focusedCards = host.getFocusedParadigmCards();
     if (Array.isArray(focusedCards)) scopedCards = focusedCards;
+    // New parsing scope (paradigm / chapter / pool-toggle change all land here)
+    // = a fresh run, so reset the per-session "shown at most twice" budget
+    // before the deck is ordered below.
+    host.resetParsingShowCounts();
   }
   runtime.originalDeck = scopedCards;
   host.resetMorphAnswerState();
@@ -711,7 +716,11 @@ export function loadDeckFromKeys(keys, sessionId = null, options = {}) {
   const restoredDeck = savedDeckState ? host.reorderDeckFromIds(runtime.originalDeck, savedDeckState.deckIds) : null;
   // A bank entry whose ids don't line up with the current deck is a stale
   // cross-mode save — ignore its cursor rather than clamp a meaningless index.
-  if (restoredDeck) {
+  // Parsing deliberately resamples its deck on every load (it never resumes a
+  // banked order) and relies on buildStudyDeck's status-weighted ordering to
+  // float unseen/wrong forms forward — so skip the resume/restore path entirely
+  // and rebuild fresh through buildStudyDeck in the else below.
+  if (restoredDeck && !host.isMorphStepByStepActive()) {
     // Resume this deck's banked three-pile session when the user is merely
     // coming back to it — a mode switch or an option toggle — within the 5 h
     // session window. The due/middle pile then keeps waiting (it only joins

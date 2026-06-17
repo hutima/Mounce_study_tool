@@ -95,6 +95,16 @@ export const runtime = {
   // Default 36 = the last Mounce chapter (every paradigm in scope).
   parsingChapter: 36,
   morphStepState: { cardId: null, steps: [], stepIdx: 0, answers: [], completed: false },
+  // Per-session parsing display tally: parsingShowCounts maps a card id to how
+  // many times it has been shown this run, and parsingLastShownCardId is the id
+  // of the card currently on screen (so re-renders of the same card during its
+  // dimensional walk aren't double-counted). orderParsingPool reads the tally to
+  // keep any one form from being shown a third time until every less-shown form
+  // — the never-seen ones included — has had its turn. Both are ephemeral: reset
+  // whenever the parsing pool is rebuilt for a new scope (loadDeckFromKeys), and
+  // never persisted (a reload resamples the deck).
+  parsingShowCounts: {},
+  parsingLastShownCardId: null,
   // English → Greek parsing direction. When on, parsing mode flips: instead
   // of walking a Greek form's parse one dimension at a time, the card shows
   // the requested parse (the chapter-gated dimensions the user has enabled)
@@ -113,9 +123,9 @@ export const runtime = {
   paradigmStepStats: { byLemma: {} },
   // Whether the parsing walk asks an explicit Aspect step before Tense.
   // Aspect is derivable from tense (present/future → continuous/undefined,
-  // aorist → undefined, etc.), so for students who don't want to drill the
-  // composite-vs-single distinction it can be turned off. Default on.
-  aspectStep: true,
+  // aorist → undefined, etc.), so the extra composite-vs-single step is off by
+  // default; students who want to drill it can turn it on. Default off.
+  aspectStep: false,
   // Stem & declension notes on standard vocab cards: the inline verbal /
   // third-declension stem after the headword, the bracketed principal-parts
   // line under a verb, and the "declines like σάρξ" hint-line pointer.

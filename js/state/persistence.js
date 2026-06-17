@@ -334,8 +334,8 @@ function sanitizeImportedState(candidate) {
     : null;
   state.parsingChapter = sanitizeParsingChapter(candidate.parsingChapter);
   state.paradigmStepStats = sanitizeParadigmStepStats(candidate.paradigmStepStats);
-  // aspectStep defaults to true; only an explicit `false` flips it off.
-  state.aspectStep = candidate.aspectStep !== false;
+  // aspectStep defaults to false; only an explicit `true` turns it on.
+  state.aspectStep = candidate.aspectStep === true;
   // Same default-true contract for the vocab-card stem/declension notes.
   state.stemNotes = candidate.stemNotes !== false;
   // Second-aorists-as-cards defaults off; only an explicit `true` enables it.
@@ -1034,7 +1034,7 @@ export function restoreState() {
       runtime.selectedKeys = [String(runtime.parsingChapter)];
     }
     runtime.paradigmStepStats = sanitizeParadigmStepStats(saved.paradigmStepStats);
-    runtime.aspectStep = saved.aspectStep !== false;
+    runtime.aspectStep = saved.aspectStep === true;
     runtime.stemNotes = saved.stemNotes !== false;
     runtime.secondAoristCards = saved.secondAoristCards === true;
     const DIM_TOGGLE_KEYS = ['tense', 'voice', 'mood', 'person', 'number', 'case', 'gender'];
