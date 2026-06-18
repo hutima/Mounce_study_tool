@@ -1480,7 +1480,19 @@ function renderMorphStepSummary(card, state) {
     const ans = state.answers[idx];
     return ans && ans.selectedIdx >= 0 ? step.choices[ans.selectedIdx] : '';
   });
-  const correctValues = state.steps.map((step) => step.correct);
+  const correctValues = state.steps.map((step) => {
+    // A deponent's voice is middle (or middle/passive) in form but parses as
+    // active in meaning — the headline answer the soft-accept convention
+    // expects (morph_steps.js seeds step.acceptable = [middle, 'active']). Show
+    // 'active' here so the Correct-parse line matches the graded Voice step
+    // instead of contradicting it with the formal 'middle'.
+    if (step.key === 'voice'
+        && Array.isArray(step.acceptable) && step.acceptable.includes('active')
+        && (step.correct === 'middle' || step.correct === 'middle/passive')) {
+      return 'active';
+    }
+    return step.correct;
+  });
   // A structural impossibility (e.g. future imperative) trumps any lemma
   // lookup — show the specific reason instead of the generic "[no morph
   // exists]" we'd fall back to from the inventory check.

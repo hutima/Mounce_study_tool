@@ -726,6 +726,18 @@ function applyDisplaySuffix(dimensionKey, value) {
 // before ch 15.
 const VOICE_INTRODUCED_AT_CHAPTER = 15;
 
+// A deponent verb's dictionary form is itself middle/passive (ends in -μαι):
+// γίνομαι, ἔρχομαι, δέχομαι, δύναμαι… These are middle/passive in form but
+// active in meaning, so Mounce parses their voice as active. A regular verb
+// (λύω, λαμβάνω…) keeps a genuine middle voice — its middle forms (ἐλύσω "you
+// loosed for yourself") are NOT active and must grade strictly. εἰμί is the one
+// active-lemma exception whose future (ἔσομαι) is deponent in form.
+function isDeponentLemma(lemma) {
+  if (!lemma) return false;
+  const l = String(lemma).trim();
+  return /μαι$/.test(l) || l === 'εἰμί';
+}
+
 export function buildMorphSteps(card, accessiblePools = null, options = {}) {
   if (!card || card.kind !== 'morph') return [];
   // Prefer the canonical parsed form when set — grammar.js cards can ship
@@ -848,13 +860,16 @@ export function buildMorphSteps(card, accessiblePools = null, options = {}) {
     if (dimKey === 'aspect' && dims.tense) {
       step.context = { tense: dims.tense };
     }
-    // Deponent voice handling. Mounce treats deponent verbs (lemmas
-    // ending in -μαι and εἰμί's future ἔσομαι family) as functionally
-    // active even though the form is middle / middle-passive — so
-    // when voice IS asked (ch 15+), both 'active' and the formal
-    // middle voice should grade as correct. Genuine passives
-    // (voice='passive') stay strict: passive isn't active in meaning.
-    if (dimKey === 'voice' && (correct === 'middle' || correct === 'middle/passive')) {
+    // Deponent voice handling. Mounce treats deponent verbs (dictionary form in
+    // -μαι, plus εἰμί's future ἔσομαι) as functionally active even though the
+    // form is middle / middle-passive — so when voice IS asked (ch 15+) both
+    // 'active' and the formal middle voice grade as correct. A regular verb's
+    // genuine middle (e.g. λύω's ἐλύσω) is NOT a deponent and stays strict —
+    // 'active' is wrong there. Genuine passives (voice='passive') stay strict
+    // too: passive isn't active in meaning.
+    if (dimKey === 'voice'
+        && (correct === 'middle' || correct === 'middle/passive')
+        && isDeponentLemma(card.lemma)) {
       step.acceptable = [correct, 'active'];
     }
     if (dimKey === 'mood' && isSecondPluralPresentMoodAmbiguity(card.answer, dims)) {
