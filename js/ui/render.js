@@ -9,7 +9,7 @@ import { runtime } from '../state/runtime.js';
 import { buildGrammarSupportHtml } from '../domain/grammar/explanations.js';
 import { renderProgress, renderReview } from './progress.js';
 import { buildMorphSteps, summarizeLemmaStats, getParadigmStepAttemptWindow, computeAccessibleDimensionPools, parseAnswerDimensions, aspectMistakeNote, isSecondPluralPresentMoodAmbiguity, computeParadigmPresentValues, accentLookalikesFor, confusableFormHints } from '../domain/grammar/morph_steps.js';
-import { getAccessibleMorphCards, deriveSelectionLevels, buildMultiGenderLemmas, THIRD_DECLENSION_NOUN_LEMMAS } from '../domain/grammar/paradigm_focus.js';
+import { getAccessibleMorphCards, deriveSelectionLevels, buildMultiGenderLemmas, THIRD_DECLENSION_NOUN_LEMMAS, paradigmCategoryNote } from '../domain/grammar/paradigm_focus.js';
 
 let host = {
   saveState: () => {},
@@ -405,9 +405,17 @@ export function renderCard() {
   // a subjunctive collapses the recall to a single form. Strip the tail
   // for the on-card hint and show just the lemma side; the full label
   // still appears in the session selector for browsing.
-  const onCardSourceLabel = card.supplemental
+  const onCardSourceLabelBase = card.supplemental
     ? cardFaceLabelFromSourceLabel(card.sourceLabel)
     : card.sourceLabel;
+  // Name the lemma's paradigm category after the source label (e.g. "κρίνω ·
+  // liquid future", "σάρξ · 3rd declension") so the card says what paradigm it
+  // tests, not just the word. Category is a fixed property of the lemma, not
+  // the form, so it never leaks the parse; empty for un-catalogued lemmas.
+  const onCardCategoryNote = paradigmCategoryNote(card.lemma);
+  const onCardSourceLabel = onCardCategoryNote
+    ? `${onCardSourceLabelBase} · ${onCardCategoryNote}`
+    : onCardSourceLabelBase;
   const sourceLabelDisplay = `${onCardSourceLabel}${advancedCountSuffix}`;
 
   // Prepositions that govern more than one case get a star on both faces as a
@@ -1699,6 +1707,12 @@ function renderParsingReverseCard(area, card) {
   const stepSourceLabel = card.supplemental
     ? cardFaceLabelFromSourceLabel(card.sourceLabel || '')
     : (card.sourceLabel || '');
+  // Name the paradigm category being tested after the lemma (see renderCard);
+  // a fixed property of the lemma, so it doesn't leak the parse.
+  const reverseCategoryNote = paradigmCategoryNote(card.lemma);
+  const reverseSourceLine = reverseCategoryNote
+    ? `${stepSourceLabel} · ${reverseCategoryNote}`
+    : stepSourceLabel;
 
   const choiceButtons = options.map((form, idx) => {
     const classes = ['choice-btn', 'choice-btn-greek'];
@@ -1742,7 +1756,7 @@ function renderParsingReverseCard(area, card) {
       <div class="morph-prompt">Pick the form that matches this parse.</div>
       <div class="morph-form">${escapeHtml(card.lemma || card.form)}</div>
       <div class="morph-step-label">${escapeHtml(parseLine)}</div>
-      <div class="morph-source">${escapeHtml(stepSourceLabel)}</div>
+      <div class="morph-source">${escapeHtml(reverseSourceLine)}</div>
       <div class="morph-choices">${choiceButtons}</div>
       ${dontKnowHtml}
       ${resultHtml}
@@ -1773,6 +1787,21 @@ function renderMorphStepCard(area, card) {
     ? `<div class="morph-hint">${escapeHtml(formTransliteration)}</div>`
     : '';
 
+  // Name the paradigm category being tested ("liquid future", "3rd
+  // declension", …) after the lemma, so the card says what it drills, not just
+  // which word. Category is a fixed property of the lemma, not the specific
+  // form, so it doesn't leak the parse. Empty for un-catalogued lemmas.
+  const stepCategoryNote = paradigmCategoryNote(card.lemma);
+  const stepSourceLabel = card.sourceLabel || '';
+  const stepSourceLine = stepCategoryNote
+    ? `${stepSourceLabel} · ${stepCategoryNote}`
+    : stepSourceLabel;
+  // The aspect aside coaches the explicit Aspect step. With aspect off (the
+  // default) the walk never asks for "continuous/undefined", so hide it.
+  const aspectHint = runtime.aspectStep
+    ? ' · Use "continuous/undefined" when the form licenses either reading'
+    : '';
+
   area.innerHTML = `
     <div class="morph-card morph-step-card">
       <div class="morph-label">Grammar · Step-by-step</div>
@@ -1780,7 +1809,7 @@ function renderMorphStepCard(area, card) {
       ${lemmaGloss}
       <div class="morph-form">${escapeHtml(card.form)}</div>
       ${hintHtml}
-      <div class="morph-source">${escapeHtml(card.sourceLabel || '')} · Use "continuous/undefined" when the form licenses either reading</div>
+      <div class="morph-source">${escapeHtml(stepSourceLine)}${aspectHint}</div>
       ${renderMorphStepBreadcrumb(state)}
       ${body}
     </div>`;
