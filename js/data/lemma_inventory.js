@@ -361,6 +361,18 @@
     'γενέσθωσαν':  'aorist middle imperative third person plural'
   };
 
+  // Present middle imperative (γίνομαι is deponent middle in the present).
+  // The aorist middle imperative above shifts to the 2nd-aorist stem γεν-;
+  // the present keeps γιν-, so a "present imperative" parse of an aorist
+  // form reconstructs to γίνου rather than a blank "—". (2pl γίνεσθε is
+  // syncretic with the present indicative; the indicative keeps the key.)
+  const GINOMAI_PRESENT_MIDDLE_IMPERATIVE = {
+    'γίνου':       'present middle imperative second person singular',
+    'γινέσθω':     'present middle imperative third person singular',
+    'γίνεσθε':     'present middle imperative second person plural',
+    'γινέσθωσαν':  'present middle imperative third person plural'
+  };
+
   const GINOMAI_OPTIONAL_GROUPS = [
     { chapter: 18, family: 'γίνομαι — present middle indicative (optional)',
       forms: GINOMAI_PRESENT_MIDDLE_INDICATIVE },
@@ -374,6 +386,8 @@
       forms: GINOMAI_AORIST_MIDDLE_INDICATIVE },
     { chapter: 32, family: 'γίνομαι — aorist middle infinitive γενέσθαι (optional)',
       forms: GINOMAI_AORIST_MIDDLE_INFINITIVE },
+    { chapter: 33, family: 'γίνομαι — present middle imperative (optional)',
+      forms: GINOMAI_PRESENT_MIDDLE_IMPERATIVE },
     { chapter: 33, family: 'γίνομαι — aorist middle imperative (optional)',
       forms: GINOMAI_AORIST_MIDDLE_IMPERATIVE },
     { chapter: 24, family: 'γίνομαι — aorist passive indicative (optional)',
@@ -383,6 +397,7 @@
   ];
 
   const GINOMAI_EXTRA_FORMS = {
+    ...GINOMAI_PRESENT_MIDDLE_IMPERATIVE,
     ...GINOMAI_PRESENT_MIDDLE_INDICATIVE,
     ...GINOMAI_IMPERFECT_MIDDLE_INDICATIVE,
     ...GINOMAI_FUTURE_MIDDLE_INDICATIVE,
