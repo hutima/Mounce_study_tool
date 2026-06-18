@@ -431,6 +431,81 @@ function masteryBandClass(pct) {
   return 'stacked-seg-b80';
 }
 
+// SVG fills can't use the .stacked-seg-* CSS classes (those set `background`,
+// which SVG rects ignore), so mirror the same 5-band red→green gradient as
+// explicit fills for charts that draw <rect> bars.
+function masteryBandFill(pct) {
+  if (pct == null) return 'rgba(138, 143, 168, 0.35)';
+  if (pct < 20) return 'rgba(166,  88,  88, 0.85)';
+  if (pct < 40) return 'rgba(192, 122,  76, 0.82)';
+  if (pct < 60) return 'rgba(201, 168,  76, 0.78)';
+  if (pct < 80) return 'rgba(160, 174,  90, 0.80)';
+  return 'rgba(102, 164, 120, 0.85)';
+}
+
+// Vertical bar chart of parsing accuracy across chronological buckets (each bar
+// is a run of ~N parses, oldest left → most recent right). `buckets` is the
+// `.buckets` array from getParsingAccuracyBuckets. `options.metric` selects the
+// bar height: 'full' (default — % of parses fully correct) or 'dim' (% of
+// individual dimensions correct). Bars are coloured on the shared 5-band
+// gradient so a glance reads weak (red) vs strong (green) runs.
+export function buildParsingAccuracyBucketsSvg(buckets, options = {}) {
+  const list = Array.isArray(buckets) ? buckets : [];
+  if (!list.length) {
+    return `<div class="analytics-empty">${escapeHtml(options.emptyText || 'Parse a few forms step-by-step and your accuracy trend will appear here.')}</div>`;
+  }
+  const width = options.width || 860;
+  const height = options.height || 220;
+  const padLeft = 64; const padRight = 14; const padTop = 14; const padBottom = 40;
+  const plotW = width - padLeft - padRight;
+  const plotH = height - padTop - padBottom;
+  const baseY = padTop + plotH;
+  const n = list.length;
+  const slot = plotW / n;
+  const barW = Math.min(options.maxBarWidth || 88, slot * 0.72);
+  const valueKey = options.metric === 'dim' ? 'dimPct' : 'fullPct';
+  const toY = pct => baseY - (Math.max(0, Math.min(100, pct)) / 100) * plotH;
+
+  const gridPcts = [0, 25, 50, 75, 100];
+  const grid = gridPcts.map(p => {
+    const y = toY(p);
+    return `<line x1="${padLeft}" y1="${y.toFixed(1)}" x2="${width - padRight}" y2="${y.toFixed(1)}" class="analytics-grid-line"></line>
+      <text x="${padLeft - 8}" y="${(y + 4).toFixed(1)}" text-anchor="end" class="analytics-axis-text">${p}%</text>`;
+  }).join('');
+
+  const bars = list.map((b, i) => {
+    const pct = Number(b[valueKey]) || 0;
+    const cx = padLeft + slot * i + slot / 2;
+    const x = cx - barW / 2;
+    const y = toY(pct);
+    const h = Math.max(0, baseY - y);
+    const fill = masteryBandFill(pct);
+    const title = `Parses ${b.first}–${b.last} (${b.count}): ${b.fullPct}% fully correct · ${b.dimPct}% of dimensions · ${b.fulls}/${b.count} clean`;
+    const valueLabel = `<text x="${cx.toFixed(1)}" y="${(y - 7).toFixed(1)}" text-anchor="middle" class="analytics-axis-text">${pct}%</text>`;
+    return `<rect x="${x.toFixed(1)}" y="${y.toFixed(1)}" width="${barW.toFixed(1)}" height="${h.toFixed(1)}" rx="3" fill="${fill}"><title>${escapeHtml(title)}</title></rect>${valueLabel}`;
+  }).join('');
+
+  // x-axis labels: keep it light — label the first (oldest) and last (latest)
+  // buckets, and every bar only when there are few. Otherwise they overlap.
+  const xLabels = list.map((b, i) => {
+    const show = n <= 6 || i === 0 || i === n - 1;
+    if (!show) return '';
+    const cx = padLeft + slot * i + slot / 2;
+    const label = i === n - 1 ? 'latest' : `${b.first}–${b.last}`;
+    return `<text x="${cx.toFixed(1)}" y="${height - 12}" text-anchor="middle" class="analytics-axis-text">${escapeHtml(label)}</text>`;
+  }).join('');
+
+  return `
+    <svg class="analytics-chart-svg" viewBox="0 0 ${width} ${height}" preserveAspectRatio="xMidYMid meet" role="img" aria-label="${escapeHtml(options.title || 'Parsing accuracy over recent guesses')}">
+      <line x1="${padLeft}" y1="${padTop}" x2="${padLeft}" y2="${baseY}" class="analytics-axis-line"></line>
+      <line x1="${padLeft}" y1="${baseY}" x2="${width - padRight}" y2="${baseY}" class="analytics-axis-line"></line>
+      ${grid}
+      ${bars}
+      ${xLabels}
+    </svg>
+  `;
+}
+
 export function buildDimValueBarsHtml(groups, options = {}) {
   if (!Array.isArray(groups) || !groups.length) {
     const msg = options.emptyText
