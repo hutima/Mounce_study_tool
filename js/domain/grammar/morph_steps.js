@@ -1010,6 +1010,69 @@ export function getParadigmStepDimensionLabel(dimKey) {
   return DIM_LABEL[dimKey] || dimKey;
 }
 
+// Default parses-per-bucket for the accuracy-over-guesses trend (analytics).
+export const PARSING_ACCURACY_BUCKET_SIZE = 20;
+
+// Roll every recorded parse (across all paradigms) into chronological buckets
+// so the analytics overlay can chart accuracy *over guesses*. Each lemma keeps
+// only its last ATTEMPT_WINDOW (20) attempts, so this is a recent-history view.
+// Attempts are pooled across lemmas, sorted by time, and sliced into
+// `bucketSize`-wide groups aligned from the most recent end (so the latest bar
+// is always full and any short bucket is the oldest one on the left).
+// `enabledDims` scopes accuracy to the parse steps the user currently has on,
+// matching every other number in the parsing analytics section.
+export function getParsingAccuracyBuckets(stats, enabledDims, bucketSize = PARSING_ACCURACY_BUCKET_SIZE) {
+  if (!stats || !stats.byLemma) return { buckets: [], totalParses: 0 };
+  const all = [];
+  for (const lemma of Object.keys(stats.byLemma)) {
+    const attempts = (stats.byLemma[lemma] && stats.byLemma[lemma].attempts) || [];
+    for (const a of attempts) {
+      if (!a || !a.dims) continue;
+      let total = 0, correct = 0;
+      for (const [dim, val] of Object.entries(a.dims)) {
+        if (!isDimEnabled(enabledDims, dim)) continue;
+        total += 1;
+        if (val) correct += 1;
+      }
+      if (!total) continue;
+      all.push({ at: Number(a.at) || 0, total, correct, full: correct === total });
+    }
+  }
+  all.sort((x, y) => x.at - y.at);
+  const n = all.length;
+  if (!n) return { buckets: [], totalParses: 0 };
+  const size = Math.max(1, Math.floor(bucketSize) || PARSING_ACCURACY_BUCKET_SIZE);
+
+  // Bucket boundaries aligned from the end: a short leading bucket absorbs the
+  // remainder so every later bucket is full.
+  const boundaries = [];
+  const rem = n % size;
+  let idx = 0;
+  if (rem > 0) { boundaries.push([0, rem]); idx = rem; }
+  for (; idx < n; idx += size) boundaries.push([idx, idx + size]);
+
+  const buckets = boundaries.map(([start, end], i) => {
+    const slice = all.slice(start, end);
+    let dims = 0, dimsCorrect = 0, fulls = 0;
+    for (const s of slice) {
+      dims += s.total;
+      dimsCorrect += s.correct;
+      if (s.full) fulls += 1;
+    }
+    const count = slice.length;
+    return {
+      index: i,
+      count,
+      first: start + 1,
+      last: Math.min(end, n),
+      fulls,
+      fullPct: count ? Math.round((fulls / count) * 100) : 0,
+      dimPct: dims ? Math.round((dimsCorrect / dims) * 100) : 0
+    };
+  });
+  return { buckets, totalParses: n };
+}
+
 // Re-evaluate a single recent attempt under the user's current dim toggles.
 // Legacy attempts (saved before per-dim recording, only `allDims: bool`) keep
 // their stored verdict since we no longer have the per-dim breakdown.

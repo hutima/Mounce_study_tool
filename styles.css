@@ -2049,6 +2049,16 @@
   }
   .morph-step-summary-row.morph-step-correct .morph-step-summary-pick { color: #9ad0a7; }
   .morph-step-summary-row.morph-step-incorrect .morph-step-summary-pick { color: #e7a1a1; }
+  /* Deponent voice soft-accept: 'middle' is correct but amber-flagged with an
+     "active (deponent)" note (see renderMorphStepSummary). */
+  .morph-step-summary-row.morph-step-soft .morph-step-summary-pick { color: #e7c79a; }
+  .morph-step-deponent-note {
+    display: block;
+    margin-top: 4px;
+    color: #e7c79a;
+    font-size: calc((12px) * var(--text-scale));
+    line-height: 1.4;
+  }
   .morph-step-correction {
     color: var(--muted);
     font-size: calc((13px) * var(--text-scale));
@@ -3211,6 +3221,8 @@
   html[data-theme="light"] .morph-step-summary-row.morph-step-correct .morph-step-summary-pick { color: #3a6a4a; }
   html[data-theme="light"] .morph-step-summary-row.morph-step-incorrect .morph-step-summary-pick { color: #8c3a3a; }
   html[data-theme="light"] .morph-step-aspect-note { color: #8c3a3a; }
+  html[data-theme="light"] .morph-step-summary-row.morph-step-soft .morph-step-summary-pick { color: #8a6a1f; }
+  html[data-theme="light"] .morph-step-deponent-note { color: #8a6a1f; }
   html[data-theme="light"] .morph-step-parse-line-yours .morph-step-parse-label { color: #8c3a3a; }
   html[data-theme="light"] .morph-step-parse-line-correct .morph-step-parse-label { color: #3a6a4a; }
   html[data-theme="light"] .morph-step-parse-match-impossible { color: #8c3a3a; }

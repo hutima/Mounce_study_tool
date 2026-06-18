@@ -38,7 +38,9 @@ import {
   createValueBreakdownAcc,
   accumulateValueBreakdown,
   finalizeValueBreakdown,
-  summarizeLemmaValueBreakdown
+  summarizeLemmaValueBreakdown,
+  getParsingAccuracyBuckets,
+  PARSING_ACCURACY_BUCKET_SIZE
 } from '../domain/grammar/morph_steps.js';
 import {
   buildDailyCumulativeSeriesFromMap,
@@ -52,7 +54,8 @@ import {
   buildLevelBarHtml,
   buildTitleLadderHtml,
   buildWordStatCardHtml,
-  buildDimValueBarsHtml
+  buildDimValueBarsHtml,
+  buildParsingAccuracyBucketsSvg
 } from './charts.js';
 import { showLevelToast, showBadgeToast } from './toast.js';
 import { buildDueHistogramHtml } from './progress.js';
@@ -825,6 +828,33 @@ function weakestValueTagHtml(weakest) {
 // per-value (mood / tense / voice …) proficiency breakdown for that paradigm,
 // so weakness in a specific value shows instead of averaging into one bar. The
 // "All paradigms" row aggregates the breakdown across every drilled paradigm.
+// Accuracy-over-guesses trend: bucket every recent parse into runs of ~20 and
+// chart the per-bucket "fully correct" rate, oldest → newest, so improvement
+// (or backsliding) over time is visible at a glance. Scoped to the user's
+// currently-enabled parse steps, like the per-paradigm rows below it. Returns
+// '' when there isn't enough history to be meaningful (a single short bucket).
+function buildParsingAccuracyTrendHtml(stats, enabledDims) {
+  const { buckets, totalParses } = getParsingAccuracyBuckets(stats, enabledDims, PARSING_ACCURACY_BUCKET_SIZE);
+  if (!buckets.length || totalParses < 2) return '';
+  const latest = buckets[buckets.length - 1];
+  const prev = buckets.length > 1 ? buckets[buckets.length - 2] : null;
+  let trend = '';
+  if (prev) {
+    const delta = latest.fullPct - prev.fullPct;
+    const rounded = Math.abs(delta);
+    if (delta > 0) trend = ` · <span style="color:rgba(140,196,156,1)">▲ +${rounded}%</span> vs previous ${PARSING_ACCURACY_BUCKET_SIZE}`;
+    else if (delta < 0) trend = ` · <span style="color:rgba(208,128,128,1)">▼ −${rounded}%</span> vs previous ${PARSING_ACCURACY_BUCKET_SIZE}`;
+    else trend = ` · no change vs previous ${PARSING_ACCURACY_BUCKET_SIZE}`;
+  }
+  const caption = `Each bar = up to ${PARSING_ACCURACY_BUCKET_SIZE} parses · oldest → most recent · % of parses fully correct under your enabled steps`;
+  return `
+    <div class="analytics-chart-card">
+      <div class="analytics-chart-title">Parsing accuracy over recent guesses</div>
+      ${buildParsingAccuracyBucketsSvg(buckets, { title: 'Parsing accuracy over recent guesses', bucketSize: PARSING_ACCURACY_BUCKET_SIZE })}
+      <div class="dim-value-caption">Latest run: <strong>${latest.fullPct}%</strong> (${latest.fulls}/${latest.count} clean)${trend}. ${escapeHtml(caption)}.</div>
+    </div>`;
+}
+
 function renderParadigmStepStatsSection() {
   const body = document.getElementById('analyticsParadigmStepStatsBody');
   const status = document.getElementById('analyticsParadigmStepStatsStatus');
@@ -899,7 +929,7 @@ function renderParadigmStepStatsSection() {
       ${overallExpanded ? `<div class="paradigm-stat-chart">${buildDimValueBarsHtml(overallGroups, { caption: 'Recent accuracy per value, across every paradigm · seen / in scope' })}</div>` : ''}
     </div>`;
 
-  body.innerHTML = `<div class="paradigm-stat-list">${overallRow}${lemmaRows}</div>`;
+  body.innerHTML = `${buildParsingAccuracyTrendHtml(stats, enabledDims)}<div class="paradigm-stat-list">${overallRow}${lemmaRows}</div>`;
   setupParadigmStepStatsInteractivity(body);
   if (status) status.textContent = `${paradigmCount} paradigm${paradigmCount === 1 ? '' : 's'} drilled · tap a row for the mood / tense breakdown.`;
 }
