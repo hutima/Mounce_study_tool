@@ -189,20 +189,6 @@ function categoryForLemma(lemma) {
   return PARADIGM_CATEGORIES[lemma] || 'Other constructions';
 }
 
-// The paradigm category for a lemma, with the leading type word ("Verbs · ",
-// "Nouns · ", "Pronouns · ") stripped so a parsing card can name the specific
-// paradigm being tested — e.g. κρίνω → "liquid future", σάρξ → "3rd
-// declension". Returns '' for lemmas with no catalogued category, so callers
-// can omit the note rather than print the generic "Other constructions"
-// fallback. This labels the lemma's paradigm type, not the form's parse, so
-// it never leaks the answer to the dimensional walk.
-export function paradigmCategoryNote(lemma) {
-  const category = PARADIGM_CATEGORIES[lemma];
-  if (!category) return '';
-  const sep = category.indexOf(' · ');
-  return sep >= 0 ? category.slice(sep + 3) : category;
-}
-
 function displayLabelForLemma(lemma, item) {
   const override = PARADIGM_DISPLAY_OVERRIDES[lemma];
   if (override) return override;
