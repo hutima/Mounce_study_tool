@@ -2049,8 +2049,8 @@
   }
   .morph-step-summary-row.morph-step-correct .morph-step-summary-pick { color: #9ad0a7; }
   .morph-step-summary-row.morph-step-incorrect .morph-step-summary-pick { color: #e7a1a1; }
-  /* Deponent voice soft-accept: 'middle' is correct but amber-flagged with an
-     "active (deponent)" note (see renderMorphStepSummary). */
+  /* Deponent voice soft-accept: 'middle' is correct but amber-flagged with
+     an "active (deponent)" note (see renderMorphStepSummary). */
   .morph-step-summary-row.morph-step-soft .morph-step-summary-pick { color: #e7c79a; }
   .morph-step-deponent-note {
     display: block;
