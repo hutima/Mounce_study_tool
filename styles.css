@@ -1325,6 +1325,28 @@
     flex: 0 1 auto;
     padding: 7px 10px;
   }
+
+  /* Undo guess — a low-key "step back" affordance for the forward parsing
+     walk. Quieter than "I don't know"/"I give up" since it's a navigation
+     aid, not a grading verdict (the undone dimension still counts as a
+     miss). Shown only during the walk, never on the summary. */
+  .morph-step-undo-row {
+    display: flex;
+    justify-content: center;
+    margin: 4px 0 12px;
+  }
+  .morph-step-undo-btn {
+    min-width: 0;
+    padding: 5px 12px;
+    font-size: calc((13px) * var(--text-scale));
+    background: transparent;
+    border: 1px solid var(--gold-dim);
+    color: var(--muted);
+  }
+  .morph-step-undo-btn:hover {
+    border-color: var(--gold);
+    color: var(--cream);
+  }
   /* Prev keeps the same Reset-like swatch when inactive — it's a constant
      anchor in the nav row, so a grey-out reads as "broken" rather than
      "nothing to do here right now". */
@@ -1990,6 +2012,12 @@
     color: var(--muted);
     background: rgba(255,255,255,0.04);
   }
+  /* Undone/reattempted dimension — amber, distinct from a red miss. */
+  .morph-step-dot.reattempted {
+    border-color: #9a7d3c;
+    color: #e7c79a;
+    background: rgba(201,168,76,0.14);
+  }
   .morph-step-summary-row.morph-step-inferred .morph-step-summary-pick {
     color: var(--muted);
     font-style: italic;
@@ -2059,6 +2087,19 @@
     font-size: calc((12px) * var(--text-scale));
     line-height: 1.4;
   }
+  /* Undone/reattempted dimensions: re-picked for practice but still scored as
+     a miss. Amber (not red) — the re-picked value is often correct, so a red
+     note would read as a wrong answer. Shared footnote for the row asterisks. */
+  .morph-step-undone-note {
+    display: block;
+    margin-top: 6px;
+    color: #e7c79a;
+    font-size: calc((11px) * var(--text-scale));
+    font-style: italic;
+    line-height: 1.4;
+  }
+  /* Reattempted-row pick colour, matching the amber footnote/asterisk. */
+  .morph-step-summary-row.morph-step-reattempted .morph-step-summary-pick { color: #e7c79a; }
   .morph-step-correction {
     color: var(--muted);
     font-size: calc((13px) * var(--text-scale));
@@ -3223,6 +3264,13 @@
   html[data-theme="light"] .morph-step-aspect-note { color: #8c3a3a; }
   html[data-theme="light"] .morph-step-summary-row.morph-step-soft .morph-step-summary-pick { color: #8a6a1f; }
   html[data-theme="light"] .morph-step-deponent-note { color: #8a6a1f; }
+  html[data-theme="light"] .morph-step-dot.reattempted {
+    border-color: #d8c48a;
+    color: #8a6a1f;
+    background: rgba(201,168,76,0.10);
+  }
+  html[data-theme="light"] .morph-step-summary-row.morph-step-reattempted .morph-step-summary-pick { color: #8a6a1f; }
+  html[data-theme="light"] .morph-step-undone-note { color: #8a6a1f; }
   html[data-theme="light"] .morph-step-parse-line-yours .morph-step-parse-label { color: #8c3a3a; }
   html[data-theme="light"] .morph-step-parse-line-correct .morph-step-parse-label { color: #3a6a4a; }
   html[data-theme="light"] .morph-step-parse-match-impossible { color: #8c3a3a; }

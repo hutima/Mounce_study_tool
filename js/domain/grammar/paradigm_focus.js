@@ -189,6 +189,16 @@ function categoryForLemma(lemma) {
   return PARADIGM_CATEGORIES[lemma] || 'Other constructions';
 }
 
+// Public accessor for a lemma's paradigm category ("Nouns · 3rd declension",
+// "Verbs · second aorist", …). The parsing summary uses it to name the
+// paradigm being assessed — surfaced only after the walk completes, so it
+// can't give the answer away the way the front-of-card source label could.
+// Returns null for the uncategorized catch-all so callers can fall back.
+export function paradigmCategoryForLemma(lemma) {
+  const category = categoryForLemma(lemma);
+  return category === 'Other constructions' ? null : category;
+}
+
 function displayLabelForLemma(lemma, item) {
   const override = PARADIGM_DISPLAY_OVERRIDES[lemma];
   if (override) return override;

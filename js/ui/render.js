@@ -9,7 +9,7 @@ import { runtime } from '../state/runtime.js';
 import { buildGrammarSupportHtml } from '../domain/grammar/explanations.js';
 import { renderProgress, renderReview } from './progress.js';
 import { buildMorphSteps, summarizeLemmaStats, getParadigmStepAttemptWindow, computeAccessibleDimensionPools, parseAnswerDimensions, aspectMistakeNote, isSecondPluralPresentMoodAmbiguity, computeParadigmPresentValues, accentLookalikesFor, confusableFormHints } from '../domain/grammar/morph_steps.js';
-import { getAccessibleMorphCards, deriveSelectionLevels, buildMultiGenderLemmas, THIRD_DECLENSION_NOUN_LEMMAS } from '../domain/grammar/paradigm_focus.js';
+import { getAccessibleMorphCards, deriveSelectionLevels, buildMultiGenderLemmas, THIRD_DECLENSION_NOUN_LEMMAS, paradigmCategoryForLemma } from '../domain/grammar/paradigm_focus.js';
 
 let host = {
   saveState: () => {},
@@ -594,7 +594,12 @@ function ensureStepStateForCard(card) {
     // Dims skipped as steps but still rendered in the parse summary
     // (single-gender gender skip: form doesn't change with gender, but
     // the canonical label still names it). Empty when nothing applies.
-    impliedDims: steps.impliedDims || {}
+    impliedDims: steps.impliedDims || {},
+    // Undo support (walking view only): a stack of pre-action snapshots
+    // (pushed by the answer/skip/give-up handlers) and the set of step keys
+    // force-failed via undo. Both reset per card.
+    history: [],
+    forcedWrong: {}
   };
   return runtime.morphStepState;
 }
@@ -1042,11 +1047,26 @@ function renderMorphStepBreadcrumb(state) {
     // student shouldn't see "wrong" on mood before they've committed
     // to the dynamic person that completes their parse.
     else if (answer && (step.inferred || answer.deferred)) cls += ' neutral';
+    // A dimension undone but re-picked correctly counts as a miss yet isn't a
+    // flat wrong answer — amber. A reattempt that's still wrong stays red.
+    else if (answer && state.forcedWrong && state.forcedWrong[step.key] && answer.isCorrect === true) cls += ' reattempted';
     else if (answer && answer.isCorrect === true) cls += ' correct';
     else if (answer && answer.isCorrect === false) cls += ' incorrect';
     return `<span class="${cls}" title="${escapeHtml(step.label)}">${escapeHtml(step.label[0])}</span>`;
   }).join('');
   return `<div class="morph-step-breadcrumb">${dots}</div>`;
+}
+
+// Undo row — only shown once there's at least one guess to step back through.
+// Undo re-opens the previous step so the student can pick a different value
+// and keep practising; the dimension undone still counts as a miss.
+function renderMorphUndoRow(state) {
+  if (!state || !Array.isArray(state.history) || !state.history.length) return '';
+  return `
+    <div class="morph-step-undo-row">
+      <button class="ctrl-btn morph-step-undo-btn" type="button" onclick="undoMorphologyStep()"
+        title="Step back to your previous guess and re-pick. The guess you undo still counts as a miss — undo is for practising the right path, not erasing a mistake.">↶ Undo guess</button>
+    </div>`;
 }
 
 function renderMorphStepCurrent(state) {
@@ -1064,6 +1084,7 @@ function renderMorphStepCurrent(state) {
         <button class="ctrl-btn morph-dontknow-btn" type="button" onclick="skipMorphologyStep()">I don't know</button>
         <button class="ctrl-btn morph-giveup-btn" type="button" onclick="giveUpMorphologyStep()">I give up</button>
       </div>
+      ${renderMorphUndoRow(state)}
     </div>`;
 }
 
@@ -1420,7 +1441,16 @@ function renderMorphStepSummary(card, state) {
           <span class="morph-step-summary-pick">${escapeHtml(pickedLabel)}</span>
         </div>`;
     }
-    const correct = answer && answer.isCorrect;
+    // A dimension the student undid still counts as a miss in the stats no
+    // matter what they ultimately re-picked. But it shouldn't read as flatly
+    // *wrong* in the summary — the re-picked value is often the right one — so
+    // an undone step renders amber with an asterisk (not a red ✗) pointing to
+    // a "<dim> reattempted" note. `pickCorrect` is the literal correctness of
+    // the final pick (used to decide whether a correction arrow is useful);
+    // `correct` is the graded verdict, which an undo forces to false.
+    const forcedWrong = !!(state.forcedWrong && state.forcedWrong[step.key]);
+    const pickCorrect = !!(answer && answer.isCorrect);
+    const correct = !forcedWrong && pickCorrect;
     // Deponent voice soft-accept. For a deponent the form is middle (or
     // middle/passive) but Mounce parses it as active — so both grade correct
     // (morph_steps.js seeds step.acceptable = [middle, 'active']). 'active'
@@ -1433,10 +1463,25 @@ function renderMorphStepSummary(card, state) {
       && Array.isArray(step.acceptable) && step.acceptable.includes('active')
       && (step.correct === 'middle' || step.correct === 'middle/passive');
     const softDeponentMiddle = !!correct && deponentVoiceStep && !!deponentPickedRaw && deponentPickedRaw !== 'active';
-    const markClass = softDeponentMiddle
-      ? 'morph-step-soft'
-      : (correct ? 'morph-step-correct' : 'morph-step-incorrect');
-    const mark = correct ? '✓' : '✗';
+    let markClass;
+    let mark;
+    if (forcedWrong && pickCorrect) {
+      // Reattempted via undo and re-picked correctly — amber asterisk (not a
+      // red ✗, which would falsely read as wrong) pointing to a shared
+      // footnote. A reattempt that's STILL wrong falls through to the red ✗
+      // branch below, so it reads like any other miss and needs no footnote.
+      markClass = 'morph-step-reattempted';
+      mark = '*';
+    } else if (softDeponentMiddle) {
+      markClass = 'morph-step-soft';
+      mark = '✓';
+    } else if (correct) {
+      markClass = 'morph-step-correct';
+      mark = '✓';
+    } else {
+      markClass = 'morph-step-incorrect';
+      mark = '✗';
+    }
     const deponentNoteHtml = softDeponentMiddle
       ? `<span class="morph-step-deponent-note">active (deponent) — middle in form, active in meaning</span>`
       : '';
@@ -1455,13 +1500,16 @@ function renderMorphStepSummary(card, state) {
       acceptable = acceptable.filter((a) => a !== 'middle' && a !== 'passive');
     }
     const correctionInner = acceptable.map((a) => escapeHtml(applyDisplaySuffixIfPerson(step.key, a))).join(' / ');
+    // Tie the correction arrow / aspect note to the *literal* pick, not the
+    // graded verdict: an undone step that was re-picked correctly shouldn't
+    // sprout a "→ <same value>" arrow (the bug the asterisk treatment fixes).
     let aspectNoteHtml = '';
-    if (!correct && answer && answer.selectedIdx >= 0 && step.key === 'aspect' && step.context) {
+    if (!pickCorrect && answer && answer.selectedIdx >= 0 && step.key === 'aspect' && step.context) {
       const pickedRaw = step.choices[answer.selectedIdx];
       const note = aspectMistakeNote(step.context.tense, pickedRaw, step.correct);
       if (note) aspectNoteHtml = `<span class="morph-step-aspect-note">${escapeHtml(note)}</span>`;
     }
-    const showCorrection = !correct && answer
+    const showCorrection = !pickCorrect && answer
       ? `<span class="morph-step-correction">→ ${correctionInner}</span>${aspectNoteHtml}`
       : '';
     return `
@@ -1472,10 +1520,31 @@ function renderMorphStepSummary(card, state) {
       </div>`;
   }).join('');
 
+  // Single shared footnote for the amber asterisks — lists the reattempted
+  // dimensions in display order ("number, gender reattempted") and explains
+  // why they're amber: the undo still counts as a miss. Only reattempts that
+  // were re-picked *correctly* get an asterisk (a still-wrong reattempt shows
+  // a plain red ✗), so the footnote lists only those — and disappears entirely
+  // when there are none.
+  const reattemptedDims = state.steps
+    .filter((step, idx) => step && !step.inferred
+      && state.forcedWrong && state.forcedWrong[step.key]
+      && state.answers[idx] && state.answers[idx].isCorrect)
+    .map((step) => String(step.label || '').toLowerCase());
+  const reattemptedNote = reattemptedDims.length
+    ? `<div class="morph-step-undone-note">* ${escapeHtml(reattemptedDims.join(', '))} reattempted — counts as a miss</div>`
+    : '';
+
   // X/N excludes inferred (ungraded) follow-up steps and steps that were
   // never asked because a structural impossibility ended the walk early.
   const gradedCount = state.steps.filter((s, i) => !s.inferred && state.answers[i]).length;
-  const totalCorrect = state.answers.filter((a, i) => a && a.isCorrect && !state.steps[i].inferred).length;
+  const totalCorrect = state.answers.filter((a, i) => {
+    const step = state.steps[i];
+    if (!a || !a.isCorrect || step.inferred) return false;
+    // An undone dimension counts as a miss even when re-answered correctly.
+    if (state.forcedWrong && state.forcedWrong[step.key]) return false;
+    return true;
+  }).length;
   const totalStr = `${totalCorrect}/${gradedCount} correct`;
 
   // Side-by-side "Your parse" vs "Correct parse" with the corresponding
@@ -1537,8 +1606,11 @@ function renderMorphStepSummary(card, state) {
      </div>`;
 
   const lemmaSummary = summarizeLemmaStats(runtime.paradigmStepStats || {}, card.lemma, host.getEnabledParsingDims());
+  // `correct` is fractional credit (a reattempted dim counts 0.5), so format it
+  // to drop a trailing ".0" while still showing a half.
+  const fmtCredit = (n) => (Number.isInteger(n) ? String(n) : n.toFixed(1));
   const recentLine = lemmaSummary.attempts > 0
-    ? `<div class="morph-step-rollup-recent">Last ${lemmaSummary.attempts}/${getParadigmStepAttemptWindow()} attempts for ${escapeHtml(card.lemma)}: ${lemmaSummary.correct}/${lemmaSummary.total} dimensions correct (${Math.round(100 * lemmaSummary.correct / Math.max(1, lemmaSummary.total))}%)</div>`
+    ? `<div class="morph-step-rollup-recent">Last ${lemmaSummary.attempts}/${getParadigmStepAttemptWindow()} attempts for ${escapeHtml(card.lemma)}: ${fmtCredit(lemmaSummary.correct)}/${lemmaSummary.total} dimensions correct (${Math.round(100 * lemmaSummary.correct / Math.max(1, lemmaSummary.total))}%)</div>`
     : '';
 
   // Stem-change footer: if the parsed form is in a tense whose stem differs
@@ -1593,10 +1665,23 @@ function renderMorphStepSummary(card, state) {
     ? `<div class="morph-step-person-note"><span class="morph-step-person-label">Person not graded</span> the imperative is 2nd person by default, so ${escapeHtml(card.form || card.lemma)} is parsed without a person — picking a finite mood is what added the Person step, so it isn't scored.</div>`
     : '';
 
+  // Name the paradigm being assessed on the summary (post-parse, so it can't
+  // give the answer away the way a front-of-card source label could — the
+  // reason df49ab6 dropped the on-card category note). The lemma plus its
+  // paradigm category — e.g. "σάρξ — Nouns · 3rd declension" — tells the
+  // student why this form is being drilled. Falls back to the card's family
+  // label for uncategorised ("Other constructions") paradigms.
+  const paradigmCategory = card.lemma ? paradigmCategoryForLemma(card.lemma) : null;
+  const paradigmDescriptor = paradigmCategory || card.family || '';
+  const paradigmMetaLine = card.lemma
+    ? `<div class="morph-step-summary-meta">Paradigm: ${escapeHtml(card.lemma)}${paradigmDescriptor ? ' — ' + escapeHtml(paradigmDescriptor) : ''}</div>`
+    : '';
+
   return `
     <div class="morph-step-summary">
       <div class="morph-step-summary-title">Parse complete — ${escapeHtml(totalStr)}</div>
       <div class="morph-step-summary-body">${rows}</div>
+      ${reattemptedNote}
       ${youParseLine}
       ${paradigmGapNote}
       ${ambigNote}
@@ -1604,7 +1689,7 @@ function renderMorphStepSummary(card, state) {
       ${personInferredNote}
       ${stemChangeNote}
       ${recentLine}
-      <div class="morph-step-summary-meta">${escapeHtml(card.lemma)}${card.family ? ' · ' + escapeHtml(card.family) : ''}</div>
+      ${paradigmMetaLine}
     </div>`;
 }
 

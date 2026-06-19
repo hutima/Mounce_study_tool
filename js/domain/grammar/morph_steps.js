@@ -1025,11 +1025,16 @@ export function summarizeLemmaStats(stats, lemma, enabledDims) {
     let attemptTotal = 0, attemptCorrect = 0;
     for (const [dim, val] of Object.entries(a.dims)) {
       if (!isDimEnabled(enabledDims, dim)) continue;
+      // `val` is fractional credit: 1 = clean correct, 0.5 = reattempted via
+      // undo (re-picked right), 0 = wrong. Sum it so a reattempt counts half.
+      // A reattempt makes attemptCorrect < attemptTotal, so the parse drops
+      // out of the "fully correct" weightedCorrect bonus below.
+      const credit = Number(val) || 0;
       if (!perDim[dim]) perDim[dim] = { seen: 0, correct: 0 };
       perDim[dim].seen += 1;
-      if (val) perDim[dim].correct += 1;
+      perDim[dim].correct += credit;
       attemptTotal += 1;
-      if (val) attemptCorrect += 1;
+      attemptCorrect += credit;
     }
     if (!attemptTotal) continue;
     total += attemptTotal;
@@ -1075,7 +1080,10 @@ export function getParsingAccuracyBuckets(stats, enabledDims, bucketSize = PARSI
       for (const [dim, val] of Object.entries(a.dims)) {
         if (!isDimEnabled(enabledDims, dim)) continue;
         total += 1;
-        if (val) correct += 1;
+        // Fractional credit: 0.5 for a reattempted (undo) dim, 1 for a clean
+        // correct one. A parse is `full` only when every dim is exactly 1, so
+        // a reattempt (correct < total) is never counted as fully correct.
+        correct += Number(val) || 0;
       }
       if (!total) continue;
       all.push({ at: Number(a.at) || 0, total, correct, full: correct === total });
