@@ -30,3 +30,27 @@ This repo is a Mounce-flavoured port of `hutima/duff_study_tool`. The
 "Mounce ↔ duff differences" section of `docs/index-structure.md` captures
 the persistent gotchas (changelog absence, paradigm-file naming, session
 presets, off-the-record parsing). Consult it before applying a duff diff.
+
+### Porting status — last version ported
+
+**Last reviewed duff PR: #292 (`a82839e`, 2026-06-20).** When checking for new
+duff work, diff `origin/main` against that commit forward.
+
+- **Ported in full through duff #288** (parsing undo + 3-tier scoring,
+  restructured parse summary + "Why this form" notes, 3rd-person imperative
+  parsing at Mounce ch 33, and "Build mode" / interactive paradigm lookup).
+- **#289–#292 — evaluated; mostly skipped as duff-specific (not translatable):**
+  - **#289** "Required only → Starred words only" rename — **skip**: Mounce uses
+    "required / optional" everywhere (the `(req.)/(opt.)` card tags), so renaming
+    just the toggle would clash. Its Advanced-settings reorg (reset / progress
+    collapsibles) is duff's own layout.
+  - **#290** Reset-actions / Progress layout reorg — **skip** (duff layout). The
+    "star non-name Ch.1 vocab" (ἀμήν, ῥαββί) is duff's BBG Chapter 1; Mounce's
+    chapter vocab differs, so starring is a Mounce content decision, not a port.
+  - **#291** "Merge legacy supplemental sets away" (W1O/W3O/W6O/W7O/W8O →
+    chapters/grammar; `LEGACY_GRAMMAR_TIE`) — **N/A**: Mounce has no
+    `week_N_supplemental` / `wNo_supplemental` files. Chapter-grouped selector
+    consistency — **N/A** (Mounce groups by Part). **Applied:** the one
+    model-agnostic bit — hide the empty controls-bar frame in reader mode
+    (`syncLayoutVisibility`).
+  - **#292** selector spacing tweak — **skip** (rides on #289's starred toggle).

@@ -1903,7 +1903,9 @@ function syncLayoutVisibility() {
   // no review panel, no reset-deck actions.
   const lookupActive = isParsingMode() && runtime.parsingLookup;
 
-  if (controlsBar) controlsBar.style.display = 'flex';
+  // In reader mode every toggle in the controls bar is hidden, leaving an
+  // empty bordered frame — hide the whole bar there so it doesn't show blank.
+  if (controlsBar) controlsBar.style.display = isReaderMode() ? 'none' : 'flex';
   if (cardArea) cardArea.style.display = cardMode ? '' : 'none';
   if (reviewShell) reviewShell.style.display = (reviewDeckMode && !lookupActive) ? '' : 'none';
   if (navRow) navRow.style.display = reviewDeckMode && runtime.selectedKeys.length && !lookupActive ? 'flex' : 'none';
