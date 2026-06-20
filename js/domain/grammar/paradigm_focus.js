@@ -189,6 +189,16 @@ function categoryForLemma(lemma) {
   return PARADIGM_CATEGORIES[lemma] || 'Other constructions';
 }
 
+// Public variant for the parse summary / completed source line: the lemma's
+// paradigm category, or null for the un-catalogued "Other constructions"
+// catch-all (so callers fall back to card.family rather than printing the
+// generic bucket name). Shown only AFTER a parse completes — it names the
+// paradigm type, which mid-walk would leak the very tense being tested.
+export function paradigmCategoryForLemma(lemma) {
+  const category = categoryForLemma(lemma);
+  return category === 'Other constructions' ? null : category;
+}
+
 function displayLabelForLemma(lemma, item) {
   const override = PARADIGM_DISPLAY_OVERRIDES[lemma];
   if (override) return override;
@@ -646,6 +656,12 @@ export function getCardsForFocusedParadigm(selectedKeys, focusedLemma, options =
   const multiGenderLemmas = buildMultiGenderLemmas(preGenderFiltered);
   const filtered = preGenderFiltered
     .filter((c) => cardPassesDimValueFilters(c, dimValueFilters, multiGenderLemmas));
+
+  // Lookup mode wants every distinct (form, parse) pair, not one card per form:
+  // a syncretic form like ἔλυον (imperfect 1sg AND 3pl) must keep both parse
+  // paths so the faceted walk can reach each. Return the filtered list whole,
+  // before the per-form dedup that the drill deck relies on.
+  if (options.includeSyncretic) return filtered;
 
   // Per-form dedup. Multiple sources can carry the same form (e.g.
   // grammar.js ch 5's εἰμί 1-sg question + a paradigm set's εἰμί entry).

@@ -416,21 +416,27 @@ export function confusableFormHints(answer, parsedDims, form) {
 // commit to a person before we can resolve their picks to a single Greek
 // form; inject person (and number if the card also lacks one).
 //
-// Imperative is treated specially: it's structurally 2nd person (Koine has
-// no 1st-person imperatives), so person is never injected — only number.
+// Imperative is treated specially: Koine has no 1st-person imperative, and the
+// 3rd person isn't in scope until ch 33. Before then an imperative is
+// structurally 2nd person, so only number is injected; from ch 33 the student
+// must also commit to person (2nd vs 3rd), so person is injected too (gated on
+// `options.maxChapter`).
 //
 // Returns [] when no injection is needed. Voice is never injected here —
 // it's introduced in chapter 15 and gated separately.
 const FINITE_MOODS_NEEDING_PERSON_NUMBER = new Set(['indicative', 'subjunctive', 'optative']);
-export function inferredFollowupDims(stepKey, picked, existingStepKeys) {
+export function inferredFollowupDims(stepKey, picked, existingStepKeys, options = {}) {
   if (stepKey !== 'mood' || !picked) return [];
   const have = existingStepKeys instanceof Set ? existingStepKeys : new Set(existingStepKeys || []);
+  const maxChapter = Number.isFinite(options.maxChapter) ? options.maxChapter : Infinity;
   const out = [];
   if (FINITE_MOODS_NEEDING_PERSON_NUMBER.has(picked)) {
     if (!have.has('person')) out.push('person');
     if (!have.has('number')) out.push('number');
   } else if (picked === 'imperative') {
-    // Structurally 2nd person — only number disambiguates the form.
+    // 2nd person before ch 33; from ch 33 the 3rd person exists too, so the
+    // student must commit to a person before the form resolves.
+    if (maxChapter >= THIRD_PERSON_IMPERATIVE_CHAPTER && !have.has('person')) out.push('person');
     if (!have.has('number')) out.push('number');
   } else if (picked === 'participle') {
     if (!have.has('case'))   out.push('case');
@@ -686,10 +692,15 @@ export function accentLookalikesFor(form) {
 // the full DIM_POOLS. The returned step has `inferred: true` and no
 // `correct` value — it's scored as informational, not graded against the
 // source card.
-export function buildInferredStep(dimKey, accessiblePools) {
-  const pool = (accessiblePools && Array.isArray(accessiblePools[dimKey]) && accessiblePools[dimKey].length)
+export function buildInferredStep(dimKey, accessiblePools, options = {}) {
+  let pool = (accessiblePools && Array.isArray(accessiblePools[dimKey]) && accessiblePools[dimKey].length)
     ? accessiblePools[dimKey]
     : (DIM_POOLS[dimKey] || []);
+  // An imperative's person is only ever 2nd or 3rd (no 1st in Koine), so an
+  // inferred person step added by an imperative pick offers just those two.
+  if (dimKey === 'person' && options.mood === 'imperative') {
+    pool = ['second', 'third'];
+  }
   if (!pool.length) return null;
   const choices = sortChoicesCanonically(dimKey, pool);
   const displayChoices = choices.map((c) => applyDisplaySuffix(dimKey, c));
@@ -726,6 +737,15 @@ function applyDisplaySuffix(dimensionKey, value) {
 // before ch 15.
 const VOICE_INTRODUCED_AT_CHAPTER = 15;
 
+// Mounce introduces imperatives (incl. the 3rd person: λυέτω "let him/her/it
+// loose", λυέτωσαν "let them loose") in ch 33 — that's where the whole
+// imperative paradigm first appears in MORPHOLOGY_SETS, so this gate is the
+// first chapter at which any imperative is in scope. Below it the parsing walk
+// treats an imperative's person as structurally 2nd (step skipped, 2nd implied);
+// from ch 33 the 2nd/3rd contrast is real, so the person step is asked. There is
+// no 1st-person imperative in Koine, so the step (when shown) only offers 2nd/3rd.
+export const THIRD_PERSON_IMPERATIVE_CHAPTER = 33;
+
 // A deponent verb's dictionary form is itself middle/passive (ends in -μαι):
 // γίνομαι, ἔρχομαι, δέχομαι, δύναμαι… These are middle/passive in form but
 // active in meaning, so Mounce parses their voice as active. A regular verb
@@ -746,6 +766,18 @@ function isDeponentLemma(lemma) {
 // vs passive ἐλύθην), so they're excluded. Used to widen the voice step's
 // accepted answers for these tenses (see buildMorphSteps).
 const MIDDLE_PASSIVE_SYNCRETIC_TENSES = new Set(['present', 'imperfect', 'perfect', 'pluperfect']);
+
+// True when a (non-deponent) verb's voice is the syncretic middle/passive: a
+// middle/passive/combined voice in a tense where the two share one form. Shared
+// by buildMorphSteps (collapses the voice step to 'middle/passive') and the
+// lookup pool (offers both a middle and a passive branch for such a form).
+export function isSyncreticMiddlePassiveVoice(dims, lemma) {
+  if (!dims) return false;
+  const voice = dims.voice;
+  return MIDDLE_PASSIVE_SYNCRETIC_TENSES.has(dims.tense)
+    && (voice === 'middle' || voice === 'passive' || voice === 'middle/passive')
+    && !isDeponentLemma(lemma);
+}
 
 export function buildMorphSteps(card, accessiblePools = null, options = {}) {
   if (!card || card.kind !== 'morph') return [];
@@ -793,11 +825,20 @@ export function buildMorphSteps(card, accessiblePools = null, options = {}) {
   for (const dimKey of order) {
     const correct = dims[dimKey];
     if (!correct) continue;
-    // Imperative is structurally 2nd person in Koine — skip the person step
-    // for imperative cards so the dimension count matches non-explicit
-    // imperatives (e.g. "active imperative singular" with no "second person"
-    // tag).
-    if (dimKey === 'person' && dims.mood === 'imperative') continue;
+    // Imperatives have no 1st person, and Mounce introduces only the 2nd/3rd
+    // contrast from ch 33 (where the imperative paradigm first appears: λυέτω).
+    // Below that gate an imperative's person is structurally 2nd, so skip the
+    // step — but record it (skippedCorrect + impliedDims) so the form lookup and
+    // the parse summary still carry the person rather than silently dropping it
+    // (a 3rd-person imperative would otherwise mis-read as 2nd). From ch 33 the
+    // step stays, so the student commits to 2nd vs 3rd; its choices are
+    // restricted to 2nd/3rd below.
+    if (dimKey === 'person' && dims.mood === 'imperative'
+        && maxChapter < THIRD_PERSON_IMPERATIVE_CHAPTER) {
+      skippedCorrect[dimKey] = correct;
+      impliedDims[dimKey] = correct;
+      continue;
+    }
     // Aspect is derivable from tense; users who find the step pedantic can
     // turn it off via the Parsing-mode toggle (options.includeAspect=false).
     if (dimKey === 'aspect' && !includeAspect) continue;
@@ -846,7 +887,12 @@ export function buildMorphSteps(card, accessiblePools = null, options = {}) {
       impliedDims[dimKey] = correct;
       continue;
     }
-    const pool = accessiblePools ? accessiblePools[dimKey] : null;
+    let pool = accessiblePools ? accessiblePools[dimKey] : null;
+    // No 1st-person imperative exists in Koine — when the person step is asked
+    // for an imperative (ch 33+), offer only 2nd / 3rd as choices.
+    if (dimKey === 'person' && dims.mood === 'imperative') {
+      pool = ['second', 'third'];
+    }
     // Syncretic middle/passive collapse. A non-deponent verb's present /
     // imperfect / perfect / pluperfect middle and passive are the same form
     // (λύομαι), so a card the source set labelled one-sidedly ("λύω — passive
@@ -857,9 +903,7 @@ export function buildMorphSteps(card, accessiblePools = null, options = {}) {
     // option and the headline correct value, so the correction never points
     // at a voice the student couldn't have picked.
     const syncreticMiddlePassive = dimKey === 'voice'
-      && MIDDLE_PASSIVE_SYNCRETIC_TENSES.has(dims.tense)
-      && (correct === 'middle' || correct === 'passive' || correct === 'middle/passive')
-      && !isDeponentLemma(card.lemma);
+      && isSyncreticMiddlePassiveVoice(dims, card.lemma);
     const stepCorrect = syncreticMiddlePassive ? 'middle/passive' : correct;
     const choices = buildChoices(dimKey, stepCorrect, pool, dimValueFilters);
     const displayCorrect = applyDisplaySuffix(dimKey, stepCorrect);
@@ -1025,11 +1069,15 @@ export function summarizeLemmaStats(stats, lemma, enabledDims) {
     let attemptTotal = 0, attemptCorrect = 0;
     for (const [dim, val] of Object.entries(a.dims)) {
       if (!isDimEnabled(enabledDims, dim)) continue;
+      // `val` is fractional credit: 1 = clean correct, a fraction (0.5, 0.25,
+      // …, halving per undo) = reattempted via undo (re-picked right), 0 =
+      // wrong. Sum it so a reattempt counts fractionally.
+      const credit = Number(val) || 0;
       if (!perDim[dim]) perDim[dim] = { seen: 0, correct: 0 };
       perDim[dim].seen += 1;
-      if (val) perDim[dim].correct += 1;
+      perDim[dim].correct += credit;
       attemptTotal += 1;
-      if (val) attemptCorrect += 1;
+      attemptCorrect += credit;
     }
     if (!attemptTotal) continue;
     total += attemptTotal;
@@ -1071,14 +1119,21 @@ export function getParsingAccuracyBuckets(stats, enabledDims, bucketSize = PARSI
     const attempts = (stats.byLemma[lemma] && stats.byLemma[lemma].attempts) || [];
     for (const a of attempts) {
       if (!a || !a.dims) continue;
-      let total = 0, correct = 0;
+      let total = 0, correct = 0, sawMiss = false, sawHalf = false;
       for (const [dim, val] of Object.entries(a.dims)) {
         if (!isDimEnabled(enabledDims, dim)) continue;
         total += 1;
-        if (val) correct += 1;
+        // Fractional credit: 0.5 for a reattempted (undo) dim, 1 for a clean
+        // correct one. A parse is `full` only when every dim is exactly 1, so
+        // a reattempt (correct < total) is never counted as fully correct.
+        correct += Number(val) || 0;
+        if (val === 0) sawMiss = true;
+        else if (val !== 1) sawHalf = true;
       }
       if (!total) continue;
-      all.push({ at: Number(a.at) || 0, total, correct, full: correct === total });
+      // 3-tier whole-parse outcome for the outcome-mix chart.
+      const outcome = sawMiss ? 'missed' : sawHalf ? 'reattempted' : 'clean';
+      all.push({ at: Number(a.at) || 0, total, correct, full: correct === total, outcome });
     }
   }
   all.sort((x, y) => x.at - y.at);
@@ -1094,14 +1149,22 @@ export function getParsingAccuracyBuckets(stats, enabledDims, bucketSize = PARSI
   if (rem > 0) { boundaries.push([0, rem]); idx = rem; }
   for (; idx < n; idx += size) boundaries.push([idx, idx + size]);
 
+  const overall = { clean: 0, reattempted: 0, missed: 0 };
   const buckets = boundaries.map(([start, end], i) => {
     const slice = all.slice(start, end);
     let dims = 0, dimsCorrect = 0, fulls = 0;
+    let clean = 0, reattempted = 0, missed = 0;
     for (const s of slice) {
       dims += s.total;
       dimsCorrect += s.correct;
       if (s.full) fulls += 1;
+      if (s.outcome === 'clean') clean += 1;
+      else if (s.outcome === 'reattempted') reattempted += 1;
+      else missed += 1;
     }
+    overall.clean += clean;
+    overall.reattempted += reattempted;
+    overall.missed += missed;
     const count = slice.length;
     return {
       index: i,
@@ -1110,10 +1173,14 @@ export function getParsingAccuracyBuckets(stats, enabledDims, bucketSize = PARSI
       last: Math.min(end, n),
       fulls,
       fullPct: count ? Math.round((fulls / count) * 100) : 0,
-      dimPct: dims ? Math.round((dimsCorrect / dims) * 100) : 0
+      dimPct: dims ? Math.round((dimsCorrect / dims) * 100) : 0,
+      // 3-tier outcome counts for the outcome-mix chart.
+      clean,
+      reattempted,
+      missed
     };
   });
-  return { buckets, totalParses: n };
+  return { buckets, totalParses: n, outcomes: overall };
 }
 
 // Re-evaluate a single recent attempt under the user's current dim toggles.
@@ -1128,6 +1195,36 @@ function evaluateRecentAttempt(attempt, enabledDims) {
     if (val !== 1) return false;
   }
   return true;
+}
+
+// Whole-parse outcome for one stored recent attempt under the current dims,
+// honouring the 3-tier scoring (1 / 0.5 / 0):
+//   'clean'       every enabled dim correct (=== 1)
+//   'missed'      at least one enabled dim wrong (=== 0)
+//   'reattempted' no outright miss but at least one dim reattempted (=== 0.5)
+// Legacy `allDims` attempts collapse to 'clean' / 'missed'. Used by the
+// half-credit accuracy views and the outcome-mix chart so a parse that was
+// eventually right (via undo) reads as half-credit, not a flat miss.
+function recentAttemptOutcome(attempt, enabledDims) {
+  if (!attempt) return 'missed';
+  if (typeof attempt.allDims === 'boolean') return attempt.allDims ? 'clean' : 'missed';
+  const dims = attempt.dims || {};
+  let sawHalf = false;
+  for (const [dim, val] of Object.entries(dims)) {
+    if (!isDimEnabled(enabledDims, dim)) continue;
+    if (val === 0) return 'missed';
+    if (val !== 1) sawHalf = true;
+  }
+  return sawHalf ? 'reattempted' : 'clean';
+}
+
+// Fractional whole-parse credit for one recent attempt: clean → 1,
+// reattempted → 0.5, missed → 0. The accuracy %/per-value bars sum this so a
+// reattempt counts half (matching how the dim accuracy stats score it) instead
+// of the binary all-or-nothing evaluateRecentAttempt verdict.
+function recentAttemptCredit(attempt, enabledDims) {
+  const outcome = recentAttemptOutcome(attempt, enabledDims);
+  return outcome === 'clean' ? 1 : outcome === 'reattempted' ? 0.5 : 0;
 }
 
 // Tally for one form, after filtering disabled dims. Returns { correct, total }
@@ -1150,6 +1247,27 @@ export function countLemmaFormRecent(stats, lemma, cardId, enabledDims, windowSi
   for (const a of list) {
     if (evaluateRecentAttempt(a, enabledDims)) correct += 1;
   }
+  return { correct, total: list.length };
+}
+
+// Half-credit aware variant of countLemmaFormRecent for the accuracy %/per-value
+// bars: `correct` sums each recent attempt's fractional credit (clean 1,
+// reattempted 0.5, missed 0) rather than counting only clean parses. `total`
+// is still the attempt count, so correct/total is a 0–1 proficiency that gives
+// a reattempt half weight. Does NOT feed the dots or the exclude-known filter —
+// those keep the strict binary countLemmaFormRecent (the 2/2 "known" rule).
+export function countLemmaFormCredit(stats, lemma, cardId, enabledDims, windowSize) {
+  if (!cardId) return { correct: 0, total: 0 };
+  const entry = stats?.byLemma?.[lemma];
+  const form = entry?.forms && entry.forms[cardId];
+  if (!form || !Array.isArray(form.recent) || !form.recent.length) {
+    return { correct: 0, total: 0 };
+  }
+  const list = (Number.isInteger(windowSize) && windowSize > 0)
+    ? form.recent.slice(-windowSize)
+    : form.recent;
+  let correct = 0;
+  for (const a of list) correct += recentAttemptCredit(a, enabledDims);
   return { correct, total: list.length };
 }
 
@@ -1274,7 +1392,9 @@ export function accumulateValueBreakdown(acc, stats, lemma, cards, enabledDims) 
     if (!card || !card.id) continue;
     const dims = parseAnswerDimensions(card.parsedAnswer || card.answer);
     const status = getLemmaFormStatus(stats, lemma, card.id, enabledDims);
-    const { correct, total } = countLemmaFormRecent(stats, lemma, card.id, enabledDims);
+    // Half-credit aware: a reattempted form counts 0.5 in the per-value bars
+    // (the dots/known status above stay strict-binary).
+    const { correct, total } = countLemmaFormCredit(stats, lemma, card.id, enabledDims);
     // Once-per-form paradigm-wide tally (recent attempts + coverage).
     acc.totals.scope += 1;
     if (status !== 'unseen') acc.totals.seen += 1;

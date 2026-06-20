@@ -83,6 +83,17 @@ const PARADIGM_STEP_ATTEMPT_CAP = 20;
 // than two to average; the exclude-known "2/2 known" filter and dots still read
 // only the last 2 (FORM_RECENT_CAP in morph_steps.js).
 const FORM_HISTORY_CAP = 10;
+// Per-dimension parsing credit: 1 (clean correct), 0.5 (reattempted via undo,
+// re-picked correctly), 0 (wrong). Clamp saved/imported values into that set so
+// a fractional reattempt score survives a round-trip instead of snapping to 0/1.
+// (Deeper compounding fractions — 0.25, 0.125 — also clamp to 0.5; only the
+// in-session score keeps the exact halving.)
+function sanitizeDimCredit(v) {
+  const n = Number(v);
+  if (!Number.isFinite(n) || n <= 0) return 0;
+  if (n >= 1) return 1;
+  return 0.5;
+}
 function sanitizeFormRecentList(input, legacyLastCorrect) {
   if (Array.isArray(input)) {
     return input
@@ -92,7 +103,7 @@ function sanitizeFormRecentList(input, legacyLastCorrect) {
         if (typeof a.allDims === 'boolean') return { allDims: a.allDims };
         const dims = isPlainObject(a.dims)
           ? Object.fromEntries(
-              Object.entries(a.dims).map(([k, v]) => [String(k), v ? 1 : 0])
+              Object.entries(a.dims).map(([k, v]) => [String(k), sanitizeDimCredit(v)])
             )
           : {};
         return { dims };
@@ -159,7 +170,7 @@ function sanitizeParadigmStepStats(input) {
       .map((a) => ({
         at: Number(a.at) || 0,
         dims: Object.fromEntries(
-          Object.entries(a.dims).map(([k, v]) => [String(k), v ? 1 : 0])
+          Object.entries(a.dims).map(([k, v]) => [String(k), sanitizeDimCredit(v)])
         )
       }));
     const forms = sanitizeLemmaForms(entry.forms);
@@ -265,6 +276,7 @@ export function buildPersistedStatePayload(options = {}) {
     parsingCustomReview: runtime.parsingCustomReview,
     parsingCustomParadigms: runtime.parsingCustomParadigms,
     parsingReverse: runtime.parsingReverse,
+    parsingLookup: runtime.parsingLookup,
     accentLookalikes: runtime.accentLookalikes,
     optionalFormFilters: runtime.optionalFormFilters,
     analyticsVocabDirection: runtime.analyticsVocabDirection,
@@ -358,6 +370,7 @@ function sanitizeImportedState(candidate) {
   // standard Mounce-aligned card set as their baseline.
   state.includeOptionalForms = !!candidate.includeOptionalForms;
   state.parsingReverse = !!candidate.parsingReverse;
+  state.parsingLookup = !!candidate.parsingLookup;
   state.accentLookalikes = !!candidate.accentLookalikes;
   // Exclude-known-morphs toggle defaults to false (off). "Known" means a
   // strict 2/2 — the form's last two recorded attempts were both fully
@@ -1053,6 +1066,8 @@ export function restoreState() {
     runtime.parsingCustomParadigms = sanitizeParadigmKeyMap(saved.parsingCustomParadigms);
     // English → Greek parsing direction (default false).
     runtime.parsingReverse = !!saved.parsingReverse;
+    // Lookup / "Build mode" (default false). morphLookupState stays ephemeral.
+    runtime.parsingLookup = !!saved.parsingLookup;
     // Accent/breathing look-alike distractors in the reverse drill (default false).
     runtime.accentLookalikes = !!saved.accentLookalikes;
     // Per-category sub-filters: default each to true if missing.

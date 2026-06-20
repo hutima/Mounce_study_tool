@@ -8,8 +8,9 @@
 import { runtime } from '../state/runtime.js';
 import { buildGrammarSupportHtml } from '../domain/grammar/explanations.js';
 import { renderProgress, renderReview } from './progress.js';
-import { buildMorphSteps, summarizeLemmaStats, getParadigmStepAttemptWindow, computeAccessibleDimensionPools, parseAnswerDimensions, aspectMistakeNote, isSecondPluralPresentMoodAmbiguity, computeParadigmPresentValues, accentLookalikesFor, confusableFormHints } from '../domain/grammar/morph_steps.js';
-import { getAccessibleMorphCards, deriveSelectionLevels, buildMultiGenderLemmas, THIRD_DECLENSION_NOUN_LEMMAS } from '../domain/grammar/paradigm_focus.js';
+import { buildMorphSteps, THIRD_PERSON_IMPERATIVE_CHAPTER, computeAccessibleDimensionPools, parseAnswerDimensions, aspectMistakeNote, isSecondPluralPresentMoodAmbiguity, computeParadigmPresentValues, accentLookalikesFor, confusableFormHints } from '../domain/grammar/morph_steps.js';
+import { getAccessibleMorphCards, deriveSelectionLevels, buildMultiGenderLemmas, THIRD_DECLENSION_NOUN_LEMMAS, paradigmCategoryForLemma } from '../domain/grammar/paradigm_focus.js';
+import { resolveLookupWalk } from '../domain/grammar/morph_lookup.js';
 
 let host = {
   saveState: () => {},
@@ -32,6 +33,9 @@ let host = {
   detectPartOfSpeech: () => '',
   isMultiCasePreposition: () => false,
   getEnabledParsingDims: () => null,
+  // Lookup / Build mode: the focused lemma to build, and its full form pool.
+  getLookupFocusLemma: () => null,
+  getLookupFormsForLemma: () => [],
   // Full focused-paradigm card pool (chapter-gated, but NOT pruned by the
   // exclude-known filter or per-value dim filters) — the structural truth of
   // what forms the paradigm owns. Used to detect value gaps like ἐγώ/σύ
@@ -42,6 +46,11 @@ let host = {
 export function configureRender(deps) {
   host = { ...host, ...deps };
 }
+
+// Small superscript star printed before a headword as a terse "watch this form"
+// marker — currently on multi-case prepositions (the meaning shifts with the
+// object's case). The trailing space keeps it off the first letter.
+const HEADWORD_STAR = '<sup class="card-headword-star" aria-hidden="true">★</sup> ';
 
 // Grammar MC options often carry a trailing parenthetical that names the very
 // grammatical category the prompt asks for, or glosses the form — e.g.
@@ -127,6 +136,14 @@ export function renderCard() {
     // until the user taps through (or switches paradigms).
     const navRow = document.getElementById('navRow');
     if (navRow) navRow.style.display = 'none';
+    return;
+  }
+
+  // Build / Lookup mode: a deck-independent paradigm reference. Sits ahead of
+  // every deck-state branch (it reads the focused paradigm's full form pool
+  // live, not runtime.deck), after the stem-recall redirect above.
+  if (host.isParsingMode() && runtime.parsingLookup) {
+    renderMorphLookupCard(area);
     return;
   }
 
@@ -414,7 +431,7 @@ export function renderCard() {
 
   // Prepositions that govern more than one case get a star on both faces as a
   // reminder that the meaning depends on the case of the object.
-  const prepStar = host.isMultiCasePreposition(card) ? '★ ' : '';
+  const prepStar = host.isMultiCasePreposition(card) ? HEADWORD_STAR : '';
   // Vocab mode has no explicit chapter dropdown, so the selection itself is
   // the gate: its max effective chapter (same deriveSelectionLevels scale
   // parsing uses) caps the later stem annotations below. The second-aorist /
@@ -594,7 +611,15 @@ function ensureStepStateForCard(card) {
     // Dims skipped as steps but still rendered in the parse summary
     // (single-gender gender skip: form doesn't change with gender, but
     // the canonical label still names it). Empty when nothing applies.
-    impliedDims: steps.impliedDims || {}
+    impliedDims: steps.impliedDims || {},
+    // Max selected chapter, so the summary can word the imperative-person
+    // note correctly once 3rd-person imperatives are in scope.
+    maxChapter: levels.maxEffectiveChapter,
+    // Undo support (walking view only): a stack of pre-action snapshots
+    // (pushed by the answer/skip/give-up handlers) and a per-dim undo count.
+    // Both reset per card.
+    history: [],
+    forcedWrong: {}
   };
   return runtime.morphStepState;
 }
@@ -1042,11 +1067,26 @@ function renderMorphStepBreadcrumb(state) {
     // student shouldn't see "wrong" on mood before they've committed
     // to the dynamic person that completes their parse.
     else if (answer && (step.inferred || answer.deferred)) cls += ' neutral';
+    // A dimension undone but re-picked correctly counts as a miss yet isn't a
+    // flat wrong answer — amber. A reattempt that's still wrong stays red.
+    else if (answer && state.forcedWrong && state.forcedWrong[step.key] && answer.isCorrect === true) cls += ' reattempted';
     else if (answer && answer.isCorrect === true) cls += ' correct';
     else if (answer && answer.isCorrect === false) cls += ' incorrect';
     return `<span class="${cls}" title="${escapeHtml(step.label)}">${escapeHtml(step.label[0])}</span>`;
   }).join('');
   return `<div class="morph-step-breadcrumb">${dots}</div>`;
+}
+
+// Undo row — only shown once there's at least one guess to step back through.
+// Undo re-opens the previous step so the student can pick a different value
+// and keep practising; the dimension undone still counts as a miss.
+function renderMorphUndoRow(state) {
+  if (!state || !Array.isArray(state.history) || !state.history.length) return '';
+  return `
+    <div class="morph-step-undo-row">
+      <button class="ctrl-btn morph-step-undo-btn" type="button" onclick="undoMorphologyStep()"
+        title="Step back to your previous guess and re-pick. The guess you undo still counts as a miss — undo is for practising the right path, not erasing a mistake.">↶ Undo guess</button>
+    </div>`;
 }
 
 function renderMorphStepCurrent(state) {
@@ -1064,6 +1104,7 @@ function renderMorphStepCurrent(state) {
         <button class="ctrl-btn morph-dontknow-btn" type="button" onclick="skipMorphologyStep()">I don't know</button>
         <button class="ctrl-btn morph-giveup-btn" type="button" onclick="giveUpMorphologyStep()">I give up</button>
       </div>
+      ${renderMorphUndoRow(state)}
     </div>`;
 }
 
@@ -1395,6 +1436,310 @@ function resolveFormForPickedDims(card, steps, pickedValues, autoFilledDims) {
   return { kind: 'form', form: candidates[0].form };
 }
 
+// ── Per-form gloss generation ─────────────────────────────────────────────
+// English realisers for the verbs Mounce drills as parsing paradigms, keyed by
+// dictionary head lemma. Voice is collapsed for glossing (deponents read
+// active; middle/passive and passive read passive); the aspect distinction
+// English can't carry is dropped rather than faked. Extra (non-Mounce-drilled)
+// entries are harmless — they're only consulted when a card's head lemma
+// matches, otherwise the dictionary gloss (card.gloss) is used.
+const VERB_GLOSS = {
+  'εἰμί':      { pres: 'be',     pres3: 'is',      past: 'was',      pastPart: 'been',     presPart: 'being' },
+  'λύω':       { pres: 'loose',  pres3: 'looses',  past: 'loosed',   pastPart: 'loosed',   presPart: 'loosing' },
+  'ἀγαπάω':    { pres: 'love',   pres3: 'loves',   past: 'loved',    pastPart: 'loved',    presPart: 'loving' },
+  'ποιέω':     { pres: 'make',   pres3: 'makes',   past: 'made',     pastPart: 'made',     presPart: 'making' },
+  'πληρόω':    { pres: 'fill',   pres3: 'fills',   past: 'filled',   pastPart: 'filled',   presPart: 'filling' },
+  'φιλέω':     { pres: 'love',   pres3: 'loves',   past: 'loved',    pastPart: 'loved',    presPart: 'loving' },
+  'βάλλω':     { pres: 'throw',  pres3: 'throws',  past: 'threw',    pastPart: 'thrown',   presPart: 'throwing' },
+  'γράφω':     { pres: 'write',  pres3: 'writes',  past: 'wrote',    pastPart: 'written',  presPart: 'writing' },
+  'λαμβάνω':   { pres: 'take',   pres3: 'takes',   past: 'took',     pastPart: 'taken',    presPart: 'taking' },
+  'λείπω':     { pres: 'leave',  pres3: 'leaves',  past: 'left',     pastPart: 'left',     presPart: 'leaving' },
+  'ἄγω':       { pres: 'lead',   pres3: 'leads',   past: 'led',      pastPart: 'led',      presPart: 'leading' },
+  'ἔχω':       { pres: 'have',   pres3: 'has',     past: 'had',      pastPart: 'had',      presPart: 'having' },
+  'γινώσκω':   { pres: 'know',   pres3: 'knows',   past: 'knew',     pastPart: 'known',    presPart: 'knowing' },
+  'λέγω':      { pres: 'say',    pres3: 'says',    past: 'said',     pastPart: 'said',     presPart: 'saying' },
+  'ὁράω':      { pres: 'see',    pres3: 'sees',    past: 'saw',      pastPart: 'seen',     presPart: 'seeing' },
+  'μένω':      { pres: 'remain', pres3: 'remains', past: 'remained', pastPart: 'remained', presPart: 'remaining' },
+  'κρίνω':     { pres: 'judge',  pres3: 'judges',  past: 'judged',   pastPart: 'judged',   presPart: 'judging' },
+  'δίδωμι':    { pres: 'give',   pres3: 'gives',   past: 'gave',     pastPart: 'given',    presPart: 'giving' },
+  'τίθημι':    { pres: 'put',    pres3: 'puts',    past: 'put',      pastPart: 'put',      presPart: 'putting' },
+  'ἵστημι':    { pres: 'stand',  pres3: 'stands',  past: 'stood',    pastPart: 'stood',    presPart: 'standing' },
+  'δείκνυμι':  { pres: 'show',   pres3: 'shows',   past: 'showed',   pastPart: 'shown',    presPart: 'showing' },
+  'πορεύομαι': { pres: 'go',     pres3: 'goes',    past: 'went',     pastPart: 'gone',     presPart: 'going',     deponent: true },
+  'ῥύομαι':    { pres: 'rescue', pres3: 'rescues', past: 'rescued',  pastPart: 'rescued',  presPart: 'rescuing',  deponent: true },
+  'γίνομαι':   { pres: 'become', pres3: 'becomes', past: 'became',   pastPart: 'become',   presPart: 'becoming',  deponent: true },
+  'ἔρχομαι':   { pres: 'come',   pres3: 'comes',   past: 'came',     pastPart: 'come',     presPart: 'coming',    deponent: true }
+};
+
+function glossSubject(person, number) {
+  if (!person || !number) return '';
+  const sg = number === 'singular';
+  if (person === 'first') return sg ? 'I' : 'we';
+  if (person === 'second') return sg ? 'you' : 'you (pl.)';
+  if (person === 'third') return sg ? 'he/she/it' : 'they';
+  return '';
+}
+function glossBePresent(person, number) {
+  if (number === 'plural') return 'are';
+  if (person === 'first') return 'am';
+  if (person === 'second') return 'are';
+  return 'is';
+}
+function glossBePast(person, number) {
+  return (number === 'singular' && (person === 'first' || person === 'third')) ? 'was' : 'were';
+}
+
+// εἰμί is suppletive in English ("be" → am/is/are/was/were/been), so it gets its
+// own realiser rather than going through the regular table.
+function glossEimi(dims) {
+  const { tense, mood, person, number } = dims;
+  if (mood === 'infinitive') return 'to be';
+  if (mood === 'participle') return 'being';
+  const subj = glossSubject(person, number);
+  if (!subj) return '';
+  if (mood === 'subjunctive') return `${subj} may be`;
+  if (mood === 'imperative') {
+    return person === 'third' ? `let ${number === 'plural' ? 'them' : 'him/her/it'} be` : 'be!';
+  }
+  const is3sg = person === 'third' && number === 'singular';
+  switch (tense) {
+    case 'imperfect': return `${subj} ${glossBePast(person, number)}`;
+    case 'future': return `${subj} will be`;
+    case 'perfect': return `${subj} ${is3sg ? 'has' : 'have'} been`;
+    case 'pluperfect': return `${subj} had been`;
+    default: return `${subj} ${glossBePresent(person, number)}`;
+  }
+}
+
+// Realise an English gloss for a verb form from its parsed dimensions. Voice is
+// collapsed for glossing: deponents and bare middles read active, middle/passive
+// and passive read passive. The aspect distinction English can't carry (aorist
+// vs. present infinitive, say) is dropped rather than faked.
+function conjugateVerbGloss(v, dims, lemma) {
+  if (lemma === 'εἰμί') return glossEimi(dims);
+  const { tense, voice, mood, person, number } = dims;
+  const vv = v.deponent ? 'active' : (voice || 'active');
+  const passive = vv === 'passive' || vv === 'middle/passive';
+  const aorist = tense === 'aorist' || tense === 'first aorist' || tense === 'second aorist';
+
+  if (mood === 'participle') {
+    if (passive) return tense === 'present' ? `being ${v.pastPart}` : `having been ${v.pastPart}`;
+    if (tense === 'present') return v.presPart;
+    if (tense === 'future') return `about to ${v.pres}`;
+    return `having ${v.pastPart}`; // aorist / perfect active
+  }
+  if (mood === 'infinitive') {
+    if (passive) return tense === 'perfect' ? `to have been ${v.pastPart}` : `to be ${v.pastPart}`;
+    return tense === 'perfect' ? `to have ${v.pastPart}` : `to ${v.pres}`;
+  }
+  const subj = glossSubject(person, number);
+  const is3sg = person === 'third' && number === 'singular';
+  if (mood === 'subjunctive') {
+    if (!subj) return '';
+    return passive ? `${subj} may be ${v.pastPart}` : `${subj} may ${v.pres}`;
+  }
+  if (mood === 'imperative') {
+    if (person === 'third') {
+      const who = number === 'plural' ? 'them' : 'him/her/it';
+      return passive ? `let ${who} be ${v.pastPart}` : `let ${who} ${v.pres}`;
+    }
+    return passive ? `be ${v.pastPart}!` : `${v.pres}!`;
+  }
+  // indicative (and the default when mood is unspecified)
+  if (!subj) return '';
+  if (passive) {
+    if (tense === 'present') return `${subj} ${glossBePresent(person, number)} ${v.pastPart}`;
+    if (tense === 'imperfect') return `${subj} ${glossBePast(person, number)} being ${v.pastPart}`;
+    if (tense === 'future') return `${subj} will be ${v.pastPart}`;
+    if (aorist) return `${subj} ${glossBePast(person, number)} ${v.pastPart}`;
+    if (tense === 'perfect') return `${subj} ${is3sg ? 'has' : 'have'} been ${v.pastPart}`;
+    if (tense === 'pluperfect') return `${subj} had been ${v.pastPart}`;
+    return '';
+  }
+  if (tense === 'present') return `${subj} ${is3sg ? v.pres3 : v.pres}`;
+  if (tense === 'imperfect') return `${subj} ${glossBePast(person, number)} ${v.presPart}`;
+  if (tense === 'future') return `${subj} will ${v.pres}`;
+  if (aorist) return `${subj} ${v.past}`;
+  if (tense === 'perfect') return `${subj} ${is3sg ? 'has' : 'have'} ${v.pastPart}`;
+  if (tense === 'pluperfect') return `${subj} had ${v.pastPart}`;
+  return '';
+}
+
+// The gloss shown for a parsing card. Mounce's card.gloss is the per-LEMMA
+// dictionary meaning (shared by every form of an item), not a per-form gloss, so
+// — unlike duff — we GENERATE first: a verb whose head lemma is in VERB_GLOSS
+// gets a form-specific gloss ("they were loosing"); everything else (nominals,
+// undrilled verbs) falls back to the dictionary meaning. The head lemma strips
+// any "→ principal-part" suffix and trailing "(root …)" annotation so arrow-keyed
+// and μi-verb lemmas still resolve.
+function formGloss(card) {
+  const dims = parseAnswerDimensions(card.parsedAnswer || card.answer || '');
+  const headLemma = String(card.lemma || '').split(/\s*→\s*/)[0].replace(/\s*\(.*\)\s*$/, '').trim();
+  if (VERB_GLOSS[headLemma]) {
+    const generated = conjugateVerbGloss(VERB_GLOSS[headLemma], dims, headLemma);
+    if (generated) return generated;
+  }
+  return card.gloss || card.lemmaGloss || '';
+}
+
+// A short, affirmative "why this form" morphology tell for the summary — the
+// headline that names how the form announces its parse ("augment + σα = first
+// aorist active indicative"; "the article agrees in case, number, and gender").
+// Built conservatively from the parsed dimensions plus the paradigm category:
+// where a simple rule would mislead (εἰμί, μι-verb aorists, …) it returns '' so
+// the caller can fall back to the stem-change pair rather than print something
+// inaccurate. The Greek endings are illustrative, not exhaustive.
+function buildWhyThisFormNote(card, dims, category) {
+  const cat = String(category || '');
+  const tense = dims.tense || '';
+  const voice = dims.voice || '';
+  const mood = dims.mood || '';
+  const isActive = voice === 'active' || voice === '';
+  const midPass = voice === 'middle' || voice === 'passive' || voice === 'middle/passive';
+
+  // ── Nominals: the tell is agreement / the ending, never tense ──
+  if (cat === 'Article') {
+    return 'The article agrees with its noun in case, number, and gender.';
+  }
+  if (cat === 'Adjectives') {
+    return 'An adjective agrees with the noun it modifies in case, number, and gender.';
+  }
+  if (cat.startsWith('Pronouns')) {
+    if (cat.includes('relative')) {
+      return 'A relative pronoun takes gender and number from its antecedent, and its case from its job in the relative clause.';
+    }
+    if (cat.includes('demonstrative')) {
+      return 'A demonstrative agrees with its noun in case, number, and gender.';
+    }
+    if (cat.includes('interrogative')) {
+      return 'τίς / τί shows case and number; the masculine and feminine share one set of endings, the neuter another.';
+    }
+    return 'A personal / intensive pronoun shows case and number; αὐτός also marks gender to agree with its noun.';
+  }
+  if (cat.startsWith('Nouns') && mood !== 'participle') {
+    const decl = cat.includes('1st') ? '1st-declension '
+      : cat.includes('2nd') ? '2nd-declension '
+      : cat.includes('3rd') ? '3rd-declension '
+      : '';
+    // Genitive plural: the ‑ων ending is shared by every noun, of every gender
+    // (λόγων masc., δώρων neut., πόλεων fem.), so it can never signal gender — a
+    // tempting "all genders" answer here is wrong. Call this out explicitly,
+    // since the gen. pl. is where students most expect the form itself to carry
+    // gender. (The 1st declension circumflexes it to ‑ῶν, but it's the same
+    // ending and still gender-blind.)
+    if (dims.case === 'genitive' && dims.number === 'plural') {
+      return `A ${decl}noun: the genitive plural ending ‑ων is shared by every noun of every gender (λόγων masc., δώρων neut., πόλεων fem.), so it shows case and number only — the gender is fixed by the word, not the ending.`;
+    }
+    return `A ${decl}noun: the ending carries case and number, while its gender is fixed by the word, not the ending.`;
+  }
+
+  // ── Participles: a verbal adjective — the suffix names tense/voice, and it
+  //    still agrees in case, number, and gender like any adjective ──
+  if (mood === 'participle') {
+    const agree = 'declines like an adjective, agreeing in case, number, and gender';
+    if (voice === 'passive' && (tense === 'aorist' || tense === 'first aorist')) {
+      return `Aorist passive participle (‑θείς / ‑θεῖσα / ‑θέν); ${agree}.`;
+    }
+    if (voice === 'passive' && tense === 'second aorist') {
+      return `Second-aorist passive participle (‑είς / ‑εῖσα / ‑έν); ${agree}.`;
+    }
+    if (midPass) {
+      return `The ‑μενος / ‑μένη / ‑μενον suffix marks a middle/passive participle; it ${agree}.`;
+    }
+    if (tense === 'present') return `Present active participle (‑ων / ‑ουσα / ‑ον); ${agree}.`;
+    if (tense === 'first aorist' || tense === 'aorist') return `First-aorist active participle (‑σας / ‑σασα / ‑σαν); ${agree}.`;
+    if (tense === 'second aorist') return `Second-aorist active participle (‑ών / ‑οῦσα / ‑όν on the aorist stem); ${agree}.`;
+    if (tense === 'perfect') return `Perfect active participle (‑ώς / ‑υῖα / ‑ός); ${agree}.`;
+    if (tense === 'future') return `Future active participle (‑σων / ‑σουσα / ‑σον); ${agree}.`;
+    return `Active participle; ${agree}.`;
+  }
+
+  // ── εἰμί is irregular: there is no stem rule to teach, so say so plainly ──
+  if (cat.includes('εἰμί')) {
+    return 'εἰμί is irregular — its forms are learned individually, not built from a stem rule.';
+  }
+
+  // ── Infinitives: the ending is the whole tell ──
+  if (mood === 'infinitive') {
+    if (tense === 'present') return isActive ? 'Present active infinitive — ends in ‑ειν.' : 'Present middle/passive infinitive — ends in ‑εσθαι.';
+    if (tense === 'future') return 'Future infinitive — ‑σειν (active) / ‑σεσθαι (middle).';
+    if (tense === 'first aorist' || tense === 'aorist') {
+      if (voice === 'passive') return 'Aorist passive infinitive — ends in ‑θῆναι.';
+      if (midPass) return 'First-aorist middle infinitive — ends in ‑σασθαι.';
+      return 'First-aorist active infinitive — ends in ‑σαι.';
+    }
+    if (tense === 'second aorist') {
+      if (voice === 'passive') return 'Second-aorist passive infinitive — ends in ‑ῆναι.';
+      if (midPass) return 'Second-aorist middle infinitive — ends in ‑έσθαι.';
+      return 'Second-aorist active infinitive — ends in ‑εῖν.';
+    }
+    if (tense === 'perfect') return isActive ? 'Perfect active infinitive — ends in ‑κέναι.' : 'Perfect middle/passive infinitive — ends in ‑σθαι.';
+    return '';
+  }
+
+  // ── Subjunctive / imperative: the mood is marked the same across tenses ──
+  if (mood === 'subjunctive') {
+    return 'The lengthened connecting vowel (η / ω) marks the subjunctive; the aorist subjunctive carries no augment.';
+  }
+  if (mood === 'imperative') {
+    return 'Imperative endings (‑ε, ‑έτω, ‑ετε, ‑έτωσαν …) give the command; the aorist imperative takes no augment.';
+  }
+
+  // ── Finite indicative: the augment and stem markers do the work ──
+  if (mood === 'indicative' || mood === '') {
+    // Liquid-stem futures/aorists drop the σ — the plain "σ = future" rule is
+    // actively wrong for them, so they get their own note.
+    if (cat.includes('liquid')) {
+      if (tense === 'future') return 'Liquid future — the σ drops and the stem contracts (μενῶ, κρινῶ); the circumflex is the tell.';
+      if (tense === 'aorist' || tense === 'first aorist') return 'Liquid aorist — no σ; the stem vowel lengthens instead (ἔμεινα, ἔκρινα).';
+    }
+    // Contract verbs: the stem vowel contracts with the ending in the present
+    // system; elsewhere it lengthens before σ (φιλήσω) and the notes below apply.
+    if (cat.includes('contract') && (tense === 'present' || tense === 'imperfect')) {
+      return tense === 'imperfect'
+        ? 'Contract verb — augment + the contracting stem vowel with the secondary endings (ἐποίουν).'
+        : 'Contract verb — the stem vowel contracts with the ending (ποιέ‑ω → ποιῶ).';
+    }
+    // μι-verbs: athematic, reduplicated present; their aorists are irregular
+    // (κ-aorist / root aorist), so only the present gets a rule — the rest fall
+    // through to '' and the stem-change pair.
+    if (cat.includes('μι-verb')) {
+      if (tense === 'present' || tense === 'imperfect') {
+        return 'μι-verb — athematic endings on a reduplicated present stem (δί‑δω‑μι, τί‑θη‑μι).';
+      }
+      return '';
+    }
+    switch (tense) {
+      case 'present':
+        return midPass
+          ? 'Present stem + primary middle/passive endings (‑ομαι, ‑ῃ, ‑εται …), no augment.'
+          : 'Present stem + primary active endings, no augment.';
+      case 'imperfect':
+        return 'Augment + present stem + secondary endings = imperfect.';
+      case 'future':
+        return 'σ before the ending marks the future (λύ‑σ‑ω).';
+      case 'first aorist':
+      case 'aorist':
+        if (voice === 'passive') return 'Augment + ‑θη‑ marks the aorist passive (ἐ‑λύ‑θη‑ν).';
+        if (midPass) return 'Augment + ‑σα‑ + middle endings = first aorist middle (ἐ‑λυ‑σά‑μην).';
+        return 'Augment + ‑σα‑ = first aorist active indicative (ἔ‑λυ‑σα).';
+      case 'second aorist':
+        if (voice === 'passive') return 'Augment + a bare ‑η‑ stem marks the second aorist passive (ἐ‑γράφ‑η‑ν).';
+        return 'Augment + a changed (second-aorist) stem + secondary endings (ἔ‑βαλ‑ον).';
+      case 'perfect':
+        return isActive
+          ? 'Reduplication + ‑κ‑ marks the perfect active (λέ‑λυ‑κα).'
+          : 'Reduplication + primary middle/passive endings marks the perfect (λέ‑λυ‑μαι).';
+      case 'pluperfect':
+        return 'Augment + reduplication marks the pluperfect (ἐ‑λε‑λύ‑κειν).';
+      default:
+        return '';
+    }
+  }
+
+  return '';
+}
+
 function renderMorphStepSummary(card, state) {
   const rows = state.steps.map((step, idx) => {
     const answer = state.answers[idx];
@@ -1420,7 +1765,16 @@ function renderMorphStepSummary(card, state) {
           <span class="morph-step-summary-pick">${escapeHtml(pickedLabel)}</span>
         </div>`;
     }
-    const correct = answer && answer.isCorrect;
+    // A dimension the student undid still counts as a miss in the stats no
+    // matter what they ultimately re-picked. But it shouldn't read as flatly
+    // *wrong* in the summary — the re-picked value is often the right one — so
+    // an undone step renders amber with an asterisk (not a red ✗) pointing to a
+    // "<dim> reattempted" note. `pickCorrect` is the literal correctness of the
+    // final pick (used to decide whether a correction arrow is useful);
+    // `correct` is the graded verdict, which an undo forces to false.
+    const forcedWrong = !!(state.forcedWrong && state.forcedWrong[step.key]);
+    const pickCorrect = !!(answer && answer.isCorrect);
+    const correct = !forcedWrong && pickCorrect;
     // Deponent voice soft-accept. For a deponent the form is middle (or
     // middle/passive) but Mounce parses it as active — so both grade correct
     // (morph_steps.js seeds step.acceptable = [middle, 'active']). 'active'
@@ -1433,10 +1787,25 @@ function renderMorphStepSummary(card, state) {
       && Array.isArray(step.acceptable) && step.acceptable.includes('active')
       && (step.correct === 'middle' || step.correct === 'middle/passive');
     const softDeponentMiddle = !!correct && deponentVoiceStep && !!deponentPickedRaw && deponentPickedRaw !== 'active';
-    const markClass = softDeponentMiddle
-      ? 'morph-step-soft'
-      : (correct ? 'morph-step-correct' : 'morph-step-incorrect');
-    const mark = correct ? '✓' : '✗';
+    let markClass;
+    let mark;
+    if (forcedWrong && pickCorrect) {
+      // Reattempted via undo and re-picked correctly — amber asterisk (not a
+      // red ✗, which would falsely read as wrong) pointing to a shared
+      // footnote. A reattempt that's STILL wrong falls through to the red ✗
+      // branch below, so it reads like any other miss and needs no footnote.
+      markClass = 'morph-step-reattempted';
+      mark = '*';
+    } else if (softDeponentMiddle) {
+      markClass = 'morph-step-soft';
+      mark = '✓';
+    } else if (correct) {
+      markClass = 'morph-step-correct';
+      mark = '✓';
+    } else {
+      markClass = 'morph-step-incorrect';
+      mark = '✗';
+    }
     const deponentNoteHtml = softDeponentMiddle
       ? `<span class="morph-step-deponent-note">active (deponent) — middle in form, active in meaning</span>`
       : '';
@@ -1455,13 +1824,16 @@ function renderMorphStepSummary(card, state) {
       acceptable = acceptable.filter((a) => a !== 'middle' && a !== 'passive');
     }
     const correctionInner = acceptable.map((a) => escapeHtml(applyDisplaySuffixIfPerson(step.key, a))).join(' / ');
+    // Tie the correction arrow / aspect note to the *literal* pick, not the
+    // graded verdict: an undone step re-picked correctly shouldn't sprout a
+    // "→ <same value>" arrow (the bug the asterisk treatment fixes).
     let aspectNoteHtml = '';
-    if (!correct && answer && answer.selectedIdx >= 0 && step.key === 'aspect' && step.context) {
+    if (!pickCorrect && answer && answer.selectedIdx >= 0 && step.key === 'aspect' && step.context) {
       const pickedRaw = step.choices[answer.selectedIdx];
       const note = aspectMistakeNote(step.context.tense, pickedRaw, step.correct);
       if (note) aspectNoteHtml = `<span class="morph-step-aspect-note">${escapeHtml(note)}</span>`;
     }
-    const showCorrection = !correct && answer
+    const showCorrection = !pickCorrect && answer
       ? `<span class="morph-step-correction">→ ${correctionInner}</span>${aspectNoteHtml}`
       : '';
     return `
@@ -1472,10 +1844,31 @@ function renderMorphStepSummary(card, state) {
       </div>`;
   }).join('');
 
+  // Single shared footnote for the amber asterisks — lists the reattempted
+  // dimensions in display order ("number, gender reattempted") and explains
+  // why they're amber: the undo still counts as a miss. Only reattempts that
+  // were re-picked *correctly* get an asterisk (a still-wrong reattempt shows a
+  // plain red ✗), so the footnote lists only those — and disappears entirely
+  // when there are none.
+  const reattemptedDims = state.steps
+    .filter((step, idx) => step && !step.inferred
+      && state.forcedWrong && state.forcedWrong[step.key]
+      && state.answers[idx] && state.answers[idx].isCorrect)
+    .map((step) => String(step.label || '').toLowerCase());
+  const reattemptedNote = reattemptedDims.length
+    ? `<div class="morph-step-undone-note">* ${escapeHtml(reattemptedDims.join(', '))} reattempted — counts as a miss</div>`
+    : '';
+
   // X/N excludes inferred (ungraded) follow-up steps and steps that were
-  // never asked because a structural impossibility ended the walk early.
+  // never asked because a structural impossibility ended the walk early. An
+  // undone dimension counts as a miss even when re-answered correctly.
   const gradedCount = state.steps.filter((s, i) => !s.inferred && state.answers[i]).length;
-  const totalCorrect = state.answers.filter((a, i) => a && a.isCorrect && !state.steps[i].inferred).length;
+  const totalCorrect = state.answers.filter((a, i) => {
+    const step = state.steps[i];
+    if (!a || !a.isCorrect || step.inferred) return false;
+    if (state.forcedWrong && state.forcedWrong[step.key]) return false;
+    return true;
+  }).length;
   const totalStr = `${totalCorrect}/${gradedCount} correct`;
 
   // Side-by-side "Your parse" vs "Correct parse" with the corresponding
@@ -1536,11 +1929,6 @@ function renderMorphStepSummary(card, state) {
        </div>
      </div>`;
 
-  const lemmaSummary = summarizeLemmaStats(runtime.paradigmStepStats || {}, card.lemma, host.getEnabledParsingDims());
-  const recentLine = lemmaSummary.attempts > 0
-    ? `<div class="morph-step-rollup-recent">Last ${lemmaSummary.attempts}/${getParadigmStepAttemptWindow()} attempts for ${escapeHtml(card.lemma)}: ${lemmaSummary.correct}/${lemmaSummary.total} dimensions correct (${Math.round(100 * lemmaSummary.correct / Math.max(1, lemmaSummary.total))}%)</div>`
-    : '';
-
   // Stem-change footer: if the parsed form is in a tense whose stem differs
   // from the present lemma (aorist family, perfect, pluperfect), surface the
   // present → form pair so the student sees the stem association alongside
@@ -1562,17 +1950,28 @@ function renderMorphStepSummary(card, state) {
     ? `<div class="morph-step-ambig-note"><span class="morph-step-ambig-label">Ambiguous form</span> 2nd-plural present is spelt the same in the indicative and the imperative — only context picks the mood. Either reading is accepted.</div>`
     : '';
 
-  // "How to tell it apart" hints for forms that are easy to confuse with a
-  // neighbouring parse (e.g. present vs future — the σ). Tucked behind a
-  // collapsed "Hint" disclosure so the summary stays short; the ambiguity note
-  // above is deliberately NOT collapsed (it explains why a mark was accepted).
+  // Differentiation note. A short, affirmative "why this form" morphology tell
+  // sits always-visible; the deeper "how to tell it apart" disambiguation hints
+  // (present vs future — the σ; etc.) tuck behind a collapsed disclosure so the
+  // summary stays short. When neither is available we fall back to the
+  // stem-change pair (itself only present for a tense whose stem differs from
+  // the lemma) — and when even that is empty, nothing renders. The ambiguity /
+  // gap notes above stay open: they explain why a mark was accepted.
+  const category = card.lemma ? paradigmCategoryForLemma(card.lemma) : null;
+  const whyThisForm = buildWhyThisFormNote(card, parsedDims, category);
   const tellApartItems = confusableFormHints(card.parsedAnswer || card.answer, parseAnswerDimensions(card.parsedAnswer || card.answer), card.form);
+  const whyThisFormHtml = whyThisForm
+    ? `<div class="morph-step-why-note"><span class="morph-step-why-label">Why this form</span> ${escapeHtml(whyThisForm)}</div>`
+    : '';
   const tellApartHints = tellApartItems.length
     ? `<details class="morph-step-hint">
-         <summary class="morph-step-hint-summary">Hint</summary>
+         <summary class="morph-step-hint-summary">How to tell it apart</summary>
          <div class="morph-step-hint-body">${tellApartItems.map((hint) => `<div class="morph-step-hint-note">${escapeHtml(hint)}</div>`).join('')}</div>
        </details>`
     : '';
+  const differentiationHtml = (whyThisFormHtml || tellApartHints)
+    ? `${whyThisFormHtml}${tellApartHints}`
+    : stemChangeNote;
 
   // Paradigm-gap note: the student picked a value the focused paradigm has no
   // forms for (e.g. third person for ἐγώ/σύ), so the walk cut off early. Name
@@ -1581,30 +1980,31 @@ function renderMorphStepSummary(card, state) {
     ? `<div class="morph-step-gap-note"><span class="morph-step-gap-label">No such form</span> ${escapeHtml(state.paradigmGap.note)}</div>`
     : '';
 
-  // Inferred-person note: an imperative form has no person contrast in Koine
-  // (it's 2nd person by default), so its walk omits the Person step entirely.
-  // When the student instead picks a finite mood (indicative/subjunctive), we
-  // inject an ungraded Person step so their picks still resolve to a single
-  // form — but the resulting row carries no ✓/✗, which reads like a bug
-  // without explanation. Name why the row is ungraded.
+  // Inferred-person note: a 2nd-person imperative card carries no graded Person
+  // step (below ch 33 the person is structurally 2nd; the card just doesn't
+  // specify one). When the student instead picks a finite mood, we inject an
+  // ungraded Person step so their picks still resolve to a single form — but the
+  // resulting row carries no ✓/✗, which reads like a bug without explanation.
+  // Name why the row is ungraded.
   const gradedMoodStep = state.steps.find((s) => s.key === 'mood' && !s.inferred);
   const hasInferredPerson = state.steps.some((s) => s.key === 'person' && s.inferred);
+  const impPersonReason = (state.maxChapter == null || state.maxChapter < THIRD_PERSON_IMPERATIVE_CHAPTER)
+    ? 'the imperative is 2nd person by default'
+    : 'this imperative form doesn’t specify a person';
   const personInferredNote = (hasInferredPerson && gradedMoodStep && gradedMoodStep.correct === 'imperative')
-    ? `<div class="morph-step-person-note"><span class="morph-step-person-label">Person not graded</span> the imperative is 2nd person by default, so ${escapeHtml(card.form || card.lemma)} is parsed without a person — picking a finite mood is what added the Person step, so it isn't scored.</div>`
+    ? `<div class="morph-step-person-note"><span class="morph-step-person-label">Person not graded</span> ${impPersonReason}, so ${escapeHtml(card.form || card.lemma)} is parsed without a person — picking a finite mood is what added the Person step, so it isn't scored.</div>`
     : '';
 
   return `
     <div class="morph-step-summary">
       <div class="morph-step-summary-title">Parse complete — ${escapeHtml(totalStr)}</div>
       <div class="morph-step-summary-body">${rows}</div>
+      ${reattemptedNote}
       ${youParseLine}
       ${paradigmGapNote}
       ${ambigNote}
-      ${tellApartHints}
       ${personInferredNote}
-      ${stemChangeNote}
-      ${recentLine}
-      <div class="morph-step-summary-meta">${escapeHtml(card.lemma)}${card.family ? ' · ' + escapeHtml(card.family) : ''}</div>
+      ${differentiationHtml}
     </div>`;
 }
 
@@ -1729,8 +2129,9 @@ function renderParsingReverseCard(area, card) {
   let resultHtml = '';
   if (answered) {
     const isCorrect = runtime.morphAnswerState.isCorrect;
-    const glossLine = (card.gloss || card.lemmaGloss)
-      ? `<div class="morph-gloss">Gloss: “${escapeHtml(card.gloss || card.lemmaGloss)}”</div>`
+    const glossText = formGloss(card);
+    const glossLine = glossText
+      ? `<div class="morph-gloss">Gloss: “${escapeHtml(glossText)}”</div>`
       : '';
     // When an accent/breathing look-alike was offered, name the distinction
     // after the answer (whether they hit or missed) so the spelling contrast
@@ -1762,14 +2163,125 @@ function renderParsingReverseCard(area, card) {
   renderProgress();
 }
 
+function escapeAttr(s) {
+  return String(s == null ? '' : s)
+    .replace(/&/g, '&amp;')
+    .replace(/'/g, '&#39;')
+    .replace(/"/g, '&quot;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;');
+}
+
+// Lookup / "Build" mode: the reverse of the parsing drill. Instead of
+// decomposing one Greek form's parse, the student builds a parse from the
+// breadcrumbs and the tool resolves it to the matching form across the focused
+// paradigm's full (all-chapters + optional + extra) form pool. Deck-independent
+// — it reads the pool live, not runtime.deck. The header shows the paradigm
+// category (Mounce has no lemma→gloss map; the per-form gloss on the result is
+// generated by formGloss for verbs).
+function renderMorphLookupCard(area) {
+  if (!area) return;
+  const lemma = host.getLookupFocusLemma();
+  if (!lemma) {
+    area.innerHTML = `
+      <div class="morph-card morph-step-card morph-lookup-card">
+        <div class="morph-label">Grammar · Build</div>
+        <div class="empty-state morph-lookup-empty"><div class="big">αβγ</div>Pick a focused paradigm from the dropdown above, then build any of its forms one part at a time.</div>
+      </div>`;
+    runtime.isFlipped = false;
+    renderProgress();
+    return;
+  }
+
+  // Seed/refresh the cached pool + picks for this lemma, then read the picks
+  // back (getLookupFormsForLemma resets picks when the lemma changes).
+  const pool = host.getLookupFormsForLemma(lemma) || [];
+  const st = runtime.morphLookupState || {};
+  const picks = (st.lemma === lemma && st.picks && typeof st.picks === 'object') ? st.picks : {};
+  const walk = resolveLookupWalk(pool, picks);
+
+  const category = paradigmCategoryForLemma(lemma) || '';
+  const headerMeta = category ? escapeHtml(category) : '';
+
+  if (walk.empty) {
+    area.innerHTML = `
+      <div class="morph-card morph-step-card morph-lookup-card">
+        <div class="morph-label">Grammar · Build</div>
+        <div class="morph-form morph-lookup-lemma">${escapeHtml(lemma)}</div>
+        ${headerMeta ? `<div class="morph-source">${headerMeta}</div>` : ''}
+        <div class="empty-state morph-lookup-empty">This paradigm has no parseable forms to look up.</div>
+      </div>`;
+    runtime.isFlipped = false;
+    renderProgress();
+    return;
+  }
+
+  // Breadcrumb of decided dimensions. Explicit picks are editable buttons
+  // (tap to re-pick from there); auto-locked dims (only one value possible)
+  // are static chips.
+  const trailHtml = walk.trail.map((t) => {
+    const inner = `<span class="morph-lookup-chip-dim">${escapeHtml(t.label)}</span><span class="morph-lookup-chip-val">${escapeHtml(t.valueLabel)}</span>`;
+    if (t.locked) {
+      return `<span class="morph-lookup-chip locked" title="Only one ${escapeHtml(String(t.label).toLowerCase())} is possible here">${inner}</span>`;
+    }
+    return `<button type="button" class="morph-lookup-chip" onclick="editLookupDimension('${escapeAttr(t.dim)}')" title="Change ${escapeHtml(String(t.label).toLowerCase())}">${inner}<span class="morph-lookup-chip-edit" aria-hidden="true">✎</span></button>`;
+  }).join('');
+  const trailBlock = trailHtml ? `<div class="morph-lookup-trail">${trailHtml}</div>` : '';
+
+  let bodyHtml;
+  if (walk.next) {
+    const buttons = walk.next.options.map((o) =>
+      `<button type="button" class="choice-btn morph-lookup-option" onclick="pickLookupDimension('${escapeAttr(walk.next.dim)}','${escapeAttr(o.value)}')">${escapeHtml(o.label)}</button>`
+    ).join('');
+    const resetRow = walk.trail.length
+      ? `<div class="morph-lookup-reset-row"><button type="button" class="ctrl-btn morph-lookup-reset" onclick="resetLookup()">↺ Start over</button></div>`
+      : '';
+    bodyHtml = `
+      <div class="morph-step-current morph-lookup-current">
+        <div class="morph-step-label">${escapeHtml(walk.next.label)}?</div>
+        <div class="morph-choices morph-lookup-choices">${buttons}</div>
+        ${resetRow}
+      </div>`;
+  } else {
+    const forms = walk.matches || [];
+    const formHtml = forms.length ? forms.map((m) => escapeHtml(m.form)).join('  ·  ') : '—';
+    const parse = forms.length ? forms[0].parse : '';
+    const glossText = forms.length
+      ? formGloss({ lemma, form: forms[0].form, parsedAnswer: parse, answer: parse })
+      : '';
+    const glossLine = glossText ? `<div class="morph-gloss">Gloss: “${escapeHtml(glossText)}”</div>` : '';
+    bodyHtml = `
+      <div class="morph-lookup-result">
+        <div class="morph-lookup-result-label">Form</div>
+        <div class="morph-lookup-form">${formHtml}</div>
+        <div class="morph-lookup-parse">${escapeHtml(parse)}</div>
+        ${glossLine}
+        <button type="button" class="ctrl-btn morph-lookup-reset" onclick="resetLookup()">↺ Look up another form</button>
+      </div>`;
+  }
+
+  area.innerHTML = `
+    <div class="morph-card morph-step-card morph-lookup-card">
+      <div class="morph-label">Grammar · Build</div>
+      <div class="morph-form morph-lookup-lemma">${escapeHtml(lemma)}</div>
+      ${headerMeta ? `<div class="morph-source">${headerMeta}</div>` : ''}
+      <div class="morph-lookup-hint">Build a form: choose each part to conjugate or decline this paradigm.</div>
+      ${trailBlock}
+      ${bodyHtml}
+    </div>`;
+  runtime.isFlipped = false;
+  renderProgress();
+}
+
 function renderMorphStepCard(area, card) {
   const state = ensureStepStateForCard(card);
   // Hide the gloss while the parse is in progress — seeing "to loose" next
   // to ἔλυσας before picking tense/voice can leak the dimensions through
   // English inference. Surfaces once the parse completes so the student
   // still gets the lexical anchor on the summary screen.
-  const lemmaGloss = state.completed && (card.gloss || card.lemmaGloss)
-    ? `<div class="morph-gloss">Gloss: “${escapeHtml(card.gloss || card.lemmaGloss)}”</div>`
+  const glossText = formGloss(card);
+  const lemmaGloss = state.completed && glossText
+    ? `<div class="morph-gloss">Gloss: “${escapeHtml(glossText)}”</div>`
     : '';
 
   const body = state.completed
@@ -1798,15 +2310,29 @@ function renderMorphStepCard(area, card) {
   const aspectHint = runtime.aspectStep
     ? ' · Use "continuous/undefined" when the form licenses either reading'
     : '';
+  // Source line: the lexical (dictionary) form. Once the parse is complete we
+  // append the paradigm category — "λῦσον — Imperatives" — so the lemma and its
+  // paradigm sit together at the top, and the old footer "Paradigm:" line is
+  // dropped as redundant. The category stays OFF the in-progress header on
+  // purpose: it names the very tense the walk is testing (e.g. "second aorist"),
+  // so showing it mid-walk would hand over the answer.
+  const completedCategory = state.completed && card.lemma
+    ? (paradigmCategoryForLemma(card.lemma) || card.family || '')
+    : '';
+  const sourceLineHtml = state.completed && card.lemma
+    ? `<div class="morph-source">${escapeHtml(card.lemma)}${completedCategory ? ' — ' + escapeHtml(completedCategory) : ''}</div>`
+    : `<div class="morph-source">${escapeHtml(stepSourceLine)}${aspectHint}</div>`;
 
+  // The prompt line ("Parse this form one dimension at a time") is intentionally
+  // gone: the breadcrumb + per-step question already frame the task, and its
+  // slot is now taken by the completed-only gloss above the form.
   area.innerHTML = `
     <div class="morph-card morph-step-card">
       <div class="morph-label">Grammar · Step-by-step</div>
-      <div class="morph-prompt">Parse this form one dimension at a time.</div>
       ${lemmaGloss}
       <div class="morph-form">${escapeHtml(card.form)}</div>
       ${hintHtml}
-      <div class="morph-source">${escapeHtml(stepSourceLine)}${aspectHint}</div>
+      ${sourceLineHtml}
       ${renderMorphStepBreadcrumb(state)}
       ${body}
     </div>`;
