@@ -276,6 +276,7 @@ export function buildPersistedStatePayload(options = {}) {
     parsingCustomReview: runtime.parsingCustomReview,
     parsingCustomParadigms: runtime.parsingCustomParadigms,
     parsingReverse: runtime.parsingReverse,
+    parsingLookup: runtime.parsingLookup,
     accentLookalikes: runtime.accentLookalikes,
     optionalFormFilters: runtime.optionalFormFilters,
     analyticsVocabDirection: runtime.analyticsVocabDirection,
@@ -369,6 +370,7 @@ function sanitizeImportedState(candidate) {
   // standard Mounce-aligned card set as their baseline.
   state.includeOptionalForms = !!candidate.includeOptionalForms;
   state.parsingReverse = !!candidate.parsingReverse;
+  state.parsingLookup = !!candidate.parsingLookup;
   state.accentLookalikes = !!candidate.accentLookalikes;
   // Exclude-known-morphs toggle defaults to false (off). "Known" means a
   // strict 2/2 — the form's last two recorded attempts were both fully
@@ -1064,6 +1066,8 @@ export function restoreState() {
     runtime.parsingCustomParadigms = sanitizeParadigmKeyMap(saved.parsingCustomParadigms);
     // English → Greek parsing direction (default false).
     runtime.parsingReverse = !!saved.parsingReverse;
+    // Lookup / "Build mode" (default false). morphLookupState stays ephemeral.
+    runtime.parsingLookup = !!saved.parsingLookup;
     // Accent/breathing look-alike distractors in the reverse drill (default false).
     runtime.accentLookalikes = !!saved.accentLookalikes;
     // Per-category sub-filters: default each to true if missing.

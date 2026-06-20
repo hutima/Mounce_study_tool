@@ -767,6 +767,18 @@ function isDeponentLemma(lemma) {
 // accepted answers for these tenses (see buildMorphSteps).
 const MIDDLE_PASSIVE_SYNCRETIC_TENSES = new Set(['present', 'imperfect', 'perfect', 'pluperfect']);
 
+// True when a (non-deponent) verb's voice is the syncretic middle/passive: a
+// middle/passive/combined voice in a tense where the two share one form. Shared
+// by buildMorphSteps (collapses the voice step to 'middle/passive') and the
+// lookup pool (offers both a middle and a passive branch for such a form).
+export function isSyncreticMiddlePassiveVoice(dims, lemma) {
+  if (!dims) return false;
+  const voice = dims.voice;
+  return MIDDLE_PASSIVE_SYNCRETIC_TENSES.has(dims.tense)
+    && (voice === 'middle' || voice === 'passive' || voice === 'middle/passive')
+    && !isDeponentLemma(lemma);
+}
+
 export function buildMorphSteps(card, accessiblePools = null, options = {}) {
   if (!card || card.kind !== 'morph') return [];
   // Prefer the canonical parsed form when set — grammar.js cards can ship
@@ -891,9 +903,7 @@ export function buildMorphSteps(card, accessiblePools = null, options = {}) {
     // option and the headline correct value, so the correction never points
     // at a voice the student couldn't have picked.
     const syncreticMiddlePassive = dimKey === 'voice'
-      && MIDDLE_PASSIVE_SYNCRETIC_TENSES.has(dims.tense)
-      && (correct === 'middle' || correct === 'passive' || correct === 'middle/passive')
-      && !isDeponentLemma(card.lemma);
+      && isSyncreticMiddlePassiveVoice(dims, card.lemma);
     const stepCorrect = syncreticMiddlePassive ? 'middle/passive' : correct;
     const choices = buildChoices(dimKey, stepCorrect, pool, dimValueFilters);
     const displayCorrect = applyDisplaySuffix(dimKey, stepCorrect);

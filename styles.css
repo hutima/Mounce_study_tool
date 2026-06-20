@@ -1027,6 +1027,10 @@
   #controlsBar { flex-direction: column; align-items: stretch; gap: 10px; }
   #controlsBar > .toggle-label { justify-content: flex-start; gap: 10px; }
   #controlsBar > .toggle-label > .toggle-switch { order: -1; }
+  /* Build/Lookup toggle promoted to its own display-prefs row (under Text size):
+     match the controls-bar layout (switch on the left). */
+  .parsing-lookup-row > .toggle-label { justify-content: flex-start; gap: 10px; }
+  .parsing-lookup-row > .toggle-label > .toggle-switch { order: -1; }
   /* (i) info button injected into each master toggle (opens a describe-modal). */
   .toggle-info {
     flex-shrink: 0;
@@ -2014,6 +2018,95 @@
     font-size: calc((18px) * var(--text-scale));
     color: var(--cream);
     margin-bottom: 12px;
+  }
+
+  /* ── Build / Lookup mode (interactive paradigm reference) ── */
+  .morph-lookup-lemma {
+    margin-bottom: 2px;
+  }
+  .morph-lookup-hint {
+    font-size: calc((12.5px) * var(--text-scale));
+    color: var(--muted);
+    margin: 6px 0 12px;
+  }
+  .morph-lookup-trail {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    justify-content: center;
+    margin: 4px 0 14px;
+  }
+  .morph-lookup-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 9px;
+    border-radius: 999px;
+    border: 1px solid var(--border);
+    background: rgba(255,255,255,0.03);
+    color: var(--cream);
+    font-size: calc((12.5px) * var(--text-scale));
+    line-height: 1.2;
+    cursor: pointer;
+  }
+  button.morph-lookup-chip:hover {
+    border-color: var(--gold-dim);
+    background: rgba(201,168,76,0.12);
+  }
+  .morph-lookup-chip.locked {
+    cursor: default;
+    opacity: 0.7;
+  }
+  .morph-lookup-chip-dim {
+    font-family: var(--font-display);
+    font-size: calc((10px) * var(--text-scale));
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    color: var(--gold-dim);
+  }
+  .morph-lookup-chip-val {
+    color: var(--cream);
+  }
+  .morph-lookup-chip-edit {
+    color: var(--muted);
+    font-size: calc((11px) * var(--text-scale));
+  }
+  .morph-lookup-result {
+    margin-top: 6px;
+    padding: 16px 14px;
+    border-radius: 10px;
+    background: rgba(201,168,76,0.06);
+    border: 1px solid var(--gold-dim);
+    text-align: center;
+  }
+  .morph-lookup-result-label {
+    font-family: var(--font-display);
+    font-size: calc((11px) * var(--text-scale));
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    color: var(--gold-dim);
+    margin-bottom: 4px;
+  }
+  .morph-lookup-form {
+    font-family: var(--font-greek, var(--font-display));
+    font-size: calc((30px) * var(--text-scale));
+    color: var(--gold-light);
+    line-height: 1.25;
+    margin-bottom: 6px;
+  }
+  .morph-lookup-parse {
+    font-size: calc((13.5px) * var(--text-scale));
+    color: var(--cream);
+    margin-bottom: 4px;
+  }
+  .morph-lookup-reset-row {
+    margin-top: 12px;
+  }
+  .morph-lookup-reset {
+    margin-top: 12px;
+  }
+  .morph-lookup-empty {
+    margin-top: 10px;
   }
 
   .morph-step-summary {

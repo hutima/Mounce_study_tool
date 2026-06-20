@@ -657,6 +657,12 @@ export function getCardsForFocusedParadigm(selectedKeys, focusedLemma, options =
   const filtered = preGenderFiltered
     .filter((c) => cardPassesDimValueFilters(c, dimValueFilters, multiGenderLemmas));
 
+  // Lookup mode wants every distinct (form, parse) pair, not one card per form:
+  // a syncretic form like ἔλυον (imperfect 1sg AND 3pl) must keep both parse
+  // paths so the faceted walk can reach each. Return the filtered list whole,
+  // before the per-form dedup that the drill deck relies on.
+  if (options.includeSyncretic) return filtered;
+
   // Per-form dedup. Multiple sources can carry the same form (e.g.
   // grammar.js ch 5's εἰμί 1-sg question + a paradigm set's εἰμί entry).
   // In parsing mode they all render the same step-by-step walk — keeping

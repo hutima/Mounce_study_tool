@@ -111,6 +111,12 @@ update that doc in the same commit. Line numbers in the doc are approximate.
           <button class="theme-btn" id="textSizeXLargeBtn" type="button" onclick="setTextSize('x-large')">X-Large</button>
         </div>
       </div>
+      <div class="display-prefs-row parsing-lookup-row" id="parsingLookupRow" style="display:none">
+        <button class="toggle-label" id="parsingLookupToggle" type="button" role="switch" aria-checked="false" onclick="toggleParsingLookup()" title="Build mode: instead of being drilled, pick a focused paradigm and build any of its forms part by part — choose tense, voice, mood, … and the tool shows the matching Greek. A conjugation / declension reference over the whole paradigm (every chapter, optional + extra forms included). Off the record — nothing is graded. Also reachable as 'Build mode' at the top of the Current-chapter dropdown.">
+          <span class="toggle-text">Build mode (look up any form)</span>
+          <span class="toggle-switch" id="parsingLookupBtn" aria-hidden="true"></span>
+        </button>
+      </div>
     </div>
 <div class="controls-bar" id="controlsBar">
 <button class="toggle-label" id="shuffleToggle" type="button" role="switch" aria-checked="false" onclick="toggleShuffle()" title="Shuffle the deck order. Off keeps a fixed order (by chapter, then frequency); on randomises the order each time the deck is built or reshuffled.">

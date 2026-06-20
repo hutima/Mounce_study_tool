@@ -116,6 +116,13 @@ export const runtime = {
   // stable across re-renders of the same card (answer feedback re-renders
   // the card). Rebuilt whenever the focused card changes. Not persisted.
   parsingReverseState: { cardId: null, options: [], correctForm: '' },
+  // Lookup mode ("Build mode"): an interactive paradigm reference inside
+  // parsing. Off by default; persisted. When on, the deck is bypassed and the
+  // student builds any form of the focused paradigm part-by-part.
+  parsingLookup: false,
+  // Ephemeral lookup walk state (pool + the dimension picks so far). Rebuilt
+  // when the focused paradigm changes; not persisted.
+  morphLookupState: { lemma: null, poolKey: '', pool: [], picks: {} },
   // Reverse-drill option: include curated accent/breathing look-alike forms
   // (e.g. relative ἥ vs article ἡ) as distractors so the student has to read
   // the accent/breathing, not just the letters. Off by default.

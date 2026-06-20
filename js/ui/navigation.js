@@ -76,7 +76,8 @@ let host = {
   ensureMorphFocusedParadigm: () => {},
   rebuildMorphDeckForStepMode: () => {},
   rebuildParsingCycle: () => {},
-  listAvailableParadigmLemmas: () => []
+  listAvailableParadigmLemmas: () => [],
+  prepareLookupFocus: () => {}
 };
 
 export function configureNavigation(deps) {
@@ -998,6 +999,34 @@ export function toggleParsingReverse() {
   host.resetMorphAnswerState();
   host.syncToggleButtons();
   if (!runtime.selectedKeys.length) {
+    host.saveState();
+    return;
+  }
+  const keysToLoad = runtime.currentSession ? expandSessionSets(runtime.currentSession) : runtime.selectedKeys;
+  loadDeckFromKeys(keysToLoad, runtime.currentSession ? runtime.currentSession.id : null);
+}
+
+// Lookup / "Build mode": an interactive paradigm reference inside parsing.
+// Turning it on disables the other parsing sub-modes (reverse, shuffle-all,
+// custom set), resets the walk state, and prepares a default focus at the
+// widest scope (handled by prepareLookupFocus in main.js).
+export function toggleParsingLookup() {
+  if (!host.isParsingMode()) return;
+  runtime.parsingLookup = !runtime.parsingLookup;
+  if (runtime.parsingLookup) {
+    runtime.parsingReverse = false;
+    runtime.parsingShuffleAll = false;
+    runtime.parsingCustomReview = false;
+    runtime.parsingReverseState = { cardId: null, options: [], correctForm: '' };
+    runtime.morphLookupState = { lemma: null, poolKey: '', pool: [], picks: {} };
+    host.prepareLookupFocus();
+  }
+  host.resetMorphStepState();
+  host.resetMorphAnswerState();
+  host.syncToggleButtons();
+  host.syncLayoutVisibility();
+  if (!runtime.selectedKeys.length) {
+    renderCard();
     host.saveState();
     return;
   }
