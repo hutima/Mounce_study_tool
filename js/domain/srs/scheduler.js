@@ -126,20 +126,40 @@ export function getEasyDelayMs(progress, cadence = DEFAULT_CADENCE) {
   return msFromDays(getNextEasyIntervalDays(progress, cadence));
 }
 
-// If any of the last 3 flips were uncertain or unknown (sample < 1), the
-// card is treated as uncertain and its interval is capped at capDays ×
-// recent certainty (last-3 avg). Easy passes capDays:1 + floorMs:1h so the
-// next 'easy' lands between 1 h and 1 day; Pass/Uncertain use the default
-// capDays:7 (no floor — its own UNCERTAIN_MIN_MS handles the floor at the
-// call site). Returns null when the rule does not apply.
-export function getRecentUncertainCeilingMs(progress, { capDays = 7, floorMs = 0 } = {}) {
+// Caps an interval after a recent stumble at capDays × recent certainty (avg
+// over the consulted flips). The lookback window is severity-aware
+// (recordConfidenceSample runs before scheduling, so the flip just made is the
+// last element here; samples are 1 easy / 0.5 uncertain / 0 hard):
+//   • A hard miss (sample 0, a 'Hard'/'again' flip) inside the last
+//     `hardLookback` (3) flips keeps the cap on for the full 3-flip window — a
+//     real miss should resurface the card several times before it earns normal
+//     cadence again.
+//   • A soft 'uncertain' stumble (sample 0.5) with no hard miss in range only
+//     lingers for `softLookback` (1) flip: a single clean flip afterward lifts
+//     the cap, so a transient mistake costs one review cycle, not three.
+// Because the window is position-based, an 'uncertain' that follows a hard miss
+// still counts as one of the three flips that must pass before the 0 leaves the
+// window — so Hard → Uncertain needs only two more clean flips while never
+// short-circuiting to the soft one-flip path (0.5 is not < HARD_MISS_SAMPLE_MAX).
+// Easy passes capDays:1 + floorMs:1h so the next 'easy' lands between 1 h and 1
+// day; Pass/Uncertain use the default capDays:7 (no floor — its own
+// UNCERTAIN_MIN_MS handles the floor at the call site). Returns null when no
+// stumble is in range.
+const HARD_MISS_SAMPLE_MAX = 0.5; // sample strictly below this = a 'Hard'/again miss
+export function getRecentUncertainCeilingMs(progress, { capDays = 7, floorMs = 0, hardLookback = 3, softLookback = 1 } = {}) {
   const history = Array.isArray(progress?.confidenceHistory)
     ? progress.confidenceHistory.filter(Number.isFinite)
     : [];
-  const last3 = history.slice(-3);
-  if (!last3.length) return null;
-  if (!last3.some(value => value < 1)) return null;
-  const certainty = last3.reduce((sum, value) => sum + value, 0) / last3.length;
+  if (!history.length) return null;
+  const hardWindow = Math.max(1, Math.floor(hardLookback) || 1);
+  const softWindow = Math.max(1, Math.floor(softLookback) || 1);
+  // A hard miss anywhere in the last `hardWindow` flips holds the longer
+  // window; otherwise only the soft window's most-recent flip(s) are consulted.
+  const hasRecentHardMiss = history.slice(-hardWindow).some(value => value < HARD_MISS_SAMPLE_MAX);
+  const window = hasRecentHardMiss ? hardWindow : softWindow;
+  const recent = history.slice(-window);
+  if (!recent.some(value => value < 1)) return null;
+  const certainty = recent.reduce((sum, value) => sum + value, 0) / recent.length;
   return Math.max(floorMs, msFromDays(capDays * certainty));
 }
 

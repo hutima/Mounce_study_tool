@@ -55,7 +55,8 @@ import {
   buildTitleLadderHtml,
   buildWordStatCardHtml,
   buildDimValueBarsHtml,
-  buildParsingAccuracyBucketsSvg
+  buildParsingAccuracyBucketsSvg,
+  buildParsingOutcomeMixHtml
 } from './charts.js';
 import { showLevelToast, showBadgeToast } from './toast.js';
 import { buildDueHistogramHtml } from './progress.js';
@@ -834,7 +835,7 @@ function weakestValueTagHtml(weakest) {
 // currently-enabled parse steps, like the per-paradigm rows below it. Returns
 // '' when there isn't enough history to be meaningful (a single short bucket).
 function buildParsingAccuracyTrendHtml(stats, enabledDims) {
-  const { buckets, totalParses } = getParsingAccuracyBuckets(stats, enabledDims, PARSING_ACCURACY_BUCKET_SIZE);
+  const { buckets, totalParses, outcomes } = getParsingAccuracyBuckets(stats, enabledDims, PARSING_ACCURACY_BUCKET_SIZE);
   if (!buckets.length || totalParses < 2) return '';
   const latest = buckets[buckets.length - 1];
   const prev = buckets.length > 1 ? buckets[buckets.length - 2] : null;
@@ -847,12 +848,23 @@ function buildParsingAccuracyTrendHtml(stats, enabledDims) {
     else trend = ` · no change vs previous ${PARSING_ACCURACY_BUCKET_SIZE}`;
   }
   const caption = `Each bar = up to ${PARSING_ACCURACY_BUCKET_SIZE} parses · oldest → most recent · % of parses fully correct under your enabled steps`;
-  return `
+  const trendCard = `
     <div class="analytics-chart-card">
       <div class="analytics-chart-title">Parsing accuracy over recent guesses</div>
       ${buildParsingAccuracyBucketsSvg(buckets, { title: 'Parsing accuracy over recent guesses', bucketSize: PARSING_ACCURACY_BUCKET_SIZE })}
       <div class="dim-value-caption">Latest run: <strong>${latest.fullPct}%</strong> (${latest.fulls}/${latest.count} clean)${trend}. ${escapeHtml(caption)}.</div>
     </div>`;
+
+  // Outcome-mix: the latest run + every recorded parse, split into clean /
+  // reattempted / missed — the direct readout of the 3-tier scoring.
+  const mixRows = [
+    { label: `Latest run (${latest.count})`, clean: latest.clean, reattempted: latest.reattempted, missed: latest.missed }
+  ];
+  if (buckets.length > 1 && outcomes) {
+    mixRows.push({ label: `All recent (${totalParses})`, clean: outcomes.clean, reattempted: outcomes.reattempted, missed: outcomes.missed });
+  }
+  const mixCard = buildParsingOutcomeMixHtml(mixRows, { title: 'Parse outcome mix' });
+  return `${trendCard}${mixCard}`;
 }
 
 function renderParadigmStepStatsSection() {

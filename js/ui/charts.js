@@ -506,6 +506,58 @@ export function buildParsingAccuracyBucketsSvg(buckets, options = {}) {
   `;
 }
 
+// Horizontal stacked composition of parse outcomes under the 3-tier scoring:
+// clean (every dim right first try), reattempted (eventually right via undo —
+// half credit), and missed. `rows` is an array of
+// { label, clean, reattempted, missed }; each renders as a labelled stacked bar
+// with a count caption, so a glance reads how much of the recent drilling was
+// clean vs needed a nudge vs flat wrong. Returns '' when there's nothing to show.
+export function buildParsingOutcomeMixHtml(rows, options = {}) {
+  const list = (Array.isArray(rows) ? rows : []).filter((r) => {
+    const total = (r.clean || 0) + (r.reattempted || 0) + (r.missed || 0);
+    return total > 0;
+  });
+  if (!list.length) return '';
+  const segs = [
+    { key: 'clean', cls: 'parsing-outcome-seg-clean', label: 'clean' },
+    { key: 'reattempted', cls: 'parsing-outcome-seg-reattempt', label: 'reattempted' },
+    { key: 'missed', cls: 'parsing-outcome-seg-missed', label: 'missed' }
+  ];
+  const rowsHtml = list.map((r) => {
+    const clean = r.clean || 0;
+    const reattempted = r.reattempted || 0;
+    const missed = r.missed || 0;
+    const total = clean + reattempted + missed;
+    const barSegs = segs.map((s) => {
+      const v = r[s.key] || 0;
+      if (!v) return '';
+      const pct = (v / total) * 100;
+      const title = `${v} ${s.label} (${Math.round(pct)}%)`;
+      return `<span class="parsing-outcome-seg ${s.cls}" style="width:${pct.toFixed(2)}%" title="${escapeHtml(title)}"></span>`;
+    }).join('');
+    const counts = `<span class="parsing-outcome-count"><span class="parsing-outcome-swatch parsing-outcome-seg-clean"></span>${clean} clean</span>`
+      + `<span class="parsing-outcome-count"><span class="parsing-outcome-swatch parsing-outcome-seg-reattempt"></span>${reattempted} reattempted</span>`
+      + `<span class="parsing-outcome-count"><span class="parsing-outcome-swatch parsing-outcome-seg-missed"></span>${missed} missed</span>`;
+    return `
+      <div class="parsing-outcome-row">
+        <div class="parsing-outcome-rowhead">
+          <span class="parsing-outcome-label">${escapeHtml(r.label || '')}</span>
+          <span class="parsing-outcome-total">${total} parse${total === 1 ? '' : 's'}</span>
+        </div>
+        <div class="parsing-outcome-bar" role="img" aria-label="${escapeHtml(`${r.label || 'parses'}: ${clean} clean, ${reattempted} reattempted, ${missed} missed`)}">${barSegs}</div>
+        <div class="parsing-outcome-legend">${counts}</div>
+      </div>`;
+  }).join('');
+  const caption = options.caption
+    || 'A reattempted parse was undone and re-answered — eventually right, half credit.';
+  return `
+    <div class="analytics-chart-card">
+      <div class="analytics-chart-title">${escapeHtml(options.title || 'Parse outcome mix')}</div>
+      <div class="parsing-outcome-mix">${rowsHtml}</div>
+      <div class="dim-value-caption">${escapeHtml(caption)}</div>
+    </div>`;
+}
+
 export function buildDimValueBarsHtml(groups, options = {}) {
   if (!Array.isArray(groups) || !groups.length) {
     const msg = options.emptyText

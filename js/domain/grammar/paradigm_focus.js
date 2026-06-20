@@ -189,6 +189,16 @@ function categoryForLemma(lemma) {
   return PARADIGM_CATEGORIES[lemma] || 'Other constructions';
 }
 
+// Public variant for the parse summary / completed source line: the lemma's
+// paradigm category, or null for the un-catalogued "Other constructions"
+// catch-all (so callers fall back to card.family rather than printing the
+// generic bucket name). Shown only AFTER a parse completes — it names the
+// paradigm type, which mid-walk would leak the very tense being tested.
+export function paradigmCategoryForLemma(lemma) {
+  const category = categoryForLemma(lemma);
+  return category === 'Other constructions' ? null : category;
+}
+
 function displayLabelForLemma(lemma, item) {
   const override = PARADIGM_DISPLAY_OVERRIDES[lemma];
   if (override) return override;
