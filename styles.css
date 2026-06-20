@@ -594,6 +594,14 @@
     letter-spacing: 1px;
     margin-bottom: 10px;
   }
+  /* Small superscript star before a headword (multi-case prepositions). Sits
+     raised and shrunk so it reads as a marker, not part of the word. */
+  .card-headword-star {
+    font-size: 0.5em;
+    vertical-align: super;
+    line-height: 0;
+    color: var(--gold-dim);
+  }
   .card-hint {
     font-style: italic; font-size: calc((13px) * var(--text-scale)); color: var(--muted);
     text-align: center;
@@ -1033,8 +1041,9 @@
   .parsing-lookup-row > .toggle-label > .toggle-switch { order: -1; }
   /* (i) info button injected into each master toggle (opens a describe-modal). */
   .toggle-info {
+    position: relative;
     flex-shrink: 0;
-    width: 15px; height: 15px;
+    width: 16px; height: 16px;
     display: inline-flex; align-items: center; justify-content: center;
     border: 1px solid var(--gold-dim); border-radius: 50%;
     color: var(--gold-dim);
@@ -1043,6 +1052,15 @@
     letter-spacing: 0; text-transform: none;
     cursor: pointer;
     transition: color 0.1s, border-color 0.1s, background 0.1s;
+  }
+  /* Invisible 40×40 hit area so the tiny (i) glyph is comfortably tappable. */
+  .toggle-info::after {
+    content: '';
+    position: absolute;
+    top: 50%; left: 50%;
+    width: 40px; height: 40px;
+    transform: translate(-50%, -50%);
+    border-radius: 50%;
   }
   .toggle-info:hover, .toggle-info:focus-visible {
     color: var(--gold); border-color: var(--gold);

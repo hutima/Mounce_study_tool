@@ -47,6 +47,11 @@ export function configureRender(deps) {
   host = { ...host, ...deps };
 }
 
+// Small superscript star printed before a headword as a terse "watch this form"
+// marker — currently on multi-case prepositions (the meaning shifts with the
+// object's case). The trailing space keeps it off the first letter.
+const HEADWORD_STAR = '<sup class="card-headword-star" aria-hidden="true">★</sup> ';
+
 // Grammar MC options often carry a trailing parenthetical that names the very
 // grammatical category the prompt asks for, or glosses the form — e.g.
 // "ὁ ἀπόστολος (nominative)" against "(accusative)" siblings, or a parse
@@ -426,7 +431,7 @@ export function renderCard() {
 
   // Prepositions that govern more than one case get a star on both faces as a
   // reminder that the meaning depends on the case of the object.
-  const prepStar = host.isMultiCasePreposition(card) ? '★ ' : '';
+  const prepStar = host.isMultiCasePreposition(card) ? HEADWORD_STAR : '';
   // Vocab mode has no explicit chapter dropdown, so the selection itself is
   // the gate: its max effective chapter (same deriveSelectionLevels scale
   // parsing uses) caps the later stem annotations below. The second-aorist /
