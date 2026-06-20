@@ -258,9 +258,10 @@ export const runtime = {
   // into `spacedRepetition`; toggleSpacedRepetition writes back here.
   spacedByMode: { vocab: true, morph: false },
   // SRS spacing-cadence preset: 'intensive' (2-month course, default) keeps the
-  // tight easy-interval growth + ~2-week cap; 'relaxed' (8-month course)
-  // stretches both and blends in per-card difficulty. Read by applySpacedReview
-  // via getActiveCadence(); changing it only affects how future flips schedule.
+  // tight easy-interval growth + ~2-week cap; 'relaxed' (8-month course) uses a
+  // ~2-month cap with gentler ~2-week growth steps and per-card difficulty.
+  // Read by applySpacedReview via getActiveCadence(); changing it only affects
+  // how future flips schedule.
   spacingCadence: 'intensive',
   hardVocabReviewMode: false, // restrict vocab deck to cards missed >10× and still under 40% confidence
   activeDeckCount: 0,

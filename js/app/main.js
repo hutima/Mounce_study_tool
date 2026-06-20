@@ -138,10 +138,12 @@ import { getStorage, isLikelyIOS } from '../utils/storage.js';
 import { compareGreekAlphabetical } from '../utils/greekSort.js';
 
 // Domain — SRS
-import { SRS_NEAR_WINDOW_MS, SRS_CYCLE_ADVANCE_MS, SESSION_IDLE_RESET_MS, getCadencePreset } from '../domain/srs/constants.js';
+import { SRS_NEAR_WINDOW_MS, SRS_CYCLE_ADVANCE_MS, SESSION_IDLE_RESET_MS, SRS_UNCERTAIN_MIN_MS,
+         SRS_RELEARN_STEP_DAYS, SRS_HARD_RELEARN_STEPS,
+         LEECH_LAPSE_THRESHOLD, LEECH_UNPIN_STREAK, LEECH_DRILL_DAYS, getCadencePreset } from '../domain/srs/constants.js';
 import { msFromDays, daysFromMs, setProgressDelay,
          getSrsEase, getSrsStage, getLastEasyIntervalDays, getNextEasyIntervalDays,
-         getEasyDelayMs, getUncertainDelayMs, formatRemainingForTable } from '../domain/srs/scheduler.js';
+         formatRemainingForTable } from '../domain/srs/scheduler.js';
 import { recordConfidenceSample, getConfidencePct, computeCardXpAward } from '../domain/srs/confidence.js';
 
 // Domain — Gamification
@@ -2520,6 +2522,11 @@ function getWordProgress(cardId, { persist = false } = {}) {
     existing.firstConfirmedAt = Number.isFinite(existing.firstConfirmedAt) ? Math.max(0, existing.firstConfirmedAt) : 0;
     existing.confidence = Number.isFinite(existing.confidence) ? Math.max(0, existing.confidence) : 0;
     existing.confidenceHistory = Array.isArray(existing.confidenceHistory) ? existing.confidenceHistory.filter(value => Number.isFinite(value)).slice(-10) : [];
+    // Lapse relearn ladder + leech + variant-set cycle state (see applySpacedReview).
+    existing.inRelearn = !!existing.inRelearn;
+    existing.relearnLeft = Number.isFinite(existing.relearnLeft) ? Math.max(0, Math.floor(existing.relearnLeft)) : 0;
+    existing.lapseCount = Number.isFinite(existing.lapseCount) ? Math.max(0, Math.floor(existing.lapseCount)) : 0;
+    existing.cycleFacesPassed = Array.isArray(existing.cycleFacesPassed) ? existing.cycleFacesPassed.filter(id => typeof id === 'string') : [];
     return existing;
   }
   const fresh = {
@@ -2537,7 +2544,11 @@ function getWordProgress(cardId, { persist = false } = {}) {
     firstSeenAt: 0,
     firstConfirmedAt: 0,
     confidence: 0,
-    confidenceHistory: []
+    confidenceHistory: [],
+    inRelearn: false,
+    relearnLeft: 0,
+    lapseCount: 0,
+    cycleFacesPassed: []
   };
   if (persist) progressStore[cardId] = fresh;
   return fresh;
@@ -2923,16 +2934,6 @@ function getActiveCadence() {
   return getCadencePreset(runtime.spacingCadence);
 }
 
-function seedMinimumUncertainSchedule(cardId, reviewedAt = Date.now()) {
-  const progress = getWordProgress(cardId, { persist: true });
-  const minimumDelayMs = getUncertainDelayMs(progress, getActiveCadence());
-  const minimumDueAt = reviewedAt + minimumDelayMs;
-  if (!progress.dueAt || progress.dueAt < minimumDueAt) {
-    setProgressDelay(progress, minimumDelayMs, reviewedAt);
-  }
-  return progress;
-}
-
 function getDeckAggregateStats(cards = runtime.originalDeck) {
   // Shared base/second-aorist progress entries count once, not per face.
   const counted = new Set();
@@ -2974,6 +2975,17 @@ function resolveSharedFaceOutcome(card, ratedOutcome) {
   return sibling;
 }
 
+// A card is "leech-drilling" (8-month cadence only) once it has lapsed
+// LEECH_LAPSE_THRESHOLD times and has not yet strung together
+// LEECH_UNPIN_STREAK correct passes in a row. While drilling it's pinned to a
+// 1-day interval and rebuilt from the bottom; the streak releases it (the
+// easyStreak below is checked after this review's increment).
+function isLeechDrilling(progress, cadence) {
+  return !!cadence.leechEnabled
+    && (progress.lapseCount || 0) >= LEECH_LAPSE_THRESHOLD
+    && (progress.easyStreak || 0) < LEECH_UNPIN_STREAK;
+}
+
 function applySpacedReview(card, outcome) {
   const now = Date.now();
   const ratedOutcome = outcome === 'pass' ? 'pass' : outcome === 'easy' ? 'easy' : 'again';
@@ -2981,42 +2993,73 @@ function applySpacedReview(card, outcome) {
   // entry is graded by its weaker face (see resolveSharedFaceOutcome).
   const normalizedOutcome = resolveSharedFaceOutcome(card, ratedOutcome);
   const progress = recordStudyOutcome(card.id, normalizedOutcome, now);
-
   const cadence = getActiveCadence();
-  if (normalizedOutcome === 'easy') {
-    const nextIntervalDays = getNextEasyIntervalDays(progress, cadence);
-    progress.streak += 1;
-    progress.easyStreak = (progress.easyStreak || 0) + 1;
-    progress.srsStage = getSrsStage(progress) + 1;
-    progress.ease = clamp(getSrsEase(progress) + 0.08, 1.3, 3.0);
-    progress.lastEasyIntervalDays = nextIntervalDays;
-    progress.firstConfirmedAt = progress.firstConfirmedAt || now;
-    setProgressDelay(progress, msFromDays(nextIntervalDays), now);
-    getDirectionalMarksStore()[card.id] = 'known';
-  } else if (normalizedOutcome === 'pass') {
-    progress.streak += 1;
-    progress.easyStreak = 0;
-    progress.ease = clamp(getSrsEase(progress) - 0.05, 1.3, 3.0);
-    progress.lastEasyIntervalDays = Math.max(getLastEasyIntervalDays(progress), progress.intervalDays || 0);
-    setProgressDelay(progress, getUncertainDelayMs(progress, cadence), now);
-    getDirectionalMarksStore()[card.id] = 'unsure';
-  } else {
-    // 'again' (default for any unknown outcome).
-    // No deferred timer: leave dueAt at now so the card stays eligible, and
-    // drop its id from spacedActiveIds so buildStudyDeck routes it to the
-    // middle pile (due AND not in the carry-over active set). It then
-    // resurfaces when active drains and middle dumps in — alongside any
-    // cards whose pass/uncertain timer happened to expire during the pass.
+
+  if (normalizedOutcome === 'again') {
+    // Hard miss → relearn ladder: re-queued in-session, then SRS_HARD_RELEARN_STEPS
+    // one-day passes, then it graduates back to ½ its pre-lapse interval (so a
+    // word known for weeks isn't cratered to zero by a single miss). Ease drops
+    // and the lapse is counted (feeds 8-month leech drilling). dueAt stays at
+    // now so buildStudyDeck routes it to the middle pile, as before.
     progress.streak = 0;
     progress.easyStreak = 0;
     progress.srsStage = Math.max(0, getSrsStage(progress) - 1);
     progress.ease = clamp(getSrsEase(progress) - 0.2, 1.3, 3.0);
+    progress.lapseCount = (progress.lapseCount || 0) + 1;
     progress.lastEasyIntervalDays = Math.max(getLastEasyIntervalDays(progress), progress.intervalDays || 0);
+    progress.inRelearn = true;
+    progress.relearnLeft = SRS_HARD_RELEARN_STEPS;
     setProgressDelay(progress, 0, now);
     if (Array.isArray(runtime.spacedActiveIds)) {
       runtime.spacedActiveIds = runtime.spacedActiveIds.filter(id => id !== card.id);
     }
     getDirectionalMarksStore()[card.id] = 'unsure';
+  } else if (normalizedOutcome === 'pass') {
+    // Uncertain → 2h re-test (one confirming pass) before the interval resumes;
+    // ease untouched (a quick recovery shouldn't penalize a known word). Keeps
+    // any in-progress hard relearn ladder so an uncertain blip just delays
+    // rather than discarding the laddered passes.
+    progress.streak += 1;
+    progress.easyStreak = 0;
+    progress.lastEasyIntervalDays = Math.max(getLastEasyIntervalDays(progress), progress.intervalDays || 0);
+    progress.inRelearn = true;
+    if (!Number.isFinite(progress.relearnLeft)) progress.relearnLeft = 0;
+    setProgressDelay(progress, SRS_UNCERTAIN_MIN_MS, now);
+    getDirectionalMarksStore()[card.id] = 'unsure';
+  } else {
+    // Easy (correct).
+    progress.streak += 1;
+    progress.easyStreak = (progress.easyStreak || 0) + 1;
+    progress.srsStage = getSrsStage(progress) + 1;
+    progress.ease = clamp(getSrsEase(progress) + 0.08, 1.3, 3.0);
+    progress.firstConfirmedAt = progress.firstConfirmedAt || now;
+    if (isLeechDrilling(progress, cadence)) {
+      // Chronic leech (8-month): drill at 1 day, rebuilding from the bottom,
+      // until LEECH_UNPIN_STREAK correct passes in a row release it — then the
+      // check above stops matching and it grows normally from 1 day again.
+      progress.inRelearn = false;
+      progress.relearnLeft = 0;
+      progress.lastEasyIntervalDays = LEECH_DRILL_DAYS;
+      setProgressDelay(progress, msFromDays(LEECH_DRILL_DAYS), now);
+    } else if (progress.inRelearn) {
+      if ((progress.relearnLeft || 0) > 0) {
+        // Climb the relearn ladder: another 1-day pass before graduating.
+        progress.relearnLeft -= 1;
+        setProgressDelay(progress, msFromDays(SRS_RELEARN_STEP_DAYS), now);
+      } else {
+        // Graduate: resume at ½ the pre-lapse interval, capped per cadence
+        // (7d intensive / 14d 8-month), then grow normally from there.
+        progress.inRelearn = false;
+        const resumeDays = Math.min(0.5 * getLastEasyIntervalDays(progress), cadence.lapseResumeCapDays);
+        progress.lastEasyIntervalDays = resumeDays;
+        setProgressDelay(progress, msFromDays(resumeDays), now);
+      }
+    } else {
+      const nextIntervalDays = getNextEasyIntervalDays(progress, cadence);
+      progress.lastEasyIntervalDays = nextIntervalDays;
+      setProgressDelay(progress, msFromDays(nextIntervalDays), now);
+    }
+    getDirectionalMarksStore()[card.id] = 'known';
   }
 
   progress.lastSpacedOutcome = normalizedOutcome;
