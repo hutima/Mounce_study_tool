@@ -33,7 +33,7 @@ presets, off-the-record parsing). Consult it before applying a duff diff.
 
 ### Porting status — last version ported
 
-**Last reviewed duff PR: #292 (`a82839e`, 2026-06-20).** When checking for new
+**Last reviewed duff PR: #294 (`929143d`, 2026-06-20).** When checking for new
 duff work, diff `origin/main` against that commit forward.
 
 - **Ported in full through duff #288** (parsing undo + 3-tier scoring,
@@ -54,3 +54,6 @@ duff work, diff `origin/main` against that commit forward.
     model-agnostic bit — hide the empty controls-bar frame in reader mode
     (`syncLayoutVisibility`).
   - **#292** selector spacing tweak — **skip** (rides on #289's starred toggle).
+  - **#293–#294** CSS fixes to `.selector-required-toggle` (dead margin /
+    30px→15px gap) — **N/A**: that mirror "Starred words only" toggle is #289's,
+    which Mounce never added, so there's no element to style.
