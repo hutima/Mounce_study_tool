@@ -11,7 +11,7 @@ import { isPlainObject, shuffleArray } from '../utils/helpers.js';
 import { getStorage, isLikelyIOS } from '../utils/storage.js';
 import { shieldClicksBriefly } from '../utils/clickShield.js';
 import { sortSetKeys } from '../domain/deck/ordering.js';
-import { filterHardVocabCards } from '../domain/deck/filters.js';
+import { filterHardVocabCards, IRREGULAR_CARD_CONFIGS } from '../domain/deck/filters.js';
 import { SESSION_IDLE_RESET_MS, SRS_CADENCE_PRESETS, DEFAULT_SRS_CADENCE } from '../domain/srs/constants.js';
 import { STATE_MIGRATIONS, summarizePersistedState, formatPersistedStateSummary, compactPersistedState, compactRuntimeStores } from './migrations.js';
 import {
@@ -209,6 +209,25 @@ function sanitizeDimValueFilters(input) {
   return out;
 }
 
+// Normalizes the per-concept irregular "… as cards" override map. Only explicit
+// true/false survive (a missing key stays "auto" — on when its chapter is
+// selected). Migrates the legacy boolean `secondAoristCards`: a user who had it
+// on keeps the 2nd-aorist split on explicitly; off/absent falls through to the
+// new auto default.
+function sanitizeIrregularCards(candidate) {
+  const src = (candidate && candidate.irregularCards && typeof candidate.irregularCards === 'object')
+    ? candidate.irregularCards : {};
+  const out = {};
+  IRREGULAR_CARD_CONFIGS.forEach(({ tag }) => {
+    if (src[tag] === true) out[tag] = true;
+    else if (src[tag] === false) out[tag] = false;
+  });
+  if (out['2aor'] === undefined && candidate && candidate.secondAoristCards === true) {
+    out['2aor'] = true;
+  }
+  return out;
+}
+
 // Normalizes a persisted "lemma → true" map (the custom paradigm set) to a
 // plain object keeping only truthy entries. Tolerates a missing/garbage value
 // (returns {}). Keys are kept verbatim — paradigm lemmas are matched against
@@ -267,7 +286,8 @@ export function buildPersistedStatePayload(options = {}) {
     paradigmStepStats: runtime.paradigmStepStats,
     aspectStep: runtime.aspectStep,
     stemNotes: runtime.stemNotes,
-    secondAoristCards: runtime.secondAoristCards,
+    irregularCards: runtime.irregularCards,
+    irregularTense: runtime.irregularTense,
     dimToggles: runtime.dimToggles,
     dimValueFilters: runtime.dimValueFilters,
     includeOptionalForms: runtime.includeOptionalForms,
@@ -350,8 +370,12 @@ function sanitizeImportedState(candidate) {
   state.aspectStep = candidate.aspectStep === true;
   // Same default-true contract for the vocab-card stem/declension notes.
   state.stemNotes = candidate.stemNotes !== false;
-  // Second-aorists-as-cards defaults off; only an explicit `true` enables it.
-  state.secondAoristCards = candidate.secondAoristCards === true;
+  // Irregular-card tense caption defaults on; only an explicit `false` hides it.
+  state.irregularTense = candidate.irregularTense !== false;
+  // Irregular "… as cards" overrides: explicit true/false only; missing keys
+  // stay auto (on when the concept's chapter is selected). Migrates the legacy
+  // secondAoristCards boolean.
+  state.irregularCards = sanitizeIrregularCards(candidate);
   // Per-dim toggles default to true. Missing keys (e.g. an older import
   // predating this field) hydrate to true so existing decks keep
   // drilling every dim as before.
@@ -1049,7 +1073,8 @@ export function restoreState() {
     runtime.paradigmStepStats = sanitizeParadigmStepStats(saved.paradigmStepStats);
     runtime.aspectStep = saved.aspectStep === true;
     runtime.stemNotes = saved.stemNotes !== false;
-    runtime.secondAoristCards = saved.secondAoristCards === true;
+    runtime.irregularTense = saved.irregularTense !== false;
+    runtime.irregularCards = sanitizeIrregularCards(saved);
     const DIM_TOGGLE_KEYS = ['tense', 'voice', 'mood', 'person', 'number', 'case', 'gender'];
     const savedDt = (saved.dimToggles && typeof saved.dimToggles === 'object') ? saved.dimToggles : {};
     runtime.dimToggles = {};

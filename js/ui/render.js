@@ -52,6 +52,17 @@ export function configureRender(deps) {
 // object's case). The trailing space keeps it off the first letter.
 const HEADWORD_STAR = '<sup class="card-headword-star" aria-hidden="true">★</sup> ';
 
+// Spell out the derived-card form abbreviation (card.derivedShort) for the
+// "(aorist)" / "(future)" caption under a generated "Variant forms as cards"
+// headword — names the tense/voice, not the meaning, so it's safe pre-flip.
+const FORM_TAG_FULL_LABELS = {
+  'aor': 'aorist',
+  'fut': 'future',
+  'pf': 'perfect',
+  'aor pass': 'aorist passive',
+  'pres': 'present'
+};
+
 // Grammar MC options often carry a trailing parenthetical that names the very
 // grammatical category the prompt asks for, or glosses the form — e.g.
 // "ὁ ἀπόστολος (nominative)" against "(accusative)" siblings, or a parse
@@ -448,7 +459,21 @@ export function renderCard() {
   // A card carries at most one inline stem: the verbal stem for second-aorist /
   // liquid-future verbs, or the third-declension noun stem (never both).
   const stemInline = notesOn ? (verbStemInlineHtml(card) || nounStemInlineHtml(card, maxCh)) : '';
-  const greekDisplay = `${prepStar}${host.formatGreekHeadword(card.g)}${stemInline}`;
+  // Generated (derived) cards from the "Variant forms as cards" toggles flag the
+  // form type under the headword on the question face: "(aorist)" / "(future)"…
+  // It names the tense/voice, not the meaning, so it's safe before the flip.
+  // Gated by "Show tense on irregular cards": when off, a superscript star (the
+  // shared HEADWORD_STAR) stands in, flagging the non-standard form without
+  // naming its tense. No-op on normal cards (no derivedShort).
+  const formTagFull = card.derivedShort
+    ? (FORM_TAG_FULL_LABELS[card.derivedShort] || card.derivedShort)
+    : '';
+  const irregularTenseOn = runtime.irregularTense !== false;
+  const formTagLine = (formTagFull && irregularTenseOn)
+    ? `<div class="card-form-tag">(${escapeHtml(formTagFull)})</div>`
+    : '';
+  const irregularStar = (formTagFull && !irregularTenseOn) ? HEADWORD_STAR : '';
+  const greekDisplay = `${prepStar}${irregularStar}${host.formatGreekHeadword(card.g)}${stemInline}`;
   const englishDisplay = `${prepStar}${card.e || '—'}`;
   const requiredLabelHTML = `<span class="card-required-label card-required-label-${card.required ? 'req' : 'opt'}">(${card.required ? 'req.' : 'opt.'})</span>`;
   // Verbs with irregular principal parts get them in one small bracketed line
@@ -459,7 +484,7 @@ export function renderCard() {
   // being drilled, so it must not appear on the question face before the flip.
   // The question (Greek front) face gets nothing; the answer faces keep the
   // full line as the reveal payoff.
-  const verbStemAltQuestionHTML = card.secondAoristOf ? '' : verbStemAltHTML;
+  const verbStemAltQuestionHTML = card.derivedFrom ? '' : verbStemAltHTML;
   // Third-declension nouns carry a "declines like σάρξ" pointer in the hint
   // line of the Greek-bearing face, anchoring each noun to its model paradigm.
   const declModelTag = notesOn ? nounDeclensionModelSuffix(card, maxCh) : '';
@@ -515,6 +540,7 @@ export function renderCard() {
           ${requiredLabelHTML}
           <span class="card-label">Greek</span>
           <div class="card-greek">${greekDisplay}</div>
+          ${formTagLine}
           ${verbStemAltQuestionHTML}
           <div class="card-hint">${sourceLabelDisplay}${declModelTag}</div>
           <div class="flip-hint">click to reveal →</div>
@@ -757,9 +783,10 @@ function getPerfectActiveByLemma() {
 // supplemental/advanced/flip cards and lemmas without a recorded stem.
 function verbStemInlineHtml(card) {
   if (!card || card.advanced || card.supplemental || card.stemFlip) return '';
-  // Standalone second-aorist cards carry their stem directly (the lookup is
-  // keyed by present-stem lemma, which their headword isn't).
-  const stem = card.secondAoristOf ? card.secondAoristStem : getVerbStemByLemma()[stemAltLookupKey(card.g)];
+  // Standalone derived cards ("Variant forms as cards") carry their stem
+  // directly (the lookup is keyed by present-stem lemma, which their headword
+  // isn't).
+  const stem = card.derivedFrom ? (card.derivedStem || '') : getVerbStemByLemma()[stemAltLookupKey(card.g)];
   return stem ? `<span class="card-stem-inline">, ${escapeHtml(stem)}</span>` : '';
 }
 
@@ -775,10 +802,11 @@ function verbStemInlineHtml(card) {
 // with no recorded parts.
 function verbStemAltHtml(card, maxChapter) {
   if (!card || card.advanced || card.supplemental || card.stemFlip) return '';
-  // A standalone second-aorist card (the "Second aorists as cards" toggle)
-  // points back at its present-stem parent instead of listing parts.
-  if (card.secondAoristOf) {
-    return `<div class="card-stem-alts"><span class="card-stem-alts-label">2 aor. of</span> [${escapeHtml(card.secondAoristOf)}]</div>`;
+  // A standalone derived card (the "Variant forms as cards" toggles) points
+  // back at its present-stem parent instead of listing parts, with the form
+  // type from its config ("2 aor. of", "pf. of", "aor. pass. of", …).
+  if (card.derivedFrom) {
+    return `<div class="card-stem-alts"><span class="card-stem-alts-label">${escapeHtml(card.derivedLabel || 'of')}</span> [${escapeHtml(card.derivedFrom)}]</div>`;
   }
   const unlocked = (ch) => maxChapter == null || maxChapter >= ch;
   const parts = [];
