@@ -33,8 +33,8 @@ presets, off-the-record parsing). Consult it before applying a duff diff.
 
 ### Porting status — last version ported
 
-**Last reviewed duff commit: `f650d3d` (tip of duff `main`, 2026-06-21; includes
-PR #298).** When checking for new duff work, diff `origin/main` against that
+**Last reviewed duff commit: `7cb83ad` (tip of duff `main`, 2026-06-21; merge of
+PR #299).** When checking for new duff work, diff `origin/main` against that
 commit forward.
 
 - **Ported in full through duff #288** (parsing undo + 3-tier scoring,
@@ -90,6 +90,17 @@ commit forward.
     "second aorist" beside "aorist" (Mounce data ships `"… 2nd aorist active"`
     parses, so this matters here too). Aspect + the stem-change footer are
     unaffected.
+  - **Variant gating no longer bypassed in relearn/leech** (duff #299,
+    `94b3976`) — `applySpacedReview`'s per-face gate was guarded by `if (variant
+    && !inRelearn && !leechDrill)`, so once a heavily-lapsed variant set (e.g.
+    ἵστημι) entered the relearn/leech ladder a single correct answer on ONE face
+    (or an easy+uncertain mix) advanced the ladder and scheduled the whole set
+    out, stranding the unreviewed siblings. Fix: drop the `!inRelearn &&
+    !leechDrill` guard (`if (variant)`) so the ladder step (`applyCorrectOutcome`)
+    fires only when the cycle completes — every active face cleared with Easy —
+    and a lapsed set relearns together as documented. (duff's other two
+    post-#298 commits, `2f12bdd`/the #299 merge, are duff back-porting Mounce
+    #86 into duff — no new Mounce content.)
   - **Parsing review panel scoped to the custom set** (`d5a7a8c`) — in
     custom-paradigm-set mode the bottom panel becomes a live scorecard for the
     ticked deck (`runtime.parsingCustomParadigms`), showing selected-but-undrilled
