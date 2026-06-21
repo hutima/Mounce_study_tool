@@ -137,6 +137,31 @@ them rather than re-porting.
     labels become "Custom set: N" / "Selected paradigms". (`customMode`/`baseStats`
     in `renderParsingReviewPanel`.)
 - **Mounce-specific (no duff equivalent):**
+  - **Single-paradigm parsing steps collapse constant dimensions to one option.**
+    When ONE concrete paradigm is focused in parsing mode (not shuffle-all, not a
+    category "↯ Shuffle all" pick, not the cumulative "— all forms" aggregate,
+    not a custom set), any parsing step the paradigm never varies on is rendered
+    with a single choice instead of distractors — e.g. focusing "λύω → future"
+    drills person+number while tense/voice/mood each show only "future / active /
+    indicative". The student still clicks through the step (it grades correct);
+    it just reinforces "this paradigm is future" rather than testing it, since
+    Mounce breaks paradigms out by type/aspect. `computeParadigmConstantDims` in
+    `morph_steps.js` (first/second aorist collapsed to plain "aorist", composite
+    voices like "middle/passive" kept whole) computes the constant dims from the
+    focused paradigm's full pool; `buildMorphSteps` reads them via
+    `options.singleParadigmConstantDims` and sets that step's pool to
+    `[stepCorrect]`. `render.js`'s `ensureStepStateForCard` gates it off for
+    pooled/cumulative decks (passes `{}`), so those keep the full distractor test.
+    **Deponent label:** a focused GENUINE deponent paradigm (πορεύομαι, γίνομαι)
+    has a constant middle/middle-passive voice, so its collapsed one-option voice
+    step is *displayed* as "middle (deponent)" (display-only; the recorded voice
+    stays the middle form, consistent with the full voice test / summary / stats).
+    This relies on `isDeponentLemma` testing the **base** dictionary form before
+    any `→` principal-part suffix, so λύω's genuine middle (`'λύω → λύομαι'`) is
+    NOT relabelled — it stays plain "middle/passive" — and only dictionary forms
+    in -μαι (πορεύομαι, γίνομαι, εἰμί's ἔσομαι) qualify. That base-form check also
+    fixed a pre-existing latent bug where the "deponent accepts active" voice rule
+    mis-fired on λύω's middle principal-part keys (which end in -μαι).
   - **Default parsing review panel shows ALL in-scope paradigms** — not just
     drilled ones. Outside custom mode `baseStats` = every chapter-gate-met
     concrete paradigm (`host.getInScopeParadigmLemmas` →
@@ -152,9 +177,20 @@ them rather than re-porting.
     `optionalFormGroups` set (`registerVariants`) and the synthetic optional id
     embeds the lemma, so each λύω principal part re-emitted the same optional
     forms; core cards keep id-dedup.
-  - **λύω infinitives regrouped** — `'λύω infinitive forms'` moved from the
-    one-entry "Infinitives" optgroup into `Verbs · standard ω-pattern (λύω)`
-    (infinitives are indeclinable; participles stay separate).
+  - **Dedicated "Cumulative (full paradigms)" dropdown category** — the
+    summative "— all forms (cumulative)" aggregates (λύω, δίδωμι) now live in
+    their own optgroup (`AGGREGATE_CATEGORY` in `paradigm_focus.js`, placed
+    before the verb categories in `CATEGORY_ORDER`) instead of inheriting their
+    base lemma's category. This keeps the comprehensive cumulative deck (every
+    tense/voice/mood **plus** participles, imperatives, infinitives — it
+    resolves by `LUO_VARIANTS` family membership, not by category) visually
+    distinct from the per-category **"↯ Shuffle all — &lt;type&gt;"** pick,
+    which only pools the concrete lemmas tagged with that one category (so the
+    ω-pattern shuffle is the finite indicatives, while the cumulative is the
+    whole verb). Relatedly, `'λύω infinitive forms'` was **moved back** into its
+    own `Infinitives` optgroup (it had briefly been folded into `Verbs ·
+    standard ω-pattern (λύω)`) so the ω-pattern shuffle stays scoped to finite
+    forms; the cumulative still includes the infinitives via family membership.
 - **Optional-paradigm completeness audit (`lemma_inventory.js`).** Every Mounce
   verb paradigm was checked for optional-form coverage (matters for wrong-parse
   lookup as well as the optional-extension toggle). Verbs WITH coverage before:

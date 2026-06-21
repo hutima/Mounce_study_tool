@@ -8,8 +8,8 @@
 import { runtime } from '../state/runtime.js';
 import { buildGrammarSupportHtml } from '../domain/grammar/explanations.js';
 import { renderProgress, renderReview } from './progress.js';
-import { buildMorphSteps, THIRD_PERSON_IMPERATIVE_CHAPTER, computeAccessibleDimensionPools, parseAnswerDimensions, aspectMistakeNote, isSecondPluralPresentMoodAmbiguity, computeParadigmPresentValues, accentLookalikesFor, confusableFormHints, isSyncreticMiddlePassiveVoice } from '../domain/grammar/morph_steps.js';
-import { getAccessibleMorphCards, deriveSelectionLevels, buildMultiGenderLemmas, THIRD_DECLENSION_NOUN_LEMMAS, paradigmCategoryForLemma } from '../domain/grammar/paradigm_focus.js';
+import { buildMorphSteps, THIRD_PERSON_IMPERATIVE_CHAPTER, computeAccessibleDimensionPools, parseAnswerDimensions, aspectMistakeNote, isSecondPluralPresentMoodAmbiguity, computeParadigmPresentValues, computeParadigmConstantDims, accentLookalikesFor, confusableFormHints, isSyncreticMiddlePassiveVoice } from '../domain/grammar/morph_steps.js';
+import { getAccessibleMorphCards, deriveSelectionLevels, buildMultiGenderLemmas, THIRD_DECLENSION_NOUN_LEMMAS, paradigmCategoryForLemma, isAggregateParadigm, parseCategoryShuffleValue } from '../domain/grammar/paradigm_focus.js';
 import { resolveLookupWalk } from '../domain/grammar/morph_lookup.js';
 
 let host = {
@@ -600,14 +600,6 @@ function ensureStepStateForCard(card) {
   const accessiblePools = computeAccessibleDimensionPools(accessibleCards);
   const multiGenderLemmas = buildMultiGenderLemmas(accessibleCards);
   const levels = deriveSelectionLevels(runtime.selectedKeys || []);
-  const steps = buildMorphSteps(card, accessiblePools, {
-    includeAspect: runtime.aspectStep !== false,
-    maxChapter: levels.maxEffectiveChapter,
-    dimToggles: runtime.dimToggles,
-    dimValueFilters: runtime.dimValueFilters,
-    multiGenderLemmas,
-    thirdDeclensionNouns: THIRD_DECLENSION_NOUN_LEMMAS
-  });
   // Values the focused paradigm actually carries per dimension, from its full
   // (unfiltered) pool. Lets answerMorphologyStep cut the walk off when a pick
   // names a value the paradigm structurally lacks — e.g. "third person" for
@@ -615,9 +607,33 @@ function ensureStepStateForCard(card) {
   // card's own dims so a present-only-truth still includes the right answer
   // when the full pool is unavailable.
   const paradigmCards = host.getFocusedParadigmAllCards(card);
-  const paradigmPresentValues = computeParadigmPresentValues(
-    Array.isArray(paradigmCards) && paradigmCards.length ? paradigmCards : [card]
-  );
+  const paradigmPool = Array.isArray(paradigmCards) && paradigmCards.length ? paradigmCards : [card];
+  const paradigmPresentValues = computeParadigmPresentValues(paradigmPool);
+  // When ONE concrete paradigm is focused (not a pooled deck), collapse any
+  // parsing step the paradigm never varies on to its single option — the
+  // student clicks through it to reinforce "this is the future paradigm"
+  // rather than picking from distractors. Pooled modes (shuffle-all, a category
+  // "↯ Shuffle all" pick, the cumulative "— all forms" aggregate, or a custom
+  // set) genuinely mix values per dimension, so they keep the full test.
+  const focus = runtime.morphFocusedParadigm;
+  const pooledFocus = !!runtime.parsingShuffleAll
+    || !!runtime.parsingCustomReview
+    || !!parseCategoryShuffleValue(focus)
+    || isAggregateParadigm(focus);
+  // Computed from the REAL paradigm pool only (not the [card] fallback): an
+  // empty pool would make every dim look "constant" and collapse the whole walk.
+  const singleParadigmConstantDims = (!pooledFocus && Array.isArray(paradigmCards) && paradigmCards.length)
+    ? computeParadigmConstantDims(paradigmCards)
+    : {};
+  const steps = buildMorphSteps(card, accessiblePools, {
+    includeAspect: runtime.aspectStep !== false,
+    maxChapter: levels.maxEffectiveChapter,
+    dimToggles: runtime.dimToggles,
+    dimValueFilters: runtime.dimValueFilters,
+    multiGenderLemmas,
+    thirdDeclensionNouns: THIRD_DECLENSION_NOUN_LEMMAS,
+    singleParadigmConstantDims
+  });
   runtime.morphStepState = {
     cardId: card.id,
     steps,
