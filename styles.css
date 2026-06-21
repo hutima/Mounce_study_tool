@@ -1549,6 +1549,46 @@
     font-size: calc((12px) * var(--text-scale));
     color: var(--muted);
   }
+
+  /* Overall progress bar per paradigm: completely-correct parses over total
+     tested parses (2/2 known window). Sits between the header and the weakest-
+     value pointer; the fill colour tracks the same 5-band gradient as the pct. */
+  .parsing-review-bar {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin: 2px 0 6px;
+  }
+  .parsing-review-bar-track {
+    flex: 1 1 auto;
+    height: 6px;
+    border-radius: 4px;
+    background: rgba(255,255,255,0.08);
+    overflow: hidden;
+  }
+  html[data-theme="light"] .parsing-review-bar-track {
+    background: rgba(0,0,0,0.08);
+  }
+  .parsing-review-bar-fill {
+    display: block;
+    height: 100%;
+    border-radius: 4px;
+    transition: width 0.25s ease;
+  }
+  .parsing-review-bar-fill.parsing-review-bar-high  { background: #9ad0a7; }
+  .parsing-review-bar-fill.parsing-review-bar-mid   { background: var(--gold); }
+  .parsing-review-bar-fill.parsing-review-bar-low   { background: #e7a1a1; }
+  .parsing-review-bar-fill.parsing-review-bar-empty { background: transparent; }
+  .parsing-review-bar-label {
+    flex: 0 0 auto;
+    font-family: var(--font-display);
+    font-size: calc((11px) * var(--text-scale));
+    letter-spacing: 0.5px;
+    color: var(--muted);
+  }
+  html[data-theme="light"] .parsing-review-bar-fill.parsing-review-bar-high { background: #4f8a63; }
+  html[data-theme="light"] .parsing-review-bar-fill.parsing-review-bar-low  { background: #c06a6a; }
+
   /* ── Paradigm parsing performance bar chart (tappable row expand) ── */
   .paradigm-stat-row,
   .parsing-review-row {
