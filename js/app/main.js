@@ -410,7 +410,16 @@ configureProgress({
       optionalFilters: runtime.optionalFormFilters,
       dimValueFilters: runtime.dimValueFilters
     }
-  )
+  ),
+  // Every concrete (non-aggregate) paradigm whose chapter gate the current
+  // selection has met — the same chapter-gated catalog the focused-paradigm
+  // dropdown and the deck use. The parsing review panel lists these by default
+  // so unseen-but-in-scope paradigms are visible (not just the drilled ones).
+  // Aggregates ("λύω — all forms") are excluded: their forms are their members'
+  // forms, so including them would double-count in the overall row.
+  getInScopeParadigmLemmas: () => listAvailableParadigms(getAggregateSelectionKeys())
+    .filter((p) => !p.isAggregate)
+    .map((p) => p.lemma)
 });
 configureRender({
   saveState: () => saveState(),

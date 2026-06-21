@@ -62,6 +62,41 @@ duff work, diff `origin/main` against that commit forward.
   was removed (matching duff).
 - **Ported duff #297** — parsing undo credit is now `0.5^(undos+1)` (a single
   undo → 0.25, was 0.5).
+- **Ported duff's post-#298 tip-of-main commits (not yet PR'd in duff):**
+  - **Aorist collapse** (`f650d3d`) — the parsing Tense step collapsed
+    first/second aorist to plain `aorist` via
+    `dims.tense = dims.tense.replace(/^(first |second )/, '')` in *both*
+    `computeAccessibleDimensionPools` (distractor pool) and `buildMorphSteps`
+    (correct value + summary) in `morph_steps.js`. First/second aorist is a
+    stem-formation distinction, not a tense, so the step no longer offers
+    "second aorist" beside "aorist" (Mounce data ships `"… 2nd aorist active"`
+    parses, so this matters here too). Aspect + the stem-change footer are
+    unaffected.
+  - **Parsing review panel scoped to the custom set** (`d5a7a8c`) — in
+    custom-paradigm-set mode the bottom panel becomes a live scorecard for the
+    ticked deck (`runtime.parsingCustomParadigms`), showing selected-but-undrilled
+    paradigms and dropping drilled paradigms outside the set; nothing is pinned;
+    labels become "Custom set: N" / "Selected paradigms". (`customMode`/`baseStats`
+    in `renderParsingReviewPanel`.)
+- **Mounce-specific (no duff equivalent):**
+  - **Default parsing review panel shows ALL in-scope paradigms** — not just
+    drilled ones. Outside custom mode `baseStats` = every chapter-gate-met
+    concrete paradigm (`host.getInScopeParadigmLemmas` →
+    `listAvailableParadigms(...).filter(!isAggregate)`) unioned with any drilled
+    lemma, so unseen-but-in-scope paradigms are visible (and an attempt under a
+    now-out-of-scope chapter still shows). Label: "Paradigms: X drilled · Y in
+    scope". duff only has the custom-mode scoping above; this general default is
+    a Mounce extension layered on the same `customMode`/`baseStats` plumbing —
+    portable back to duff.
+  - **Pooled optional-form de-dup** — `collectCardsForLemmas` (paradigm_focus.js)
+    collapses `OPT_*` cards by `(form, parse)` across shuffle-all /
+    category-shuffle / custom-set pools. Variant-family members share one
+    `optionalFormGroups` set (`registerVariants`) and the synthetic optional id
+    embeds the lemma, so each λύω principal part re-emitted the same optional
+    forms; core cards keep id-dedup.
+  - **λύω infinitives regrouped** — `'λύω infinitive forms'` moved from the
+    one-entry "Infinitives" optgroup into `Verbs · standard ω-pattern (λύω)`
+    (infinitives are indeclinable; participles stay separate).
 - **Added the "Irregular practice" selector section** (duff #269's
   `buildIrregularPracticeSelector` / `#irregularGrid`) — the five stem-flip
   flashcard sets (second-aorist / liquid-future / aorist-passive /
