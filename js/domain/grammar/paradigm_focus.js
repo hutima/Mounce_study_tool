@@ -120,7 +120,10 @@ const PARADIGM_CATEGORIES = {
   'κρίνω → κρινῶ':                     'Verbs · liquid future',
 
   // ─── Verbs · deponent / middle ───
+  'πορεύομαι':                         'Verbs · deponent / middle',
+  'πορεύομαι → ἐπορευόμην':            'Verbs · deponent / middle',
   'πορεύομαι → πορεύσομαι':            'Verbs · deponent / middle',
+  'πορεύομαι → ἐπορεύθην':             'Verbs · deponent / middle',
 
   // ─── Verbs · μι-verbs ───
   'δίδωμι':                            'Verbs · μι-verbs',
@@ -132,6 +135,8 @@ const PARADIGM_CATEGORIES = {
   // ─── Non-finite (case-marked) verbals ───
   'λύω → λυθείς':                      'Participles',
   'λύω → λύσας':                       'Participles',
+  'πορεύομαι → πορευθείς':             'Participles',
+  'πορεύομαι infinitive forms':       'Infinitives',
   'λύω → λῦσον':                       'Imperatives'
 };
 
@@ -158,6 +163,43 @@ const PARADIGM_DISPLAY_OVERRIDES = {
   'πνεῦμα, πνεύματος':  'πνεῦμα — 3rd-decl. neuter',
   'ἐγώ':                'ἐγώ — 1st-person pronoun',
   'σύ':                 'σύ — 2nd-person pronoun'
+};
+
+// Verb principal-part lemma keys read as the dictionary form plus an arrow to
+// the relevant principal part (e.g. 'λύω → λύσω'); their default label tacks on
+// the English gloss ("I will loose"), which isn't very useful for picking a form
+// to drill. This maps each verb-family lemma to a "<base> — <form name>" label
+// so the dropdown reads as a paradigm chooser ("λύω — future active",
+// "λύω — present middle/passive", …). Lemmas absent here fall back to the
+// gloss-style label. Keep in sync with the *_VARIANTS families in
+// lemma_inventory.js and PARADIGM_CATEGORIES above.
+const PARADIGM_FORM_DISPLAY_NAMES = {
+  // λύω family
+  'λύω':                  'λύω — present active',
+  'λύω → λύομαι':         'λύω — present middle/passive',
+  'λύω → λύσω':           'λύω — future active',
+  'λύω → λυθήσομαι':      'λύω — future passive',
+  'λύω → ἔλυον':          'λύω — imperfect active',
+  'λύομαι → ἐλυόμην':     'λύω — imperfect middle/passive',
+  'λύω → ἔλυσα':          'λύω — aorist active',
+  'λύω → ἐλυσάμην':       'λύω — aorist middle',
+  'λύω → ἐλύθην':         'λύω — aorist passive',
+  'λύω → λέλυκα':         'λύω — perfect active',
+  'λύω → λέλυμαι':        'λύω — perfect middle/passive',
+  'λύω → λύσας':          'λύω — aorist active participle',
+  'λύω → λυθείς':         'λύω — aorist passive participle',
+  'λύω → λῦσον':          'λύω — aorist active imperative',
+  'λύω infinitive forms': 'λύω — infinitives',
+  // πορεύομαι (model middle deponent)
+  'πορεύομαι':                  'πορεύομαι — present middle',
+  'πορεύομαι → ἐπορευόμην':     'πορεύομαι — imperfect middle',
+  'πορεύομαι → πορεύσομαι':     'πορεύομαι — future middle',
+  'πορεύομαι → ἐπορεύθην':      'πορεύομαι — aorist (passive form)',
+  'πορεύομαι → πορευθείς':      'πορεύομαι — aorist passive participle',
+  'πορεύομαι infinitive forms': 'πορεύομαι — infinitives',
+  // δίδωμι family
+  'δίδωμι':          'δίδωμι — present active',
+  'δίδωμι → ἔδωκα':  'δίδωμι — aorist active'
 };
 
 // Display order for the optgroup headings in the dropdown. Reflects Mounce's
@@ -206,6 +248,8 @@ export function paradigmCategoryForLemma(lemma) {
 }
 
 function displayLabelForLemma(lemma, item) {
+  const formName = PARADIGM_FORM_DISPLAY_NAMES[lemma];
+  if (formName) return formName;
   const override = PARADIGM_DISPLAY_OVERRIDES[lemma];
   if (override) return override;
   return lemma + (item && item.gloss ? ` — ${item.gloss}` : '');

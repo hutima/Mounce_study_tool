@@ -2036,27 +2036,23 @@
     ...POREUOMAI_PRESENT_MP_PARTICIPLE,
     ...POREUOMAI_AORIST_PASSIVE_PARTICIPLE
   };
-  const POREUOMAI_OPTIONAL_GROUPS = [
-    { chapter: 18, family: 'πορεύομαι — present middle indicative (optional)',
-      forms: POREUOMAI_PRESENT_MP_INDICATIVE },
-    { chapter: 21, family: 'πορεύομαι — imperfect middle indicative (optional)',
-      forms: POREUOMAI_IMPERFECT_MP_INDICATIVE },
-    { chapter: 24, family: 'πορεύομαι — aorist (passive-form) indicative ἐπορεύθην (optional)',
-      forms: POREUOMAI_AORIST_PASSIVE_INDICATIVE },
-    { chapter: 32, family: 'πορεύομαι — present middle infinitive πορεύεσθαι (optional)',
-      forms: POREUOMAI_PRESENT_MP_INFINITIVE },
-    { chapter: 32, family: 'πορεύομαι — aorist passive infinitive πορευθῆναι (optional)',
-      forms: POREUOMAI_AORIST_PASSIVE_INFINITIVE },
-    { chapter: 33, family: 'πορεύομαι — present middle imperative (optional)',
-      forms: POREUOMAI_PRESENT_MP_IMPERATIVE },
-    { chapter: 33, family: 'πορεύομαι — aorist passive imperative (optional)',
-      forms: POREUOMAI_AORIST_PASSIVE_IMPERATIVE },
-    { chapter: 27, family: 'πορεύομαι — present middle participle πορευόμενος (optional)',
-      forms: POREUOMAI_PRESENT_MP_PARTICIPLE },
-    { chapter: 28, family: 'πορεύομαι — aorist passive participle πορευθείς (optional)',
-      forms: POREUOMAI_AORIST_PASSIVE_PARTICIPLE }
+  // πορεύομαι's full paradigm is now drilled as CORE morphology paradigms (its
+  // own dropdown entries — present/imperfect/future/aorist + participle/
+  // infinitive, mirroring how λύω is split across principal-part lemma keys), so
+  // there are no "optional extension" forms left to add: the optional-groups list
+  // is empty, just like λύω only lists genuinely-non-core forms (subjunctives,
+  // extra imperatives) there. The full participle declensions stay in
+  // POREUOMAI_EXTRA_FORMS for wrong-parse lookup (same as λύω, whose drilled
+  // participle paradigms are recognition-nominative subsets).
+  const POREUOMAI_OPTIONAL_GROUPS = [];
+  const POREUOMAI_VARIANTS = [
+    'πορεύομαι',
+    'πορεύομαι → ἐπορευόμην',
+    'πορεύομαι → πορεύσομαι',
+    'πορεύομαι → ἐπορεύθην',
+    'πορεύομαι → πορευθείς',
+    'πορεύομαι infinitive forms'
   ];
-  const POREUOMAI_VARIANTS = ['πορεύομαι → πορεύσομαι'];
 
   // ─── δείκνυμι (μι-verb, no reduplication, "to show") ──────────────
   //
@@ -2233,7 +2229,8 @@
     // optional drill and the aggregate.
     window.PARADIGM_VARIANT_FAMILIES = {
       'λύω': LUO_VARIANTS,
-      'δίδωμι': DIDOMI_VARIANTS
+      'δίδωμι': DIDOMI_VARIANTS,
+      'πορεύομαι': POREUOMAI_VARIANTS
     };
   }
 })();

@@ -137,21 +137,26 @@ them rather than re-porting.
     labels become "Custom set: N" / "Selected paradigms". (`customMode`/`baseStats`
     in `renderParsingReviewPanel`.)
 - **Mounce-specific (no duff equivalent):**
-  - **Single-paradigm parsing steps collapse constant dimensions to one option.**
-    When ONE concrete paradigm is focused in parsing mode (not shuffle-all, not a
-    category "↯ Shuffle all" pick, not the cumulative "— all forms" aggregate,
-    not a custom set), any parsing step the paradigm never varies on is rendered
-    with a single choice instead of distractors — e.g. focusing "λύω → future"
-    drills person+number while tense/voice/mood each show only "future / active /
-    indicative". The student still clicks through the step (it grades correct);
-    it just reinforces "this paradigm is future" rather than testing it, since
-    Mounce breaks paradigms out by type/aspect. `computeParadigmConstantDims` in
-    `morph_steps.js` (first/second aorist collapsed to plain "aorist", composite
-    voices like "middle/passive" kept whole) computes the constant dims from the
-    focused paradigm's full pool; `buildMorphSteps` reads them via
-    `options.singleParadigmConstantDims` and sets that step's pool to
-    `[stepCorrect]`. `render.js`'s `ensureStepStateForCard` gates it off for
-    pooled/cumulative decks (passes `{}`), so those keep the full distractor test.
+  - **Parsing steps collapse pool-constant dimensions to one option.**
+    Any parsing step whose value never varies across the WHOLE pool the student
+    is drilling is rendered with a single choice instead of distractors — they
+    click through it ("yes, still future / still a participle") rather than being
+    quizzed on a contrast the deck doesn't contain, since Mounce breaks paradigms
+    out by type/aspect. This is **pool-aware**, covering both a single focused
+    paradigm (e.g. "λύω → future" → tense/voice/mood collapse, person+number stay
+    a real test) AND a pooled deck that's still constant on a dim (e.g. the
+    "↯ Shuffle all — Participles" pick → mood always "participle" and tense always
+    "aorist" collapse, while voice/case/gender stay tested). A deck that genuinely
+    varies a dim — the cumulative "— all forms" aggregate, shuffle-all across
+    types — keeps the full test. `computeParadigmConstantDims` in `morph_steps.js`
+    (first/second aorist collapsed to plain "aorist"; composite voices like
+    "middle/passive" kept whole; a mood-less finite verb counted as "indicative"
+    so an indicative+imperative pool doesn't falsely look mood-constant) computes
+    the map; `buildMorphSteps` reads it via `options.singleParadigmConstantDims`
+    and sets that step's pool to `[stepCorrect]`. `render.js`'s
+    `ensureStepStateForCard` feeds it the live pool via `host.getParsingPoolCards`
+    (= `buildFilteredFocusedParadigmCards`). The single button spans full width
+    (`.morph-choices .choice-btn:only-child { grid-column: 1 / -1 }`).
     **Deponent label:** a focused GENUINE deponent paradigm (πορεύομαι, γίνομαι)
     has a constant middle/middle-passive voice, so its collapsed one-option voice
     step is *displayed* as "middle (deponent)" (display-only; the recorded voice
@@ -178,12 +183,12 @@ them rather than re-porting.
     embeds the lemma, so each λύω principal part re-emitted the same optional
     forms; core cards keep id-dedup.
   - **Dedicated "Cumulative (full paradigms)" dropdown category** — the
-    summative "— all forms (cumulative)" aggregates (λύω, δίδωμι) now live in
-    their own optgroup (`AGGREGATE_CATEGORY` in `paradigm_focus.js`, placed
-    before the verb categories in `CATEGORY_ORDER`) instead of inheriting their
-    base lemma's category. This keeps the comprehensive cumulative deck (every
-    tense/voice/mood **plus** participles, imperatives, infinitives — it
-    resolves by `LUO_VARIANTS` family membership, not by category) visually
+    summative "— all forms (cumulative)" aggregates (λύω, **πορεύομαι**, δίδωμι)
+    now live in their own optgroup (`AGGREGATE_CATEGORY` in `paradigm_focus.js`,
+    placed before the verb categories in `CATEGORY_ORDER`) instead of inheriting
+    their base lemma's category. This keeps the comprehensive cumulative deck
+    (every tense/voice/mood **plus** participles, imperatives, infinitives — it
+    resolves by `*_VARIANTS` family membership, not by category) visually
     distinct from the per-category **"↯ Shuffle all — &lt;type&gt;"** pick,
     which only pools the concrete lemmas tagged with that one category (so the
     ω-pattern shuffle is the finite indicatives, while the cumulative is the
@@ -191,6 +196,26 @@ them rather than re-porting.
     own `Infinitives` optgroup (it had briefly been folded into `Verbs ·
     standard ω-pattern (λύω)`) so the ω-pattern shuffle stays scoped to finite
     forms; the cumulative still includes the infinitives via family membership.
+  - **Friendly verb-paradigm dropdown labels.** Verb principal-part lemma keys
+    (`'λύω → λύσω'`) render as `"<base> — <form name>"` ("λύω — future active",
+    "πορεύομαι — present middle", …) via `PARADIGM_FORM_DISPLAY_NAMES` in
+    `paradigm_focus.js` (checked first in `displayLabelForLemma`), instead of the
+    English-gloss label — so the dropdown reads as a form chooser. Covers the λύω,
+    πορεύομαι and δίδωμι families; other lemmas fall back to the gloss style.
+  - **πορεύομαι (model deponent) is split into full principal-part paradigms.**
+    Like λύω, πορεύομαι now has its own dropdown entries per form — present middle
+    (`'πορεύομαι'`, also carrying the present participle + present imperative),
+    imperfect (`'πορεύομαι → ἐπορευόμην'`), future (`'πορεύομαι → πορεύσομαι'`),
+    aorist passive-form (`'πορεύομαι → ἐπορεύθην'`, + the aorist passive
+    imperative), aorist passive participle (`'πορεύομαι → πορευθείς'`,
+    Participles), infinitives (`'πορεύομαι infinitive forms'`, Infinitives) — all
+    added as core `MORPHOLOGY_SETS` items in their Mounce chapters (18/19/21/24/
+    27/28/32/33). They form `POREUOMAI_VARIANTS`, registered in
+    `PARADIGM_VARIANT_FAMILIES` so the cumulative "πορεύομαι — all forms" appears.
+    Because every form is now core morphology, `POREUOMAI_OPTIONAL_GROUPS` is
+    emptied (no non-core extensions left; the full participle declensions stay in
+    `POREUOMAI_EXTRA_FORMS` for wrong-parse lookup, mirroring λύω whose drilled
+    participles are recognition-nominative subsets).
 - **Optional-paradigm completeness audit (`lemma_inventory.js`).** Every Mounce
   verb paradigm was checked for optional-form coverage (matters for wrong-parse
   lookup as well as the optional-extension toggle). Verbs WITH coverage before:

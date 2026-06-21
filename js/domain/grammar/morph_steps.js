@@ -370,6 +370,16 @@ export function computeParadigmConstantDims(cards) {
     if (!card) return;
     const dims = parseAnswerDimensions(card.parsedAnswer || card.answer || '');
     if (dims.tense) dims.tense = dims.tense.replace(/^(first |second )/, '');
+    // Mirror buildMorphSteps's implicit-mood rule: a finite verb form (tense/
+    // person, no case/gender) with no spelled-out mood is indicative. Count it so
+    // a pool that mixes (mood-less) indicatives with imperatives/subjunctives
+    // registers mood as VARYING rather than falsely constant on the one mood that
+    // happens to be written out — otherwise e.g. πορεύομαι's aorist deck
+    // (indicative + imperative) would collapse the mood step to a single option.
+    if (!dims.mood && (dims.tense || dims.voice) && (dims.person || dims.number)
+        && !dims.case && !dims.gender) {
+      dims.mood = 'indicative';
+    }
     dimKeys.forEach((k) => { if (dims[k]) seen[k].add(dims[k]); });
   });
   const out = {};

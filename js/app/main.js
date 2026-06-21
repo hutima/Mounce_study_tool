@@ -463,7 +463,14 @@ configureRender({
         optionalFilters: runtime.optionalFormFilters
       }
     );
-  }
+  },
+  // The full parsing pool the student is actually drilling right now — one
+  // focused paradigm, a category "↯ Shuffle all" pool, a custom set, shuffle-all,
+  // or the cumulative aggregate. Used to compute which dimensions never vary
+  // across the pool, so a constant step (e.g. mood is always "participle" in the
+  // participles shuffle; tense/voice in a single future paradigm) collapses to a
+  // single reinforcing option. Returns [] outside parsing mode.
+  getParsingPoolCards: () => (isParsingMode() ? buildFilteredFocusedParadigmCards() : [])
 });
 configureSelectors({
   getSessions: () => getSessions(),
