@@ -788,10 +788,17 @@ export const THIRD_PERSON_IMPERATIVE_CHAPTER = 33;
 // (λύω, λαμβάνω…) keeps a genuine middle voice — its middle forms (ἐλύσω "you
 // loosed for yourself") are NOT active and must grade strictly. εἰμί is the one
 // active-lemma exception whose future (ἔσομαι) is deponent in form.
+//
+// Deponency is a property of the DICTIONARY form, so test the base lemma before
+// any " → <principal part>" suffix. Mounce's paradigm keys embed a principal
+// part (e.g. 'λύω → λύομαι'), and λύω's genuine middle must not be mistaken for
+// a deponent just because that principal part ends in -μαι — only 'λύω' (the
+// base) is checked, which is not deponent, while 'πορεύομαι → πορεύσομαι' →
+// 'πορεύομαι' and 'γίνομαι → ἐγενόμην' → 'γίνομαι' correctly are.
 function isDeponentLemma(lemma) {
   if (!lemma) return false;
-  const l = String(lemma).trim();
-  return /μαι$/.test(l) || l === 'εἰμί';
+  const base = String(lemma).split('→')[0].trim();
+  return /μαι$/.test(base) || base === 'εἰμί';
 }
 
 // Tenses where the middle and passive share a single form. In the present,
@@ -963,8 +970,21 @@ export function buildMorphSteps(card, accessiblePools = null, options = {}) {
       && Object.prototype.hasOwnProperty.call(constantDims, dimKey);
     const stepPool = collapseToSingle ? [stepCorrect] : pool;
     const choices = buildChoices(dimKey, stepCorrect, stepPool, dimValueFilters);
-    const displayCorrect = applyDisplaySuffix(dimKey, stepCorrect);
-    const displayChoices = choices.map((c) => applyDisplaySuffix(dimKey, c));
+    let displayCorrect = applyDisplaySuffix(dimKey, stepCorrect);
+    let displayChoices = choices.map((c) => applyDisplaySuffix(dimKey, c));
+    // A focused GENUINE deponent paradigm (πορεύομαι, γίνομαι; isDeponentLemma
+    // checks the base form, so λύω's middle is NOT included) has a constant
+    // middle/middle-passive voice. Label the single collapsed option
+    // "middle (deponent)" to flag the deponency, while keeping the underlying
+    // recorded voice the middle form — consistent with the full voice-step test,
+    // the parse summary and stats. λύω's middle stays plain "middle/passive".
+    const collapseDeponentVoice = collapseToSingle && dimKey === 'voice'
+      && isDeponentLemma(card.lemma)
+      && (correct === 'middle' || correct === 'middle/passive');
+    if (collapseDeponentVoice) {
+      displayCorrect = 'middle (deponent)';
+      displayChoices = ['middle (deponent)'];
+    }
     // Each dimension has exactly one correct value per card. For aspect on
     // present/future verbs the correct value is the composite
     // 'continuous/undefined' (since either reading is licensed by the form);

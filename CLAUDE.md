@@ -152,10 +152,16 @@ them rather than re-porting.
     `options.singleParadigmConstantDims` and sets that step's pool to
     `[stepCorrect]`. `render.js`'s `ensureStepStateForCard` gates it off for
     pooled/cumulative decks (passes `{}`), so those keep the full distractor test.
-    No deponent special-case: a single deponent paradigm's voice is constant, so
-    it too shows one option (reinforcing the middle form) rather than being
-    skipped — the original "deponent exception" concern only applied to the
-    skip-the-step design, which this collapse-the-options design supersedes.
+    **Deponent label:** a focused GENUINE deponent paradigm (πορεύομαι, γίνομαι)
+    has a constant middle/middle-passive voice, so its collapsed one-option voice
+    step is *displayed* as "middle (deponent)" (display-only; the recorded voice
+    stays the middle form, consistent with the full voice test / summary / stats).
+    This relies on `isDeponentLemma` testing the **base** dictionary form before
+    any `→` principal-part suffix, so λύω's genuine middle (`'λύω → λύομαι'`) is
+    NOT relabelled — it stays plain "middle/passive" — and only dictionary forms
+    in -μαι (πορεύομαι, γίνομαι, εἰμί's ἔσομαι) qualify. That base-form check also
+    fixed a pre-existing latent bug where the "deponent accepts active" voice rule
+    mis-fired on λύω's middle principal-part keys (which end in -μαι).
   - **Default parsing review panel shows ALL in-scope paradigms** — not just
     drilled ones. Outside custom mode `baseStats` = every chapter-gate-met
     concrete paradigm (`host.getInScopeParadigmLemmas` →
