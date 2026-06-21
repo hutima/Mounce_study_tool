@@ -98,10 +98,12 @@ const PARADIGM_CATEGORIES = {
   'λύω → ἐλύθην':                      'Verbs · standard ω-pattern (λύω)',
   'λύω → λυθήσομαι':                   'Verbs · standard ω-pattern (λύω)',
   'λύω → λέλυμαι':                     'Verbs · standard ω-pattern (λύω)',
-  // Infinitives are indeclinable, so they sit with the rest of the λύω verb
-  // forms rather than in a one-entry "Infinitives" optgroup of their own.
-  // (Participles below stay separate — they're case-marked and decline.)
-  'λύω infinitive forms':              'Verbs · standard ω-pattern (λύω)',
+  // λύω's infinitives live in their own "Infinitives" optgroup (like the
+  // participles and imperatives below), so the ω-pattern "↯ Shuffle all"
+  // pick stays scoped to the finite indicative forms it names. The
+  // cumulative "λύω — all forms" aggregate still pools the infinitives —
+  // it resolves by family membership (LUO_VARIANTS), not by category.
+  'λύω infinitive forms':              'Infinitives',
 
   // ─── Verbs · contract ───
   'ἀγαπάω':                            'Verbs · contract (-άω)',
@@ -173,6 +175,7 @@ const CATEGORY_ORDER = [
   'Pronouns · personal / intensive',
   'Pronouns · demonstrative',
   'Pronouns · relative',
+  'Cumulative (full paradigms)',
   'Verbs · standard ω-pattern (λύω)',
   'Verbs · contract (-άω)',
   'Verbs · contract (-έω)',
@@ -222,12 +225,23 @@ function displayLabelForLemma(lemma, item) {
 // Membership comes from window.PARADIGM_VARIANT_FAMILIES (defined alongside
 // the *_VARIANTS arrays in lemma_inventory.js) so the union list, the
 // optional-extension registration, and this aggregate all stay in lockstep.
-// Each family is keyed by its base lemma; that base also supplies the
-// aggregate's category and — crucially — its optional-forms source (every
-// variant shares the same optionalFormGroups via registerVariants, so
-// building optionals from the base yields the full optional paradigm exactly
-// once, with no per-member duplication).
+// Each family is keyed by its base lemma; that base supplies the aggregate's
+// optional-forms source (every variant shares the same optionalFormGroups via
+// registerVariants, so building optionals from the base yields the full
+// optional paradigm exactly once, with no per-member duplication). The
+// aggregate's dropdown category, however, is the dedicated AGGREGATE_CATEGORY
+// (not the base's category) so the cumulative deck reads as its own section,
+// distinct from the per-category "↯ Shuffle all" pick.
 const AGGREGATE_SUFFIX = ' — all forms';
+
+// The "— all forms" aggregates get their own dropdown category rather than
+// inheriting their base lemma's category. This keeps the comprehensive
+// cumulative deck (every tense/voice/mood + participles + imperatives +
+// infinitives of the verb) visually distinct from the per-category
+// "↯ Shuffle all — <type>" pick, which only pools the concrete lemmas tagged
+// with that one category (so the ω-pattern shuffle is finite indicatives only,
+// while the cumulative is the whole verb).
+const AGGREGATE_CATEGORY = 'Cumulative (full paradigms)';
 
 function variantFamilies() {
   return (typeof window !== 'undefined' && window.PARADIGM_VARIANT_FAMILIES) || {};
@@ -248,7 +262,7 @@ function aggregateDescriptors() {
       base,
       members,
       displayLabel: `${base}${AGGREGATE_SUFFIX} (cumulative)`,
-      category: categoryForLemma(base)
+      category: AGGREGATE_CATEGORY
     };
   });
   return out;

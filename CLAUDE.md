@@ -152,9 +152,20 @@ them rather than re-porting.
     `optionalFormGroups` set (`registerVariants`) and the synthetic optional id
     embeds the lemma, so each λύω principal part re-emitted the same optional
     forms; core cards keep id-dedup.
-  - **λύω infinitives regrouped** — `'λύω infinitive forms'` moved from the
-    one-entry "Infinitives" optgroup into `Verbs · standard ω-pattern (λύω)`
-    (infinitives are indeclinable; participles stay separate).
+  - **Dedicated "Cumulative (full paradigms)" dropdown category** — the
+    summative "— all forms (cumulative)" aggregates (λύω, δίδωμι) now live in
+    their own optgroup (`AGGREGATE_CATEGORY` in `paradigm_focus.js`, placed
+    before the verb categories in `CATEGORY_ORDER`) instead of inheriting their
+    base lemma's category. This keeps the comprehensive cumulative deck (every
+    tense/voice/mood **plus** participles, imperatives, infinitives — it
+    resolves by `LUO_VARIANTS` family membership, not by category) visually
+    distinct from the per-category **"↯ Shuffle all — &lt;type&gt;"** pick,
+    which only pools the concrete lemmas tagged with that one category (so the
+    ω-pattern shuffle is the finite indicatives, while the cumulative is the
+    whole verb). Relatedly, `'λύω infinitive forms'` was **moved back** into its
+    own `Infinitives` optgroup (it had briefly been folded into `Verbs ·
+    standard ω-pattern (λύω)`) so the ω-pattern shuffle stays scoped to finite
+    forms; the cumulative still includes the infinitives via family membership.
 - **Optional-paradigm completeness audit (`lemma_inventory.js`).** Every Mounce
   verb paradigm was checked for optional-form coverage (matters for wrong-parse
   lookup as well as the optional-extension toggle). Verbs WITH coverage before:
