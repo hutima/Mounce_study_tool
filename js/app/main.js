@@ -945,7 +945,7 @@ function undoMorphologyStep() {
   const afterKeys = gradedAnsweredStepKeys(state.steps, state.answers);
   // Count undos per dimension rather than a flat flag: each time a graded
   // step's committed answer is rolled back, bump its tally so the credit can
-  // halve once per undo (1 undo → 0.5, 2 → 0.25, …) when the walk completes.
+  // drop per undo (1 undo → 0.25, 2 → 0.125, …) when the walk completes.
   beforeKeys.forEach((k) => {
     if (!afterKeys.has(k)) state.forcedWrong[k] = (Number(state.forcedWrong[k]) || 0) + 1;
   });
@@ -1198,18 +1198,19 @@ function finalizeMorphStepAttempt(card, state) {
     const pickRight = !!ans.isCorrect;
     // Scoring per dimension:
     //   clean correct pick     → 1   (full credit)
-    //   reattempted via undo   → 0.5^(undos) if the final pick was right, else 0
-    //                            (1 undo → 0.5, 2 → 0.25, 3 → 0.125, …)
+    //   reattempted via undo   → 0.5^(undos+1) if the final pick was right, else 0
+    //                            (1 undo → 0.25, 2 → 0.125, 3 → 0.0625, …)
     //   wrong pick             → 0
-    // A reattempt never earns the full 1 a clean pick gets, and each undo before
-    // the eventual correct pick halves the credit again. Any value below 1 also
-    // keeps the form out of "known": evaluateRecentAttempt counts a dimension
-    // correct only when it's exactly 1, so any reattempt fails the 2/2
+    // A reattempt never earns the full 1 a clean pick gets: the first undo
+    // already drops it to a quarter (half credit was too generous for a guess
+    // you had to take back), and each further undo halves it again. Any value
+    // below 1 also keeps the form out of "known": evaluateRecentAttempt counts a
+    // dimension correct only when it's exactly 1, so any reattempt fails the 2/2
     // exclude-known test (the whole parse reads as not-yet-known) while still
     // scoring fractional credit in the accuracy stats.
     const undos = Number(forced[step.key]) || 0;
     let credit;
-    if (undos > 0) credit = pickRight ? Math.pow(0.5, undos) : 0;
+    if (undos > 0) credit = pickRight ? Math.pow(0.5, undos + 1) : 0;
     else credit = pickRight ? 1 : 0;
     dims[step.key] = credit;
   });
@@ -1465,6 +1466,19 @@ function initializeTextSize() {
 // Populate the parsing-mode chapter dropdown (1..36) and reflect the
 // current runtime.parsingChapter. Only relevant in parsing mode — the
 // row is hidden elsewhere by syncLayoutVisibility.
+// Escape a string for safe interpolation into an HTML attribute value. main.js
+// builds a few option/label strings inline (the parsing chapter + custom-
+// paradigm selectors); without this, syncParsingCustomParadigmsUi threw a
+// ReferenceError on every parsing-mode entry (the mode switch silently aborted).
+function escapeAttr(s) {
+  return String(s == null ? '' : s)
+    .replace(/&/g, '&amp;')
+    .replace(/'/g, '&#39;')
+    .replace(/"/g, '&quot;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;');
+}
+
 function syncParsingChapterUi() {
   const select = document.getElementById('parsingChapterSelect');
   if (!select) return;
