@@ -52,7 +52,14 @@ duff work, diff `origin/main` against that commit forward.
   save compaction, and cleared on reset; `faceOutcomes` is gone. Also folded in
   duff #296's syncretic middle/passive "Your parse" form-lookup fix. The
   Mounce-side draft PR #81 (SRS only, deferred the gating) was the cross-check
-  and is closed in favour of this fuller port.
+  and is closed in favour of this fuller port. **Follow-up:** the earlier #296
+  port covered only the SRS half — its analytics half (`de7c8f1`) is now in too:
+  parsing accuracy scores **per dimension** (`countLemmaFormDimCredit`) so a
+  4-of-5-dims parse counts 0.8, not the old whole-parse 0, feeding the headline %
+  and per-value bars (the strict 2/2 dots / exclude-known rule is unchanged).
+  Captions say "Per-dimension accuracy"; the old whole-parse
+  `countLemmaFormCredit` / `recentAttemptCredit` / `recentAttemptOutcome` chain
+  was removed (matching duff).
 - **Ported duff #297** — parsing undo credit is now `0.5^(undos+1)` (a single
   undo → 0.25, was 0.5).
 - **Added the "Irregular practice" selector section** (duff #269's

@@ -429,7 +429,7 @@ function renderParsingReviewPanel() {
         <span class="parsing-review-attempts">${overallTotals.seen}/${overallTotals.scope} forms · ${drilledCount} paradigm${drilledCount === 1 ? '' : 's'}</span>
       </div>
       ${overallWeakest ? `<div class="parsing-review-weakline">${parsingWeakestTagHtml(overallWeakest)}</div>` : ''}
-      ${overallExpanded ? `<div class="parsing-review-chart">${buildDimValueBarsHtml(overallGroups, { caption: 'Recent accuracy per value, across every paradigm · seen / in scope' })}</div>` : ''}
+      ${overallExpanded ? `<div class="parsing-review-chart">${buildDimValueBarsHtml(overallGroups, { caption: 'Per-dimension accuracy per value, across every paradigm · seen / in scope' })}</div>` : ''}
     </div>`;
 
   if (!ordered.length) {

@@ -591,7 +591,7 @@ export function buildDimValueBarsHtml(groups, options = {}) {
       </div>`;
   }).join('');
   const caption = options.caption
-    || 'Recent accuracy per value · the number = forms you’ve seen / forms in scope';
+    || 'Per-dimension accuracy per value (each dimension scored on its own) · the number = forms you’ve seen / forms in scope';
   return `
     <div class="dim-value-breakdown">${groupsHtml}</div>
     <div class="dim-value-caption">${escapeHtml(caption)}</div>
