@@ -15,51 +15,77 @@ export const SRS_AGAIN_MS = 5 * 60 * 1000;
 // a card seen via 'pass' can come back — long enough to actually count as
 // retrieval practice rather than a flash echo.
 export const SRS_UNCERTAIN_MIN_MS = 2 * 60 * 60 * 1000;
-export const SRS_UNCERTAIN_MAX_MS = 7 * 24 * 60 * 60 * 1000; // 1-week ceiling for uncertain cards (scaled by certainty)
-export const SRS_UNCERTAIN_CAP_MS = SRS_UNCERTAIN_MIN_MS;  // legacy alias
+// Variant-form "hold": when a shared set (base verb + its derived principal-part
+// faces) is only partly known this cycle, a just-passed face is held this long
+// while its unpassed siblings stay surfaceable. Same 2h as the uncertain floor.
+export const SRS_VARIANT_HOLD_MS = SRS_UNCERTAIN_MIN_MS;
 // Unspaced "recovery" gap after a wrong-this-cycle card lands a pass/easy:
 // 1h, decoupled from the spaced uncertain floor so the unspaced loop stays
 // tight (you'll see the card again in the same study session).
 export const SRS_UNSPACED_RECOVERY_MS = 60 * 60 * 1000;
 export const SRS_MAX_INTERVAL_DAYS = 14;
 
+// ── Lapse / relearn ladder ───────────────────────────────────────────────
+// A lapse (Uncertain or Hard) no longer wipes a well-known card's spacing.
+// Instead the card runs a short relearn ladder and then RESUMES at half its
+// pre-lapse interval (preserved on the entry). Caps are per-cadence
+// (lapseResumeCapDays). See applySpacedReview in js/app/main.js.
+//   • Uncertain → one confirming pass in 2h, then resume at ½ previous.
+//   • Hard      → relearn in-session (due now), then SRS_HARD_RELEARN_STEPS
+//                 passes one day apart, then resume at ½ previous.
+export const SRS_RELEARN_STEP_DAYS = 1;
+export const SRS_HARD_RELEARN_STEPS = 2;
+
+// ── Leech (8-month / relaxed cadence only) ───────────────────────────────
+// A card that keeps lapsing Hard gets pulled out of normal growth and drilled
+// at 1 day until it survives a short clean streak, then rejoins the curve.
+export const LEECH_LAPSE_THRESHOLD = 4;
+export const LEECH_UNPIN_STREAK = 3;
+export const LEECH_DRILL_DAYS = 1;
+
 // ── Spacing-cadence presets ──────────────────────────────────────────────
 // The "easy" interval growth and the hard cap are tuned to how long the
 // course runs. A 2-month intensive wants tight intervals so everything
 // resurfaces soon; an 8-month course can let well-known cards rest far longer.
 // Each preset supplies:
-//   maxIntervalDays      — hard cap on any scheduled interval (in SRS_DAY_MS days)
-//   uncertainCeilingDays — ceiling that scales pass/uncertain intervals
-//   easyCurve            — confidence → "easy" growth multiplier, piecewise:
-//                          ≥90% → high; 70–89% → midBase+(pct-70)/midDiv;
-//                          50–69% → lowBase+(pct-50)/lowDiv
-// `intensive` reproduces the historical hard-coded behaviour exactly, so it
-// stays the default and existing schedules are unchanged.
+//   maxIntervalDays    — hard cap on any scheduled interval (in SRS_DAY_MS days)
+//   lapseResumeCapDays — cap on the ½-previous interval a card resumes at after
+//                        a lapse's relearn ladder (see applySpacedReview)
+//   maxEasyStepDays    — optional per-step cap: a single 'easy' may add at most
+//                        this many days (keeps the relaxed ramp near-linear and
+//                        softens a 2-month → 8-month switch)
+//   easyCurve          — confidence → "easy" growth multiplier, piecewise:
+//                        ≥90% → high; 70–89% → midBase+(pct-70)/midDiv;
+//                        50–69% → lowBase+(pct-50)/lowDiv
+//   leechEnabled       — drill a card that keeps lapsing Hard (relaxed only)
+// `intensive` reproduces the historical hard-coded easy ramp exactly, so it
+// stays the default and existing schedules grow the same.
 export const SRS_CADENCE_PRESETS = {
   intensive: {
     id: 'intensive',
     label: '2-month intensive',
     maxIntervalDays: SRS_MAX_INTERVAL_DAYS,      // top-confidence ramp 1 → 3 → 8 → 14
-    uncertainCeilingDays: 7,
+    lapseResumeCapDays: 7,
     easyCurve: { high: 2.5, midBase: 1.5, midDiv: 40, lowBase: 1.2, lowDiv: 100 },
     // Course is short — a global confidence curve is enough; per-card
-    // difficulty doesn't have time to matter. Off keeps this preset
-    // byte-identical to the original scheduler.
-    useCardDifficulty: false
+    // difficulty doesn't have time to matter.
+    useCardDifficulty: false,
+    leechEnabled: false
   },
   relaxed: {
     id: 'relaxed',
     label: '8-month / continuous review',
-    maxIntervalDays: 120,                         // base (neutral-ease) ramp 1 → 4 → 14 → 49 → 120
-    uncertainCeilingDays: 30,
-    easyCurve: { high: 3.5, midBase: 2.0, midDiv: 20, lowBase: 1.3, lowDiv: 40 },
+    maxIntervalDays: 60,                          // ~2-month cap; gentle ramp 14 → 28 → 42 → 56 → 60
+    lapseResumeCapDays: 14,
+    maxEasyStepDays: 14,                          // a single easy adds ≤14d (near-linear growth)
+    easyCurve: { high: 2.0, midBase: 1.5, midDiv: 40, lowBase: 1.3, lowDiv: 40 },
     // Long horizon → blend each card's persistent ease (1.3–3.0) into the easy
-    // growth: a stubborn card crawls, a consistently-easy one stretches out
-    // fast. With the longer cap this lets the 8-month mode double as an
-    // indefinite retention deck. Neutral at the default ease (2.3) so a fresh
+    // growth: a stubborn card crawls (1.3 → 14 → 16 → 18 …), a consistently-easy
+    // one stretches toward the cap. Neutral at the default ease (2.3) so a fresh
     // card matches the base curve.
     useCardDifficulty: true,
-    difficultyNeutralEase: 2.3
+    difficultyNeutralEase: 2.3,
+    leechEnabled: true
   }
 };
 export const DEFAULT_SRS_CADENCE = 'intensive';

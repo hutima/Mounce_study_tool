@@ -1451,6 +1451,15 @@ function performSpacedProgressReset(requiredOnly) {
       p.lastEasyIntervalDays = 0;
       p.confidence = 0;
       p.confidenceHistory = [];
+      // Clear any in-progress lapse/relearn, leech, and variant-cycle state so a
+      // reset card starts from a clean schedule, not mid-ladder.
+      p.inRelearn = false;
+      p.relearnLeft = 0;
+      p.preLapseIntervalDays = 0;
+      p.lapseCount = 0;
+      p.leechDrill = false;
+      p.leechStreak = 0;
+      p.cycleFacesPassed = [];
       // The SRS scheduling is gone, so the last spaced outcome can no
       // longer describe a real scheduled state. Leaving it set made the
       // per-word analytics show "lastOutcome: easy" alongside stage 0 /
