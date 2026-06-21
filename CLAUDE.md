@@ -207,15 +207,27 @@ them rather than re-porting.
     (`'πορεύομαι'`, also carrying the present participle + present imperative),
     imperfect (`'πορεύομαι → ἐπορευόμην'`), future (`'πορεύομαι → πορεύσομαι'`),
     aorist passive-form (`'πορεύομαι → ἐπορεύθην'`, + the aorist passive
-    imperative), aorist passive participle (`'πορεύομαι → πορευθείς'`,
-    Participles), infinitives (`'πορεύομαι infinitive forms'`, Infinitives) — all
-    added as core `MORPHOLOGY_SETS` items in their Mounce chapters (18/19/21/24/
-    27/28/32/33). They form `POREUOMAI_VARIANTS`, registered in
-    `PARADIGM_VARIANT_FAMILIES` so the cumulative "πορεύομαι — all forms" appears.
-    Because every form is now core morphology, `POREUOMAI_OPTIONAL_GROUPS` is
-    emptied (no non-core extensions left; the full participle declensions stay in
+    imperative), aorist passive participle (`'πορεύομαι → πορευθείς'`),
+    infinitives (`'πορεύομαι infinitive forms'`) — all added as core
+    `MORPHOLOGY_SETS` items in their Mounce chapters (18/19/21/24/27/28/32/33).
+    They form `POREUOMAI_VARIANTS`, registered in `PARADIGM_VARIANT_FAMILIES` so
+    the cumulative "πορεύομαι — all forms" appears. **All πορεύομαι forms — incl.
+    its participle and infinitives — are categorized under `Verbs · deponent /
+    middle`**, NOT scattered into the generic Participles / Infinitives optgroups,
+    so the one deponent paradigm reads as a single self-contained group. Because
+    every form is now core morphology, `POREUOMAI_OPTIONAL_GROUPS` is emptied (no
+    non-core extensions left; the full participle declensions stay in
     `POREUOMAI_EXTRA_FORMS` for wrong-parse lookup, mirroring λύω whose drilled
     participles are recognition-nominative subsets).
+  - **λύω present participles are linked copies in the Participles optgroup.**
+    `'λύω → λύων'` (present active ptc) and `'λύω → λυόμενος'` (present m/p ptc) are
+    added as their own `MORPHOLOGY_SETS` items / dropdown entries under
+    `Participles` so they shuffle with the aorist participles and can be drilled
+    alone — while the SAME forms also remain in the base `λύω` present paradigm
+    (the present entry is unchanged). They're added to `LUO_VARIANTS`; the
+    cumulative's per-form dedup collapses the overlap (λύων appears once). Unlike
+    πορεύομαι (a single deponent kept whole), λύω is the teaching model, so its
+    participles populate the cross-paradigm Participles shuffle.
 - **Optional-paradigm completeness audit (`lemma_inventory.js`).** Every Mounce
   verb paradigm was checked for optional-form coverage (matters for wrong-parse
   lookup as well as the optional-extension toggle). Verbs WITH coverage before:

@@ -120,10 +120,17 @@ const PARADIGM_CATEGORIES = {
   'κρίνω → κρινῶ':                     'Verbs · liquid future',
 
   // ─── Verbs · deponent / middle ───
+  // πορεύομαι (the only deponent paradigm) keeps ALL its forms together under
+  // this group — including its participle and infinitives — rather than scattering
+  // them into the generic Participles / Infinitives optgroups, so the deponent
+  // verb reads as one self-contained paradigm. (λύω, the teaching model, does
+  // populate the generic Participles group below for cross-paradigm shuffling.)
   'πορεύομαι':                         'Verbs · deponent / middle',
   'πορεύομαι → ἐπορευόμην':            'Verbs · deponent / middle',
   'πορεύομαι → πορεύσομαι':            'Verbs · deponent / middle',
   'πορεύομαι → ἐπορεύθην':             'Verbs · deponent / middle',
+  'πορεύομαι → πορευθείς':             'Verbs · deponent / middle',
+  'πορεύομαι infinitive forms':       'Verbs · deponent / middle',
 
   // ─── Verbs · μι-verbs ───
   'δίδωμι':                            'Verbs · μι-verbs',
@@ -133,10 +140,13 @@ const PARADIGM_CATEGORIES = {
   'δείκνυμι (no reduplication)':       'Verbs · μι-verbs',
 
   // ─── Non-finite (case-marked) verbals ───
+  // λύω's present participles are linked copies (the same forms also live in the
+  // λύω present paradigm) surfaced here so they shuffle with / drill alongside the
+  // aorist participles.
+  'λύω → λύων':                        'Participles',
+  'λύω → λυόμενος':                    'Participles',
   'λύω → λυθείς':                      'Participles',
   'λύω → λύσας':                       'Participles',
-  'πορεύομαι → πορευθείς':             'Participles',
-  'πορεύομαι infinitive forms':       'Infinitives',
   'λύω → λῦσον':                       'Imperatives'
 };
 
@@ -186,6 +196,8 @@ const PARADIGM_FORM_DISPLAY_NAMES = {
   'λύω → ἐλύθην':         'λύω — aorist passive',
   'λύω → λέλυκα':         'λύω — perfect active',
   'λύω → λέλυμαι':        'λύω — perfect middle/passive',
+  'λύω → λύων':           'λύω — present active participle',
+  'λύω → λυόμενος':       'λύω — present middle/passive participle',
   'λύω → λύσας':          'λύω — aorist active participle',
   'λύω → λυθείς':         'λύω — aorist passive participle',
   'λύω → λῦσον':          'λύω — aorist active imperative',

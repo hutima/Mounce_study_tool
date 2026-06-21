@@ -769,6 +769,39 @@
             { form: "πορευομένη", answer: "present middle participle, nom. sg. fem." },
             { form: "πορευομένης", answer: "present middle participle, gen. sg. fem." }
           ]
+        },
+        // Linked copies of λύω's present participles under their own lemma keys so
+        // they ALSO appear as standalone "Participles" dropdown entries — they can
+        // be drilled alone or shuffled with the other participles. The forms stay
+        // under the base "λύω" present item above too (so the present paradigm is
+        // unchanged); the per-form dedup collapses the overlap in the cumulative.
+        {
+          family: "Present active participle — λύων (linked copy)",
+          lemma: "λύω → λύων",
+          gloss: "loosing",
+          questions: [
+            { form: "λύων", answer: "present active participle, nom. sg. masc." },
+            { form: "λύοντος", answer: "present active participle, gen. sg. masc./neut." },
+            { form: "λύοντι", answer: "present active participle, dat. sg. masc./neut." },
+            { form: "λύοντα", answer: "present active participle, acc. sg. masc. or nom./acc. pl. neut." },
+            { form: "λύουσα", answer: "present active participle, nom. sg. fem." },
+            { form: "λυούσης", answer: "present active participle, gen. sg. fem." },
+            { form: "λῦον", answer: "present active participle, nom./acc. sg. neut." },
+            { form: "λύοντες", answer: "present active participle, nom. pl. masc." },
+            { form: "λυόντων", answer: "present active participle, gen. pl. (all genders)" }
+          ]
+        },
+        {
+          family: "Present mid/pas participle — λυόμενος (linked copy)",
+          lemma: "λύω → λυόμενος",
+          gloss: "being loosed / loosing for oneself",
+          questions: [
+            { form: "λυόμενος", answer: "present mid/pas participle, nom. sg. masc." },
+            { form: "λυομένου", answer: "present mid/pas participle, gen. sg. masc./neut." },
+            { form: "λυόμενον", answer: "present mid/pas participle, acc. sg. masc. or nom./acc. sg. neut." },
+            { form: "λυομένη", answer: "present mid/pas participle, nom. sg. fem." },
+            { form: "λυομένης", answer: "present mid/pas participle, gen. sg. fem." }
+          ]
         }
       ]
     },
