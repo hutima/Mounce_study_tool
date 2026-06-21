@@ -19,11 +19,11 @@ update that doc in the same commit. Line numbers in the doc are approximate.
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="Mounce Greek">
-<link rel="manifest" href="manifest.json?v=140">
-<link rel="apple-touch-icon" href="icons/apple-touch-icon.png?v=140">
-<link rel="icon" type="image/svg+xml" href="favicon.svg?v=140">
+<link rel="manifest" href="manifest.json?v=141">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png?v=141">
+<link rel="icon" type="image/svg+xml" href="favicon.svg?v=141">
 <title>Mounce BBG Greek — Flashcards</title>
-<link rel="stylesheet" href="styles.css?v=140">
+<link rel="stylesheet" href="styles.css?v=141">
 <script>
 (function(){
   try {
@@ -155,10 +155,33 @@ update that doc in the same commit. Line numbers in the doc are approximate.
       <span class="toggle-text">Stem &amp; declension notes</span>
       <span class="toggle-switch on" id="stemNotesBtn" aria-hidden="true"></span>
     </button>
-    <button class="toggle-label" id="secondAoristCardsToggle" type="button" role="switch" aria-checked="false" onclick="toggleSecondAoristCards()" title="Give each second-aorist form its own flashcard — e.g. εἶπον 'I said' joins the deck as a separate card — whenever its present-stem verb (λέγω) is in the deck. The aorist is woven into the chapter's cards away from the present form, and reviews of it count toward the base verb's stats.">
-      <span class="toggle-text">Second aorists as cards</span>
-      <span class="toggle-switch" id="secondAoristCardsBtn" aria-hidden="true"></span>
-    </button>
+    <details class="utility-section variant-forms-section" id="variantFormsDetails">
+      <summary>Variant forms as cards<span class="variant-forms-count" id="variantFormsCount"></span></summary>
+      <button class="toggle-label" id="irregularTenseToggle" type="button" role="switch" aria-checked="true" onclick="toggleIrregularTense()" title="Name the tense on irregular cards — the '(aorist)' / '(future)' / '(perfect)' caption under a derived form's headword. Off replaces it with a small superscript star before the word, so the form is flagged as a non-standard principal part without giving its tense away.">
+        <span class="toggle-text">Show tense on irregular cards</span>
+        <span class="toggle-switch on" id="irregularTenseBtn" aria-hidden="true"></span>
+      </button>
+      <button class="toggle-label" id="irregularCards_2aor_Toggle" type="button" role="switch" aria-checked="false" onclick="toggleIrregularCards('2aor')" title="Give each second-aorist form its own flashcard — e.g. εἶπον 'I said' joins the deck as a separate card — whenever its present-stem verb (λέγω) is in the deck. The aorist is woven into the chapter's cards away from the present form, and reviews of it count toward the base verb's stats. On by default once Chapter 22 is selected, unless you switch it off yourself.">
+        <span class="toggle-text">Second aorists as cards</span>
+        <span class="toggle-switch" id="irregularCards_2aor_Btn" aria-hidden="true"></span>
+      </button>
+      <button class="toggle-label" id="irregularCards_lfut_Toggle" type="button" role="switch" aria-checked="false" onclick="toggleIrregularCards('lfut')" title="Give each liquid-future form its own flashcard — e.g. μενῶ 'I will remain' alongside μένω — whenever its present-stem verb is in the deck. Reviews of it count toward the base verb's stats. On by default once Chapter 20 is selected, unless you switch it off yourself.">
+        <span class="toggle-text">Liquid futures as cards</span>
+        <span class="toggle-switch" id="irregularCards_lfut_Btn" aria-hidden="true"></span>
+      </button>
+      <button class="toggle-label" id="irregularCards_aorpass_Toggle" type="button" role="switch" aria-checked="false" onclick="toggleIrregularCards('aorpass')" title="Give each aorist-passive form its own flashcard — e.g. ἐλύθην 'I was loosed' alongside λύω — whenever its present-stem verb is in the deck. Reviews of it count toward the base verb's stats. On by default once Chapter 24 is selected, unless you switch it off yourself.">
+        <span class="toggle-text">Aorist passives as cards</span>
+        <span class="toggle-switch" id="irregularCards_aorpass_Btn" aria-hidden="true"></span>
+      </button>
+      <button class="toggle-label" id="irregularCards_perfact_Toggle" type="button" role="switch" aria-checked="false" onclick="toggleIrregularCards('perfact')" title="Give each perfect-active form its own flashcard — e.g. λέλυκα 'I have loosed' alongside λύω — whenever its present-stem verb is in the deck. Reviews of it count toward the base verb's stats. On by default once Chapter 25 is selected, unless you switch it off yourself.">
+        <span class="toggle-text">Perfect actives as cards</span>
+        <span class="toggle-switch" id="irregularCards_perfact_Btn" aria-hidden="true"></span>
+      </button>
+      <button class="toggle-label" id="irregularCards_mi_Toggle" type="button" role="switch" aria-checked="false" onclick="toggleIrregularCards('mi')" title="Give each μι-verb principal part its own flashcard — e.g. ἔδωκα, δώσω, δέδωκα alongside δίδωμι — whenever the present-stem μι-verb is in the deck. Reviews of them count toward the base verb's stats. On by default once Chapter 34 is selected, unless you switch it off yourself.">
+        <span class="toggle-text">μι-verb forms as cards</span>
+        <span class="toggle-switch" id="irregularCards_mi_Btn" aria-hidden="true"></span>
+      </button>
+    </details>
     <button class="toggle-label" id="directionToggle" type="button" role="switch" aria-checked="false" onclick="toggleDirection()" title="Card direction. Off shows the Greek first (you recall the English meaning); on shows the English first (you recall the Greek form).">
       <span class="toggle-text">Eng → Gk</span>
       <span class="toggle-switch" id="directionBtn" aria-hidden="true"></span>
@@ -957,48 +980,48 @@ update that doc in the same commit. Line numbers in the doc are approximate.
   <button class="update-banner-dismiss" type="button" onclick="dismissAppUpdate()" aria-label="Dismiss">×</button>
 </div>
 
-<script defer src="js/data/words.js?v=140"></script>
-<script defer src="js/data/morphology.js?v=140"></script>
-<script defer src="js/data/lemma_inventory.js?v=140"></script>
-<script defer src="js/data/supplemental.js?v=140"></script>
-<script defer src="js/data/grammar.js?v=140"></script>
-<script defer src="js/data/supplementals/mounce_paradigms.js?v=140"></script>
-<script defer src="js/data/supplementals/stem_change_drills.js?v=140"></script>
-<script defer src="js/data/supplementals/second_aorist_flip.js?v=140"></script>
-<script defer src="js/data/supplementals/liquid_future_flip.js?v=140"></script>
-<script defer src="js/data/supplementals/w3_aorist_passive_flip.js?v=140"></script>
-<script defer src="js/data/supplementals/w3_perfect_active_flip.js?v=140"></script>
-<script defer src="js/data/supplementals/w4_mi_verb_principal_parts_flip.js?v=140"></script>
-<script defer src="js/data/advanced/advanced_01.js?v=140"></script>
-<script defer src="js/data/advanced/advanced_02.js?v=140"></script>
-<script defer src="js/data/advanced/advanced_03.js?v=140"></script>
-<script defer src="js/data/advanced/advanced_04.js?v=140"></script>
-<script defer src="js/data/advanced/advanced_05.js?v=140"></script>
-<script defer src="js/data/advanced/advanced_06.js?v=140"></script>
-<script defer src="js/data/advanced/advanced_07.js?v=140"></script>
-<script defer src="js/data/advanced/advanced_08.js?v=140"></script>
-<script defer src="js/data/advanced/advanced_09.js?v=140"></script>
-<script defer src="js/data/advanced/advanced_10.js?v=140"></script>
-<script defer src="js/data/advanced/advanced_11.js?v=140"></script>
-<script defer src="js/data/advanced/advanced_12.js?v=140"></script>
-<script defer src="js/data/advanced/advanced_13.js?v=140"></script>
-<script defer src="js/data/advanced/advanced_14.js?v=140"></script>
-<script defer src="js/data/advanced/advanced_15.js?v=140"></script>
-<script defer src="js/data/advanced/advanced_16.js?v=140"></script>
-<script defer src="js/data/advanced/advanced_17.js?v=140"></script>
-<script defer src="js/data/advanced/advanced_18.js?v=140"></script>
-<script defer src="js/data/advanced/advanced_19.js?v=140"></script>
-<script defer src="js/data/advanced/advanced_20.js?v=140"></script>
-<script defer src="js/data/advanced/advanced_21.js?v=140"></script>
-<script defer src="js/data/advanced/advanced_22.js?v=140"></script>
-<script defer src="js/data/advanced/advanced_23.js?v=140"></script>
-<script defer src="js/data/advanced/advanced_24.js?v=140"></script>
-<script defer src="js/data/advanced/advanced_25.js?v=140"></script>
-<script defer src="js/data/nt_book_vocab.js?v=140"></script>
-<script defer src="js/data/reader.js?v=140"></script>
-<script defer src="js/data/reader_verse_literals.js?v=140"></script>
-<script defer src="js/data/reader_translations.js?v=140"></script>
-<script defer src="js/logic/pos_logic.js?v=140"></script>
-<script type="module" src="js/app/main.js?v=140"></script>
+<script defer src="js/data/words.js?v=141"></script>
+<script defer src="js/data/morphology.js?v=141"></script>
+<script defer src="js/data/lemma_inventory.js?v=141"></script>
+<script defer src="js/data/supplemental.js?v=141"></script>
+<script defer src="js/data/grammar.js?v=141"></script>
+<script defer src="js/data/supplementals/mounce_paradigms.js?v=141"></script>
+<script defer src="js/data/supplementals/stem_change_drills.js?v=141"></script>
+<script defer src="js/data/supplementals/second_aorist_flip.js?v=141"></script>
+<script defer src="js/data/supplementals/liquid_future_flip.js?v=141"></script>
+<script defer src="js/data/supplementals/w3_aorist_passive_flip.js?v=141"></script>
+<script defer src="js/data/supplementals/w3_perfect_active_flip.js?v=141"></script>
+<script defer src="js/data/supplementals/w4_mi_verb_principal_parts_flip.js?v=141"></script>
+<script defer src="js/data/advanced/advanced_01.js?v=141"></script>
+<script defer src="js/data/advanced/advanced_02.js?v=141"></script>
+<script defer src="js/data/advanced/advanced_03.js?v=141"></script>
+<script defer src="js/data/advanced/advanced_04.js?v=141"></script>
+<script defer src="js/data/advanced/advanced_05.js?v=141"></script>
+<script defer src="js/data/advanced/advanced_06.js?v=141"></script>
+<script defer src="js/data/advanced/advanced_07.js?v=141"></script>
+<script defer src="js/data/advanced/advanced_08.js?v=141"></script>
+<script defer src="js/data/advanced/advanced_09.js?v=141"></script>
+<script defer src="js/data/advanced/advanced_10.js?v=141"></script>
+<script defer src="js/data/advanced/advanced_11.js?v=141"></script>
+<script defer src="js/data/advanced/advanced_12.js?v=141"></script>
+<script defer src="js/data/advanced/advanced_13.js?v=141"></script>
+<script defer src="js/data/advanced/advanced_14.js?v=141"></script>
+<script defer src="js/data/advanced/advanced_15.js?v=141"></script>
+<script defer src="js/data/advanced/advanced_16.js?v=141"></script>
+<script defer src="js/data/advanced/advanced_17.js?v=141"></script>
+<script defer src="js/data/advanced/advanced_18.js?v=141"></script>
+<script defer src="js/data/advanced/advanced_19.js?v=141"></script>
+<script defer src="js/data/advanced/advanced_20.js?v=141"></script>
+<script defer src="js/data/advanced/advanced_21.js?v=141"></script>
+<script defer src="js/data/advanced/advanced_22.js?v=141"></script>
+<script defer src="js/data/advanced/advanced_23.js?v=141"></script>
+<script defer src="js/data/advanced/advanced_24.js?v=141"></script>
+<script defer src="js/data/advanced/advanced_25.js?v=141"></script>
+<script defer src="js/data/nt_book_vocab.js?v=141"></script>
+<script defer src="js/data/reader.js?v=141"></script>
+<script defer src="js/data/reader_verse_literals.js?v=141"></script>
+<script defer src="js/data/reader_translations.js?v=141"></script>
+<script defer src="js/logic/pos_logic.js?v=141"></script>
+<script type="module" src="js/app/main.js?v=141"></script>
 </body>
 </html>

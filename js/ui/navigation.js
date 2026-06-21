@@ -23,6 +23,7 @@ import {
 } from '../state/store.js';
 import { getStorage } from '../utils/storage.js';
 import { shieldClicksBriefly } from '../utils/clickShield.js';
+import { isIrregularCardEnabled } from '../domain/deck/filters.js';
 import { renderCard } from './render.js';
 import { renderProgress, renderReview } from './progress.js';
 import {
@@ -721,11 +722,25 @@ export function toggleStemNotes() {
   renderCard();
 }
 
-// Second aorists as their own cards (e.g. εἶπον alongside λέγω). Unlike
-// stem notes this changes the deck's contents, so it rebuilds the deck the
-// same way toggleRequiredOnly does.
-export function toggleSecondAoristCards() {
-  runtime.secondAoristCards = !runtime.secondAoristCards;
+// The "(aorist)" / "(future)" tense caption on derived irregular cards is a
+// render-only annotation (like stem notes) — flipping it just re-renders the
+// current card; the deck is untouched.
+export function toggleIrregularTense() {
+  runtime.irregularTense = runtime.irregularTense === false;
+  host.syncToggleButtons();
+  host.saveState();
+  renderCard();
+}
+
+// Irregular forms as their own cards (e.g. εἶπον alongside λέγω, λέλυκα
+// alongside λύω). Unlike stem notes this changes the deck's contents, so it
+// rebuilds the deck the same way toggleRequiredOnly does. Clicking records an
+// explicit override (true/false) so the auto "on when the chapter is selected"
+// default no longer applies to that concept.
+export function toggleIrregularCards(tag) {
+  if (!runtime.irregularCards || typeof runtime.irregularCards !== 'object') runtime.irregularCards = {};
+  const current = isIrregularCardEnabled(tag, runtime.selectedKeys, runtime.irregularCards);
+  runtime.irregularCards[tag] = !current;
   host.syncToggleButtons();
   if (!runtime.selectedKeys.length) {
     host.saveState();

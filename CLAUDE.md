@@ -39,6 +39,16 @@ duff work, diff `origin/main` against that commit forward.
 - **Ported in full through duff #288** (parsing undo + 3-tier scoring,
   restructured parse summary + "Why this form" notes, 3rd-person imperative
   parsing at Mounce ch 33, and "Build mode" / interactive paradigm lookup).
+- **Back-filled the generalized "Variant forms as cards" panel** (duff #272 +
+  #273 + #277) — earlier ports had skipped it as "duff irregular-cards infra
+  Mounce lacks," but Mounce ships all five flip sets, so it was just wiring.
+  `IRREGULAR_CARD_CONFIGS` generalizes the old single `secondAoristCards` toggle
+  to 5 (`2aor`/`lfut`/`aorpass`/`perfact`/`mi`), each default-on once its Mounce
+  chapter (20/22/24/25/34) is selected, plus "Show tense on irregular cards".
+  Adapted: Mounce chapters/flip keys, the `flipLookupKey` accent fold kept on
+  both sides, and a `secondAoristCards → irregularCards` save migration. So
+  #272/#273/#277's irregular-cards bits are no longer "skipped." (If a NEWER
+  duff PR refines this infra, it's now portable here.)
 - **#289–#292 — evaluated; mostly skipped as duff-specific (not translatable):**
   - **#289** "Required only → Starred words only" rename — **skip**: Mounce uses
     "required / optional" everywhere (the `(req.)/(opt.)` card tags), so renaming

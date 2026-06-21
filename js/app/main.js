@@ -161,7 +161,7 @@ import {
 // Domain — Deck
 import { isChapterKey, isAdvancedKey, sortSetKeys, sourceHint, expandSessionSets } from '../domain/deck/ordering.js';
 import { getSelectedVocabCards, getSelectedGrammarCards, getAllVocabKeys, getAllChapterKeys,
-         getAllVocabCards, getAllGrammarCards, getChapterVocabCards, expandSecondAoristCards, progressCardId, secondAoristFaceKey,
+         getAllVocabCards, getAllGrammarCards, getChapterVocabCards, expandIrregularCards, irregularEnabledTags, isIrregularCardEnabled, IRREGULAR_CARD_CONFIGS, progressCardId, derivedCardFaceKey,
          getCardReviewLeft, getCardReviewRight, getCardMetaLine, getCardAuxLine } from '../domain/deck/filters.js';
 
 // Domain — Grammar
@@ -252,7 +252,8 @@ import {
   toggleRequiredOnly,
   toggleHardVocabReview,
   toggleStemNotes,
-  toggleSecondAoristCards,
+  toggleIrregularCards,
+  toggleIrregularTense,
   toggleDirection,
   toggleSpacedRepetition,
   toggleSpacingCadence,
@@ -1749,10 +1750,24 @@ function syncToggleButtons() {
   if (stemNotesSwitch) stemNotesSwitch.classList.toggle('on', runtime.stemNotes !== false);
   const stemNotesToggleEl = document.getElementById('stemNotesToggle');
   if (stemNotesToggleEl) stemNotesToggleEl.setAttribute('aria-checked', runtime.stemNotes !== false ? 'true' : 'false');
-  const secondAoristCardsSwitch = document.getElementById('secondAoristCardsBtn');
-  if (secondAoristCardsSwitch) secondAoristCardsSwitch.classList.toggle('on', !!runtime.secondAoristCards);
-  const secondAoristCardsToggleEl = document.getElementById('secondAoristCardsToggle');
-  if (secondAoristCardsToggleEl) secondAoristCardsToggleEl.setAttribute('aria-checked', runtime.secondAoristCards ? 'true' : 'false');
+  // "Variant forms as cards": reflect each per-concept toggle (effective state
+  // = explicit override, else default-on-when-its-chapter-selected) and the
+  // "N on" count in the section summary.
+  let irregularOnCount = 0;
+  IRREGULAR_CARD_CONFIGS.forEach(c => {
+    const on = isIrregularCardEnabled(c.tag, runtime.selectedKeys, runtime.irregularCards);
+    if (on) irregularOnCount += 1;
+    const sw = document.getElementById(`irregularCards_${c.tag}_Btn`);
+    if (sw) sw.classList.toggle('on', on);
+    const toggleEl = document.getElementById(`irregularCards_${c.tag}_Toggle`);
+    if (toggleEl) toggleEl.setAttribute('aria-checked', on ? 'true' : 'false');
+  });
+  const variantFormsCount = document.getElementById('variantFormsCount');
+  if (variantFormsCount) variantFormsCount.textContent = irregularOnCount ? ` · ${irregularOnCount} on` : '';
+  const irregularTenseSwitch = document.getElementById('irregularTenseBtn');
+  if (irregularTenseSwitch) irregularTenseSwitch.classList.toggle('on', runtime.irregularTense !== false);
+  const irregularTenseToggleEl = document.getElementById('irregularTenseToggle');
+  if (irregularTenseToggleEl) irregularTenseToggleEl.setAttribute('aria-checked', runtime.irregularTense !== false ? 'true' : 'false');
   if (splitSelectionSwitch) splitSelectionSwitch.classList.toggle('on', !!runtime.splitSelection);
   if (selfCheckBtn)    selfCheckBtn.classList.toggle('on',    !!runtime.morphSelfCheck && isMorphologyMode());
   if (aspectStepSwitch) aspectStepSwitch.classList.toggle('on', runtime.aspectStep !== false);
@@ -1925,9 +1940,10 @@ function syncLayoutVisibility() {
   // Stem & declension notes annotate standard vocab cards only.
   const stemNotesToggleVis = document.getElementById('stemNotesToggle');
   if (stemNotesToggleVis) stemNotesToggleVis.style.display = runtime.studyMode === 'vocab' ? 'flex' : 'none';
-  // Second-aorists-as-cards expands the vocab deck only.
-  const secondAoristCardsToggleVis = document.getElementById('secondAoristCardsToggle');
-  if (secondAoristCardsToggleVis) secondAoristCardsToggleVis.style.display = runtime.studyMode === 'vocab' ? 'flex' : 'none';
+  // "Variant forms as cards" expands the vocab deck only; it's a collapsible
+  // section, so show/hide the whole container.
+  const variantFormsDetails = document.getElementById('variantFormsDetails');
+  if (variantFormsDetails) variantFormsDetails.style.display = runtime.studyMode === 'vocab' ? '' : 'none';
   // Split vocab/grammar selection only makes sense between vocab and morph;
   // parsing mode owns its chapter via the dedicated dropdown, so hide the
   // toggle there entirely.
@@ -2263,11 +2279,14 @@ function getSelectedCards(keys) {
     return buildFilteredFocusedParadigmCards();
   }
   const vocabCards = getSelectedVocabCards(keys, false);
-  // "Second aorists as cards" (advanced settings, vocab-only, default off):
-  // each second-aorist verb's aorist form joins the deck as its own card.
-  return (runtime.secondAoristCards && runtime.studyMode === 'vocab')
-    ? expandSecondAoristCards(vocabCards)
-    : vocabCards;
+  // "Variant forms as cards" (advanced settings, vocab-only): each enabled
+  // concept's non-present principal part joins the deck as its own card. A
+  // concept's toggle defaults on once its chapter is selected, unless the user
+  // overrode it (isIrregularCardEnabled). Only in vocab mode.
+  const tags = runtime.studyMode === 'vocab'
+    ? irregularEnabledTags(runtime.selectedKeys, runtime.irregularCards)
+    : [];
+  return tags.length ? expandIrregularCards(vocabCards, tags) : vocabCards;
 }
 
 // When the "Exclude known morphs" toggle is on, drop any card that already
@@ -2950,18 +2969,24 @@ function getDeckAggregateStats(cards = runtime.originalDeck) {
   }, { seenCount: 0, passCount: 0, failCount: 0 });
 }
 
-// "Second aorists as cards": the derived aorist card and its base present
-// card share one progress entry, so one spaced schedule serves two recall
-// tasks — and it must resurface by the WEAKER of the two. Marking λέγω Easy
-// while εἶπον's last review was Hard would otherwise push the pair days out
-// with the aorist still unknown. Each face's own latest rating is kept on
-// the shared entry (faceOutcomes.present / faceOutcomes.aorist) and the
-// outcome actually applied is the lower of the two. The demotion is only
-// active while the toggle is on — with it off the aorist face can't be
-// re-reviewed, so a stale Hard from it must not pin the base card down.
+// "Variant forms as cards": a derived card (εἶπον, λέλυκα, ἔδωκα, …) and its
+// base present card share one progress entry, so one spaced schedule serves
+// several recall tasks — and it must resurface by the WEAKEST of them. Marking
+// λύω Easy while λέλυκα's last review was Hard would otherwise push the pair
+// days out with the perfect still unknown. Each face's own latest rating is
+// kept on the shared entry (faceOutcomes['base'] / faceOutcomes['2aor'] / …)
+// and the outcome actually applied is the lowest across the ACTIVE faces. A
+// derived face counts only while its own toggle is enabled — with it off that
+// form can't be re-reviewed, so a stale Hard from it must not pin the base
+// card down. The base present face always counts.
 const SPACED_OUTCOME_RANK = { again: 0, pass: 1, easy: 2 };
+function isSharedFaceActive(face) {
+  if (face === 'base') return true;
+  const tag = String(face).split('::')[0];
+  return isIrregularCardEnabled(tag, runtime.selectedKeys, runtime.irregularCards);
+}
 function resolveSharedFaceOutcome(card, ratedOutcome) {
-  const face = secondAoristFaceKey(card);
+  const face = derivedCardFaceKey(card);
   if (!face) return ratedOutcome;
   const progress = getWordProgress(card.id, { persist: true });
   const faces = (progress.faceOutcomes && typeof progress.faceOutcomes === 'object')
@@ -2969,11 +2994,16 @@ function resolveSharedFaceOutcome(card, ratedOutcome) {
     : {};
   faces[face] = ratedOutcome;
   progress.faceOutcomes = faces;
-  if (!(runtime.secondAoristCards && runtime.studyMode === 'vocab')) return ratedOutcome;
-  const sibling = faces[face === 'aorist' ? 'present' : 'aorist'];
-  const siblingRank = SPACED_OUTCOME_RANK[sibling];
-  if (!Number.isFinite(siblingRank) || siblingRank >= SPACED_OUTCOME_RANK[ratedOutcome]) return ratedOutcome;
-  return sibling;
+  if (runtime.studyMode !== 'vocab') return ratedOutcome;
+  // Grade the shared entry by its weakest active face so an Easy present
+  // doesn't bury a still-Hard derived form (or vice-versa).
+  let worst = ratedOutcome;
+  for (const [f, out] of Object.entries(faces)) {
+    if (!isSharedFaceActive(f)) continue;
+    const rank = SPACED_OUTCOME_RANK[out];
+    if (Number.isFinite(rank) && rank < SPACED_OUTCOME_RANK[worst]) worst = out;
+  }
+  return worst;
 }
 
 function applySpacedReview(card, outcome) {
@@ -3445,7 +3475,7 @@ const GLOBAL_CLICK_HANDLERS = {
   restoreSpacedUndo, setAppProfile, setStudyMode, setThemeMode, setFontFamily, setTextSize,
   showDisclaimerModal, startStudying, toggleDirection, toggleMorphSelfCheck,
   toggleMorphStepByStep, setMorphFocusedParadigm, setParsingChapter, goToStemDrillFromParsing,
-  toggleRequiredOnly, toggleHardVocabReview, toggleStemNotes, toggleSecondAoristCards, toggleShuffle, toggleSpacedRepetition, toggleSpacingCadence, toggleSplitSelection, toggleAspectStep, toggleDimStep, toggleOptionalForms, toggleOptionalFormFilter, toggleDimValueFilter, toggleExcludeKnownMorphs, toggleParsingShuffleAll, toggleParsingCustomReview, toggleParsingCustomParadigm, setAllParsingCustomParadigms, toggleParsingReverse, toggleParsingLookup, pickLookupDimension, editLookupDimension, resetLookup, toggleAccentLookalikes, resetKnownMorphs, closeResetKnownModal, confirmResetKnownFocused, confirmResetKnownAll, clearParsingStats, toggleUnspacedDailyReset, triggerImportProgress,
+  toggleRequiredOnly, toggleHardVocabReview, toggleStemNotes, toggleIrregularCards, toggleIrregularTense, toggleShuffle, toggleSpacedRepetition, toggleSpacingCadence, toggleSplitSelection, toggleAspectStep, toggleDimStep, toggleOptionalForms, toggleOptionalFormFilter, toggleDimValueFilter, toggleExcludeKnownMorphs, toggleParsingShuffleAll, toggleParsingCustomReview, toggleParsingCustomParadigm, setAllParsingCustomParadigms, toggleParsingReverse, toggleParsingLookup, pickLookupDimension, editLookupDimension, resetLookup, toggleAccentLookalikes, resetKnownMorphs, closeResetKnownModal, confirmResetKnownFocused, confirmResetKnownAll, clearParsingStats, toggleUnspacedDailyReset, triggerImportProgress,
   openReaderTab, selectReaderDrillChoice, advanceReaderDrill,
   closeWhatsNewV1_1Modal, closeToggleInfoModal, onDueHistogramToggle,
   applyAppUpdate, dismissAppUpdate

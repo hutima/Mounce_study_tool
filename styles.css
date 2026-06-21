@@ -602,6 +602,18 @@
     line-height: 0;
     color: var(--gold-dim);
   }
+  /* Spelled-out form-type caption under a derived ("Variant forms as cards")
+     headword on the question face: "(aorist)" / "(future)" … */
+  .card-form-tag {
+    font-style: italic;
+    font-size: calc((12px) * var(--text-scale));
+    color: var(--gold-dim);
+    text-align: center;
+    letter-spacing: 0.5px;
+    text-transform: lowercase;
+    margin-top: -4px;
+    margin-bottom: 6px;
+  }
   .card-hint {
     font-style: italic; font-size: calc((13px) * var(--text-scale)); color: var(--muted);
     text-align: center;
@@ -1039,6 +1051,18 @@
      match the controls-bar layout (switch on the left). */
   .parsing-lookup-row > .toggle-label { justify-content: flex-start; gap: 10px; }
   .parsing-lookup-row > .toggle-label > .toggle-switch { order: -1; }
+  /* "Variant forms as cards" sub-collapsible: the irregular "… as cards" toggles
+     grouped to save vertical space. Full-width row in the controls bar; its
+     toggles read switch-on-left like the rest of the bar. */
+  .variant-forms-section { flex: 1 1 100%; align-self: stretch; width: 100%; }
+  .variant-forms-section[open] > .toggle-label {
+    display: flex;
+    justify-content: flex-start;
+    gap: 10px;
+    margin-top: 10px;
+  }
+  .variant-forms-section[open] > .toggle-label > .toggle-switch { order: -1; }
+  .variant-forms-count { color: var(--muted); text-transform: none; letter-spacing: 0; }
   /* (i) info button injected into each master toggle (opens a describe-modal). */
   .toggle-info {
     position: relative;

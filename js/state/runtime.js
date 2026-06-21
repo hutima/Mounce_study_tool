@@ -138,12 +138,17 @@ export const runtime = {
   // line under a verb, and the "declines like σάρξ" hint-line pointer.
   // Render-only; default on.
   stemNotes: true,
-  // Second aorists as their own cards: when on, every standard chapter-vocab
-  // verb with a recorded second aorist (the W3 flip set) also contributes a
-  // standalone card for the aorist form itself (e.g. εἶπον "I said" alongside
-  // λέγω). Changes deck contents, so flipping it rebuilds the deck. Default
-  // off — the aorist normally rides along as the principal-parts line.
-  secondAoristCards: false,
+  // Irregular forms as their own cards ("Variant forms as cards"): a per-concept
+  // override map keyed by tag ('2aor', 'lfut', 'aorpass', 'perfact', 'mi').
+  // `true`/`false` is an explicit user override; a missing key means "auto" — on
+  // whenever the concept's Mounce chapter is among the selected chapters (see
+  // isIrregularCardEnabled in filters.js). Changes deck contents, so flipping a
+  // toggle rebuilds the deck.
+  irregularCards: {},
+  // Show the "(aorist)" / "(future)" tense caption on derived irregular cards.
+  // Render-only; default on. When off, a small superscript star before the
+  // headword stands in for the named tense (see render.js).
+  irregularTense: true,
   // Per-dimension toggles for the parsing walk. Each key controls whether
   // that dim's step is asked. Default-on; off → step skipped, dim doesn't
   // contribute to stats, omitted from the final parse summary, and the
