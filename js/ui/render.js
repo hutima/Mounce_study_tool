@@ -9,7 +9,7 @@ import { runtime } from '../state/runtime.js';
 import { buildGrammarSupportHtml } from '../domain/grammar/explanations.js';
 import { renderProgress, renderReview } from './progress.js';
 import { buildMorphSteps, THIRD_PERSON_IMPERATIVE_CHAPTER, computeAccessibleDimensionPools, parseAnswerDimensions, aspectMistakeNote, isSecondPluralPresentMoodAmbiguity, computeParadigmPresentValues, computeParadigmConstantDims, accentLookalikesFor, confusableFormHints, isSyncreticMiddlePassiveVoice } from '../domain/grammar/morph_steps.js';
-import { getAccessibleMorphCards, deriveSelectionLevels, buildMultiGenderLemmas, THIRD_DECLENSION_NOUN_LEMMAS, paradigmCategoryForLemma, isAggregateParadigm, parseCategoryShuffleValue } from '../domain/grammar/paradigm_focus.js';
+import { getAccessibleMorphCards, deriveSelectionLevels, buildMultiGenderLemmas, THIRD_DECLENSION_NOUN_LEMMAS, paradigmCategoryForLemma } from '../domain/grammar/paradigm_focus.js';
 import { resolveLookupWalk } from '../domain/grammar/morph_lookup.js';
 
 let host = {
@@ -40,7 +40,11 @@ let host = {
   // exclude-known filter or per-value dim filters) — the structural truth of
   // what forms the paradigm owns. Used to detect value gaps like ἐγώ/σύ
   // having no third-person forms. Returns [] outside parsing mode.
-  getFocusedParadigmAllCards: () => []
+  getFocusedParadigmAllCards: () => [],
+  // The full parsing pool currently being drilled (focused paradigm, category
+  // shuffle, custom set, shuffle-all, or cumulative aggregate). Used to collapse
+  // a step whose value is constant across the whole pool. Returns [].
+  getParsingPoolCards: () => []
 };
 
 export function configureRender(deps) {
@@ -609,21 +613,19 @@ function ensureStepStateForCard(card) {
   const paradigmCards = host.getFocusedParadigmAllCards(card);
   const paradigmPool = Array.isArray(paradigmCards) && paradigmCards.length ? paradigmCards : [card];
   const paradigmPresentValues = computeParadigmPresentValues(paradigmPool);
-  // When ONE concrete paradigm is focused (not a pooled deck), collapse any
-  // parsing step the paradigm never varies on to its single option — the
-  // student clicks through it to reinforce "this is the future paradigm"
-  // rather than picking from distractors. Pooled modes (shuffle-all, a category
-  // "↯ Shuffle all" pick, the cumulative "— all forms" aggregate, or a custom
-  // set) genuinely mix values per dimension, so they keep the full test.
-  const focus = runtime.morphFocusedParadigm;
-  const pooledFocus = !!runtime.parsingShuffleAll
-    || !!runtime.parsingCustomReview
-    || !!parseCategoryShuffleValue(focus)
-    || isAggregateParadigm(focus);
-  // Computed from the REAL paradigm pool only (not the [card] fallback): an
-  // empty pool would make every dim look "constant" and collapse the whole walk.
-  const singleParadigmConstantDims = (!pooledFocus && Array.isArray(paradigmCards) && paradigmCards.length)
-    ? computeParadigmConstantDims(paradigmCards)
+  // Collapse any parsing step whose value is constant across the WHOLE pool the
+  // student is drilling to a single reinforcing option — they click through it
+  // ("yes, still future / still a participle") instead of choosing from
+  // distractors that the deck never actually contrasts. This is pool-aware, so it
+  // covers both a single focused paradigm (tense/voice/mood fixed) AND a pooled
+  // deck that's still constant on some dim (e.g. the participles "↯ Shuffle all",
+  // where mood is always "participle"). A deck that genuinely varies a dimension
+  // — the cumulative "— all forms" aggregate, shuffle-all across types — keeps
+  // the full test there. Computed from the real pool only (an empty pool would
+  // make every dim look "constant" and collapse the whole walk).
+  const poolCards = host.getParsingPoolCards();
+  const singleParadigmConstantDims = (Array.isArray(poolCards) && poolCards.length)
+    ? computeParadigmConstantDims(poolCards)
     : {};
   const steps = buildMorphSteps(card, accessiblePools, {
     includeAspect: runtime.aspectStep !== false,

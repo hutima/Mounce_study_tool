@@ -451,6 +451,19 @@
             { form: "λύεσθε", answer: "2nd plural present mid/pas" },
             { form: "λύονται", answer: "3rd plural present mid/pas" }
           ]
+        },
+        {
+          family: "Present middle (deponent) — πορεύομαι",
+          lemma: "πορεύομαι",
+          gloss: "I go (deponent)",
+          questions: [
+            { form: "πορεύομαι", answer: "1st singular present middle" },
+            { form: "πορεύῃ", answer: "2nd singular present middle" },
+            { form: "πορεύεται", answer: "3rd singular present middle" },
+            { form: "πορευόμεθα", answer: "1st plural present middle" },
+            { form: "πορεύεσθε", answer: "2nd plural present middle" },
+            { form: "πορεύονται", answer: "3rd plural present middle" }
+          ]
         }
       ]
     },
@@ -537,6 +550,19 @@
             { form: "ἐλυόμεθα", answer: "1st plural imperfect mid/pas" },
             { form: "ἐλύεσθε", answer: "2nd plural imperfect mid/pas" },
             { form: "ἐλύοντο", answer: "3rd plural imperfect mid/pas" }
+          ]
+        },
+        {
+          family: "Imperfect middle (deponent) — ἐπορευόμην",
+          lemma: "πορεύομαι → ἐπορευόμην",
+          gloss: "I was going (deponent)",
+          questions: [
+            { form: "ἐπορευόμην", answer: "1st singular imperfect middle" },
+            { form: "ἐπορεύου", answer: "2nd singular imperfect middle" },
+            { form: "ἐπορεύετο", answer: "3rd singular imperfect middle" },
+            { form: "ἐπορευόμεθα", answer: "1st plural imperfect middle" },
+            { form: "ἐπορεύεσθε", answer: "2nd plural imperfect middle" },
+            { form: "ἐπορεύοντο", answer: "3rd plural imperfect middle" }
           ]
         }
       ]
@@ -639,6 +665,20 @@
           ]
         },
         {
+          family: "Aorist (passive form, deponent) — ἐπορεύθην",
+          lemma: "πορεύομαι → ἐπορεύθην",
+          gloss: "I went (deponent)",
+          questions: [
+            { form: "ἐπορεύθην", answer: "1st singular 1st aorist passive",
+              note: "πορεύομαι forms its aorist on the passive (θη) stem but means 'I went' (active)." },
+            { form: "ἐπορεύθης", answer: "2nd singular 1st aorist passive" },
+            { form: "ἐπορεύθη", answer: "3rd singular 1st aorist passive" },
+            { form: "ἐπορεύθημεν", answer: "1st plural 1st aorist passive" },
+            { form: "ἐπορεύθητε", answer: "2nd plural 1st aorist passive" },
+            { form: "ἐπορεύθησαν", answer: "3rd plural 1st aorist passive" }
+          ]
+        },
+        {
           family: "First future passive — λυθήσομαι",
           lemma: "λύω → λυθήσομαι",
           gloss: "I will be loosed",
@@ -717,6 +757,18 @@
             { form: "λυομένη", answer: "present mid/pas participle, nom. sg. fem." },
             { form: "λυομένης", answer: "present mid/pas participle, gen. sg. fem." }
           ]
+        },
+        {
+          family: "Present middle participle (deponent) — πορευόμενος",
+          lemma: "πορεύομαι",
+          gloss: "going (deponent)",
+          questions: [
+            { form: "πορευόμενος", answer: "present middle participle, nom. sg. masc." },
+            { form: "πορευομένου", answer: "present middle participle, gen. sg. masc./neut." },
+            { form: "πορευόμενον", answer: "present middle participle, acc. sg. masc. or nom./acc. sg. neut." },
+            { form: "πορευομένη", answer: "present middle participle, nom. sg. fem." },
+            { form: "πορευομένης", answer: "present middle participle, gen. sg. fem." }
+          ]
         }
       ]
     },
@@ -745,6 +797,17 @@
             { form: "λυθέντος", answer: "1st aorist passive participle, gen. sg. masc./neut." },
             { form: "λυθεῖσα", answer: "1st aorist passive participle, nom. sg. fem." },
             { form: "λυθέν", answer: "1st aorist passive participle, nom./acc. sg. neut." }
+          ]
+        },
+        {
+          family: "Aorist passive participle (deponent) — πορευθείς",
+          lemma: "πορεύομαι → πορευθείς",
+          gloss: "having gone (deponent)",
+          questions: [
+            { form: "πορευθείς", answer: "1st aorist passive participle, nom. sg. masc." },
+            { form: "πορευθέντος", answer: "1st aorist passive participle, gen. sg. masc./neut." },
+            { form: "πορευθεῖσα", answer: "1st aorist passive participle, nom. sg. fem." },
+            { form: "πορευθέν", answer: "1st aorist passive participle, nom./acc. sg. neut." }
           ]
         },
         {
@@ -808,6 +871,15 @@
             { form: "λελύσθαι", answer: "perfect mid/pas infinitive" },
             { form: "λιπεῖν", answer: "2nd aorist active infinitive" }
           ]
+        },
+        {
+          family: "Infinitives (deponent) — πορεύομαι",
+          lemma: "πορεύομαι infinitive forms",
+          gloss: "to go (deponent)",
+          questions: [
+            { form: "πορεύεσθαι", answer: "present mid/pas infinitive" },
+            { form: "πορευθῆναι", answer: "1st aorist passive infinitive" }
+          ]
         }
       ]
     },
@@ -847,6 +919,28 @@
             { form: "λυθήτω", answer: "3rd singular 1st aorist passive imperative" },
             { form: "λύθητε", answer: "2nd plural 1st aorist passive imperative" },
             { form: "λυθήτωσαν", answer: "3rd plural 1st aorist passive imperative" }
+          ]
+        },
+        {
+          family: "Present middle imperative (deponent) — πορεύου",
+          lemma: "πορεύομαι",
+          gloss: "go! (deponent)",
+          questions: [
+            { form: "πορεύου", answer: "2nd singular present middle imperative" },
+            { form: "πορευέσθω", answer: "3rd singular present middle imperative" },
+            { form: "πορεύεσθε", answer: "2nd plural present middle imperative" },
+            { form: "πορευέσθωσαν", answer: "3rd plural present middle imperative" }
+          ]
+        },
+        {
+          family: "Aorist passive imperative (deponent) — πορεύθητι",
+          lemma: "πορεύομαι → ἐπορεύθην",
+          gloss: "go! (aor., deponent)",
+          questions: [
+            { form: "πορεύθητι", answer: "2nd singular 1st aorist passive imperative" },
+            { form: "πορευθήτω", answer: "3rd singular 1st aorist passive imperative" },
+            { form: "πορεύθητε", answer: "2nd plural 1st aorist passive imperative" },
+            { form: "πορευθήτωσαν", answer: "3rd plural 1st aorist passive imperative" }
           ]
         }
       ]

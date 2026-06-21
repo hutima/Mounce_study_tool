@@ -1262,6 +1262,14 @@
     margin-bottom: 12px;
   }
 
+  /* A collapsed single-option step (a dimension the focused paradigm/pool never
+     varies on — e.g. "future" for a future-only paradigm) renders one button.
+     Span it full-width so it reads as a deliberate "this is the value" button
+     rather than a stray half-width tile in the left grid column. */
+  .morph-choices .choice-btn:only-child {
+    grid-column: 1 / -1;
+  }
+
   .choice-btn {
     background: var(--surface);
     color: var(--cream);
