@@ -14,10 +14,12 @@ import {
   getLemmaFormStatus,
   clearLemmaFormRecent,
   isLemmaFormKnown,
+  countLemmaFormRecent,
   createValueBreakdownAcc,
   accumulateValueBreakdown,
   finalizeValueBreakdown,
-  summarizeLemmaValueBreakdown
+  summarizeLemmaValueBreakdown,
+  FORM_RECENT_CAP
 } from '../domain/grammar/morph_steps.js';
 import { buildDimValueBarsHtml } from './charts.js';
 
@@ -343,6 +345,42 @@ function parsingWeakestTagHtml(weakest) {
   return `<span class="parsing-review-weakest"><span class="parsing-review-weakest-dot ${band}"></span>weakest: ${escapeHtmlSmall(weakest.label)} ${weakest.pct}%</span>`;
 }
 
+// Whole-parse "completely correct / tested" tally for a paradigm, using the
+// same last-FORM_RECENT_CAP (2/2) window the known dots and exclude-known
+// filter use. Each in-scope form contributes up to two slots depending on how
+// many times it's been tested (2/2, 1/2, 1/1, 0/1, …); summed across forms
+// this is the paradigm's overall progress: completely-correct parses over
+// total tested parses. Distinct from the per-dimension half-credit headline %.
+function lemmaParseProgress(stats, lemma, cards, enabledDims) {
+  let correct = 0;
+  let total = 0;
+  (cards || []).forEach((card) => {
+    if (!card || !card.id) return;
+    const r = countLemmaFormRecent(stats, lemma, card.id, enabledDims, FORM_RECENT_CAP);
+    correct += r.correct;
+    total += r.total;
+  });
+  return { correct, total };
+}
+
+// A thin "completely correct parse / total tested parses" bar for a parsing-
+// review row. Reuses the 5-band colour gradient of the per-value bars so it
+// reads consistently with the rest of the panel. Renders an empty (grey) track
+// with a "0/0" label when nothing's been tested yet so every row keeps the bar.
+function parsingProgressBarHtml(correct, total) {
+  const pct = total ? Math.round(100 * correct / total) : 0;
+  const band = total === 0 ? 'parsing-review-bar-empty'
+    : pct >= 80 ? 'parsing-review-bar-high'
+    : pct >= 50 ? 'parsing-review-bar-mid'
+    : 'parsing-review-bar-low';
+  const title = total
+    ? `${correct} of ${total} tested parses completely correct (${pct}%)`
+    : 'No parses tested yet';
+  return `<div class="parsing-review-bar" title="${title}">`
+    + `<span class="parsing-review-bar-track"><span class="parsing-review-bar-fill ${band}" style="width:${pct}%"></span></span>`
+    + `<span class="parsing-review-bar-label">${correct}/${total}</span></div>`;
+}
+
 // Replacement for renderReview when in parsing mode. The standard
 // confidence/seen/unseen breakdown doesn't apply (parsing has no SRS or
 // main-stats writes); instead we surface the per-lemma rolling-window
@@ -417,10 +455,19 @@ function renderParsingReviewPanel() {
   // consistent with the bars.
   const overallAcc = createValueBreakdownAcc();
   const lemmaBreakdowns = new Map();
+  // Whole-parse progress bars (completely-correct / tested, 2/2 known window),
+  // per lemma and summed for the overall row.
+  const lemmaParseBars = new Map();
+  let overallParseCorrect = 0;
+  let overallParseTotal = 0;
   baseStats.forEach((s) => {
     const cards = cardsFor(s.lemma);
     accumulateValueBreakdown(overallAcc, stats, s.lemma, cards, enabledDims);
     lemmaBreakdowns.set(s.lemma, summarizeLemmaValueBreakdown(stats, s.lemma, cards, enabledDims));
+    const parse = lemmaParseProgress(stats, s.lemma, cards, enabledDims);
+    lemmaParseBars.set(s.lemma, parse);
+    overallParseCorrect += parse.correct;
+    overallParseTotal += parse.total;
   });
   const pctOf = (lemma) => {
     const b = lemmaBreakdowns.get(lemma);
@@ -478,6 +525,7 @@ function renderParsingReviewPanel() {
         <span class="parsing-review-pct ${overallPctClass}">${overallPct == null ? '—' : `${overallPct}%`}</span>
         <span class="parsing-review-attempts">${overallTotals.seen}/${overallTotals.scope} forms · ${shownCount} paradigm${shownCount === 1 ? '' : 's'}</span>
       </div>
+      ${parsingProgressBarHtml(overallParseCorrect, overallParseTotal)}
       ${overallWeakest ? `<div class="parsing-review-weakline">${parsingWeakestTagHtml(overallWeakest)}</div>` : ''}
       ${overallExpanded ? `<div class="parsing-review-chart">${buildDimValueBarsHtml(overallGroups, { caption: `Per-dimension accuracy per value, across ${customMode ? 'your selected paradigms' : 'every paradigm'} · seen / in scope` })}</div>` : ''}
     </div>`;
@@ -516,6 +564,7 @@ function renderParsingReviewPanel() {
           <span class="parsing-review-pct ${pctClass}">${pct == null ? '—' : `${pct}%`}</span>
           <span class="parsing-review-attempts">${totals.seen}/${totals.scope} forms</span>
         </div>
+        ${(() => { const p = lemmaParseBars.get(s.lemma) || { correct: 0, total: 0 }; return parsingProgressBarHtml(p.correct, p.total); })()}
         ${weakest ? `<div class="parsing-review-weakline">${parsingWeakestTagHtml(weakest)}</div>` : ''}
         ${isExpanded ? `<div class="parsing-review-chart">${breakdownHtml}</div>${formsHtml}` : ''}
       </div>`;

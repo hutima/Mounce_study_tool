@@ -35,7 +35,9 @@ presets, off-the-record parsing). Consult it before applying a duff diff.
 
 **Last reviewed duff commit: `7cb83ad` (tip of duff `main`, 2026-06-21; merge of
 PR #299).** When checking for new duff work, diff `origin/main` against that
-commit forward.
+commit forward. **Ported ahead of their duff merge: PRs #300 (`20d386c`) and
+#301 (`6d89c13`)** — when those land on duff `main`, advance the boundary past
+them rather than re-porting.
 
 - **Ported in full through duff #288** (parsing undo + 3-tier scoring,
   restructured parse summary + "Why this form" notes, 3rd-person imperative
@@ -101,6 +103,33 @@ commit forward.
     and a lapsed set relearns together as documented. (duff's other two
     post-#298 commits, `2f12bdd`/the #299 merge, are duff back-porting Mounce
     #86 into duff — no new Mounce content.)
+- **Ported duff PR #300 + #301 (ahead of their duff `main` merge):**
+  - **#300 (`20d386c`) — parse-answer form lookup no longer dashes aorist picks
+    to "—".** The wrong-pick "Your parse" lookup (`resolveFormForPickedDims` in
+    `render.js`) rejected an otherwise-correct aorist parse when the only
+    matching form is stored with a "first/second aorist" qualifier: the Tense
+    step collapses both to plain `aorist` (so the student picks `aorist`), but
+    candidate answers parse straight from the data and keep the qualifier, and
+    `dimsCompatible('aorist','first aorist')` is false — the candidate was
+    discarded on tense alone and the line rendered "—" (e.g. ῥῦσαι + a wrong
+    subjunctive pick should surface ῥύσῃ). Fix: collapse the first/second-aorist
+    qualifier on BOTH the picked tense and each candidate's tense
+    (`/^(first|second)\s+/`) before comparison, mirroring `buildMorphSteps`.
+    (Mounce's `parseAnswerDimensions` already normalizes "2nd aorist"→"second
+    aorist", so the regex matches its dim values.)
+  - **#301 (`6d89c13`) — per-paradigm "completely-correct / tested" progress
+    bar** in the parsing review panel. Each row (per paradigm + the overall row)
+    gets a thin bar tallying completely-correct parses over total tested parses,
+    summed across the paradigm's in-scope forms using the same 2/2 known window
+    as the dots / exclude-known filter (each form contributes 2/2, 1/2, 1/1,
+    0/1, …). Distinct from the per-dimension half-credit headline %. Exports
+    `FORM_RECENT_CAP` from `morph_steps.js`; adds `lemmaParseProgress` (folds
+    `countLemmaFormRecent` over `cardsFor(lemma)`) and `parsingProgressBarHtml`
+    (5-band gradient, empty grey track + "0/0" when untested) to `progress.js`,
+    wired into both rows of `renderParsingReviewPanel`; new
+    `.parsing-review-bar*` CSS (light-theme variants included). Adapted to
+    Mounce's memoized `cardsFor()` cache instead of duff's direct
+    `getMorphCardsForLemma`.
   - **Parsing review panel scoped to the custom set** (`d5a7a8c`) — in
     custom-paradigm-set mode the bottom panel becomes a live scorecard for the
     ticked deck (`runtime.parsingCustomParadigms`), showing selected-but-undrilled

@@ -1421,6 +1421,15 @@ function resolveFormForPickedDims(card, steps, pickedValues, autoFilledDims) {
   if (isSyncreticMiddlePassiveVoice(pickedDims, card.lemma)) {
     pickedDims.voice = 'middle/passive';
   }
+  // First/second aorist is a stem-formation distinction, not a separate
+  // tense — the Tense step collapses both to plain 'aorist' (buildMorphSteps),
+  // so the student always picks 'aorist'. Candidate answers, however, are
+  // parsed straight from the data and may carry the qualifier ("first aorist
+  // middle subjunctive" for ῥύσῃ, "second aorist" for γένωμαι …). Collapse
+  // the picked tense to match, so the lookup doesn't reject the (only) form
+  // for a correctly-picked aorist parse on the qualifier alone — the bug that
+  // dashed a wrong-mood pick on ῥῦσαι to "—" instead of surfacing ῥύσῃ.
+  if (pickedDims.tense) pickedDims.tense = pickedDims.tense.replace(/^(first|second)\s+/, '');
   const keys = Object.keys(pickedDims);
   if (keys.length === 0) return { kind: 'none' };
 
@@ -1444,6 +1453,9 @@ function resolveFormForPickedDims(card, steps, pickedValues, autoFilledDims) {
       for (const answer of answerList) {
         if (!answer) continue;
         const ansDims = parseAnswerDimensions(answer);
+        // Mirror the picked-side collapse above: a candidate stored as
+        // "first/second aorist" must compare equal to a plain 'aorist' pick.
+        if (ansDims.tense) ansDims.tense = ansDims.tense.replace(/^(first|second)\s+/, '');
         const ok = keys.every((k) => !ansDims[k] || dimsCompatible(pickedDims[k], ansDims[k]));
         if (!ok) continue;
         if (!structurallyCompatibleMood(pickedDims.mood, ansDims)) continue;

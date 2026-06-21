@@ -1010,7 +1010,7 @@ function ensureLemmaEntry(entry) {
 // Last-N window that defines "known" for the exclude-known-morphs filter and
 // the testable-forms dots. NOT the storage depth — see FORM_HISTORY_CAP. This
 // stays 2 so the 2/2 "known" rule is untouched.
-const FORM_RECENT_CAP = 2;
+export const FORM_RECENT_CAP = 2;
 // How many recent per-form attempts to STORE. Deeper than FORM_RECENT_CAP so
 // the confidence views (headline % + per-value bars) have more than two
 // attempts to average per form; the exclude-known filter and dots still only
