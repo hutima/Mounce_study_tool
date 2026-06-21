@@ -97,6 +97,26 @@ duff work, diff `origin/main` against that commit forward.
   - **λύω infinitives regrouped** — `'λύω infinitive forms'` moved from the
     one-entry "Infinitives" optgroup into `Verbs · standard ω-pattern (λύω)`
     (infinitives are indeclinable; participles stay separate).
+- **Optional-paradigm completeness audit (`lemma_inventory.js`).** Every Mounce
+  verb paradigm was checked for optional-form coverage (matters for wrong-parse
+  lookup as well as the optional-extension toggle). Verbs WITH coverage before:
+  λύω, γίνομαι, δίδωμι, τίθημι, ἵστημι. Added now, **ported verbatim from duff**
+  (Greek + parses; chapters remapped to Mounce):
+  - **λαμβάνω** (`'λαμβάνω → ἔλαβον'`) and **λείπω** (`'λείπω → ἔλιπον'`) — full
+    optional coverage (present/imperfect/future indicative, 2nd-aorist
+    subj/impv/inf, aorist passive, perfect, present + 2nd-aorist active + aorist
+    passive participles), bringing the 2nd-aorist actives to γίνομαι parity.
+  - **κρίνω** (`'κρίνω → κρινῶ'`) — participles (present κρίνων, **1st**-aorist
+    κρίνας `-ας/-αντος`, aorist passive κριθείς) as `extraForms` ONLY (no
+    drillable optional groups), mirroring duff — they back wrong-parse feedback.
+  - Two new participle helpers: `aoristActiveParticipleParadigm(stem)` (2nd-aorist
+    `-ών` type, e.g. λαβών/λιπών) and `presentActiveNtParticiple(accStem,
+    bareStem, neuter)` (recessive `-ων` type), alongside the existing
+    `aoristPassiveParticipleParadigm`.
+  - **Still uncovered — no duff source, need hand-authored tables** (flagged in
+    the in-file comment): contract verbs **ἀγαπάω / ποιέω / πληρόω** (duff's only
+    contract exemplar is φιλέω), **γράφω** (2nd-aor passive), **πορεύομαι**
+    (deponent), **δείκνυμι** (μι-verb). duff has none of these.
 - **Added the "Irregular practice" selector section** (duff #269's
   `buildIrregularPracticeSelector` / `#irregularGrid`) — the five stem-flip
   flashcard sets (second-aorist / liquid-future / aorist-passive /
