@@ -113,10 +113,27 @@ duff work, diff `origin/main` against that commit forward.
     `-ών` type, e.g. λαβών/λιπών) and `presentActiveNtParticiple(accStem,
     bareStem, neuter)` (recessive `-ων` type), alongside the existing
     `aoristPassiveParticipleParadigm`.
-  - **Still uncovered — no duff source, need hand-authored tables** (flagged in
-    the in-file comment): contract verbs **ἀγαπάω / ποιέω / πληρόω** (duff's only
-    contract exemplar is φιλέω), **γράφω** (2nd-aor passive), **πορεύομαι**
-    (deponent), **δείκνυμι** (μι-verb). duff has none of these.
+  - **Hand-authored (no duff source)** — now also complete:
+    - **ἀγαπάω / ποιέω / πληρόω** (α/ε/ο contracts): present-system gaps —
+      present mid/pas indicative, imperfect active + mid/pas indicative, present
+      infinitives (act + MP), present MP participle (via new
+      `menosParticipleParadigm`), present active participle recognition
+      nominatives (full contracted `-ῶν/-οῦντος` declension deferred). Future/
+      aorist/perfect are uncontracted/regular, so not added.
+    - **γράφω** (`'γράφω → ἐγράφην'`): 2nd-aor-passive non-indicatives (subj
+      γραφῶ, impv γράφηθι, inf γραφῆναι, ptc γραφείς via new θ-less
+      `eisParticipleParadigm`) + present active indicative.
+    - **πορεύομαι** (`'πορεύομαι → πορεύσομαι'`): present + imperfect middle
+      indicative, aorist (passive-form) ἐπορεύθην, present/aorist inf + impv,
+      present middle participle (menos) + aorist passive participle (θ-type).
+    - **δείκνυμι** (`'δείκνυμι (no reduplication)'`): present active indicative +
+      inf, 1st-aorist ἔδειξα + inf, present/aorist active participle recognition
+      nominatives (full μι-/-ας declensions deferred). All gated at Ch 36.
+    - New helpers: `menosParticipleParadigm(accStem, bareStem, label)` (λυόμενος
+      2-1-2 pattern, also handles contracted stems) and `eisParticipleParadigm`
+      (θ-less 2nd-aor passive `-είς`). Every Mounce-drilled verb now has optional
+      coverage; remaining gaps are the deferred accent-dense participle
+      declensions noted above.
 - **Added the "Irregular practice" selector section** (duff #269's
   `buildIrregularPracticeSelector` / `#irregularGrid`) — the five stem-flip
   flashcard sets (second-aorist / liquid-future / aorist-passive /
