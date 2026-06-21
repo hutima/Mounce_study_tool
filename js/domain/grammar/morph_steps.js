@@ -294,6 +294,12 @@ export function computeAccessibleDimensionPools(cards) {
   (cards || []).forEach((card) => {
     if (!card || !(card.parsedAnswer || card.answer)) return;
     const dims = parseAnswerDimensions(card.parsedAnswer || card.answer);
+    // First/second aorist aren't separate tenses — they're the aorist tense
+    // with a first/weak (ἔλυσα) vs second/strong (ἔλιπον) stem formation, a
+    // lexical property rather than a parse dimension. Collapse the qualifier
+    // so the Tense step's distractor pool only ever holds the six base tenses
+    // and never offers "first aorist"/"second aorist" beside "aorist".
+    if (dims.tense) dims.tense = dims.tense.replace(/^(first |second )/, '');
     Object.keys(pools).forEach((k) => {
       if (dims[k]) pools[k].add(dims[k]);
     });
@@ -786,6 +792,14 @@ export function buildMorphSteps(card, accessiblePools = null, options = {}) {
   // a `parsed:` ("present active indicative first person singular") that
   // populates every dimension the form actually carries.
   const dims = parseAnswerDimensions(card.parsedAnswer || card.answer);
+  // First/second aorist is a stem-formation distinction (first/weak vs
+  // second/strong), not a separate tense — both parse as the aorist. Collapse
+  // the qualifier so the Tense step asks for, accepts, and reports plain
+  // "aorist" for every aorist form rather than treating "first aorist" /
+  // "second aorist" as distinct tense answers. Aspect stays correct (aspectFor
+  // Tense maps all three to 'undefined') and the stem-change summary footer
+  // re-derives the qualifier from card.answer, so neither is affected.
+  if (dims.tense) dims.tense = dims.tense.replace(/^(first |second )/, '');
   const includeAspect = options.includeAspect !== false;
 
   // Chapter-gated mood default. When the card is a finite verb (tense +
