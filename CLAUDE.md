@@ -137,6 +137,25 @@ them rather than re-porting.
     labels become "Custom set: N" / "Selected paradigms". (`customMode`/`baseStats`
     in `renderParsingReviewPanel`.)
 - **Mounce-specific (no duff equivalent):**
+  - **Single-paradigm parsing steps collapse constant dimensions to one option.**
+    When ONE concrete paradigm is focused in parsing mode (not shuffle-all, not a
+    category "↯ Shuffle all" pick, not the cumulative "— all forms" aggregate,
+    not a custom set), any parsing step the paradigm never varies on is rendered
+    with a single choice instead of distractors — e.g. focusing "λύω → future"
+    drills person+number while tense/voice/mood each show only "future / active /
+    indicative". The student still clicks through the step (it grades correct);
+    it just reinforces "this paradigm is future" rather than testing it, since
+    Mounce breaks paradigms out by type/aspect. `computeParadigmConstantDims` in
+    `morph_steps.js` (first/second aorist collapsed to plain "aorist", composite
+    voices like "middle/passive" kept whole) computes the constant dims from the
+    focused paradigm's full pool; `buildMorphSteps` reads them via
+    `options.singleParadigmConstantDims` and sets that step's pool to
+    `[stepCorrect]`. `render.js`'s `ensureStepStateForCard` gates it off for
+    pooled/cumulative decks (passes `{}`), so those keep the full distractor test.
+    No deponent special-case: a single deponent paradigm's voice is constant, so
+    it too shows one option (reinforcing the middle form) rather than being
+    skipped — the original "deponent exception" concern only applied to the
+    skip-the-step design, which this collapse-the-options design supersedes.
   - **Default parsing review panel shows ALL in-scope paradigms** — not just
     drilled ones. Outside custom mode `baseStats` = every chapter-gate-met
     concrete paradigm (`host.getInScopeParadigmLemmas` →

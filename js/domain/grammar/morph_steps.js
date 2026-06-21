@@ -347,6 +347,36 @@ export function computeAccessibleDimensionPools(cards) {
   return out;
 }
 
+// Dimensions on which a single focused paradigm never varies — every form
+// shares one value (e.g. "λύω → future" is future / active / indicative
+// throughout; only person and number change). Returns a map dim → the sole
+// value for each such dimension. Values are read the same way buildMorphSteps
+// reads `correct`: first/second aorist collapses to plain "aorist", and a
+// composite value like "middle/passive" stays whole (NOT split) so a present
+// middle/passive paradigm counts as a single voice rather than two.
+//
+// buildMorphSteps consumes this (options.singleParadigmConstantDims) to collapse
+// such a step's choices to that single option: the student still clicks through
+// it — reinforcing "this paradigm is future" — but isn't quizzed with
+// distractors on a dimension the paradigm fixes. It's deliberately NOT applied
+// to pooled decks (shuffle-all / category-shuffle / the cumulative aggregate /
+// custom set), where the dimension genuinely varies and must be tested; the
+// caller passes an empty map in those modes.
+export function computeParadigmConstantDims(cards) {
+  const dimKeys = ['aspect', 'tense', 'voice', 'mood', 'person', 'case', 'number', 'gender'];
+  const seen = {};
+  dimKeys.forEach((k) => { seen[k] = new Set(); });
+  (cards || []).forEach((card) => {
+    if (!card) return;
+    const dims = parseAnswerDimensions(card.parsedAnswer || card.answer || '');
+    if (dims.tense) dims.tense = dims.tense.replace(/^(first |second )/, '');
+    dimKeys.forEach((k) => { if (dims[k]) seen[k].add(dims[k]); });
+  });
+  const out = {};
+  dimKeys.forEach((k) => { if (seen[k].size === 1) out[k] = [...seen[k]][0]; });
+  return out;
+}
+
 // Short "how to tell it apart" hints for forms that are easy to confuse with a
 // neighbouring parse. Triggered off the parsed dimensions (reliable) and worded
 // to stay true across the regular ω-verb, contract, μι-, and deponent
@@ -836,6 +866,13 @@ export function buildMorphSteps(card, accessiblePools = null, options = {}) {
   // doesn't follow from the ending, so the gender step stays IN rather than
   // being auto-skipped. See THIRD_DECLENSION_NOUN_LEMMAS in paradigm_focus.js.
   const thirdDeclensionNouns = options.thirdDeclensionNouns instanceof Set ? options.thirdDeclensionNouns : null;
+  // Map of dim → sole value for dimensions a single focused paradigm never
+  // varies on (see computeParadigmConstantDims). The caller passes this only
+  // when one concrete paradigm is focused; for pooled/cumulative decks it's
+  // null/empty, so no step collapses.
+  const constantDims = (options.singleParadigmConstantDims && typeof options.singleParadigmConstantDims === 'object')
+    ? options.singleParadigmConstantDims
+    : null;
   for (const dimKey of order) {
     const correct = dims[dimKey];
     if (!correct) continue;
@@ -919,7 +956,13 @@ export function buildMorphSteps(card, accessiblePools = null, options = {}) {
     const syncreticMiddlePassive = dimKey === 'voice'
       && isSyncreticMiddlePassiveVoice(dims, card.lemma);
     const stepCorrect = syncreticMiddlePassive ? 'middle/passive' : correct;
-    const choices = buildChoices(dimKey, stepCorrect, pool, dimValueFilters);
+    // Single-paradigm reinforcement: when one paradigm is focused and it never
+    // varies on this dimension, collapse the step to that one option (no
+    // distractors) so it reads as "yes, still future" rather than a real test.
+    const collapseToSingle = constantDims
+      && Object.prototype.hasOwnProperty.call(constantDims, dimKey);
+    const stepPool = collapseToSingle ? [stepCorrect] : pool;
+    const choices = buildChoices(dimKey, stepCorrect, stepPool, dimValueFilters);
     const displayCorrect = applyDisplaySuffix(dimKey, stepCorrect);
     const displayChoices = choices.map((c) => applyDisplaySuffix(dimKey, c));
     // Each dimension has exactly one correct value per card. For aspect on
