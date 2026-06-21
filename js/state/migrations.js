@@ -150,6 +150,7 @@ function isEmptyProgressEntry(entry) {
   if (PROGRESS_MEANINGFUL_NUMERIC_FIELDS.some(field => Number(entry[field]) > 0)) return false;
   if (Array.isArray(entry.confidenceHistory) && entry.confidenceHistory.length) return false;
   if (Array.isArray(entry.cycleFacesPassed) && entry.cycleFacesPassed.length) return false;
+  if (isPlainObject(entry.cycleFacesHeld) && Object.keys(entry.cycleFacesHeld).length) return false;
   if (entry.inRelearn === true || entry.leechDrill === true) return false;
   if (entry.lastSpacedOutcome) return false;
   if (Number.isFinite(entry.ease) && entry.ease !== PROGRESS_DEFAULT_EASE) return false;
@@ -179,6 +180,9 @@ function compactProgressEntry(entry) {
   if (entry.leechDrill === true) out.leechDrill = true;
   if (Array.isArray(entry.cycleFacesPassed) && entry.cycleFacesPassed.length) {
     out.cycleFacesPassed = entry.cycleFacesPassed;
+  }
+  if (isPlainObject(entry.cycleFacesHeld) && Object.keys(entry.cycleFacesHeld).length) {
+    out.cycleFacesHeld = entry.cycleFacesHeld;
   }
   return out;
 }

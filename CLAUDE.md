@@ -33,8 +33,9 @@ presets, off-the-record parsing). Consult it before applying a duff diff.
 
 ### Porting status — last version ported
 
-**Last reviewed duff PR: #297 (`0dda000`, 2026-06-21).** When checking for new
-duff work, diff `origin/main` against that commit forward.
+**Last reviewed duff commit: `f650d3d` (tip of duff `main`, 2026-06-21; includes
+PR #298).** When checking for new duff work, diff `origin/main` against that
+commit forward.
 
 - **Ported in full through duff #288** (parsing undo + 3-tier scoring,
   restructured parse summary + "Why this form" notes, 3rd-person imperative
@@ -62,6 +63,23 @@ duff work, diff `origin/main` against that commit forward.
   was removed (matching duff).
 - **Ported duff #297** — parsing undo credit is now `0.5^(undos+1)` (a single
   undo → 0.25, was 0.5).
+- **Ported duff #298 + the remaining tip-of-main commits:**
+  - **#298 (`c0f41ee`) — variant "Uncertain re-queues a face" (SRS).** A variant
+    "… as cards" set now advances only when **every active face is CLEARED with
+    Easy** in one cycle. Easy clears a face (held 2h, hidden); **Uncertain
+    re-queues just that face for 2h** (siblings stay active) and never completes
+    the set; a miss still resets the whole cycle. Adds a per-face
+    `cycleFacesHeld` map (face → re-show time) beside `cycleFacesPassed`, wired
+    through `getWordProgress` (seed + sanitize), `isCardDue` (hide Easy-cleared
+    faces until the set completes; hide Uncertain faces only until their 2h hold
+    elapses), `applySpacedReview`, `migrations.js` (empty-check + compaction),
+    and the spaced-progress reset. Replaces the old "Uncertain counts as a pass"
+    behaviour from the #296 gating port.
+  - **`69880d8` — touch ghost-click shield.** "I give up" collapses the step
+    rows, sliding "Next →" under the finger; the browser's re-dispatched touch
+    click hit Next and skipped the summary. A 200ms `morphGiveUpShieldUntil`
+    stamp (set in `giveUpMorphologyStep`, checked in `handleNavNext`) swallows
+    it.
 - **Ported duff's post-#298 tip-of-main commits (not yet PR'd in duff):**
   - **Aorist collapse** (`f650d3d`) — the parsing Tense step collapsed
     first/second aorist to plain `aorist` via
