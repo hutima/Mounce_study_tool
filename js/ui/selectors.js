@@ -203,10 +203,41 @@ function toggleAllWeekSupplementals(weekKeys) {
   loadDeckFromKeys(nextKeys, null, { clearUnspacedMarks: true });
 }
 
+// Sets registered as stem-flip flashcards (present ↔ aorist/future/perfect)
+// are pulled out of the per-week Supplemental groups and shown together in
+// their own "Irregular practice" section. Detect by the stemFlip card flag so
+// new flip sets are picked up automatically.
+function isFlipSet(set) {
+  return !!(set && Array.isArray(set.cards) && set.cards.some(c => c && c.stemFlip));
+}
+
+// True for keys that belong to the Supplemental "Paradigm practice" section —
+// i.e. supplemental sets that aren't chapters, advanced buckets, book vocab, or
+// flip (irregular practice) sets. Used so "Deselect all supplementals" leaves
+// the other sections' selections (including irregular practice) untouched.
+function isParadigmPracticeKey(key) {
+  const base = getParadigmBaseKey(key) || String(key);
+  if (isChapterKey(base) || isAdvancedKey(base) || isBookKey(base)) return false;
+  return !isFlipSet((window.SETS || {})[base]);
+}
+
 export function deselectAllSupplementals() {
+  const remaining = runtime.selectedKeys.filter(k => !isParadigmPracticeKey(k));
+  if (remaining.length === runtime.selectedKeys.length) return;
+  host.saveCurrentDeckStateToBank();
+  runtime.currentSession = null;
+  runtime.selectedKeys = remaining;
+  if (!runtime.selectedKeys.length) {
+    clearAndRenderEmpty();
+    return;
+  }
+  loadDeckFromKeys(runtime.selectedKeys, null, { clearUnspacedMarks: true });
+}
+
+export function deselectAllIrregular() {
   const remaining = runtime.selectedKeys.filter(k => {
     const base = getParadigmBaseKey(k) || k;
-    return isChapterKey(base) || isAdvancedKey(base);
+    return !isFlipSet((window.SETS || {})[base]);
   });
   if (remaining.length === runtime.selectedKeys.length) return;
   host.saveCurrentDeckStateToBank();
@@ -217,6 +248,61 @@ export function deselectAllSupplementals() {
     return;
   }
   loadDeckFromKeys(runtime.selectedKeys, null, { clearUnspacedMarks: true });
+}
+
+// Renders one selectable supplemental set into `container` — a flat button when
+// the set has 0–1 parsing paradigms, or an expandable <details> listing each
+// paradigm when it has more than one. Shared by the Supplemental week groups
+// and the Irregular-practice section. `labelOverride` lets a caller prefix or
+// replace the set's own label.
+function renderSupplementalEntry(container, key, set, vocabCount, studyCount, labelOverride) {
+  const label = labelOverride || set.label;
+  const countLabel = host.canAccessGrammarUi()
+    ? `${vocabCount} vocab${studyCount ? ` · ${studyCount} grammar` : ''}`
+    : `${vocabCount} vocab`;
+  const paradigmList = host.canAccessGrammarUi() ? getSupplementalParadigmsForKey(key) : [];
+
+  if (paradigmList.length <= 1) {
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'chapter-btn supplemental-set-flat';
+    btn.dataset.key = key;
+    btn.innerHTML = `<span>${label}</span><span class="chapter-count">${countLabel}</span>`;
+    btn.onclick = () => toggleSet(key);
+    container.appendChild(btn);
+    return;
+  }
+
+  const details = document.createElement('details');
+  details.className = 'supplemental-set';
+  details.open = runtime.selectedKeys.includes(String(key)) || paradigmList.some(paradigm => runtime.selectedKeys.includes(paradigm.key));
+
+  const summary = document.createElement('summary');
+  summary.className = 'supplemental-summary';
+  summary.innerHTML = `<span>${label}</span><span class="chapter-count">${countLabel}</span>`;
+  details.appendChild(summary);
+
+  const controls = document.createElement('div');
+  controls.className = 'supplemental-paradigm-list';
+
+  const allBtn = document.createElement('button');
+  allBtn.className = 'chapter-btn supplemental-all-btn';
+  allBtn.dataset.key = key;
+  allBtn.innerHTML = `All ${label}<span class="chapter-count">${countLabel}</span>`;
+  allBtn.onclick = () => toggleSet(key);
+  controls.appendChild(allBtn);
+
+  paradigmList.forEach(paradigm => {
+    const btn = document.createElement('button');
+    btn.className = 'chapter-btn supplemental-paradigm-btn';
+    btn.dataset.key = paradigm.key;
+    btn.innerHTML = `${paradigm.label}<span class="chapter-count">${paradigm.type} · ${paradigm.count} card${paradigm.count === 1 ? '' : 's'}</span>`;
+    btn.onclick = () => toggleSet(paradigm.key);
+    controls.appendChild(btn);
+  });
+
+  details.appendChild(controls);
+  container.appendChild(details);
 }
 
 export function buildSupplementalSelector() {
@@ -244,6 +330,7 @@ export function buildSupplementalSelector() {
   supplementalKeys.forEach(key => {
     const set = sets[key];
     if (!set) return;
+    if (isFlipSet(set)) return; // shown under Irregular practice
     const vocabCount = Array.isArray(set.cards) ? set.cards.length : 0;
     const morphCount = window.getMorphologyCountForKey ? window.getMorphologyCountForKey(key) : 0;
     const grammarCount = window.getGrammarCountForKey ? window.getGrammarCountForKey(key) : 0;
@@ -317,57 +404,75 @@ export function buildSupplementalSelector() {
     weekBody.appendChild(selectAllBtn);
 
     entries.forEach(({ key, set, vocabCount, studyCount }) => {
-      const countLabel = host.canAccessGrammarUi()
-        ? `${vocabCount} vocab${studyCount ? ` · ${studyCount} grammar` : ''}`
-        : `${vocabCount} vocab`;
-      const paradigmList = host.canAccessGrammarUi() ? getSupplementalParadigmsForKey(key) : [];
-
-      if (paradigmList.length <= 1) {
-        const btn = document.createElement('button');
-        btn.type = 'button';
-        btn.className = 'chapter-btn supplemental-set-flat';
-        btn.dataset.key = key;
-        btn.innerHTML = `<span>${set.label}</span><span class="chapter-count">${countLabel}</span>`;
-        btn.onclick = () => toggleSet(key);
-        weekBody.appendChild(btn);
-        return;
-      }
-
-      const details = document.createElement('details');
-      details.className = 'supplemental-set';
-      details.open = runtime.selectedKeys.includes(String(key)) || paradigmList.some(paradigm => runtime.selectedKeys.includes(paradigm.key));
-
-      const summary = document.createElement('summary');
-      summary.className = 'supplemental-summary';
-      summary.innerHTML = `<span>${set.label}</span><span class="chapter-count">${countLabel}</span>`;
-      details.appendChild(summary);
-
-      const controls = document.createElement('div');
-      controls.className = 'supplemental-paradigm-list';
-
-      const allBtn = document.createElement('button');
-      allBtn.className = 'chapter-btn supplemental-all-btn';
-      allBtn.dataset.key = key;
-      allBtn.innerHTML = `All ${set.label}<span class="chapter-count">${countLabel}</span>`;
-      allBtn.onclick = () => toggleSet(key);
-      controls.appendChild(allBtn);
-
-      paradigmList.forEach(paradigm => {
-        const btn = document.createElement('button');
-        btn.className = 'chapter-btn supplemental-paradigm-btn';
-        btn.dataset.key = paradigm.key;
-        btn.innerHTML = `${paradigm.label}<span class="chapter-count">${paradigm.type} · ${paradigm.count} card${paradigm.count === 1 ? '' : 's'}</span>`;
-        btn.onclick = () => toggleSet(paradigm.key);
-        controls.appendChild(btn);
-      });
-
-      details.appendChild(controls);
-      weekBody.appendChild(details);
+      renderSupplementalEntry(weekBody, key, set, vocabCount, studyCount);
     });
 
     weekDetails.appendChild(weekBody);
     list.appendChild(weekDetails);
   });
+
+  // The Irregular-practice section is rebuilt alongside the Supplemental section
+  // so every refresh path (mode switch, data load, restore) keeps both in sync.
+  buildIrregularPracticeSelector();
+
+  setActiveSetButtons();
+}
+
+// "Irregular practice" — the stem-flip flashcard sets (present ↔ aorist /
+// future / perfect), grouped together in their own section rather than mixed
+// into the per-week Supplemental groups, since they span the course. The
+// changed letters are diff-highlighted on the card faces (see render.js's
+// stem-flip branch). Ordered by the week their material is taught.
+export function buildIrregularPracticeSelector() {
+  const list = document.getElementById('irregularGrid');
+  if (!list) return;
+  list.innerHTML = '';
+
+  const sets = window.SETS && typeof window.SETS === 'object' ? window.SETS : {};
+  const flipKeys = sortSetKeys(Object.keys(sets).filter(k => isFlipSet(sets[k])));
+
+  const splitVocabOnly = runtime.splitSelection && runtime.studyMode === 'vocab';
+  const splitGrammarOnly = runtime.splitSelection && runtime.studyMode === 'morph';
+
+  const entries = [];
+  flipKeys.forEach(key => {
+    const set = sets[key];
+    if (!set) return;
+    const vocabCount = Array.isArray(set.cards) ? set.cards.length : 0;
+    const morphCount = window.getMorphologyCountForKey ? window.getMorphologyCountForKey(key) : 0;
+    const grammarCount = window.getGrammarCountForKey ? window.getGrammarCountForKey(key) : 0;
+    const studyCount = morphCount + grammarCount;
+    if (!vocabCount && !studyCount) return;
+    if (!host.canAccessGrammarUi() && !vocabCount) return;
+    if (splitVocabOnly && !vocabCount) return;
+    if (splitGrammarOnly && !studyCount) return;
+    const week = Number.isFinite(Number(set.week)) ? Number(set.week) : 99;
+    entries.push({ key, set, week, vocabCount, studyCount });
+  });
+  entries.sort((a, b) => a.week - b.week || a.key.localeCompare(b.key));
+
+  const meta = document.getElementById('irregularSectionMeta');
+  if (meta) {
+    meta.textContent = entries.length
+      ? `${entries.length} set${entries.length === 1 ? '' : 's'}`
+      : '';
+  }
+
+  if (!entries.length) return;
+
+  const deselectBtn = document.createElement('button');
+  deselectBtn.type = 'button';
+  deselectBtn.className = 'chapter-btn supplemental-deselect-all';
+  deselectBtn.textContent = 'Deselect all irregular practice';
+  deselectBtn.onclick = () => deselectAllIrregular();
+  list.appendChild(deselectBtn);
+
+  const body = document.createElement('div');
+  body.className = 'supplemental-week-body irregular-practice-body';
+  entries.forEach(({ key, set, vocabCount, studyCount }) => {
+    renderSupplementalEntry(body, key, set, vocabCount, studyCount);
+  });
+  list.appendChild(body);
 
   setActiveSetButtons();
 }
