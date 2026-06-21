@@ -3182,12 +3182,15 @@ function applySpacedReview(card, outcome) {
     // Variant-form gating: the shared schedule only advances once every active
     // face is CLEARED with Easy in the same cycle. An Easy on one face holds it
     // 2h (cleared) while the rest stay surfaceable this sitting; the Easy that
-    // clears the last face falls through to normal growth. An Uncertain does NOT
-    // clear a face — it re-queues that one face for 2h (its siblings stay
+    // clears the last face falls through to schedule growth. An Uncertain does
+    // NOT clear a face — it re-queues that one face for 2h (its siblings stay
     // active) and never completes the set, so a form you're shaky on keeps
-    // coming back until you can mark it Easy. Bypassed while a relearn/leech
-    // ladder owns the shared schedule (the whole set relearns together).
-    if (variant && !progress.inRelearn && !progress.leechDrill) {
+    // coming back until you can mark it Easy. This gating also governs a
+    // relearn/leech ladder: only the cleared-the-whole-set Easy advances the
+    // ladder a step (applyCorrectOutcome below), so a single Easy on one face —
+    // or an easy+uncertain mix — can't promote a lapsed set to the next interval
+    // while its siblings are still unreviewed.
+    if (variant) {
       const held = { ...progress.cycleFacesHeld };
       if (ratedOutcome === 'pass') {
         // Uncertain → re-queue just this face for 2h; don't clear it, never completes.
