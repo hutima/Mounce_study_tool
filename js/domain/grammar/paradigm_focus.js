@@ -98,6 +98,10 @@ const PARADIGM_CATEGORIES = {
   'λύω → ἐλύθην':                      'Verbs · standard ω-pattern (λύω)',
   'λύω → λυθήσομαι':                   'Verbs · standard ω-pattern (λύω)',
   'λύω → λέλυμαι':                     'Verbs · standard ω-pattern (λύω)',
+  // Infinitives are indeclinable, so they sit with the rest of the λύω verb
+  // forms rather than in a one-entry "Infinitives" optgroup of their own.
+  // (Participles below stay separate — they're case-marked and decline.)
+  'λύω infinitive forms':              'Verbs · standard ω-pattern (λύω)',
 
   // ─── Verbs · contract ───
   'ἀγαπάω':                            'Verbs · contract (-άω)',
@@ -124,7 +128,6 @@ const PARADIGM_CATEGORIES = {
   'δείκνυμι (no reduplication)':       'Verbs · μι-verbs',
 
   // ─── Non-finite (case-marked) verbals ───
-  'λύω infinitive forms':              'Infinitives',
   'λύω → λυθείς':                      'Participles',
   'λύω → λύσας':                       'Participles',
   'λύω → λῦσον':                       'Imperatives'
@@ -755,17 +758,36 @@ export function parseCategoryShuffleValue(value) {
 
 // Pool every in-scope card across a list of lemmas, reusing the per-lemma
 // focused-paradigm builder (so optional-form expansion, source dedup, dim
-// filters and per-form dedup all apply per lemma) and concatenating. De-dups by
-// card id only, so two different lemmas that happen to share a surface form
-// both survive — they're different words. Non-parseable lemmas (stem-recall
-// drills, redirect-only paradigms) contribute nothing, since the per-lemma
-// builder already filters those out.
+// filters and per-form dedup all apply per lemma) and concatenating. Core
+// curriculum cards de-dup by card id only, so two different lemmas that happen
+// to share a surface form both survive — they're different words. Non-parseable
+// lemmas (stem-recall drills, redirect-only paradigms) contribute nothing, since
+// the per-lemma builder already filters those out.
+//
+// Optional-extension cards (sourceKey "OPT_*") get an EXTRA collapse by
+// (form, parse): a verb's principal-part variants (e.g. every λύω split —
+// λύω, λύω → ἔλυσα, …) all share one optionalFormGroups set via registerVariants,
+// so each member re-emits the same optional forms under its own lemma/id. The
+// id-dedup can't catch those (the id embeds the lemma), so without this the
+// cumulative λύω optionals stack up once per variant when shuffle-all / a
+// category shuffle / the custom set pools the family. Collapsing by (form, parse)
+// leaves a genuinely ambiguous optional form (same spelling, different parse)
+// intact while dropping the variant-driven repeats — matching the single copy
+// the focused "λύω — all forms" aggregate already produces (it builds optionals
+// once from the base lemma).
 function collectCardsForLemmas(selectedKeys, lemmas, options) {
   const out = [];
   const seenIds = new Set();
+  const seenOptionalForms = new Set();
   (lemmas || []).forEach((lemma) => {
     getCardsForFocusedParadigm(selectedKeys, lemma, options).forEach((card) => {
       if (!card || seenIds.has(card.id)) return;
+      const isOptional = typeof card.sourceKey === 'string' && card.sourceKey.startsWith('OPT_');
+      if (isOptional) {
+        const formKey = normalizeFormForDedup(card.form) + ' ' + (card.parsedAnswer || card.answer || '');
+        if (seenOptionalForms.has(formKey)) return;
+        seenOptionalForms.add(formKey);
+      }
       seenIds.add(card.id);
       out.push(card);
     });

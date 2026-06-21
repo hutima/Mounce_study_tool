@@ -62,6 +62,78 @@ duff work, diff `origin/main` against that commit forward.
   was removed (matching duff).
 - **Ported duff #297** — parsing undo credit is now `0.5^(undos+1)` (a single
   undo → 0.25, was 0.5).
+- **Ported duff's post-#298 tip-of-main commits (not yet PR'd in duff):**
+  - **Aorist collapse** (`f650d3d`) — the parsing Tense step collapsed
+    first/second aorist to plain `aorist` via
+    `dims.tense = dims.tense.replace(/^(first |second )/, '')` in *both*
+    `computeAccessibleDimensionPools` (distractor pool) and `buildMorphSteps`
+    (correct value + summary) in `morph_steps.js`. First/second aorist is a
+    stem-formation distinction, not a tense, so the step no longer offers
+    "second aorist" beside "aorist" (Mounce data ships `"… 2nd aorist active"`
+    parses, so this matters here too). Aspect + the stem-change footer are
+    unaffected.
+  - **Parsing review panel scoped to the custom set** (`d5a7a8c`) — in
+    custom-paradigm-set mode the bottom panel becomes a live scorecard for the
+    ticked deck (`runtime.parsingCustomParadigms`), showing selected-but-undrilled
+    paradigms and dropping drilled paradigms outside the set; nothing is pinned;
+    labels become "Custom set: N" / "Selected paradigms". (`customMode`/`baseStats`
+    in `renderParsingReviewPanel`.)
+- **Mounce-specific (no duff equivalent):**
+  - **Default parsing review panel shows ALL in-scope paradigms** — not just
+    drilled ones. Outside custom mode `baseStats` = every chapter-gate-met
+    concrete paradigm (`host.getInScopeParadigmLemmas` →
+    `listAvailableParadigms(...).filter(!isAggregate)`) unioned with any drilled
+    lemma, so unseen-but-in-scope paradigms are visible (and an attempt under a
+    now-out-of-scope chapter still shows). Label: "Paradigms: X drilled · Y in
+    scope". duff only has the custom-mode scoping above; this general default is
+    a Mounce extension layered on the same `customMode`/`baseStats` plumbing —
+    portable back to duff.
+  - **Pooled optional-form de-dup** — `collectCardsForLemmas` (paradigm_focus.js)
+    collapses `OPT_*` cards by `(form, parse)` across shuffle-all /
+    category-shuffle / custom-set pools. Variant-family members share one
+    `optionalFormGroups` set (`registerVariants`) and the synthetic optional id
+    embeds the lemma, so each λύω principal part re-emitted the same optional
+    forms; core cards keep id-dedup.
+  - **λύω infinitives regrouped** — `'λύω infinitive forms'` moved from the
+    one-entry "Infinitives" optgroup into `Verbs · standard ω-pattern (λύω)`
+    (infinitives are indeclinable; participles stay separate).
+- **Optional-paradigm completeness audit (`lemma_inventory.js`).** Every Mounce
+  verb paradigm was checked for optional-form coverage (matters for wrong-parse
+  lookup as well as the optional-extension toggle). Verbs WITH coverage before:
+  λύω, γίνομαι, δίδωμι, τίθημι, ἵστημι. Added now, **ported verbatim from duff**
+  (Greek + parses; chapters remapped to Mounce):
+  - **λαμβάνω** (`'λαμβάνω → ἔλαβον'`) and **λείπω** (`'λείπω → ἔλιπον'`) — full
+    optional coverage (present/imperfect/future indicative, 2nd-aorist
+    subj/impv/inf, aorist passive, perfect, present + 2nd-aorist active + aorist
+    passive participles), bringing the 2nd-aorist actives to γίνομαι parity.
+  - **κρίνω** (`'κρίνω → κρινῶ'`) — participles (present κρίνων, **1st**-aorist
+    κρίνας `-ας/-αντος`, aorist passive κριθείς) as `extraForms` ONLY (no
+    drillable optional groups), mirroring duff — they back wrong-parse feedback.
+  - Two new participle helpers: `aoristActiveParticipleParadigm(stem)` (2nd-aorist
+    `-ών` type, e.g. λαβών/λιπών) and `presentActiveNtParticiple(accStem,
+    bareStem, neuter)` (recessive `-ων` type), alongside the existing
+    `aoristPassiveParticipleParadigm`.
+  - **Hand-authored (no duff source)** — now also complete:
+    - **ἀγαπάω / ποιέω / πληρόω** (α/ε/ο contracts): present-system gaps —
+      present mid/pas indicative, imperfect active + mid/pas indicative, present
+      infinitives (act + MP), present MP participle (via new
+      `menosParticipleParadigm`), present active participle recognition
+      nominatives (full contracted `-ῶν/-οῦντος` declension deferred). Future/
+      aorist/perfect are uncontracted/regular, so not added.
+    - **γράφω** (`'γράφω → ἐγράφην'`): 2nd-aor-passive non-indicatives (subj
+      γραφῶ, impv γράφηθι, inf γραφῆναι, ptc γραφείς via new θ-less
+      `eisParticipleParadigm`) + present active indicative.
+    - **πορεύομαι** (`'πορεύομαι → πορεύσομαι'`): present + imperfect middle
+      indicative, aorist (passive-form) ἐπορεύθην, present/aorist inf + impv,
+      present middle participle (menos) + aorist passive participle (θ-type).
+    - **δείκνυμι** (`'δείκνυμι (no reduplication)'`): present active indicative +
+      inf, 1st-aorist ἔδειξα + inf, present/aorist active participle recognition
+      nominatives (full μι-/-ας declensions deferred). All gated at Ch 36.
+    - New helpers: `menosParticipleParadigm(accStem, bareStem, label)` (λυόμενος
+      2-1-2 pattern, also handles contracted stems) and `eisParticipleParadigm`
+      (θ-less 2nd-aor passive `-είς`). Every Mounce-drilled verb now has optional
+      coverage; remaining gaps are the deferred accent-dense participle
+      declensions noted above.
 - **Added the "Irregular practice" selector section** (duff #269's
   `buildIrregularPracticeSelector` / `#irregularGrid`) — the five stem-flip
   flashcard sets (second-aorist / liquid-future / aorist-passive /
