@@ -1460,6 +1460,7 @@ function performSpacedProgressReset(requiredOnly) {
       p.leechDrill = false;
       p.leechStreak = 0;
       p.cycleFacesPassed = [];
+      p.cycleFacesHeld = {};
       // The SRS scheduling is gone, so the last spaced outcome can no
       // longer describe a real scheduled state. Leaving it set made the
       // per-word analytics show "lastOutcome: easy" alongside stage 0 /
