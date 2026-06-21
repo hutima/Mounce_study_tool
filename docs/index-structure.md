@@ -76,7 +76,7 @@ All use `class="consent-overlay"` + an `aria-hidden` toggle. Most use
 |-----------:|-------------------------------|---------|
 |  205–221   | `#transferOverlay`            | Import/export progress (textarea + file picker) |
 |  223–431   | `#analyticsOverlay`           | "Progress and study time". Large; contains many `<details class="analytics-collapse" data-collapse-key="…">` sections — achievements, totalVocab (+ChapterMap, +Progress sub-collapses), selectedVocab (+Bar, +Progress), totalGrammar (incl. `#analyticsParadigmStepStatsBody` — per-paradigm rows that expand to a per-value mood/tense/voice breakdown, chapter-gated, derived live from `forms`), selectedGrammar (+Bar, +Progress), studyActivity, titles. Each section has a `…SummaryStatus` element JS updates. |
-|  433–478   | `#studySelectorOverlay`       | "Choose session" — deselect buttons (incl. "Deselect book vocab" → `deselectAllBooks()`), `#sessionsGrid`, `#chaptersGrid`, `#supplementalGrid` (inside `#supplementalSectionShell` `<details>`, meta `#supplementalSectionMeta`), `#advancedGrid` (inside `#advancedSectionShell` `<details>`), then `#bookVocabSection` → `#bookVocabSectionShell` `<details>` → `#bookVocabGrid` (**NT Book Vocab**: per-book vocab grouped in 50s by in-book frequency; built by `buildBookVocabSelector()`; entries are `NTB::<BOOK>` / `NTB::<BOOK>::g::<N>` pseudo-keys that link to existing cards rather than carrying their own — resolved in `js/domain/deck/filters.js`). Mounce uses the four-Parts + three-milestones session set (not duff's weekly presets). |
+|  433–478   | `#studySelectorOverlay`       | "Choose session" — deselect buttons (incl. "Deselect book vocab" → `deselectAllBooks()`), `#sessionsGrid`, `#chaptersGrid`, `#irregularGrid` (inside `#irregularSectionShell` `<details>`, meta `#irregularSectionMeta`; the stem-flip **"Irregular practice"** sets — second-aorist / liquid-future / aorist-passive / perfect-active / μι-verb flashcards, changed letters diff-highlighted — pulled out of the per-week Supplemental groups into their own section since they span the course; built by `buildIrregularPracticeSelector()`, cleared by `deselectAllIrregular()`; `isFlipSet` detects them via the `stemFlip` card flag), `#supplementalGrid` (inside `#supplementalSectionShell` `<details>`, meta `#supplementalSectionMeta`; `buildSupplementalSelector()` skips flip sets and calls `buildIrregularPracticeSelector()` at its end so both stay in sync), `#advancedGrid` (inside `#advancedSectionShell` `<details>`), then `#bookVocabSection` → `#bookVocabSectionShell` `<details>` → `#bookVocabGrid` (**NT Book Vocab**: per-book vocab grouped in 50s by in-book frequency; built by `buildBookVocabSelector()`; entries are `NTB::<BOOK>` / `NTB::<BOOK>::g::<N>` pseudo-keys that link to existing cards rather than carrying their own — resolved in `js/domain/deck/filters.js`). Mounce uses the four-Parts + three-milestones session set (not duff's weekly presets). |
 |  480–545   | `#shortcutsOverlay`           | User guide. **No changelog yet** — Mounce is not released. The duff equivalent embeds a `<details class="user-guide-changelog">` here; once Mounce ships, add one. |
 |  547–565   | `#consentOverlay`             | First-run "Before you begin" consent (`#consentTitle`) |
 |  549–567   | `#resetKnownOverlay`          | Parsing-mode "Reset known" scope picker. Two actions: `confirmResetKnownFocused()` (clears the focused paradigm's per-form tally only) and `confirmResetKnownAll()` (clears every drilled paradigm's). On open, JS fills `#resetKnownFocusedLemma` + the `#resetKnownFocusedBtn` label with the focused lemma and hides the focused row/button (`#resetKnownFocusedRow`) when nothing is focused. Wired in `js/ui/navigation.js`; `resetKnownMorphs()` just opens this modal (falls back to a legacy all-paradigms `confirm` if the markup is missing). Reuses the `.reset-spaced-*` modal styles. |
@@ -140,6 +140,18 @@ duff PR here, watch for:
   `week_N_paradigms.js`.
 - **Flip-set filenames** — Mounce uses `wN_` (Mounce Part); duff uses
   `wN_` (week). Names look similar but the chapter mapping differs.
+- **Irregular-practice selector** — Mounce surfaces the stem-flip sets in a
+  dedicated **"Irregular practice"** section (`#irregularGrid`,
+  `buildIrregularPracticeSelector`), but orders them **by week/Part** (the flip
+  sets' `set.week`), *not* by chapter. Duff's version rides on its
+  chapter-regrouped Supplemental selector (#269–#272) and its
+  `chapterForSet`/`WEEK_FIRST_CHAPTER`/`CHAPTER_TITLES`/`HIDDEN_SUPPLEMENTAL_KEYS`
+  helpers — all of which Mounce deliberately skipped. Mounce keeps its
+  week-grouped `buildSupplementalSelector`, just (a) skips flip sets there via
+  `isFlipSet` and (b) lists them in the new section, reusing a shared
+  `renderSupplementalEntry`. No hidden drill-source set
+  (`W4_SECOND_AORIST_STEMS`) exists in Mounce, so there's no
+  `HIDDEN_SUPPLEMENTAL_KEYS`.
 - **Sessions** — Mounce uses Mounce's four Parts + three cumulative
   milestones; duff uses lecture-week presets.
 - **`fastForwardRow` vs `ffRow`** — same UI, different id.

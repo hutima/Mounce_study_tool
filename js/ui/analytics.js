@@ -938,7 +938,7 @@ function renderParadigmStepStatsSection() {
         <span class="paradigm-stat-pct">${overallTotals.pct == null ? '—' : `${overallTotals.pct}%`} · ${overallTotals.seen}/${overallTotals.scope} forms across ${paradigmCount} paradigm${paradigmCount === 1 ? '' : 's'}</span>
       </div>
       ${overallWeakest ? `<div class="paradigm-stat-weakline">${weakestValueTagHtml(overallWeakest)}</div>` : ''}
-      ${overallExpanded ? `<div class="paradigm-stat-chart">${buildDimValueBarsHtml(overallGroups, { caption: 'Recent accuracy per value, across every paradigm · seen / in scope' })}</div>` : ''}
+      ${overallExpanded ? `<div class="paradigm-stat-chart">${buildDimValueBarsHtml(overallGroups, { caption: 'Per-dimension accuracy per value, across every paradigm · seen / in scope' })}</div>` : ''}
     </div>`;
 
   body.innerHTML = `${buildParsingAccuracyTrendHtml(stats, enabledDims)}<div class="paradigm-stat-list">${overallRow}${lemmaRows}</div>`;

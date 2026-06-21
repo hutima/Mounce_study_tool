@@ -1197,36 +1197,6 @@ function evaluateRecentAttempt(attempt, enabledDims) {
   return true;
 }
 
-// Whole-parse outcome for one stored recent attempt under the current dims,
-// honouring the 3-tier scoring (1 / 0.5 / 0):
-//   'clean'       every enabled dim correct (=== 1)
-//   'missed'      at least one enabled dim wrong (=== 0)
-//   'reattempted' no outright miss but at least one dim reattempted (=== 0.5)
-// Legacy `allDims` attempts collapse to 'clean' / 'missed'. Used by the
-// half-credit accuracy views and the outcome-mix chart so a parse that was
-// eventually right (via undo) reads as half-credit, not a flat miss.
-function recentAttemptOutcome(attempt, enabledDims) {
-  if (!attempt) return 'missed';
-  if (typeof attempt.allDims === 'boolean') return attempt.allDims ? 'clean' : 'missed';
-  const dims = attempt.dims || {};
-  let sawHalf = false;
-  for (const [dim, val] of Object.entries(dims)) {
-    if (!isDimEnabled(enabledDims, dim)) continue;
-    if (val === 0) return 'missed';
-    if (val !== 1) sawHalf = true;
-  }
-  return sawHalf ? 'reattempted' : 'clean';
-}
-
-// Fractional whole-parse credit for one recent attempt: clean → 1,
-// reattempted → 0.5, missed → 0. The accuracy %/per-value bars sum this so a
-// reattempt counts half (matching how the dim accuracy stats score it) instead
-// of the binary all-or-nothing evaluateRecentAttempt verdict.
-function recentAttemptCredit(attempt, enabledDims) {
-  const outcome = recentAttemptOutcome(attempt, enabledDims);
-  return outcome === 'clean' ? 1 : outcome === 'reattempted' ? 0.5 : 0;
-}
-
 // Tally for one form, after filtering disabled dims. Returns { correct, total }
 // where total is the number of recorded recent attempts considered and correct
 // is how many of those pass every currently-enabled dim. `windowSize` limits the
@@ -1250,13 +1220,15 @@ export function countLemmaFormRecent(stats, lemma, cardId, enabledDims, windowSi
   return { correct, total: list.length };
 }
 
-// Half-credit aware variant of countLemmaFormRecent for the accuracy %/per-value
-// bars: `correct` sums each recent attempt's fractional credit (clean 1,
-// reattempted 0.5, missed 0) rather than counting only clean parses. `total`
-// is still the attempt count, so correct/total is a 0–1 proficiency that gives
-// a reattempt half weight. Does NOT feed the dots or the exclude-known filter —
-// those keep the strict binary countLemmaFormRecent (the 2/2 "known" rule).
-export function countLemmaFormCredit(stats, lemma, cardId, enabledDims, windowSize) {
+// Per-DIMENSION half-credit accuracy for one form: sums each enabled
+// dimension's own credit (1 clean / 0.5 reattempted / 0 missed) across the
+// form's recent attempts, with `total` the number of dimension-slots counted.
+// So a parse that got 4 of 5 dimensions right contributes 4/5 here — not the 0
+// the whole-parse countLemmaFormRecent gives it. This is what the headline %
+// and the per-value bars report (a dimension-level proficiency), while the
+// dots / exclude-known filter keep the strict whole-parse 2/2 rule. Legacy
+// `allDims` attempts (no per-dim record) collapse to a single 1/0 slot.
+export function countLemmaFormDimCredit(stats, lemma, cardId, enabledDims, windowSize) {
   if (!cardId) return { correct: 0, total: 0 };
   const entry = stats?.byLemma?.[lemma];
   const form = entry?.forms && entry.forms[cardId];
@@ -1267,8 +1239,17 @@ export function countLemmaFormCredit(stats, lemma, cardId, enabledDims, windowSi
     ? form.recent.slice(-windowSize)
     : form.recent;
   let correct = 0;
-  for (const a of list) correct += recentAttemptCredit(a, enabledDims);
-  return { correct, total: list.length };
+  let total = 0;
+  for (const a of list) {
+    if (typeof a.allDims === 'boolean') { correct += a.allDims ? 1 : 0; total += 1; continue; }
+    const dims = a.dims || {};
+    for (const [dim, val] of Object.entries(dims)) {
+      if (!isDimEnabled(enabledDims, dim)) continue;
+      correct += Number.isFinite(val) ? Math.max(0, Math.min(1, val)) : 0;
+      total += 1;
+    }
+  }
+  return { correct, total };
 }
 
 // Per-form recent-attempt status for the parsing-review "testable forms"
@@ -1373,12 +1354,11 @@ function breakdownValuesFor(dim, raw) {
 export function createValueBreakdownAcc() {
   const byDim = {};
   for (const dim of VALUE_BREAKDOWN_DIMS) byDim[dim] = {};
-  // `totals` counts each form ONCE (not once per dimension) so it can drive a
-  // paradigm-wide headline: recent attempts (≤2 per form) summed across every
-  // in-scope form, plus seen/in-scope form coverage. This is what the per-
-  // paradigm and "All paradigms" % now report — no longer the capped rolling
-  // window, so the headline scales with the paradigm instead of the last 20
-  // parses and stays consistent with the per-value bars.
+  // `totals` drives a paradigm-wide headline: per-dimension credit (each
+  // enabled dimension scored on its own) summed across every in-scope form,
+  // plus seen/in-scope form coverage. This is what the per-paradigm and "All
+  // paradigms" % report — a dimension-level proficiency that scales with the
+  // paradigm and stays consistent with the per-value bars.
   return { byDim, totals: { correct: 0, total: 0, seen: 0, scope: 0 } };
 }
 
@@ -1392,9 +1372,12 @@ export function accumulateValueBreakdown(acc, stats, lemma, cards, enabledDims) 
     if (!card || !card.id) continue;
     const dims = parseAnswerDimensions(card.parsedAnswer || card.answer);
     const status = getLemmaFormStatus(stats, lemma, card.id, enabledDims);
-    // Half-credit aware: a reattempted form counts 0.5 in the per-value bars
-    // (the dots/known status above stay strict-binary).
-    const { correct, total } = countLemmaFormCredit(stats, lemma, card.id, enabledDims);
+    // Per-dimension accuracy: each dimension scores on its own (1 clean / 0.5
+    // reattempted / 0 missed), so a form parsed 4-of-5-dims-right counts 0.8,
+    // not the whole-parse 0. The per-value bars and headline % report this
+    // dimension-level proficiency. The dots (status, above) stay strict-binary,
+    // as does the 2/2 known check.
+    const { correct, total } = countLemmaFormDimCredit(stats, lemma, card.id, enabledDims);
     // Once-per-form paradigm-wide tally (recent attempts + coverage).
     acc.totals.scope += 1;
     if (status !== 'unseen') acc.totals.seen += 1;

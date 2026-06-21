@@ -52,9 +52,31 @@ duff work, diff `origin/main` against that commit forward.
   save compaction, and cleared on reset; `faceOutcomes` is gone. Also folded in
   duff #296's syncretic middle/passive "Your parse" form-lookup fix. The
   Mounce-side draft PR #81 (SRS only, deferred the gating) was the cross-check
-  and is closed in favour of this fuller port.
+  and is closed in favour of this fuller port. **Follow-up:** the earlier #296
+  port covered only the SRS half — its analytics half (`de7c8f1`) is now in too:
+  parsing accuracy scores **per dimension** (`countLemmaFormDimCredit`) so a
+  4-of-5-dims parse counts 0.8, not the old whole-parse 0, feeding the headline %
+  and per-value bars (the strict 2/2 dots / exclude-known rule is unchanged).
+  Captions say "Per-dimension accuracy"; the old whole-parse
+  `countLemmaFormCredit` / `recentAttemptCredit` / `recentAttemptOutcome` chain
+  was removed (matching duff).
 - **Ported duff #297** — parsing undo credit is now `0.5^(undos+1)` (a single
   undo → 0.25, was 0.5).
+- **Added the "Irregular practice" selector section** (duff #269's
+  `buildIrregularPracticeSelector` / `#irregularGrid`) — the five stem-flip
+  flashcard sets (second-aorist / liquid-future / aorist-passive /
+  perfect-active / μι-verb, changed letters diff-highlighted) now sit in their
+  own selector section instead of being scattered through the per-week
+  Supplemental groups. **Adapted, not copied:** duff's version rides on its
+  chapter-regrouped Supplemental selector (#269–#272, skipped here), so Mounce
+  keeps its week-grouped `buildSupplementalSelector` — it just skips flip sets
+  (`isFlipSet`) and lists them in the new section ordered by `set.week`, via a
+  shared `renderSupplementalEntry`. No `HIDDEN_SUPPLEMENTAL_KEYS`
+  (`W4_SECOND_AORIST_STEMS` doesn't exist here). `deselectAllSupplementals` now
+  leaves the other sections alone (`isParadigmPracticeKey`); `deselectAllIrregular`
+  clears just the flip sets. NB: `stem_change_drills.js` here is still dormant —
+  it points at duff-only `W4_*_STEMS` arrow-delimited vocab keys Mounce lacks,
+  so it registers nothing (the flip sets carry the stem highlighting instead).
 - **Fixed a latent crash** (not a duff change): `escapeAttr` was used in
   `syncParsingCustomParadigmsUi` but never defined in `main.js`, so entering
   parsing mode threw — now defined.
