@@ -386,8 +386,9 @@ export function expandSecondAoristCards(cards) {
 // suffix (e.g. '2aor', 'mi::0') for a derived card, 'base' for a present-tense
 // chapter-vocab verb that has at least one derived face in any flip set, null
 // for every other card — those have no sibling face and no shared-entry
-// concern. The spaced scheduler grades the shared entry by its weakest active
-// face (see resolveSharedFaceOutcome in js/app/main.js).
+// concern. The spaced scheduler gates the shared entry on ALL its forms: it
+// only advances once every active face is passed in one cycle (Model B — see
+// getVariantCycleInfo / applySpacedReview in js/app/main.js).
 export function derivedCardFaceKey(card) {
   if (!card) return null;
   const m = String(card.id || '').match(DERIVED_ID_SUFFIX_RE);

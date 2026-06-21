@@ -33,12 +33,31 @@ presets, off-the-record parsing). Consult it before applying a duff diff.
 
 ### Porting status — last version ported
 
-**Last reviewed duff PR: #294 (`929143d`, 2026-06-20).** When checking for new
+**Last reviewed duff PR: #297 (`0dda000`, 2026-06-21).** When checking for new
 duff work, diff `origin/main` against that commit forward.
 
 - **Ported in full through duff #288** (parsing undo + 3-tier scoring,
   restructured parse summary + "Why this form" notes, 3rd-person imperative
   parsing at Mounce ch 33, and "Build mode" / interactive paradigm lookup).
+- **Ported duff #296** — SRS rework: lapse **relearn ladders** (a slip no
+  longer wipes a card — it relearns then resumes at ½ its pre-lapse interval,
+  `preLapseIntervalDays`), a gentler **8-month/relaxed cadence** (near-linear
+  14→28→42→56→60, ~60-day cap, `maxEasyStepDays`), a **leech** drill (relaxed,
+  after 4 Hard lapses), and **variant-form gating "Model B"** — a shared
+  base+derived set advances only once every active face is passed in one cycle
+  (`cycleFacesPassed`/`getVariantCycleInfo`/`isCardDue`), **replacing** the
+  weakest-active-face grading from the variant-forms back-fill. New progress
+  fields (`inRelearn`/`relearnLeft`/`preLapseIntervalDays`/`lapseCount`/
+  `leechDrill`/`leechStreak`/`cycleFacesPassed`) are seeded, whitelisted in the
+  save compaction, and cleared on reset; `faceOutcomes` is gone. Also folded in
+  duff #296's syncretic middle/passive "Your parse" form-lookup fix. The
+  Mounce-side draft PR #81 (SRS only, deferred the gating) was the cross-check
+  and is closed in favour of this fuller port.
+- **Ported duff #297** — parsing undo credit is now `0.5^(undos+1)` (a single
+  undo → 0.25, was 0.5).
+- **Fixed a latent crash** (not a duff change): `escapeAttr` was used in
+  `syncParsingCustomParadigmsUi` but never defined in `main.js`, so entering
+  parsing mode threw — now defined.
 - **Back-filled the generalized "Variant forms as cards" panel** (duff #272 +
   #273 + #277) — earlier ports had skipped it as "duff irregular-cards infra
   Mounce lacks," but Mounce ships all five flip sets, so it was just wiring.

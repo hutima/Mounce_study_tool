@@ -132,7 +132,13 @@ const PROGRESS_FIELD_DEFAULTS = {
   lastReviewedAt: 0,
   firstSeenAt: 0,
   firstConfirmedAt: 0,
-  confidence: 0
+  confidence: 0,
+  // Lapse / relearn ladder + leech bookkeeping (see applySpacedReview). Numeric
+  // fields default to 0 so they cost nothing when a card isn't mid-lapse.
+  relearnLeft: 0,
+  preLapseIntervalDays: 0,
+  lapseCount: 0,
+  leechStreak: 0
 };
 const PROGRESS_NUMERIC_FIELDS = Object.keys(PROGRESS_FIELD_DEFAULTS);
 
@@ -143,8 +149,9 @@ function isEmptyProgressEntry(entry) {
   if (!isPlainObject(entry)) return true;
   if (PROGRESS_MEANINGFUL_NUMERIC_FIELDS.some(field => Number(entry[field]) > 0)) return false;
   if (Array.isArray(entry.confidenceHistory) && entry.confidenceHistory.length) return false;
+  if (Array.isArray(entry.cycleFacesPassed) && entry.cycleFacesPassed.length) return false;
+  if (entry.inRelearn === true || entry.leechDrill === true) return false;
   if (entry.lastSpacedOutcome) return false;
-  if (isPlainObject(entry.faceOutcomes) && Object.keys(entry.faceOutcomes).length) return false;
   if (Number.isFinite(entry.ease) && entry.ease !== PROGRESS_DEFAULT_EASE) return false;
   return true;
 }
@@ -166,10 +173,12 @@ function compactProgressEntry(entry) {
     out.confidenceHistory = entry.confidenceHistory;
   }
   if (entry.lastSpacedOutcome) out.lastSpacedOutcome = entry.lastSpacedOutcome;
-  // Per-face latest ratings on a shared base/second-aorist entry (the spaced
-  // weaker-face rule); without this whitelist line they'd vanish on save.
-  if (isPlainObject(entry.faceOutcomes) && Object.keys(entry.faceOutcomes).length) {
-    out.faceOutcomes = entry.faceOutcomes;
+  // Non-numeric lapse / cycle state — without these a card mid-relearn,
+  // mid-leech, or mid-variant-cycle would lose that state on the next save.
+  if (entry.inRelearn === true) out.inRelearn = true;
+  if (entry.leechDrill === true) out.leechDrill = true;
+  if (Array.isArray(entry.cycleFacesPassed) && entry.cycleFacesPassed.length) {
+    out.cycleFacesPassed = entry.cycleFacesPassed;
   }
   return out;
 }
