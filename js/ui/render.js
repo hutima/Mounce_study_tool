@@ -1135,17 +1135,46 @@ function renderMorphUndoRow(state) {
     </div>`;
 }
 
-function renderMorphStepCurrent(state) {
+// Note for a single-gender noun's gender step — names the noun type ("λόγος is a
+// 2nd-decl. masculine noun") so the fixed gender is reinforced rather than just
+// asked. Falls back to "<lemma> is always <gender>" when the paradigm category
+// isn't a nameable "Nouns · …" type.
+function fixedGenderNote(card, step) {
+  const lemma = card && card.lemma ? card.lemma : '';
+  const gender = step.correct || '';
+  const category = lemma ? paradigmCategoryForLemma(lemma) : null;
+  if (category && /^Nouns\s*·/.test(category)) {
+    const typeLabel = category.replace(/^Nouns\s*·\s*/, '');
+    return `${lemma} is a ${typeLabel} noun — every form keeps this gender.`;
+  }
+  return lemma ? `${lemma} is always ${gender} — its gender is fixed.` : '';
+}
+
+// The reinforcement note (if any) for a single-option step. '' for ordinary
+// multi-choice steps. (Deponent voice keeps Mounce's "middle (deponent)" collapse
+// label and has no note.)
+function stepReinforcementNote(step, card) {
+  if (!step) return '';
+  if (step.fixedGender) return fixedGenderNote(card, step);
+  return '';
+}
+
+function renderMorphStepCurrent(state, card) {
   const step = state.steps[state.stepIdx];
   if (!step) return '';
   const choiceButtons = step.displayChoices.map((label, idx) => {
     return `<button class="choice-btn" type="button" onclick="answerMorphologyStep(${idx})">${escapeHtml(label)}</button>`;
   }).join('');
+  const note = stepReinforcementNote(step, card);
+  const noteHtml = note
+    ? `<div class="morph-step-single-note">${escapeHtml(note)}</div>`
+    : '';
   return `
     <div class="morph-step-current">
       <div class="morph-step-progress">Step ${state.stepIdx + 1}</div>
       <div class="morph-step-label">${escapeHtml(step.label)}?</div>
       <div class="morph-choices">${choiceButtons}</div>
+      ${noteHtml}
       <div class="morph-dontknow-row">
         <button class="ctrl-btn morph-dontknow-btn" type="button" onclick="skipMorphologyStep()">I don't know</button>
         <button class="ctrl-btn morph-giveup-btn" type="button" onclick="giveUpMorphologyStep()">I give up</button>
@@ -1169,15 +1198,13 @@ function applyDisplaySuffixIfPerson(dimKey, value) {
 // singular" — slot the implied 2nd-person token in after mood when no
 // Person step is present.
 // `impliedDims` carries dimensions that weren't asked as a step but still
-// belong to the canonical parse — currently single-gender gender (λόγος
-// is always masculine, the step is skipped, but the label still reads
-// "...singular masculine"). Injected after the 'number' position so the
-// nominal order case → number → gender is preserved.
+// belong to the canonical parse — currently just the implied 2nd person of a
+// pre-ch-33 imperative. (Gender is now always a real step — single-option for
+// single-gender nouns — so it's no longer implied.)
 function assembleParseLine(steps, values, impliedDims) {
   const parts = [];
   let moodImperativePos = -1;
   let hasPersonStep = false;
-  let postNumberPos = -1;
   steps.forEach((step, idx) => {
     if (step.key === 'person') hasPersonStep = true;
     const v = values[idx];
@@ -1186,15 +1213,10 @@ function assembleParseLine(steps, values, impliedDims) {
     if (step.key === 'mood' && String(v).toLowerCase() === 'imperative') {
       moodImperativePos = parts.length;
     }
-    if (step.key === 'number') postNumberPos = parts.length;
   });
   if (moodImperativePos >= 0 && !hasPersonStep) {
-    parts.splice(moodImperativePos, 0, 'second person');
-    if (postNumberPos >= moodImperativePos) postNumberPos += 1;
-  }
-  if (impliedDims && impliedDims.gender) {
-    const insertAt = postNumberPos >= 0 ? postNumberPos : parts.length;
-    parts.splice(insertAt, 0, impliedDims.gender);
+    const impliedPerson = (impliedDims && impliedDims.person) ? impliedDims.person : 'second';
+    parts.splice(moodImperativePos, 0, `${impliedPerson} person`);
   }
   return parts.join(' · ');
 }
@@ -2357,7 +2379,7 @@ function renderMorphStepCard(area, card) {
 
   const body = state.completed
     ? renderMorphStepSummary(card, state)
-    : renderMorphStepCurrent(state);
+    : renderMorphStepCurrent(state, card);
 
   // Italicized line under the form is the transliteration of the form
   // itself (not the lemma) so beginners can sound it out without leaking

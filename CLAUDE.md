@@ -184,6 +184,38 @@ sheet — a duff asset, not code; not ported.)
     paradigms and dropping drilled paradigms outside the set; nothing is pinned;
     labels become "Custom set: N" / "Selected paradigms". (`customMode`/`baseStats`
     in `renderParsingReviewPanel`.)
+- **Ported duff PR #305 — PARTIAL (Mounce had already diverged here):**
+  - **Choice ordering (`CHOICE_SORT_ORDER`)** — ported. MC choice lists place a
+    syncretic/composite value next to the singles it combines instead of exiling
+    it to the end: case = nom, acc, **nom/acc**, gen, dat, voc; gender = masc,
+    fem, neut, **masc/fem**, **masc/neut**, **masc/fem/neut**.
+    `sortChoicesCanonically` now reads `CHOICE_SORT_ORDER[dim] || DIM_POOLS[dim]`.
+    Decoupled from the deponent/gender engine; pure ordering.
+  - **Single-gender noun gender = single-option reinforcement step** — ported
+    (per user request). A single-gender noun (λόγος masc., ἀγάπη fem., ἔργον
+    neut.) previously **auto-skipped** the gender step; now it shows one button
+    for its fixed gender + a note naming the noun type ("λόγος is a … noun — every
+    form keeps this gender"). `fixedGenderNoun` (replaces the auto-skip `continue`)
+    folds into `collapseToSingle` so the step pool is `[stepCorrect]`;
+    `step.fixedGender` drives the renderer's `stepReinforcementNote` /
+    `fixedGenderNote` + `.morph-step-single-note` CSS (the lone button already
+    centers via Mounce's `:only-child` rule). Gender is now a real step, so the
+    `impliedDims.gender` injection in `assembleParseLine` is gone (3rd-decl nouns
+    still get the real multi-choice test; multi-gender paradigms unchanged).
+  - **Deponent voice → single 'middle' + contested-voice note — NOT ported
+    (user chose to keep Mounce's design).** Mounce already single-options a
+    focused deponent's voice via the pool-constant collapse, *displayed* as
+    "middle (deponent)", and soft-accepts 'active' in mixed decks. duff #305's
+    per-card strict-'middle' rewrite would supersede that Mounce-specific feature
+    and change pooled-deck grading, so it's left as-is. (The contested-voice
+    explanatory note is the one genuinely new idea; deferred with the rest.)
+  - **Lone-button centering / custom-set pseudo-lemma exclusion — N/A.** Mounce
+    already centers a lone choice via `.morph-choices .choice-btn:only-child`
+    (duff's `.morph-choices-single` not needed). The stem-recall pseudo-lemma
+    filter is a no-op here: `stem_change_drills.js` is dormant (its `W4_*` vocab
+    keys don't exist in Mounce), so `'Second-aorist stems'` never registers as a
+    selectable paradigm and never reaches the custom checklist — nothing to
+    exclude. (`PARSING_INCOMPATIBLE_LEMMAS` stays in `render.js`.)
 - **Mounce-specific (no duff equivalent):**
   - **Parsing steps collapse pool-constant dimensions to one option.**
     Any parsing step whose value never varies across the WHOLE pool the student
