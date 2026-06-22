@@ -33,11 +33,12 @@ presets, off-the-record parsing). Consult it before applying a duff diff.
 
 ### Porting status — last version ported
 
-**Last reviewed duff commit: `7cb83ad` (tip of duff `main`, 2026-06-21; merge of
-PR #299).** When checking for new duff work, diff `origin/main` against that
-commit forward. **Ported ahead of their duff merge: PRs #300 (`20d386c`) and
-#301 (`6d89c13`)** — when those land on duff `main`, advance the boundary past
-them rather than re-porting.
+**Last reviewed duff commit: `5775ce0b` (tip of duff `main`, 2026-06-22; merge of
+PR #304).** When checking for new duff work, diff `origin/main` against that
+commit forward. (PRs #300/#301, previously ported ahead, are now merged on duff
+`main` and folded into the boundary; #302/#303/#304 ported below. Duff's
+`f92a2e6d` "Add files via upload" is just a binary `Paradigms.pdf` reference
+sheet — a duff asset, not code; not ported.)
 
 - **Ported in full through duff #288** (parsing undo + 3-tier scoring,
   restructured parse summary + "Why this form" notes, 3rd-person imperative
@@ -130,6 +131,42 @@ them rather than re-porting.
     `.parsing-review-bar*` CSS (light-theme variants included). Adapted to
     Mounce's memoized `cardsFor()` cache instead of duff's direct
     `getMorphCardsForLemma`.
+- **Ported duff PR #302 + #303 + #304:**
+  - **#302 (`971c8da1`) — λύω optional participle completeness, PARTIAL.** duff
+    added two λύω -μενος participle declensions (present m/p λυόμενος + aorist
+    middle λυσάμενος). Mounce **already drills λυόμενος** as a full paradigm card
+    (`mounce_paradigms.js` / `morphology.js`), so only the **aorist middle
+    λυσάμενος** was a genuine gap here — it shipped only as a grammar example
+    (`grammar.js`), with no drillable/extraForms entry. Added
+    `LUO_AORIST_MIDDLE_PARTICIPLE = menosParticipleParadigm('λυσά','λυσα',…)` as
+    an optional group + `extraForms` (so wrong-parse lookup can reconstruct it),
+    **gated at Ch 28** (matching γίνομαι's γενόμενος and λύω's aorist-active
+    λύσας — not duff's BBG Ch 15). The present-m/p half was intentionally
+    skipped to avoid duplicating the drilled paradigm.
+  - **#303 (`5c3a5bf3`) — touch ghost-click suppression is now one-shot, not
+    time-based.** `touchTapBridge.js` swallowed the iOS native ghost click via a
+    500 ms window (`NATIVE_CLICK_SUPPRESS_MS`) measured from synthetic dispatch.
+    A tap handler that opens a blocking `window.confirm()` (e.g. "fast-forward 1
+    week") freezes JS while the user reads it, so the queued ghost click lands
+    long after the window, escapes suppression, and re-fires the handler — a
+    second confirm popup. Replaced the timer with a one-shot
+    `pendingGhostSuppressEl` token: armed in `dispatchSyntheticClick`, cleared
+    when the next native click on that element arrives (or when a fresh gesture
+    starts, in `onTouchLikeStart`), so it's exact regardless of delay. Mounce's
+    bridge matched duff's pre-fix structure verbatim, so this ported 1:1.
+  - **#304 (`5775ce0b`) — PWA double-reload race fix, PARTIAL (sw.js only).**
+    On a SW upgrade, `sw.js`'s `activate` force-navigated every window client
+    (`clients.matchAll` → `client.navigate`) AND `main.js`'s `controllerchange`
+    listener reloaded — two competing navigations on the same URL that could
+    wedge an iOS standalone PWA on a frozen half-loaded launch. Dropped the
+    force-navigate dance from `activate`, leaving just stale-cache cleanup +
+    `clients.claim()`, so the single reload is owned by `main.js`'s
+    `controllerchange` listener (one reload, one owner). **duff's main.js /
+    index.html half is N/A** — it reworks duff's `#refreshAvailableOverlay`
+    *modal* into a deferred mandatory fallback, but Mounce's update UI is a
+    different artifact: a non-modal `#updateAvailableBanner` (`applyAppUpdate` /
+    `showAppUpdateBanner`), already wired and unchanged. The sw.js race is the
+    model-agnostic core and the actual bug.
   - **Parsing review panel scoped to the custom set** (`d5a7a8c`) — in
     custom-paradigm-set mode the bottom panel becomes a live scorecard for the
     ticked deck (`runtime.parsingCustomParadigms`), showing selected-but-undrilled
