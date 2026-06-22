@@ -2252,6 +2252,16 @@
     font-size: calc((12px) * var(--text-scale));
     line-height: 1.4;
   }
+  /* Reinforcement note under a single-option step's lone button (single-gender
+     noun gender) — neutral/muted, centered to match the button. */
+  .morph-step-single-note {
+    margin: -2px auto 10px;
+    max-width: 340px;
+    color: var(--muted);
+    font-size: calc((12.5px) * var(--text-scale));
+    line-height: 1.45;
+    text-align: center;
+  }
   /* Reattempted-row pick colour + shared footnote, amber (not red). */
   .morph-step-summary-row.morph-step-reattempted .morph-step-summary-pick { color: #e7c79a; }
   .morph-step-undone-note {

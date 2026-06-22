@@ -34,6 +34,20 @@ const DIM_LABEL = {
   gender: 'Gender'
 };
 
+// Display order for MC choice lists (sortChoicesCanonically). Extends the bare
+// DIM_POOLS singles with the syncretic/composite values, placed immediately
+// after the singles they combine — so a combined option (the neuter
+// "nominative/accusative", a 2-termination adjective's "masculine/feminine")
+// sits next to its components instead of being exiled to the end of the list,
+// where it's easy to overlook and skip past. This only affects ORDERING, never
+// which choices appear (that's buildChoices) — composites still surface only
+// when they're the actual syncretic answer, not as distractors. Dimensions
+// without an entry here fall back to DIM_POOLS order.
+const CHOICE_SORT_ORDER = {
+  case:   ['nominative', 'accusative', 'nominative/accusative', 'genitive', 'dative', 'vocative'],
+  gender: ['masculine', 'feminine', 'neuter', 'masculine/feminine', 'masculine/neuter', 'masculine/feminine/neuter']
+};
+
 // Aspect is implicit in tense in Mounce's pedagogy. Present and future are
 // genuinely ambiguous between continuous (imperfective) and undefined
 // (aoristic) — the form alone doesn't pick one (progressive vs gnomic for
@@ -212,15 +226,16 @@ function shuffle(arr) {
 }
 
 // Stable canonical ordering for parsing-mode MC option lists. Items present
-// in DIM_POOLS keep that pedagogical order (present → future → imperfect →
-// aorist → …; nom → acc → gen → dat → voc; etc.); composite/syncretic
-// values not in DIM_POOLS (e.g. 'masculine/feminine/neuter') sort last,
-// alphabetically among themselves. Used instead of random shuffling so the
-// same dimension always presents its choices in the same order card-to-card
-// — random reordering forced re-reading on every step and broke the
-// muscle-memory mapping between paradigm-table position and option slot.
+// in the dimension's order (CHOICE_SORT_ORDER, else DIM_POOLS) keep that
+// pedagogical order (present → future → imperfect → aorist → …; nom → acc →
+// nom/acc → gen → dat → voc; masc → fem → neut → masc/fem → masc/neut →
+// masc/fem/neut). Any value still not listed (an unforeseen composite) sorts
+// last, alphabetically among such values. Used instead of random shuffling so
+// the same dimension always presents its choices in the same order
+// card-to-card — random reordering forced re-reading on every step and broke
+// the muscle-memory mapping between paradigm-table position and option slot.
 function sortChoicesCanonically(dimensionKey, values) {
-  const canonical = DIM_POOLS[dimensionKey] || [];
+  const canonical = CHOICE_SORT_ORDER[dimensionKey] || DIM_POOLS[dimensionKey] || [];
   const ord = (v) => {
     const i = canonical.indexOf(v);
     return i === -1 ? canonical.length : i;
@@ -931,30 +946,28 @@ export function buildMorphSteps(card, accessiblePools = null, options = {}) {
       skippedCorrect[dimKey] = correct;
       continue;
     }
-    // Single-gender lemma auto-skip. Asking "what gender?" for a noun
-    // like λόγος tests whether the student remembers the lemma's fixed
-    // gender, not whether they're parsing the form — the form λόγου is
-    // masculine because λόγος is, not because the genitive ending
-    // distinguishes a gender. Multi-gender paradigms (articles,
-    // adjectives, pronouns, participles) keep the step: there the form
-    // genuinely commits to a gender. The implied gender is auto-filled
-    // for form lookup AND surfaced in the final parse summary so the
-    // canonical label still reads e.g. "genitive singular masculine".
+    // Single-gender noun gender step. A noun like λόγος (masc.) has one fixed
+    // gender across its whole paradigm — the form λόγου is masculine because
+    // λόγος is, not because the genitive ending picks a gender. Drilling it as a
+    // real multi-choice test would probe lemma memory, not form-parsing; auto-
+    // skipping it (the old behavior) hid the gender from the walk entirely.
+    // Instead show a single-option reinforcement step — one button for the
+    // noun's gender, with a note naming the noun type — so the gender↔noun-type
+    // link is reinforced without being a guessable test. Marked `fixedGenderNoun`
+    // here and turned into a single-choice step below (its one gender; grading is
+    // trivially correct), with `step.fixedGender` set so the renderer shows the
+    // note.
     //
-    // Exception: third-declension nouns (σάρξ fem., ὄνομα/πνεῦμα neut.,
-    // βασιλεύς masc., …) keep the step — the ending doesn't betray the gender
-    // (σαρκός gives no tell the way λόγου announces masculine because λόγος
-    // does), so it has to be recalled. They're still single-gender; only the
-    // auto-skip is bypassed here, not the gender value-filter
-    // (cardPassesDimValueFilters), so a gender-exclude never wipes the paradigm.
+    // Multi-gender paradigms (articles, adjectives, pronouns, participles) are
+    // excluded — there the form genuinely commits to a gender, so they keep the
+    // normal multi-choice step. So are third-declension nouns (σάρξ fem., ὄνομα/
+    // πνεῦμα neut., βασιλεύς masc.): the ending doesn't betray the gender (σαρκός
+    // gives no tell the way λόγου announces masculine because λόγος does), so it
+    // has to be recalled — they stay a real multi-choice test.
     const isThirdDeclNoun = !!(thirdDeclensionNouns && card.lemma && thirdDeclensionNouns.has(card.lemma));
-    if (dimKey === 'gender' && multiGenderLemmas && card.lemma
-        && !multiGenderLemmas.has(card.lemma)
-        && !isThirdDeclNoun) {
-      skippedCorrect[dimKey] = correct;
-      impliedDims[dimKey] = correct;
-      continue;
-    }
+    const fixedGenderNoun = dimKey === 'gender' && !!multiGenderLemmas && !!card.lemma
+      && !multiGenderLemmas.has(card.lemma)
+      && !isThirdDeclNoun;
     let pool = accessiblePools ? accessiblePools[dimKey] : null;
     // No 1st-person imperative exists in Koine — when the person step is asked
     // for an imperative (ch 33+), offer only 2nd / 3rd as choices.
@@ -976,8 +989,10 @@ export function buildMorphSteps(card, accessiblePools = null, options = {}) {
     // Single-paradigm reinforcement: when one paradigm is focused and it never
     // varies on this dimension, collapse the step to that one option (no
     // distractors) so it reads as "yes, still future" rather than a real test.
-    const collapseToSingle = constantDims
-      && Object.prototype.hasOwnProperty.call(constantDims, dimKey);
+    // A single-gender noun's gender step is likewise a one-option reinforcement
+    // (its fixed gender), regardless of whether a paradigm is focused.
+    const collapseToSingle = fixedGenderNoun
+      || (constantDims && Object.prototype.hasOwnProperty.call(constantDims, dimKey));
     const stepPool = collapseToSingle ? [stepCorrect] : pool;
     const choices = buildChoices(dimKey, stepCorrect, stepPool, dimValueFilters);
     let displayCorrect = applyDisplaySuffix(dimKey, stepCorrect);
@@ -1033,6 +1048,13 @@ export function buildMorphSteps(card, accessiblePools = null, options = {}) {
     }
     if (dimKey === 'mood' && isSecondPluralPresentMoodAmbiguity(card.answer, dims)) {
       step.acceptable = ['indicative', 'imperative'];
+    }
+    // Flag the single-gender noun's gender step so the renderer shows the lone
+    // centered button with a noun-type note. `acceptable` is already the one
+    // gender (from stepCorrect), so it can't be answered wrong — it's
+    // reinforcement, not a test.
+    if (fixedGenderNoun) {
+      step.fixedGender = true;
     }
     steps.push(step);
   }
