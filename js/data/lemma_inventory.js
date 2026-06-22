@@ -1070,20 +1070,30 @@
     'λυθησόμενα':   'future passive participle nominative/accusative plural neuter'
   };
 
-  // λύω aorist middle participle λυσάμενος — the -μενος (2-1-2 adjectival)
-  // declension, declines like λυόμενος (recessive accent → menosParticiple-
-  // Paradigm applies, unlike the persistent-penult perfect m/p λελυμένος above
-  // which is spelled out by hand). λύω ships only λυσάμενος as a grammar
-  // example (grammar.js) and no drillable aorist middle participle, so it's
-  // added here as an optional, Ch-28-gated group (matching γίνομαι's aorist
-  // middle participle γενόμενος and λύω's aorist active participle λύσας). The
-  // present m/p participle λυόμενος is NOT added — Mounce already drills its
-  // full declension as a paradigm card (mounce_paradigms.js / morphology.js).
+  // λύω present middle/passive participle λυόμενος and aorist middle participle
+  // λυσάμενος — the -μενος (2-1-2 adjectival) declensions, recessive accent
+  // (menosParticipleParadigm applies, unlike the persistent-penult perfect m/p
+  // λελυμένος above which is spelled out by hand). λύω drills only a 5-form
+  // recognition SUBSET of λυόμενος (nom/gen/acc sg masc + nom/gen sg fem, the
+  // S27_PRES_PTC_MIDPAS card) and no aorist middle participle at all (λυσάμενος
+  // ships only as a grammar example). Both full declensions are added here as
+  // optional groups + extraForms (so the wrong-parse "Your parse" lookup can
+  // reconstruct any picked slot), mirroring the contract verbs ἀγαπάω/ποιέω/
+  // πληρόω whose present m/p participles got the same treatment — λύω, the
+  // model verb, was the odd one out. The drilled S27 recognition forms are
+  // superseded by per-form dedup, so only the remaining slots surface as cards.
+  // Gated like the matching concrete forms: present m/p participle at Ch 27
+  // (= the S27 card / the contract verbs), aorist middle participle at Ch 28
+  // (= γίνομαι's γενόμενος and λύω's aorist active λύσας).
+  const LUO_PRESENT_MP_PARTICIPLE =
+    menosParticipleParadigm('λυό', 'λυο', 'present middle/passive participle');
   const LUO_AORIST_MIDDLE_PARTICIPLE =
     menosParticipleParadigm('λυσά', 'λυσα', 'aorist middle participle');
 
   // Participle optional groups, gated by max(tense-intro, ptc-intro).
   const LUO_PARTICIPLE_OPTIONAL = [
+    { chapter: 27, family: 'λύω — present middle/passive participle λυόμενος full declension (optional)',
+      forms: LUO_PRESENT_MP_PARTICIPLE },
     { chapter: 28, family: 'λύω — 1st aorist active participle λύσας full declension (optional)',
       forms: LUO_AORIST_ACTIVE_PARTICIPLE },
     { chapter: 28, family: 'λύω — aorist middle participle λυσάμενος full declension (optional)',
@@ -1327,6 +1337,7 @@
 
   const LUO_FULL_EXTRA_FORMS = {
     ...LUO_EXTRA_FORMS,
+    ...LUO_PRESENT_MP_PARTICIPLE,
     ...LUO_AORIST_ACTIVE_PARTICIPLE,
     ...LUO_AORIST_MIDDLE_PARTICIPLE,
     ...LUO_PERFECT_ACTIVE_PARTICIPLE,

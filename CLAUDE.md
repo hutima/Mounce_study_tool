@@ -132,17 +132,24 @@ sheet — a duff asset, not code; not ported.)
     Mounce's memoized `cardsFor()` cache instead of duff's direct
     `getMorphCardsForLemma`.
 - **Ported duff PR #302 + #303 + #304:**
-  - **#302 (`971c8da1`) — λύω optional participle completeness, PARTIAL.** duff
-    added two λύω -μενος participle declensions (present m/p λυόμενος + aorist
-    middle λυσάμενος). Mounce **already drills λυόμενος** as a full paradigm card
-    (`mounce_paradigms.js` / `morphology.js`), so only the **aorist middle
-    λυσάμενος** was a genuine gap here — it shipped only as a grammar example
-    (`grammar.js`), with no drillable/extraForms entry. Added
-    `LUO_AORIST_MIDDLE_PARTICIPLE = menosParticipleParadigm('λυσά','λυσα',…)` as
-    an optional group + `extraForms` (so wrong-parse lookup can reconstruct it),
-    **gated at Ch 28** (matching γίνομαι's γενόμενος and λύω's aorist-active
-    λύσας — not duff's BBG Ch 15). The present-m/p half was intentionally
-    skipped to avoid duplicating the drilled paradigm.
+  - **#302 (`971c8da1`) — λύω optional participle completeness.** duff added two
+    λύω -μενος participle declensions (present m/p λυόμενος + aorist middle
+    λυσάμενος), both **ported here**. (Initially mis-scoped as present-m/p-already-
+    covered: Mounce only drills a **5-form recognition SUBSET** of λυόμενος — nom/
+    gen/acc sg masc + nom/gen sg fem, the `S27_PRES_PTC_MIDPAS` card — **not** the
+    full declension, and λυσάμενος ships only as a grammar example. The contract
+    verbs ἀγαπάω/ποιέω/πληρόω already got their *full* present-m/p participles as
+    Ch-27 optional + extraForms, so λύω, the model verb, was the odd one out.)
+    Added `LUO_PRESENT_MP_PARTICIPLE = menosParticipleParadigm('λυό','λυο',…)`
+    (Ch 27) and `LUO_AORIST_MIDDLE_PARTICIPLE = menosParticipleParadigm('λυσά',
+    'λυσα',…)` (Ch 28), each as an optional group **and** in `extraForms` (so the
+    wrong-parse "Your parse" lookup can reconstruct any picked slot). Chapters
+    track the matching concrete forms (present m/p ptc = the S27 card / contract
+    verbs at 27; aorist middle ptc = γίνομαι's γενόμενος + λύω's aorist-active
+    λύσας at 28; not duff's BBG Ch 15). The ~5 already-drilled recognition forms
+    collapse against the optional set via the per-form dedup in
+    `getCardsForFocusedParadigm` (keyed by form, richest parse wins), so only the
+    remaining ~12 present-m/p slots surface as new cards — no duplicates.
   - **#303 (`5c3a5bf3`) — touch ghost-click suppression is now one-shot, not
     time-based.** `touchTapBridge.js` swallowed the iOS native ghost click via a
     500 ms window (`NATIVE_CLICK_SUPPRESS_MS`) measured from synthetic dispatch.
@@ -154,19 +161,23 @@ sheet — a duff asset, not code; not ported.)
     when the next native click on that element arrives (or when a fresh gesture
     starts, in `onTouchLikeStart`), so it's exact regardless of delay. Mounce's
     bridge matched duff's pre-fix structure verbatim, so this ported 1:1.
-  - **#304 (`5775ce0b`) — PWA double-reload race fix, PARTIAL (sw.js only).**
+  - **#304 (`5775ce0b`) — PWA double-reload race fix (+ banner reload fallback).**
     On a SW upgrade, `sw.js`'s `activate` force-navigated every window client
     (`clients.matchAll` → `client.navigate`) AND `main.js`'s `controllerchange`
     listener reloaded — two competing navigations on the same URL that could
     wedge an iOS standalone PWA on a frozen half-loaded launch. Dropped the
     force-navigate dance from `activate`, leaving just stale-cache cleanup +
     `clients.claim()`, so the single reload is owned by `main.js`'s
-    `controllerchange` listener (one reload, one owner). **duff's main.js /
-    index.html half is N/A** — it reworks duff's `#refreshAvailableOverlay`
-    *modal* into a deferred mandatory fallback, but Mounce's update UI is a
-    different artifact: a non-modal `#updateAvailableBanner` (`applyAppUpdate` /
-    `showAppUpdateBanner`), already wired and unchanged. The sw.js race is the
-    model-agnostic core and the actual bug.
+    `controllerchange` listener (one reload, one owner). **duff's `#refresh-
+    AvailableOverlay` *modal* rework is N/A** — Mounce's update UI is a different
+    artifact, the non-modal `#updateAvailableBanner` (`applyAppUpdate` /
+    `showAppUpdateBanner`). But the model-agnostic *core* of duff's main.js
+    change — a force-reload guarantee for when `controllerchange` never lands —
+    DID apply: Mounce's `applyAppUpdate()` posted `SKIP_WAITING` and then relied
+    solely on `controllerchange`, so on the stuck-PWA path the Refresh button did
+    nothing. Added a 1.5 s fallback `setTimeout(reload)` after the post (the
+    controllerchange reload tears this document/timer down first in the normal
+    case, so the fallback only fires when the auto-reload didn't).
   - **Parsing review panel scoped to the custom set** (`d5a7a8c`) — in
     custom-paradigm-set mode the bottom panel becomes a live scorecard for the
     ticked deck (`runtime.parsingCustomParadigms`), showing selected-but-undrilled

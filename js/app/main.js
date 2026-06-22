@@ -3751,7 +3751,17 @@ function showAppUpdateBanner(worker) {
 // browsers that delay the activation transition).
 function applyAppUpdate() {
   if (__pendingSwUpdate) {
-    try { __pendingSwUpdate.postMessage({ type: 'SKIP_WAITING' }); } catch (_) {
+    try {
+      __pendingSwUpdate.postMessage({ type: 'SKIP_WAITING' });
+      // The waiting worker activating fires `controllerchange`, which reloads
+      // us (the single reload owner now that sw.js's activate no longer force-
+      // navigates). If that never lands — an iOS PWA that missed the event, or
+      // stale in-memory JS — the user clicked Refresh but nothing happens. Arm
+      // a fallback reload so the button can't leave them stuck on stale assets;
+      // the controllerchange reload normally tears this document (and timer)
+      // down first, so the fallback only fires when the auto-reload didn't.
+      setTimeout(() => { window.location.reload(); }, 1500);
+    } catch (_) {
       window.location.reload();
     }
   } else {
