@@ -38,7 +38,9 @@ PR #304).** When checking for new duff work, diff `origin/main` against that
 commit forward. (PRs #300/#301, previously ported ahead, are now merged on duff
 `main` and folded into the boundary; #302/#303/#304 ported below. Duff's
 `f92a2e6d` "Add files via upload" is just a binary `Paradigms.pdf` reference
-sheet — a duff asset, not code; not ported.)
+sheet — a duff asset, not code; not ported.) **Ported ahead of their duff `main`
+merge: PRs #305 (`905c3f76`) and #306 (`fbf96894`)** — advance the boundary past
+them when they land rather than re-porting.
 
 - **Ported in full through duff #288** (parsing undo + 3-tier scoring,
   restructured parse summary + "Why this form" notes, 3rd-person imperative
@@ -216,6 +218,28 @@ sheet — a duff asset, not code; not ported.)
     keys don't exist in Mounce), so `'Second-aorist stems'` never registers as a
     selectable paradigm and never reaches the custom checklist — nothing to
     exclude. (`PARSING_INCOMPATIBLE_LEMMAS` stays in `render.js`.)
+- **Ported duff PR #306 — PWA: stop the auto-reload, wait-then-prompt (iOS
+  freeze).** A follow-up that revises #304: the auto-reload itself (not the
+  navigation *race* #304 fixed) was wedging iOS standalone PWAs — the programmatic
+  `controllerchange` reload at launch hangs the webview (page renders, taps dead
+  until force-quit). duff switched to the wait-then-prompt pattern; the two
+  model-agnostic cores ported to Mounce's banner (duff's `#refreshAvailableOverlay`
+  *modal* rewrite stays N/A):
+  - **`sw.js`: removed `self.skipWaiting()` from `install`** — the new worker now
+    installs and WAITS instead of auto-activating. `skipWaiting()` fires only via
+    the `message` handler (the "Refresh" button's `SKIP_WAITING`). The old worker
+    keeps serving its complete asset set until then, so the app still works on the
+    old version. (`activate` is unchanged — still cache-cleanup + `claim`, no
+    force-navigate.)
+  - **`main.js`: `controllerchange` now reloads ONLY for a user-accepted update.**
+    Added a module-level `__refreshAccepted` flag set by `applyAppUpdate()`; the
+    `controllerchange` listener early-returns unless it's set, so a launch/cold-
+    start controllerchange (first install, or a waiting worker activating) never
+    auto-reloads. Dropped the now-redundant `__hadInitialController` snapshot. The
+    `#updateAvailableBanner` still shows the moment a waiting worker is detected;
+    tapping Refresh posts `SKIP_WAITING` and reloads inside the gesture (the 1.5 s
+    fallback from the #304 re-review stays). `index.html` banner reworded to note
+    that fully closing+reopening also applies the update.
 - **Mounce-specific (no duff equivalent):**
   - **Parsing steps collapse pool-constant dimensions to one option.**
     Any parsing step whose value never varies across the WHOLE pool the student

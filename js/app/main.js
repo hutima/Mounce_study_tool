@@ -3737,6 +3737,13 @@ function preventDoubleTapZoom(el) {
 });
 
 let __pendingSwUpdate = null;
+// Set true only when the user taps "Refresh". The SW no longer skipWaiting()s on
+// install, so it WAITS rather than auto-activating; main.js's controllerchange
+// listener reloads only when this flag is set, so the page never auto-reloads at
+// launch — that programmatic reload froze iOS standalone PWAs (page renders, taps
+// dead until force-quit). A waiting update otherwise lands silently on the next
+// cold start.
+let __refreshAccepted = false;
 
 function showAppUpdateBanner(worker) {
   __pendingSwUpdate = worker;
@@ -3744,22 +3751,16 @@ function showAppUpdateBanner(worker) {
   if (banner) banner.hidden = false;
 }
 
-// The new SW calls self.skipWaiting() in its install handler now, so an
-// update normally auto-activates → controllerchange → page reloads, all
-// without UI. The banner is kept as a quick-prompt fallback for the brief
-// window between install completing and the auto-reload firing (and for
-// browsers that delay the activation transition).
+// "Refresh" button. The new SW installed but is WAITING (install no longer
+// skipWaiting()s). Accepting the update posts SKIP_WAITING so it activates, which
+// fires controllerchange → reload — now inside the user's tap gesture, which iOS
+// handles reliably. A 1.5 s fallback reload covers the case where controllerchange
+// never lands, so the tap is never a no-op.
 function applyAppUpdate() {
+  __refreshAccepted = true;
   if (__pendingSwUpdate) {
     try {
       __pendingSwUpdate.postMessage({ type: 'SKIP_WAITING' });
-      // The waiting worker activating fires `controllerchange`, which reloads
-      // us (the single reload owner now that sw.js's activate no longer force-
-      // navigates). If that never lands — an iOS PWA that missed the event, or
-      // stale in-memory JS — the user clicked Refresh but nothing happens. Arm
-      // a fallback reload so the button can't leave them stuck on stale assets;
-      // the controllerchange reload normally tears this document (and timer)
-      // down first, so the fallback only fires when the auto-reload didn't.
       setTimeout(() => { window.location.reload(); }, 1500);
     } catch (_) {
       window.location.reload();
@@ -3775,12 +3776,6 @@ function dismissAppUpdate() {
 }
 
 if ('serviceWorker' in navigator) {
-  // Snapshot whether a controller is in place before we register. On a
-  // fresh first install there's no prior controller — the very first
-  // activate→claim transition would otherwise trigger a spurious
-  // page reload. With this flag we only reload when a CHANGE of
-  // controller occurs (i.e. an update, not a first install).
-  const __hadInitialController = !!navigator.serviceWorker.controller;
   let __swReloading = false;
 
   window.addEventListener('load', () => {
@@ -3813,11 +3808,12 @@ if ('serviceWorker' in navigator) {
       .catch(() => {});
 
     navigator.serviceWorker.addEventListener('controllerchange', () => {
-      if (__swReloading) return;
-      // First install on a fresh device: a controller appears for the
-      // first time, but the page is already serving the new app shell
-      // (the SW only just installed). Reloading here would be spurious.
-      if (!__hadInitialController) return;
+      // Reload ONLY for a user-accepted update (they tapped "Refresh", which
+      // sets __refreshAccepted and posts SKIP_WAITING). Never automatically: a
+      // controllerchange at launch — first install, or a waiting worker that
+      // activates on cold start — must not reload, since that programmatic
+      // reload hangs iOS standalone PWAs.
+      if (!__refreshAccepted || __swReloading) return;
       __swReloading = true;
       window.location.reload();
     });
