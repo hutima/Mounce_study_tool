@@ -33,14 +33,12 @@ presets, off-the-record parsing). Consult it before applying a duff diff.
 
 ### Porting status — last version ported
 
-**Last reviewed duff commit: `5775ce0b` (tip of duff `main`, 2026-06-22; merge of
-PR #304).** When checking for new duff work, diff `origin/main` against that
-commit forward. (PRs #300/#301, previously ported ahead, are now merged on duff
-`main` and folded into the boundary; #302/#303/#304 ported below. Duff's
-`f92a2e6d` "Add files via upload" is just a binary `Paradigms.pdf` reference
-sheet — a duff asset, not code; not ported.) **Ported ahead of their duff `main`
-merge: PRs #305 (`905c3f76`) and #306 (`fbf96894`)** — advance the boundary past
-them when they land rather than re-porting.
+**Last reviewed duff commit: `b1d597dc` (tip of duff `main`, 2026-06-23; merge of
+PR #307).** When checking for new duff work, diff `origin/main` against that
+commit forward. (PRs #300/#301/#305/#306, previously ported ahead, are now merged
+on duff `main` and folded into the boundary; #302/#303/#304/#307 ported below.
+Duff's `f92a2e6d` "Add files via upload" is just a binary `Paradigms.pdf`
+reference sheet — a duff asset, not code; not ported.)
 
 - **Ported in full through duff #288** (parsing undo + 3-tier scoring,
   restructured parse summary + "Why this form" notes, 3rd-person imperative
@@ -240,6 +238,39 @@ them when they land rather than re-porting.
     tapping Refresh posts `SKIP_WAITING` and reloads inside the gesture (the 1.5 s
     fallback from the #304 re-review stays). `index.html` banner reworded to note
     that fully closing+reopening also applies the update.
+- **Ported duff PR #307 — split-card per-round confidence + comprehension-
+  weighted parsing order.** Two features layered on machinery Mounce already had
+  (variant-form gating + per-dimension form stats), so both ported cleanly:
+  - **Split-card per-round confidence (SRS).** A variant "… as cards" set now
+    scores confidence once per ROUND instead of once per face review (which let
+    one shaky form, repeated until known, dominate the rolling history). A round
+    is one attempt at clearing every active face, bounded by a 2 h window from
+    when the set's first face is seen (`cycleStartedAt`); per-face outcome samples
+    collect in `cycleFaceSamples`, and on round-end the score is the mean across
+    active faces — a face never reached counts 0%. New `confidence.js` helpers
+    `computeVariantRoundConfidence` / `addVariantFaceSample` /
+    `recordVariantRoundConfidence`; `endVariantRound` (main.js) closes a round
+    (records confidence, clears bookkeeping) and is called from `isCardDue` (2 h
+    deadline fired → also resets the set due-now, intervalDays 0, so an incomplete
+    set isn't left half-cleared), `applySpacedReview` (a miss, a stale round on a
+    late return, and the set-completing Easy). `recordStudyOutcome` gained a
+    `skipConfidence` opt (variant cards suppress the per-review sample). The #298
+    per-face `cycleFacesHeld` 2 h re-queue is **superseded**: within a round an
+    un-cleared face just stays surfaceable (Uncertain no longer walls a form off);
+    `setProgressDelay` now uses the shared `roundDeadlineMs` (time left in the
+    round) instead of a fresh 2 h per face. New `cycleStartedAt`/`cycleFaceSamples`
+    progress fields seeded + sanitized in `getWordProgress`, defaulted/empty-
+    checked/compacted in `migrations.js`, and cleared on the spaced-progress reset.
+  - **Comprehension-weighted parsing order.** The parsing review's wrong/uncertain
+    tier is no longer a flat weight — it scales with `weightedRecentMissScore`
+    (morph_steps.js): the importance-weighted magnitude of a form's recent missed
+    dimensions, using `DIM_COMPREHENSION_WEIGHT` (mood 1.5 / tense·case 1.4 / voice
+    1.3 … gender 0.6). So a form blowing high-impact dims (mood/tense/case) surfaces
+    ahead of one fumbling only gender, and a verb outranks a noun at similar
+    shakiness. `parsingFormPriorityWeight` keeps fixed weights for unseen (6) /
+    right (1.5) / known (1) and grades wrong/uncertain as `min(2.5 + 0.7·miss,
+    5.5)` (capped under unseen). The show-count rule stays the primary sort, so the
+    "shown at most twice before every form has a turn" cap is preserved.
 - **Mounce-specific (no duff equivalent):**
   - **Parsing steps collapse pool-constant dimensions to one option.**
     Any parsing step whose value never varies across the WHOLE pool the student

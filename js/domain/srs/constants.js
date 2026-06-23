@@ -15,9 +15,10 @@ export const SRS_AGAIN_MS = 5 * 60 * 1000;
 // a card seen via 'pass' can come back — long enough to actually count as
 // retrieval practice rather than a flash echo.
 export const SRS_UNCERTAIN_MIN_MS = 2 * 60 * 60 * 1000;
-// Variant-form "hold": when a shared set (base verb + its derived principal-part
-// faces) is only partly known this cycle, a just-passed face is held this long
-// while its unpassed siblings stay surfaceable. Same 2h as the uncertain floor.
+// Variant-form ROUND WINDOW: a "split card" set (base verb + its derived
+// principal-part faces) gets 2h from when its first face is seen to clear every
+// face, after which the round is closed out (its confidence recorded, unreached
+// faces counting 0%) and a fresh one begins. Same 2h as the uncertain floor.
 export const SRS_VARIANT_HOLD_MS = SRS_UNCERTAIN_MIN_MS;
 // Unspaced "recovery" gap after a wrong-this-cycle card lands a pass/easy:
 // 1h, decoupled from the spaced uncertain floor so the unspaced loop stays
