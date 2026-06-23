@@ -1409,6 +1409,61 @@ export function isLemmaFormKnown(stats, lemma, cardId, enabledDims) {
   return total >= FORM_RECENT_CAP && correct >= FORM_RECENT_CAP;
 }
 
+// Comprehension-impact weight per parse dimension: how much getting this
+// dimension wrong distorts the meaning of the form. Mood and tense reshape a
+// clause (is this a command? a past event?) and case assigns who-does-what to
+// whom, so they weigh heavily; gender rarely changes comprehension (it mostly
+// tracks agreement), so it weighs least. Used to rank parsing review by the
+// *kind* of mistakes a form draws, not just the count. Unlisted dims default 1.
+export const DIM_COMPREHENSION_WEIGHT = {
+  mood: 1.5,
+  tense: 1.4,
+  case: 1.4,
+  voice: 1.3,
+  aspect: 1.1,
+  person: 1.0,
+  number: 0.9,
+  gender: 0.6
+};
+
+// Importance-weighted recent "wrong steps" magnitude for one form: averages,
+// over the form's last `windowSize` attempts, the sum of (1 − credit) × dimWeight
+// across every enabled dimension. 0 when every recent attempt was clean; larger
+// when a form keeps missing dimensions, and larger still when the missed ones
+// are high-impact (a blown mood/tense outweighs a blown gender). Verbs naturally
+// score above nouns — they walk more, and weightier, dimensions — so a shaky
+// verb outranks a shaky noun, which is what the parsing review order should
+// surface. Drives parsingFormPriorityWeight (main.js) for the wrong/uncertain
+// tier only; unseen/right/known forms take fixed weights there.
+export function weightedRecentMissScore(stats, lemma, cardId, enabledDims, dimWeights = DIM_COMPREHENSION_WEIGHT, windowSize = FORM_RECENT_CAP) {
+  if (!cardId) return 0;
+  const entry = stats?.byLemma?.[lemma];
+  const form = entry?.forms && entry.forms[cardId];
+  if (!form || !Array.isArray(form.recent) || !form.recent.length) return 0;
+  const list = (Number.isInteger(windowSize) && windowSize > 0)
+    ? form.recent.slice(-windowSize)
+    : form.recent;
+  let sum = 0;
+  let n = 0;
+  for (const a of list) {
+    n += 1;
+    if (typeof a.allDims === 'boolean') {
+      // Legacy attempt with no per-dim breakdown: a missed whole-parse counts as
+      // one generic wrong step, a clean one as none.
+      if (!a.allDims) sum += 1;
+      continue;
+    }
+    const dims = a.dims || {};
+    for (const [dim, val] of Object.entries(dims)) {
+      if (!isDimEnabled(enabledDims, dim)) continue;
+      const credit = Number.isFinite(val) ? Math.max(0, Math.min(1, val)) : 0;
+      const w = (dimWeights && Number.isFinite(dimWeights[dim])) ? dimWeights[dim] : 1;
+      sum += (1 - credit) * w;
+    }
+  }
+  return n ? sum / n : 0;
+}
+
 export function getParadigmStepAttemptWindow() {
   return ATTEMPT_WINDOW;
 }

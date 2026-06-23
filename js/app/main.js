@@ -144,7 +144,8 @@ import { SRS_NEAR_WINDOW_MS, SRS_CYCLE_ADVANCE_MS, SESSION_IDLE_RESET_MS, getCad
 import { msFromDays, daysFromMs, setProgressDelay,
          getSrsEase, getSrsStage, getLastEasyIntervalDays, getNextEasyIntervalDays,
          formatRemainingForTable } from '../domain/srs/scheduler.js';
-import { recordConfidenceSample, getConfidencePct, computeCardXpAward } from '../domain/srs/confidence.js';
+import { recordConfidenceSample, getConfidencePct, computeCardXpAward,
+         addVariantFaceSample, recordVariantRoundConfidence } from '../domain/srs/confidence.js';
 
 // Domain — Gamification
 import { XP_LEVELS, REVIEW_XP_SCHEDULE } from '../domain/gamification/levels.js';
@@ -168,7 +169,7 @@ import { getSelectedVocabCards, getSelectedGrammarCards, getAllVocabKeys, getAll
 
 // Domain — Grammar
 import { buildGrammarSupportHtml } from '../domain/grammar/explanations.js';
-import { recordParadigmAttempt, inferredFollowupDims, buildInferredStep, structuralImpossibilityReason, paradigmGapReason, lemmaInventoryGapReason, isLemmaFormKnown, getLemmaFormStatus, parseAnswerDimensions } from '../domain/grammar/morph_steps.js';
+import { recordParadigmAttempt, inferredFollowupDims, buildInferredStep, structuralImpossibilityReason, paradigmGapReason, lemmaInventoryGapReason, isLemmaFormKnown, getLemmaFormStatus, weightedRecentMissScore, parseAnswerDimensions } from '../domain/grammar/morph_steps.js';
 import { listAvailableParadigms, listAvailableParadigmsByCategory, getCardsForFocusedParadigm, getCardsForParadigmCategory, getCardsForParadigmLemmas, getAllParsingCards, parseCategoryShuffleValue, makeCategoryShuffleValue, chooseDefaultFocusedParadigm } from '../domain/grammar/paradigm_focus.js';
 import { buildLookupPool, truncatePicksFrom } from '../domain/grammar/morph_lookup.js';
 
@@ -2417,27 +2418,41 @@ function buildFilteredFocusedParadigmCards() {
 //    has had its turn. In practice: while any unseen form remains, nothing gets
 //    shown more than twice.
 //
-// 2. Status weight (the soft bias, applied within a show-count bucket). We lean
-//    on each form's per-form recent status (the same 0/2 → 2/2 tally the dots
-//    and the exclude-known filter read via getLemmaFormStatus): unseen > wrong >
-//    uncertain > right > known. Efraimidis–Spirakis weighted-random ordering
-//    (key = random^(1/weight), sort descending) gives, for any two forms in the
-//    same bucket, P(a before b) = weight_a/(weight_a+weight_b) — a soft bias,
-//    not a hard sort, so the deck still feels shuffled while leaning toward
-//    what needs work.
+// 2. Status weight (the soft bias, applied within a show-count bucket). Each
+//    form's per-form recent status (the same 0/2 → 2/2 tally the dots and the
+//    exclude-known filter read via getLemmaFormStatus) sets a base priority:
+//    unseen (fixed, highest) > wrong/uncertain (GRADED, see below) > right
+//    (fixed, low) > known (fixed, lowest). For the wrong/uncertain tier — the
+//    only "unknown" forms with recorded misses — the weight isn't flat: it
+//    scales with weightedRecentMissScore, the comprehension-weighted magnitude
+//    of the form's recent wrong steps, so a form that keeps blowing high-impact
+//    dimensions (mood/tense/case) is surfaced ahead of one that only fumbles a
+//    low-impact one (gender), and a verb outranks a noun at similar shakiness.
+//    Efraimidis–Spirakis weighted-random ordering (key = random^(1/weight),
+//    sort descending) gives P(a before b) = weight_a/(weight_a+weight_b) — a
+//    soft bias, not a hard sort: nothing is pinned, so the deck still feels
+//    shuffled. The show-count rule (1) stays primary, so the grading never
+//    breaks the "shown at most twice before every form has had a turn" cap.
 //
 // Shuffle off keeps strict paradigm order (neither rule applies).
-const PARSING_PRIORITY_WEIGHTS = {
-  unseen: 6,
-  wrong: 4,
-  uncertain: 3,
-  right: 1.5,
-  known: 1
-};
+const PARSING_UNSEEN_WEIGHT = 6;   // never attempted → highest
+const PARSING_RIGHT_WEIGHT = 1.5;  // 1/1 clean → low (confirm once more)
+const PARSING_KNOWN_WEIGHT = 1;    // 2/2 clean → lowest, flat (not re-ranked)
+// Wrong/uncertain forms: a base that lifts any form with recent misses above a
+// clean 1/1, plus the comprehension-weighted recent miss magnitude, capped just
+// under PARSING_UNSEEN_WEIGHT so an unseen form still leads the most-missed one.
+const PARSING_WRONG_BASE = 2.5;
+const PARSING_WRONG_SCALE = 0.7;
+const PARSING_WRONG_MAX = 5.5;
 function parsingFormPriorityWeight(card, stats, enabledDims) {
-  if (!card) return PARSING_PRIORITY_WEIGHTS.right;
+  if (!card) return PARSING_RIGHT_WEIGHT;
   const status = getLemmaFormStatus(stats, card.lemma, card.id, enabledDims);
-  return PARSING_PRIORITY_WEIGHTS[status] || PARSING_PRIORITY_WEIGHTS.right;
+  if (status === 'unseen') return PARSING_UNSEEN_WEIGHT;
+  if (status === 'known') return PARSING_KNOWN_WEIGHT;
+  if (status === 'right') return PARSING_RIGHT_WEIGHT;
+  // wrong | uncertain — grade by how badly / how importantly it's been missed.
+  const miss = weightedRecentMissScore(stats, card.lemma, card.id, enabledDims);
+  return Math.min(PARSING_WRONG_BASE + PARSING_WRONG_SCALE * miss, PARSING_WRONG_MAX);
 }
 function orderParsingPool(pool) {
   const list = Array.isArray(pool) ? [...pool] : [];
@@ -2596,6 +2611,8 @@ function getWordProgress(cardId, { persist = false } = {}) {
     existing.leechStreak = Number.isFinite(existing.leechStreak) ? Math.max(0, Math.floor(existing.leechStreak)) : 0;
     existing.cycleFacesPassed = Array.isArray(existing.cycleFacesPassed) ? existing.cycleFacesPassed.filter(f => typeof f === 'string') : [];
     existing.cycleFacesHeld = (existing.cycleFacesHeld && typeof existing.cycleFacesHeld === 'object' && !Array.isArray(existing.cycleFacesHeld)) ? existing.cycleFacesHeld : {};
+    existing.cycleStartedAt = Number.isFinite(existing.cycleStartedAt) ? Math.max(0, existing.cycleStartedAt) : 0;
+    existing.cycleFaceSamples = (existing.cycleFaceSamples && typeof existing.cycleFaceSamples === 'object' && !Array.isArray(existing.cycleFaceSamples)) ? existing.cycleFaceSamples : {};
     return existing;
   }
   const fresh = {
@@ -2621,7 +2638,9 @@ function getWordProgress(cardId, { persist = false } = {}) {
     leechDrill: false,
     leechStreak: 0,
     cycleFacesPassed: [],
-    cycleFacesHeld: {}
+    cycleFacesHeld: {},
+    cycleStartedAt: 0,
+    cycleFaceSamples: {}
   };
   if (persist) progressStore[cardId] = fresh;
   return fresh;
@@ -2634,32 +2653,51 @@ function isCardDue(card) {
   // Variant-form gating (Model B): cards that share one progress entry — a base
   // verb and its derived principal-part faces (the "… as cards" toggles) — only
   // advance the shared schedule once EVERY active face is CLEARED (Easy) in the
-  // same cycle. Per-face state lives on the shared entry: cycleFacesPassed
-  // (faces Easy-cleared this cycle, hidden until the set completes) and
-  // cycleFacesHeld (faces marked Uncertain — re-queued for 2h, then they
-  // resurface to be tried again; an Uncertain never clears a face). The
-  // unpassed/expired faces must stay surfaceable now even though they share the
-  // set's +2h dueAt, or the set could never be finished in one sitting. See
-  // applySpacedReview / getVariantCycleInfo.
+  // same ROUND. A round is one attempt at the whole set, bounded by a 2 h window
+  // from when its first face is seen (progress.cycleStartedAt); the shared dueAt
+  // holds that deadline. Within the round every un-cleared face stays surfaceable
+  // (so an unknown form can be repeated until known); cycleFacesPassed lists the
+  // faces already Easy-cleared this round (hidden until the set completes). When
+  // the 2 h deadline fires the round is closed out and its confidence recorded
+  // (mean across faces, an unseen form counting 0%) before a fresh round begins.
+  // See applySpacedReview / getVariantCycleInfo / endVariantRound.
   const info = getVariantCycleInfo(card);
   if (info) {
-    const now = Date.now();
     const passed = progress.cycleFacesPassed;
-    const held = progress.cycleFacesHeld;
-    const inProgress = passed.length > 0 || Object.keys(held).length > 0;
+    const inProgress = progress.cycleStartedAt > 0
+      || passed.length > 0
+      || (progress.cycleFacesHeld && Object.keys(progress.cycleFacesHeld).length > 0);
     if (naturallyDue) {
-      // The shared timer has fired (a fresh sitting): re-test every face, so a
-      // stale partial cycle from a previous, abandoned sitting is cleared.
-      if (inProgress) { progress.cycleFacesPassed = []; progress.cycleFacesHeld = {}; }
+      // The shared 2 h round window has elapsed (or a fresh sitting): close out
+      // any in-progress round — recording its confidence with unreached faces at
+      // 0% — then put the WHOLE set due-now so a fresh round begins cleanly with
+      // every face surfaceable again (an incomplete set, where not all faces were
+      // passed in time, isn't left half-cleared — all forms reset to due now).
+      if (inProgress) {
+        endVariantRound(progress, info.siblingFaces);
+        progress.dueAt = Date.now();
+        progress.intervalDays = 0;
+      }
       return true;
     }
-    if (!inProgress) return false;            // set scheduled out, not mid-cycle
-    if (passed.includes(info.face)) return false;   // Easy-cleared this cycle
-    const heldUntil = held[info.face];
-    if (Number.isFinite(heldUntil) && now < heldUntil) return false; // within its 2h re-queue
-    return true;                              // unpassed, or its hold has expired → due now
+    if (!inProgress) return false;                 // set scheduled out, not mid-round
+    if (passed.includes(info.face)) return false;  // Easy-cleared this round
+    return true;                                   // un-cleared face → due now (retry until Easy)
   }
   return naturallyDue;
+}
+
+// Close out a variant set's current round: record its confidence (mean across
+// all active faces, a face never reached this round counting 0%) and clear the
+// per-round bookkeeping so the next review opens a fresh round. The confidence
+// is only recorded for a real, post-change round (cycleStartedAt set) — a legacy
+// mid-cycle entry with no start stamp is just reset, never scored a spurious 0.
+function endVariantRound(progress, siblingFaces) {
+  if (progress.cycleStartedAt > 0) recordVariantRoundConfidence(progress, siblingFaces);
+  progress.cycleFacesPassed = [];
+  progress.cycleFacesHeld = {};
+  progress.cycleStartedAt = 0;
+  progress.cycleFaceSamples = {};
 }
 
 // Map progress-id → set of derived face keys present in the current deck, so a
@@ -3038,7 +3076,11 @@ function buildStudyDeck(cards, options = {}) {
   return [...activeDue, ...middleDue, ...orderedDeferred];
 }
 
-function recordStudyOutcome(cardId, outcome, reviewedAt = Date.now()) {
+// `skipConfidence` is set by the variant-set path (spaced mode): those cards
+// score confidence once per ROUND from the mean of their faces, not once per
+// face review, so the per-review rolling sample is suppressed here and the
+// round sample is recorded by endVariantRound instead.
+function recordStudyOutcome(cardId, outcome, reviewedAt = Date.now(), { skipConfidence = false } = {}) {
   const progress = getWordProgress(cardId, { persist: true });
   const isFirstConfirmation = !progress.firstConfirmedAt;
   const xpAward = computeCardXpAward(outcome, isFirstConfirmation, runtime.spacedRepetition);
@@ -3048,7 +3090,7 @@ function recordStudyOutcome(cardId, outcome, reviewedAt = Date.now()) {
   progress.seenCount += 1;
   progress.lastReviewedAt = reviewedAt;
   progress.firstSeenAt = progress.firstSeenAt || reviewedAt;
-  recordConfidenceSample(progress, outcome);
+  if (!skipConfidence) recordConfidenceSample(progress, outcome);
   if (!progress.firstConfirmedAt) {
     const pct = getConfidencePct(progress);
     if (pct !== null && pct >= 70) progress.firstConfirmedAt = reviewedAt;
@@ -3175,11 +3217,29 @@ function applySpacedReview(card, outcome) {
   const ratedOutcome = outcome === 'pass' ? 'pass' : outcome === 'easy' ? 'easy' : 'again';
   const cadence = getActiveCadence();
   const variant = getVariantCycleInfo(card);
-  const progress = recordStudyOutcome(card.id, ratedOutcome, now);
+  // Variant sets score confidence once per round (mean of the faces), so the
+  // per-face rolling sample is suppressed here; addVariantFaceSample collects
+  // the face's sample for the round instead.
+  const progress = recordStudyOutcome(card.id, ratedOutcome, now, { skipConfidence: !!variant });
+
+  if (variant) {
+    // Open a fresh round on the first mark after the previous one ended — or if
+    // the 2 h window of a still-open round has already elapsed (the user came
+    // back late), close that one out first so this mark starts a new attempt.
+    if (progress.cycleStartedAt > 0 && now >= progress.cycleStartedAt + SRS_VARIANT_HOLD_MS) {
+      endVariantRound(progress, variant.siblingFaces);
+    }
+    if (!(progress.cycleStartedAt > 0)) {
+      progress.cycleStartedAt = now;
+      progress.cycleFaceSamples = {};
+    }
+    addVariantFaceSample(progress, variant.face, ratedOutcome);
+  }
 
   if (ratedOutcome === 'again') {
-    // A miss resets any in-progress variant cycle and lapses the shared entry.
-    if (variant) { progress.cycleFacesPassed = []; progress.cycleFacesHeld = {}; }
+    // A miss ends the round: record its confidence (the missed face's 0 is
+    // already in the samples) and lapse the shared entry.
+    if (variant) endVariantRound(progress, variant.siblingFaces);
     const dropFromActive = applyHardLapse(progress, cadence, now);
     if (dropFromActive && Array.isArray(runtime.spacedActiveIds)) {
       runtime.spacedActiveIds = runtime.spacedActiveIds.filter(id => id !== card.id);
@@ -3187,46 +3247,44 @@ function applySpacedReview(card, outcome) {
     getDirectionalMarksStore()[card.id] = 'unsure';
   } else {
     // Variant-form gating: the shared schedule only advances once every active
-    // face is CLEARED with Easy in the same cycle. An Easy on one face holds it
-    // 2h (cleared) while the rest stay surfaceable this sitting; the Easy that
-    // clears the last face falls through to schedule growth. An Uncertain does
-    // NOT clear a face — it re-queues that one face for 2h (its siblings stay
-    // active) and never completes the set, so a form you're shaky on keeps
-    // coming back until you can mark it Easy. This gating also governs a
+    // face is CLEARED with Easy in the same round, which is bounded by a single
+    // 2 h window from when the set's first face is seen (so there are 2 h to
+    // clear the whole set). Within that window an un-cleared face stays
+    // surfaceable, so an Uncertain doesn't wall a form off — the form keeps
+    // coming back to be repeated until it's marked Easy. The Easy that clears
+    // the last face falls through to schedule growth. This gating also governs a
     // relearn/leech ladder: only the cleared-the-whole-set Easy advances the
     // ladder a step (applyCorrectOutcome below), so a single Easy on one face —
     // or an easy+uncertain mix — can't promote a lapsed set to the next interval
     // while its siblings are still unreviewed.
     if (variant) {
-      const held = { ...progress.cycleFacesHeld };
+      // The round shares one deadline: 2 h after its first face was seen.
+      const roundDeadlineMs = Math.max(0, (progress.cycleStartedAt + SRS_VARIANT_HOLD_MS) - now);
       if (ratedOutcome === 'pass') {
-        // Uncertain → re-queue just this face for 2h; don't clear it, never completes.
-        held[variant.face] = now + SRS_VARIANT_HOLD_MS;
-        progress.cycleFacesHeld = held;
+        // Uncertain → don't clear the face; it stays due so it can be retried
+        // until Easy, all within this round's 2 h window. Never completes the set.
         progress.streak += 1;
-        setProgressDelay(progress, SRS_VARIANT_HOLD_MS, now);
+        setProgressDelay(progress, roundDeadlineMs, now);
         getDirectionalMarksStore()[card.id] = 'unsure';
         progress.lastSpacedOutcome = ratedOutcome;
         runtime.marks = getDirectionalMarksStore();
         return;
       }
-      // Easy → clear this face (and drop any pending re-queue for it).
+      // Easy → clear this face.
       const passed = new Set(progress.cycleFacesPassed);
       passed.add(variant.face);
-      delete held[variant.face];
       const complete = [...variant.siblingFaces].every(f => passed.has(f));
       if (!complete) {
         progress.cycleFacesPassed = [...passed];
-        progress.cycleFacesHeld = held;
         progress.streak += 1;
-        setProgressDelay(progress, SRS_VARIANT_HOLD_MS, now);
+        setProgressDelay(progress, roundDeadlineMs, now);
         getDirectionalMarksStore()[card.id] = 'known';
         progress.lastSpacedOutcome = ratedOutcome;
         runtime.marks = getDirectionalMarksStore();
         return;
       }
-      progress.cycleFacesPassed = []; // set complete → advance, fresh cycle
-      progress.cycleFacesHeld = {};
+      // Last face cleared → round complete: record its confidence and advance.
+      endVariantRound(progress, variant.siblingFaces);
     }
     applyCorrectOutcome(progress, cadence, now, ratedOutcome);
     getDirectionalMarksStore()[card.id] = ratedOutcome === 'easy' ? 'known' : 'unsure';

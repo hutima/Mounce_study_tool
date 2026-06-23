@@ -138,7 +138,10 @@ const PROGRESS_FIELD_DEFAULTS = {
   relearnLeft: 0,
   preLapseIntervalDays: 0,
   lapseCount: 0,
-  leechStreak: 0
+  leechStreak: 0,
+  // Variant-set round start (the time the current "split card" attempt's first
+  // face was seen); 0 when no round is open. See endVariantRound.
+  cycleStartedAt: 0
 };
 const PROGRESS_NUMERIC_FIELDS = Object.keys(PROGRESS_FIELD_DEFAULTS);
 
@@ -151,6 +154,8 @@ function isEmptyProgressEntry(entry) {
   if (Array.isArray(entry.confidenceHistory) && entry.confidenceHistory.length) return false;
   if (Array.isArray(entry.cycleFacesPassed) && entry.cycleFacesPassed.length) return false;
   if (isPlainObject(entry.cycleFacesHeld) && Object.keys(entry.cycleFacesHeld).length) return false;
+  if (Number(entry.cycleStartedAt) > 0) return false;
+  if (isPlainObject(entry.cycleFaceSamples) && Object.keys(entry.cycleFaceSamples).length) return false;
   if (entry.inRelearn === true || entry.leechDrill === true) return false;
   if (entry.lastSpacedOutcome) return false;
   if (Number.isFinite(entry.ease) && entry.ease !== PROGRESS_DEFAULT_EASE) return false;
@@ -183,6 +188,13 @@ function compactProgressEntry(entry) {
   }
   if (isPlainObject(entry.cycleFacesHeld) && Object.keys(entry.cycleFacesHeld).length) {
     out.cycleFacesHeld = entry.cycleFacesHeld;
+  }
+  // Per-round face samples for an in-progress variant round (cycleStartedAt is a
+  // numeric field, kept by the loop above). Without this a mid-round split card
+  // would lose its collected samples on the next save (saveState runs after
+  // every mark), zeroing the round's confidence.
+  if (isPlainObject(entry.cycleFaceSamples) && Object.keys(entry.cycleFaceSamples).length) {
+    out.cycleFaceSamples = entry.cycleFaceSamples;
   }
   return out;
 }
