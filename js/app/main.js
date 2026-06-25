@@ -169,7 +169,7 @@ import { getSelectedVocabCards, getSelectedGrammarCards, getAllVocabKeys, getAll
 
 // Domain — Grammar
 import { buildGrammarSupportHtml } from '../domain/grammar/explanations.js';
-import { recordParadigmAttempt, inferredFollowupDims, buildInferredStep, structuralImpossibilityReason, paradigmGapReason, lemmaInventoryGapReason, isLemmaFormKnown, getLemmaFormStatus, weightedRecentMissScore, parseAnswerDimensions } from '../domain/grammar/morph_steps.js';
+import { recordParadigmAttempt, inferredFollowupDims, buildInferredStep, structuralImpossibilityReason, paradigmGapReason, lemmaInventoryGapReason, isLemmaFormKnown, getLemmaFormStatus, weightedRecentMissScore, parseAnswerDimensions, isPartialCompositePick, PARTIAL_COMPOSITE_CREDIT } from '../domain/grammar/morph_steps.js';
 import { listAvailableParadigms, listAvailableParadigmsByCategory, getCardsForFocusedParadigm, getCardsForParadigmCategory, getCardsForParadigmLemmas, getAllParsingCards, parseCategoryShuffleValue, makeCategoryShuffleValue, chooseDefaultFocusedParadigm } from '../domain/grammar/paradigm_focus.js';
 import { buildLookupPool, truncatePicksFrom } from '../domain/grammar/morph_lookup.js';
 
@@ -953,6 +953,17 @@ function undoMorphologyStep() {
   // roll back — the forced-wrong dims are simply recorded when the walk later
   // completes normally.
   const beforeKeys = gradedAnsweredStepKeys(state.steps, state.answers);
+  // Capture, from the pre-pop answers, the merit credit of each graded dim
+  // about to be rolled back — 1 (clean correct), 0.75 (partial composite), or 0
+  // (wrong) — so finalize can floor an undone dimension at what the first
+  // attempt already earned rather than applying the full undo penalty.
+  const beforeMerit = {};
+  (state.steps || []).forEach((s, i) => {
+    if (!s || s.inferred) return;
+    const a = state.answers[i];
+    if (!a) return;
+    beforeMerit[s.key] = a.partial ? PARTIAL_COMPOSITE_CREDIT : (a.isCorrect === true ? 1 : 0);
+  });
   const frame = state.history.pop();
   state.steps = frame.steps;
   state.answers = frame.answers;
@@ -961,12 +972,18 @@ function undoMorphologyStep() {
   state.structuralImpossibility = frame.structuralImpossibility;
   state.paradigmGap = frame.paradigmGap;
   if (!state.forcedWrong || typeof state.forcedWrong !== 'object') state.forcedWrong = {};
+  if (!state.firstAttemptCredit || typeof state.firstAttemptCredit !== 'object') state.firstAttemptCredit = {};
   const afterKeys = gradedAnsweredStepKeys(state.steps, state.answers);
   // Count undos per dimension rather than a flat flag: each time a graded
-  // step's committed answer is rolled back, bump its tally so the credit can
-  // drop per undo (1 undo → 0.25, 2 → 0.125, …) when the walk completes.
+  // step's committed answer is rolled back, bump its tally so a wrong-first
+  // dimension's self-correction credit halves per undo (1 undo → 0.5, 2 →
+  // 0.25, …) when the walk completes. Record the FIRST rolled-back pick's merit
+  // (set once) as the floor finalize won't let the undo penalty drop below.
   beforeKeys.forEach((k) => {
-    if (!afterKeys.has(k)) state.forcedWrong[k] = (Number(state.forcedWrong[k]) || 0) + 1;
+    if (!afterKeys.has(k)) {
+      state.forcedWrong[k] = (Number(state.forcedWrong[k]) || 0) + 1;
+      if (!(k in state.firstAttemptCredit)) state.firstAttemptCredit[k] = beforeMerit[k] || 0;
+    }
   });
   renderCard();
   renderProgress();
@@ -994,8 +1011,26 @@ function answerMorphologyStep(choiceIdx) {
   const validSet = Array.isArray(step.acceptable) && step.acceptable.length
     ? new Set(step.acceptable)
     : new Set([step.correct]);
-  const isCorrect = step.inferred ? null : validSet.has(picked);
-  state.answers[state.stepIdx] = { selectedIdx: choiceIdx, isCorrect };
+  // Partial composite credit: naming one valid value of a multi-value case /
+  // gender / aspect form (e.g. 'nominative' for a 'nominative/accusative'
+  // neuter) is accepted — isCorrect true so it advances and the shuffler treats
+  // it as right — but flagged `partial` so finalizeMorphStepAttempt scores it
+  // 0.75 and the strict 2/2 "known" test never passes (the form keeps coming
+  // back until the full composite is named). Full / exact picks stay plain
+  // correct; values outside the composite stay plain wrong.
+  let isCorrect;
+  let partial = false;
+  if (step.inferred) {
+    isCorrect = null;
+  } else if (validSet.has(picked)) {
+    isCorrect = true;
+  } else if (isPartialCompositePick(step, picked)) {
+    isCorrect = true;
+    partial = true;
+  } else {
+    isCorrect = false;
+  }
+  state.answers[state.stepIdx] = { selectedIdx: choiceIdx, isCorrect, partial };
 
   const answeredIdx = state.stepIdx;
   const wasInferred = !!step.inferred;
@@ -1218,6 +1253,7 @@ function recordParsingReverseAttempt(card, isCorrect) {
 function finalizeMorphStepAttempt(card, state) {
   if (!card || !card.lemma) return;
   const forced = (state && state.forcedWrong) || {};
+  const firstAttemptCredit = (state && state.firstAttemptCredit) || {};
   const dims = {};
   state.steps.forEach((step, idx) => {
     if (step.inferred) return; // ungraded — don't contribute to per-dim stats
@@ -1229,22 +1265,41 @@ function finalizeMorphStepAttempt(card, state) {
     const pickRight = !!ans.isCorrect;
     // Scoring per dimension:
     //   clean correct pick     → 1   (full credit)
-    //   reattempted via undo   → 0.5^(undos+1) if the final pick was right, else 0
-    //                            (1 undo → 0.25, 2 → 0.125, 3 → 0.0625, …)
+    //   partial composite pick → PARTIAL_COMPOSITE_CREDIT (0.75) — named one
+    //                            valid value of a multi-value case/gender/aspect form
+    //   reattempted via undo   → see the credit-floor below
     //   wrong pick             → 0
-    // A reattempt never earns the full 1 a clean pick gets: the first undo
-    // already drops it to a quarter (half credit was too generous for a guess
-    // you had to take back), and each further undo halves it again. Any value
-    // below 1 also keeps the form out of "known": evaluateRecentAttempt counts a
-    // dimension correct only when it's exactly 1, so any reattempt fails the 2/2
-    // exclude-known test (the whole parse reads as not-yet-known) while still
-    // scoring fractional credit in the accuracy stats.
+    // Any value below 1 also keeps the form out of "known": evaluateRecent
+    // Attempt counts a dimension correct only when it's exactly 1, so a
+    // reattempt OR a partial composite fails the 2/2 exclude-known test (the
+    // whole parse reads as not-yet-known) while still scoring fractional credit
+    // in the accuracy stats.
+    //
+    // Undo credit-floor: an undo can never drop a dimension below the credit
+    // its FIRST attempt earned (1 if it was clean-correct, 0.75 if partial),
+    // so "correct → undo" stays full (an accidental/curious undo of a right
+    // answer isn't penalised) and form-parity is kept (undo stays available
+    // everywhere). A wrong first attempt floors at 0, so "undo → correct"
+    // earns only the self-correction credit 0.5^undos — half for one undo,
+    // a quarter for two, … It's cheat-proof: the floor is what you actually
+    // picked first, never more. And a final WRONG pick (the "alternate"
+    // carried through to the end) scores 0 regardless of what came before.
     const undos = Number(forced[step.key]) || 0;
     let credit;
-    if (undos > 0) credit = pickRight ? Math.pow(0.5, undos + 1) : 0;
-    else credit = pickRight ? 1 : 0;
+    if (undos > 0) {
+      if (!pickRight) credit = 0;
+      else credit = Math.max(Number(firstAttemptCredit[step.key]) || 0, Math.pow(0.5, undos));
+    } else if (ans.partial) {
+      credit = PARTIAL_COMPOSITE_CREDIT; // one value of a multi-value form
+    } else {
+      credit = pickRight ? 1 : 0;
+    }
     dims[step.key] = credit;
   });
+  // Stash the computed per-dimension credit so the parse summary's marks and
+  // colours match the recorded score exactly (full → ✓, 0.75 → †, the small
+  // undo-recovery → *, 0 → ✗).
+  state.finalCredit = { ...dims };
   if (!runtime.paradigmStepStats || typeof runtime.paradigmStepStats !== 'object') {
     runtime.paradigmStepStats = { byLemma: {} };
   }
@@ -2437,6 +2492,10 @@ function buildFilteredFocusedParadigmCards() {
 // Shuffle off keeps strict paradigm order (neither rule applies).
 const PARSING_UNSEEN_WEIGHT = 6;   // never attempted → highest
 const PARSING_RIGHT_WEIGHT = 1.5;  // 1/1 clean → low (confirm once more)
+const PARSING_PARTIAL_WEIGHT = 1.5; // named one value of a multi-value form →
+                                    // treat as correct (low), but it's never
+                                    // excluded as 2/2-known, so it still
+                                    // resurfaces until the full form is named.
 const PARSING_KNOWN_WEIGHT = 1;    // 2/2 clean → lowest, flat (not re-ranked)
 // Wrong/uncertain forms: a base that lifts any form with recent misses above a
 // clean 1/1, plus the comprehension-weighted recent miss magnitude, capped just
@@ -2450,6 +2509,7 @@ function parsingFormPriorityWeight(card, stats, enabledDims) {
   if (status === 'unseen') return PARSING_UNSEEN_WEIGHT;
   if (status === 'known') return PARSING_KNOWN_WEIGHT;
   if (status === 'right') return PARSING_RIGHT_WEIGHT;
+  if (status === 'partial') return PARSING_PARTIAL_WEIGHT;
   // wrong | uncertain — grade by how badly / how importantly it's been missed.
   const miss = weightedRecentMissScore(stats, card.lemma, card.id, enabledDims);
   return Math.min(PARSING_WRONG_BASE + PARSING_WRONG_SCALE * miss, PARSING_WRONG_MAX);
@@ -2610,6 +2670,7 @@ function getWordProgress(cardId, { persist = false } = {}) {
     existing.leechDrill = existing.leechDrill === true;
     existing.leechStreak = Number.isFinite(existing.leechStreak) ? Math.max(0, Math.floor(existing.leechStreak)) : 0;
     existing.cycleFacesPassed = Array.isArray(existing.cycleFacesPassed) ? existing.cycleFacesPassed.filter(f => typeof f === 'string') : [];
+    existing.cycleFacesUncertain = Array.isArray(existing.cycleFacesUncertain) ? existing.cycleFacesUncertain.filter(f => typeof f === 'string') : [];
     existing.cycleFacesHeld = (existing.cycleFacesHeld && typeof existing.cycleFacesHeld === 'object' && !Array.isArray(existing.cycleFacesHeld)) ? existing.cycleFacesHeld : {};
     existing.cycleStartedAt = Number.isFinite(existing.cycleStartedAt) ? Math.max(0, existing.cycleStartedAt) : 0;
     existing.cycleFaceSamples = (existing.cycleFaceSamples && typeof existing.cycleFaceSamples === 'object' && !Array.isArray(existing.cycleFaceSamples)) ? existing.cycleFaceSamples : {};
@@ -2638,6 +2699,7 @@ function getWordProgress(cardId, { persist = false } = {}) {
     leechDrill: false,
     leechStreak: 0,
     cycleFacesPassed: [],
+    cycleFacesUncertain: [],
     cycleFacesHeld: {},
     cycleStartedAt: 0,
     cycleFaceSamples: {}
@@ -2650,29 +2712,34 @@ function isCardDue(card) {
   if (!runtime.spacedRepetition) return true;
   const progress = getWordProgress(card.id);
   const naturallyDue = !progress.dueAt || progress.dueAt <= Date.now();
-  // Variant-form gating (Model B): cards that share one progress entry — a base
-  // verb and its derived principal-part faces (the "… as cards" toggles) — only
-  // advance the shared schedule once EVERY active face is CLEARED (Easy) in the
-  // same ROUND. A round is one attempt at the whole set, bounded by a 2 h window
-  // from when its first face is seen (progress.cycleStartedAt); the shared dueAt
-  // holds that deadline. Within the round every un-cleared face stays surfaceable
-  // (so an unknown form can be repeated until known); cycleFacesPassed lists the
-  // faces already Easy-cleared this round (hidden until the set completes). When
-  // the 2 h deadline fires the round is closed out and its confidence recorded
-  // (mean across faces, an unseen form counting 0%) before a fresh round begins.
-  // See applySpacedReview / getVariantCycleInfo / endVariantRound.
+  // Variant-form round model: cards that share one progress entry — a base verb
+  // and its derived principal-part faces (the "… as cards" toggles) — run as a
+  // ROUND, one attempt at the whole set bounded by a 2 h window from when its
+  // first face is seen (progress.cycleStartedAt). Each face is marked until it
+  // reaches a FINAL disposition this round — Easy (cycleFacesPassed) or Uncertain
+  // (cycleFacesUncertain); a Hard just requeues the face (no final mark). A face
+  // that is final is parked OUT of "Due now" (deferred until the round resolves);
+  // a face still pending (unreached, or Hard-requeued) stays due so it keeps
+  // surfacing. The set only advances its shared schedule when EVERY face is
+  // cleared Easy in one round (see applySpacedReview); any Uncertain in the mix —
+  // or the 2 h window elapsing with faces still pending — resets the whole set so
+  // it can be re-attempted. Each round close records one confidence sample (mean
+  // across faces, an unreached form counting 0%). See applySpacedReview /
+  // getVariantCycleInfo / endVariantRound.
   const info = getVariantCycleInfo(card);
   if (info) {
     const passed = progress.cycleFacesPassed;
+    const uncertain = progress.cycleFacesUncertain || [];
     const inProgress = progress.cycleStartedAt > 0
       || passed.length > 0
+      || uncertain.length > 0
       || (progress.cycleFacesHeld && Object.keys(progress.cycleFacesHeld).length > 0);
     if (naturallyDue) {
       // The shared 2 h round window has elapsed (or a fresh sitting): close out
       // any in-progress round — recording its confidence with unreached faces at
       // 0% — then put the WHOLE set due-now so a fresh round begins cleanly with
       // every face surfaceable again (an incomplete set, where not all faces were
-      // passed in time, isn't left half-cleared — all forms reset to due now).
+      // cleared in time, isn't left half-done — all forms reset to due now).
       if (inProgress) {
         endVariantRound(progress, info.siblingFaces);
         progress.dueAt = Date.now();
@@ -2680,9 +2747,10 @@ function isCardDue(card) {
       }
       return true;
     }
-    if (!inProgress) return false;                 // set scheduled out, not mid-round
-    if (passed.includes(info.face)) return false;  // Easy-cleared this round
-    return true;                                   // un-cleared face → due now (retry until Easy)
+    if (!inProgress) return false;                   // set scheduled out, not mid-round
+    if (passed.includes(info.face)) return false;    // Easy-cleared this round → parked
+    if (uncertain.includes(info.face)) return false; // Uncertain this round → parked (deferred)
+    return true;                                     // pending face → due now (unreached / Hard-requeued)
   }
   return naturallyDue;
 }
@@ -2695,6 +2763,7 @@ function isCardDue(card) {
 function endVariantRound(progress, siblingFaces) {
   if (progress.cycleStartedAt > 0) recordVariantRoundConfidence(progress, siblingFaces);
   progress.cycleFacesPassed = [];
+  progress.cycleFacesUncertain = [];
   progress.cycleFacesHeld = {};
   progress.cycleStartedAt = 0;
   progress.cycleFaceSamples = {};
@@ -3223,75 +3292,122 @@ function applySpacedReview(card, outcome) {
   const progress = recordStudyOutcome(card.id, ratedOutcome, now, { skipConfidence: !!variant });
 
   if (variant) {
-    // Open a fresh round on the first mark after the previous one ended — or if
-    // the 2 h window of a still-open round has already elapsed (the user came
-    // back late), close that one out first so this mark starts a new attempt.
-    if (progress.cycleStartedAt > 0 && now >= progress.cycleStartedAt + SRS_VARIANT_HOLD_MS) {
-      endVariantRound(progress, variant.siblingFaces);
-    }
-    if (!(progress.cycleStartedAt > 0)) {
-      progress.cycleStartedAt = now;
-      progress.cycleFaceSamples = {};
-    }
-    addVariantFaceSample(progress, variant.face, ratedOutcome);
+    applyVariantRoundReview(card, ratedOutcome, variant, progress, cadence, now);
+    return;
   }
 
   if (ratedOutcome === 'again') {
-    // A miss ends the round: record its confidence (the missed face's 0 is
-    // already in the samples) and lapse the shared entry.
-    if (variant) endVariantRound(progress, variant.siblingFaces);
     const dropFromActive = applyHardLapse(progress, cadence, now);
     if (dropFromActive && Array.isArray(runtime.spacedActiveIds)) {
       runtime.spacedActiveIds = runtime.spacedActiveIds.filter(id => id !== card.id);
     }
     getDirectionalMarksStore()[card.id] = 'unsure';
   } else {
-    // Variant-form gating: the shared schedule only advances once every active
-    // face is CLEARED with Easy in the same round, which is bounded by a single
-    // 2 h window from when the set's first face is seen (so there are 2 h to
-    // clear the whole set). Within that window an un-cleared face stays
-    // surfaceable, so an Uncertain doesn't wall a form off — the form keeps
-    // coming back to be repeated until it's marked Easy. The Easy that clears
-    // the last face falls through to schedule growth. This gating also governs a
-    // relearn/leech ladder: only the cleared-the-whole-set Easy advances the
-    // ladder a step (applyCorrectOutcome below), so a single Easy on one face —
-    // or an easy+uncertain mix — can't promote a lapsed set to the next interval
-    // while its siblings are still unreviewed.
-    if (variant) {
-      // The round shares one deadline: 2 h after its first face was seen.
-      const roundDeadlineMs = Math.max(0, (progress.cycleStartedAt + SRS_VARIANT_HOLD_MS) - now);
-      if (ratedOutcome === 'pass') {
-        // Uncertain → don't clear the face; it stays due so it can be retried
-        // until Easy, all within this round's 2 h window. Never completes the set.
-        progress.streak += 1;
-        setProgressDelay(progress, roundDeadlineMs, now);
-        getDirectionalMarksStore()[card.id] = 'unsure';
-        progress.lastSpacedOutcome = ratedOutcome;
-        runtime.marks = getDirectionalMarksStore();
-        return;
-      }
-      // Easy → clear this face.
-      const passed = new Set(progress.cycleFacesPassed);
-      passed.add(variant.face);
-      const complete = [...variant.siblingFaces].every(f => passed.has(f));
-      if (!complete) {
-        progress.cycleFacesPassed = [...passed];
-        progress.streak += 1;
-        setProgressDelay(progress, roundDeadlineMs, now);
-        getDirectionalMarksStore()[card.id] = 'known';
-        progress.lastSpacedOutcome = ratedOutcome;
-        runtime.marks = getDirectionalMarksStore();
-        return;
-      }
-      // Last face cleared → round complete: record its confidence and advance.
-      endVariantRound(progress, variant.siblingFaces);
-    }
     applyCorrectOutcome(progress, cadence, now, ratedOutcome);
     getDirectionalMarksStore()[card.id] = ratedOutcome === 'easy' ? 'known' : 'unsure';
   }
 
   progress.lastSpacedOutcome = ratedOutcome;
   runtime.marks = getDirectionalMarksStore();
+}
+
+// One review of a face in a variant "split card" set (a base verb + its derived
+// principal-part faces sharing one progress entry). The set runs as a ROUND —
+// one attempt at the whole set, bounded by a 2 h window from when its first face
+// is seen — and resolves like this:
+//   • Hard  → requeue the face through the middle pile (no lapse, no round end).
+//             It stays pending, so it keeps coming back until it's Easy/Uncertain.
+//   • Easy  → finalize the face as cleared; it parks out of "Due now" (deferred)
+//             until the round resolves.
+//   • Uncertain → finalize the face as uncertain; it also parks out of "Due now"
+//             (deferred) until the round resolves. It does NOT keep re-surfacing
+//             this sitting — the whole set resets first (see below).
+// Once EVERY face is final (Easy or Uncertain): all-Easy advances the shared
+// schedule (~1 day for a fresh set, growing thereafter); any Uncertain in the
+// mix resets the whole set — every face back to due-now for a fresh round. The
+// 2 h window elapsing with faces still pending resets it the same way (handled
+// in isCardDue). Each round close records one confidence sample.
+function applyVariantRoundReview(card, ratedOutcome, variant, progress, cadence, now) {
+  const marks = getDirectionalMarksStore();
+  // Open a fresh round on the first mark after the previous one ended — or if the
+  // 2 h window of a still-open round has already elapsed (the user came back
+  // late), close that one out first so this mark starts a new attempt.
+  if (progress.cycleStartedAt > 0 && now >= progress.cycleStartedAt + SRS_VARIANT_HOLD_MS) {
+    endVariantRound(progress, variant.siblingFaces);
+  }
+  if (!(progress.cycleStartedAt > 0)) {
+    progress.cycleStartedAt = now;
+    progress.cycleFaceSamples = {};
+  }
+  addVariantFaceSample(progress, variant.face, ratedOutcome);
+
+  // The round shares one deadline: 2 h after its first face was seen.
+  const roundDeadlineMs = Math.max(0, (progress.cycleStartedAt + SRS_VARIANT_HOLD_MS) - now);
+  const finish = () => {
+    progress.lastSpacedOutcome = ratedOutcome;
+    runtime.marks = marks;
+  };
+  // Drop the just-marked face from the active pile so navigate(1) advances to the
+  // next card rather than re-rendering this one (it advances by relying on a
+  // marked card leaving active, not by incrementing the cursor). A pending face
+  // (Hard) returns from "middle" after the other due cards; a final face is
+  // deferred and won't return until the round resolves.
+  const dropFromActive = () => {
+    if (Array.isArray(runtime.spacedActiveIds)) {
+      runtime.spacedActiveIds = runtime.spacedActiveIds.filter(id => id !== card.id);
+    }
+  };
+
+  // Hard / miss → requeue the face (no lapse, no round end). It stays pending and
+  // keeps coming back (via the middle pile) until it's marked Easy or Uncertain.
+  if (ratedOutcome === 'again') {
+    setProgressDelay(progress, roundDeadlineMs, now);
+    dropFromActive();
+    marks[card.id] = 'unsure';
+    finish();
+    return;
+  }
+
+  // Easy or Uncertain → finalize this face (it parks out of "Due now").
+  const passed = new Set(progress.cycleFacesPassed);
+  const uncertain = new Set(progress.cycleFacesUncertain || []);
+  if (ratedOutcome === 'easy') {
+    passed.add(variant.face);
+    uncertain.delete(variant.face);
+    marks[card.id] = 'known';
+  } else { // 'pass' → Uncertain
+    uncertain.add(variant.face);
+    passed.delete(variant.face);
+    marks[card.id] = 'unsure';
+  }
+  progress.cycleFacesPassed = [...passed];
+  progress.cycleFacesUncertain = [...uncertain];
+  progress.streak += 1;
+  setProgressDelay(progress, roundDeadlineMs, now);
+  dropFromActive();
+
+  // Not every face is final yet → leave the round in progress.
+  const allFinal = [...variant.siblingFaces].every(f => passed.has(f) || uncertain.has(f));
+  if (!allFinal) {
+    finish();
+    return;
+  }
+
+  // Every face is final this round. Record the round's confidence, then:
+  if (uncertain.size === 0) {
+    // All Easy → set complete: advance the shared schedule (~1 day for a fresh
+    // set, growing with confidence on later rounds).
+    endVariantRound(progress, variant.siblingFaces);
+    applyCorrectOutcome(progress, cadence, now, 'easy');
+    marks[card.id] = 'known';
+  } else {
+    // Any Uncertain in the mix → reset the whole set: every face back to due-now
+    // for a fresh round so the learner can re-attempt the forms they were unsure
+    // of (along with the rest).
+    endVariantRound(progress, variant.siblingFaces);
+    setProgressDelay(progress, 0, now);
+  }
+  finish();
 }
 
 function getDueCount(cards = runtime.originalDeck) {

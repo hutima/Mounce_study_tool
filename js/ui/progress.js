@@ -14,12 +14,10 @@ import {
   getLemmaFormStatus,
   clearLemmaFormRecent,
   isLemmaFormKnown,
-  countLemmaFormRecent,
   createValueBreakdownAcc,
   accumulateValueBreakdown,
   finalizeValueBreakdown,
-  summarizeLemmaValueBreakdown,
-  FORM_RECENT_CAP
+  summarizeLemmaValueBreakdown
 } from '../domain/grammar/morph_steps.js';
 import { buildDimValueBarsHtml } from './charts.js';
 
@@ -345,40 +343,68 @@ function parsingWeakestTagHtml(weakest) {
   return `<span class="parsing-review-weakest"><span class="parsing-review-weakest-dot ${band}"></span>weakest: ${escapeHtmlSmall(weakest.label)} ${weakest.pct}%</span>`;
 }
 
-// Whole-parse "completely correct / tested" tally for a paradigm, using the
-// same last-FORM_RECENT_CAP (2/2) window the known dots and exclude-known
-// filter use. Each in-scope form contributes up to two slots depending on how
-// many times it's been tested (2/2, 1/2, 1/1, 0/1, …); summed across forms
-// this is the paradigm's overall progress: completely-correct parses over
-// total tested parses. Distinct from the per-dimension half-credit headline %.
-function lemmaParseProgress(stats, lemma, cards, enabledDims) {
-  let correct = 0;
-  let total = 0;
+// Buckets a paradigm's in-scope forms by their current status into the four
+// states the summary bar shows, counting each form exactly once so the totals
+// line up with the seen/in-scope "forms" tally on the same row (one form = one
+// unit, not one-or-two tested parses):
+//   known     — both of the last two attempts clean (the 2/2 known window)
+//   right     — seen and currently correct, but only demonstrated once (1/1)
+//   seenWrong — seen with an outstanding miss; folds wrong / uncertain / partial
+//   unseen    — never attempted
+function lemmaFormStatusCounts(stats, lemma, cards, enabledDims) {
+  const counts = { known: 0, right: 0, seenWrong: 0, unseen: 0 };
   (cards || []).forEach((card) => {
     if (!card || !card.id) return;
-    const r = countLemmaFormRecent(stats, lemma, card.id, enabledDims, FORM_RECENT_CAP);
-    correct += r.correct;
-    total += r.total;
+    const status = getLemmaFormStatus(stats, lemma, card.id, enabledDims);
+    if (status === 'known') counts.known += 1;
+    else if (status === 'right') counts.right += 1;
+    else if (status === 'unseen') counts.unseen += 1;
+    else counts.seenWrong += 1; // wrong / uncertain / partial
   });
-  return { correct, total };
+  return counts;
 }
 
-// A thin "completely correct parse / total tested parses" bar for a parsing-
-// review row. Reuses the 5-band colour gradient of the per-value bars so it
-// reads consistently with the rest of the panel. Renders an empty (grey) track
-// with a "0/0" label when nothing's been tested yet so every row keeps the bar.
-function parsingProgressBarHtml(correct, total) {
-  const pct = total ? Math.round(100 * correct / total) : 0;
-  const band = total === 0 ? 'parsing-review-bar-empty'
-    : pct >= 80 ? 'parsing-review-bar-high'
-    : pct >= 50 ? 'parsing-review-bar-mid'
-    : 'parsing-review-bar-low';
+// "Percent right" headline for a status-count bucket: forms currently parsed
+// correctly (known 2/2 or right 1/1) over every testable form — same
+// denominator as the bar and the seen/in-scope "forms" count, so all three
+// align. Null when there are no testable forms, or none seen yet (renders "—"
+// rather than a discouraging 0% for a paradigm not started).
+function formStatusPctRight(counts) {
+  if (!counts) return null;
+  const seen = counts.known + counts.right + counts.seenWrong;
+  const total = seen + counts.unseen;
+  if (!total || seen === 0) return null;
+  return Math.round(100 * (counts.known + counts.right) / total);
+}
+
+// A stacked breakdown bar over a paradigm's testable forms: known · right once ·
+// seen but wrong · not seen, each segment sized by its share of the total forms.
+// The denominator is the form count (not tested-parse count), so the bar lines
+// up with the "X/Y forms" tally above it. The label reports forms currently
+// right (known + right) over total testable forms. Renders a plain grey track
+// when nothing's in scope.
+function parsingBreakdownBarHtml(counts) {
+  const c = counts || { known: 0, right: 0, seenWrong: 0, unseen: 0 };
+  const total = c.known + c.right + c.seenWrong + c.unseen;
+  const rightCount = c.known + c.right;
+  const seg = (n, cls, label) => {
+    if (!n) return '';
+    return `<span class="parsing-review-seg ${cls}" style="width:${100 * n / total}%" title="${n} ${label}"></span>`;
+  };
   const title = total
-    ? `${correct} of ${total} tested parses completely correct (${pct}%)`
-    : 'No parses tested yet';
+    ? `${c.known} known · ${c.right} right once · ${c.seenWrong} seen but wrong · ${c.unseen} not seen (of ${total} testable forms)`
+    : 'No testable forms in scope';
+  const track = total === 0
+    ? `<span class="parsing-review-bar-track"></span>`
+    : `<span class="parsing-review-bar-track">`
+      + seg(c.known, 'parsing-review-seg-known', 'known')
+      + seg(c.right, 'parsing-review-seg-right', 'right once')
+      + seg(c.seenWrong, 'parsing-review-seg-wrong', 'seen but wrong')
+      + seg(c.unseen, 'parsing-review-seg-unseen', 'not seen')
+      + `</span>`;
   return `<div class="parsing-review-bar" title="${title}">`
-    + `<span class="parsing-review-bar-track"><span class="parsing-review-bar-fill ${band}" style="width:${pct}%"></span></span>`
-    + `<span class="parsing-review-bar-label">${correct}/${total}</span></div>`;
+    + track
+    + `<span class="parsing-review-bar-label">${rightCount}/${total}</span></div>`;
 }
 
 // Replacement for renderReview when in parsing mode. The standard
@@ -448,31 +474,32 @@ function renderParsingReviewPanel() {
       .filter((s) => cardsFor(s.lemma).length > 0 || drilledByLemma.has(s.lemma));
   }
 
-  // Each paradigm's breakdown comes from its in-scope forms (up to two recent
-  // attempts per form, chapter-gated), folded into the cross-paradigm
-  // accumulator so the overall row matches the per-lemma rows. The headline %
-  // is this per-form tally — every form, not a capped rolling window —
-  // consistent with the bars.
+  // Each paradigm's per-dimension breakdown comes from its in-scope forms (up to
+  // two recent attempts per form, chapter-gated), folded into the cross-paradigm
+  // accumulator so the overall row matches the per-lemma rows. This drives the
+  // "weakest value" tag and the expanded per-dimension chart; the headline % and
+  // the bar instead read the form-status counts below.
   const overallAcc = createValueBreakdownAcc();
   const lemmaBreakdowns = new Map();
-  // Whole-parse progress bars (completely-correct / tested, 2/2 known window),
-  // per lemma and summed for the overall row.
-  const lemmaParseBars = new Map();
-  let overallParseCorrect = 0;
-  let overallParseTotal = 0;
+  // Form-status breakdown bars (known · right · seen-wrong · unseen over every
+  // testable form), per lemma and summed for the overall row. Each form counts
+  // once, so the bar's denominator matches the seen/in-scope "forms" tally.
+  const lemmaStatusCounts = new Map();
+  const overallCounts = { known: 0, right: 0, seenWrong: 0, unseen: 0 };
   baseStats.forEach((s) => {
     const cards = cardsFor(s.lemma);
     accumulateValueBreakdown(overallAcc, stats, s.lemma, cards, enabledDims);
     lemmaBreakdowns.set(s.lemma, summarizeLemmaValueBreakdown(stats, s.lemma, cards, enabledDims));
-    const parse = lemmaParseProgress(stats, s.lemma, cards, enabledDims);
-    lemmaParseBars.set(s.lemma, parse);
-    overallParseCorrect += parse.correct;
-    overallParseTotal += parse.total;
+    const c = lemmaFormStatusCounts(stats, s.lemma, cards, enabledDims);
+    lemmaStatusCounts.set(s.lemma, c);
+    overallCounts.known += c.known;
+    overallCounts.right += c.right;
+    overallCounts.seenWrong += c.seenWrong;
+    overallCounts.unseen += c.unseen;
   });
-  const pctOf = (lemma) => {
-    const b = lemmaBreakdowns.get(lemma);
-    return b && b.totals ? b.totals.pct : null;
-  };
+  // Worst-first sort and the headline % both read the same "percent right" over
+  // testable forms, so the ordering matches the number shown on each row.
+  const pctOf = (lemma) => formStatusPctRight(lemmaStatusCounts.get(lemma));
 
   // Focused paradigm pinned on top; the rest worst-first by per-form accuracy
   // (paradigms with nothing seen yet sink to the bottom).
@@ -508,7 +535,7 @@ function renderParsingReviewPanel() {
   // so the user can see the empty state). When ordered is empty, only the
   // overall row + empty hint appear.
   const { groups: overallGroups, weakest: overallWeakest, totals: overallTotals } = finalizeValueBreakdown(overallAcc);
-  const overallPct = overallTotals.pct;
+  const overallPct = formStatusPctRight(overallCounts);
   const overallPctClass = overallPct == null ? 'parsing-review-pct-mid'
     : overallPct >= 80 ? 'parsing-review-pct-high'
     : overallPct >= 50 ? 'parsing-review-pct-mid'
@@ -525,7 +552,7 @@ function renderParsingReviewPanel() {
         <span class="parsing-review-pct ${overallPctClass}">${overallPct == null ? '—' : `${overallPct}%`}</span>
         <span class="parsing-review-attempts">${overallTotals.seen}/${overallTotals.scope} forms · ${shownCount} paradigm${shownCount === 1 ? '' : 's'}</span>
       </div>
-      ${parsingProgressBarHtml(overallParseCorrect, overallParseTotal)}
+      ${parsingBreakdownBarHtml(overallCounts)}
       ${overallWeakest ? `<div class="parsing-review-weakline">${parsingWeakestTagHtml(overallWeakest)}</div>` : ''}
       ${overallExpanded ? `<div class="parsing-review-chart">${buildDimValueBarsHtml(overallGroups, { caption: `Per-dimension accuracy per value, across ${customMode ? 'your selected paradigms' : 'every paradigm'} · seen / in scope` })}</div>` : ''}
     </div>`;
@@ -541,7 +568,8 @@ function renderParsingReviewPanel() {
   const lemmaRows = ordered.map((s) => {
     const { groups, weakest, totals } = lemmaBreakdowns.get(s.lemma)
       || { groups: [], weakest: null, totals: { pct: null, seen: 0, scope: 0 } };
-    const pct = totals.pct;
+    const counts = lemmaStatusCounts.get(s.lemma);
+    const pct = formStatusPctRight(counts);
     const pctClass = pct == null ? 'parsing-review-pct-mid'
       : pct >= 80 ? 'parsing-review-pct-high' : pct >= 50 ? 'parsing-review-pct-mid' : 'parsing-review-pct-low';
     const focusBadge = s.lemma === focused
@@ -564,7 +592,7 @@ function renderParsingReviewPanel() {
           <span class="parsing-review-pct ${pctClass}">${pct == null ? '—' : `${pct}%`}</span>
           <span class="parsing-review-attempts">${totals.seen}/${totals.scope} forms</span>
         </div>
-        ${(() => { const p = lemmaParseBars.get(s.lemma) || { correct: 0, total: 0 }; return parsingProgressBarHtml(p.correct, p.total); })()}
+        ${parsingBreakdownBarHtml(counts)}
         ${weakest ? `<div class="parsing-review-weakline">${parsingWeakestTagHtml(weakest)}</div>` : ''}
         ${isExpanded ? `<div class="parsing-review-chart">${breakdownHtml}</div>${formsHtml}` : ''}
       </div>`;
@@ -665,17 +693,19 @@ function buildLemmaTestableFormsHtml(lemma) {
   const sorted = cards.slice().sort(compareGreekAlphabetical);
   const stats = runtime.paradigmStepStats || {};
   const enabledDims = host.getEnabledParsingDims();
-  const counts = { known: 0, right: 0, wrong: 0, uncertain: 0, unseen: 0 };
+  const counts = { known: 0, right: 0, partial: 0, wrong: 0, uncertain: 0, unseen: 0 };
   const rows = sorted.map((card) => {
     const status = getLemmaFormStatus(stats, lemma, card.id, enabledDims);
     counts[status] += 1;
     const dotClass = status === 'known' ? 'parsing-review-form-dot-known'
       : status === 'right' ? 'parsing-review-form-dot-right'
+      : status === 'partial' ? 'parsing-review-form-dot-partial'
       : status === 'wrong' ? 'parsing-review-form-dot-wrong'
       : status === 'uncertain' ? 'parsing-review-form-dot-uncertain'
       : 'parsing-review-form-dot-unseen';
     const statusLabel = status === 'known' ? 'both recent attempts correct'
       : status === 'right' ? 'recent attempt correct'
+      : status === 'partial' ? 'named one value of a multi-value form — partial, not yet mastered'
       : status === 'wrong' ? 'recent attempts all wrong'
       : status === 'uncertain' ? '1 of last 2 attempts correct'
       : 'not yet attempted';
@@ -696,7 +726,8 @@ function buildLemmaTestableFormsHtml(lemma) {
         ${clearBtn}
       </li>`;
   }).join('');
-  const summary = `${counts.known} known · ${counts.right} correct · ${counts.uncertain} uncertain · ${counts.wrong} missed · ${counts.unseen} unseen`;
+  const partialSummary = counts.partial ? ` · ${counts.partial} partial` : '';
+  const summary = `${counts.known} known · ${counts.right} correct${partialSummary} · ${counts.uncertain} uncertain · ${counts.wrong} missed · ${counts.unseen} unseen`;
   return `
     <div class="parsing-review-forms">
       <div class="parsing-review-forms-header">

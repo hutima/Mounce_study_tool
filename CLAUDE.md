@@ -33,12 +33,12 @@ presets, off-the-record parsing). Consult it before applying a duff diff.
 
 ### Porting status — last version ported
 
-**Last reviewed duff commit: `b1d597dc` (tip of duff `main`, 2026-06-23; merge of
-PR #307).** When checking for new duff work, diff `origin/main` against that
+**Last reviewed duff commit: `88ce77e0` (tip of duff `main`, 2026-06-25; merge of
+PR #316).** When checking for new duff work, diff `origin/main` against that
 commit forward. (PRs #300/#301/#305/#306, previously ported ahead, are now merged
-on duff `main` and folded into the boundary; #302/#303/#304/#307 ported below.
-Duff's `f92a2e6d` "Add files via upload" is just a binary `Paradigms.pdf`
-reference sheet — a duff asset, not code; not ported.)
+on duff `main` and folded into the boundary; #302/#303/#304/#307 and the
+#308–#316 batch ported below. Duff's `f92a2e6d` "Add files via upload" is just a
+binary `Paradigms.pdf` reference sheet — a duff asset, not code; not ported.)
 
 - **Ported in full through duff #288** (parsing undo + 3-tier scoring,
   restructured parse summary + "Why this form" notes, 3rd-person imperative
@@ -271,6 +271,80 @@ reference sheet — a duff asset, not code; not ported.)
     right (1.5) / known (1) and grades wrong/uncertain as `min(2.5 + 0.7·miss,
     5.5)` (capped under unseen). The show-count rule stays the primary sort, so the
     "shown at most twice before every form has a turn" cap is preserved.
+- **Ported duff PR #309–#313 — parsing partial-credit chain** (one tightly-coupled
+  feature evolved over five PRs; ported as its net final state, not the
+  intermediate diffs, since #311 discards #310's `partialBeforeUndo` and #312
+  only retunes one exponent inside #311):
+  - **#309 (`28e0d378`) — partial credit for naming one value of a multi-value
+    form.** A pick that's a proper non-empty SUBSET of a slash-composite `correct`
+    (case `nom/acc`, gender `masc/neut`…) is accepted (advances, shuffler treats it
+    as right) but flagged `partial` and scored `PARTIAL_COMPOSITE_CREDIT = 0.75` —
+    never the exact-1 the strict 2/2 "known" test needs, so the form keeps coming
+    back until the FULL composite is named. New `isPartialCompositePick` +
+    `attemptAllAcceptable` + a `'partial'` form status (yellow dot, low shuffle
+    weight `PARSING_PARTIAL_WEIGHT`) in `morph_steps.js`; `getLemmaFormStatus`
+    rewritten to read `form.recent` directly and split clean-vs-acceptable;
+    `answerMorphologyStep` sets `answer.partial`; `sanitizeDimCredit` (persistence)
+    gains a 0.75 bucket; testable-forms summary gains a "partial" tally.
+  - **#310 (`7b9f66c0`) — extend partial to ASPECT** (`continuous` for the
+    present/future `continuous/undefined`). In Mounce this is just the `'aspect'`
+    token in `isPartialCompositePick` (folded into #309's body above). #310's undo
+    half (`partialBeforeUndo`) is **superseded by #311 and NOT implemented.**
+  - **#311 (`cdd458ae`) — undo credit-floor.** `undoMorphologyStep` records each
+    rolled-back pick's first-attempt merit (1/0.75/0) into `state.firstAttemptCredit`
+    (set-once); `finalizeMorphStepAttempt` floors an undone dim at
+    `max(firstAttemptCredit, 0.5^undos)` when the final pick is valid (else 0) and
+    stashes `state.finalCredit`, so the summary marks match the recorded score.
+  - **#312 (`27fc0310`) — self-correction credit is `0.5^undos`** (not `^(undos+1)`):
+    wrong→undo→correct now earns 0.5, not 0.25 (correct→undo and partial→undo stay
+    floored at their first-attempt merit). One exponent inside #311's block.
+  - **#313 (`a937d4a6`) — correct→undo→correct shows a green `*`** + green footnote
+    "counted correct due to correct first attempt" (full credit, still counts toward
+    X/N). All five land in `render.js` (R1–R7: credit-driven breadcrumb dots +
+    summary marks/footnotes, **merged with Mounce's `softDeponentMiddle` branch** so
+    the deponent soft-✓ survives), plus `.morph-step-dot.partial` / dagger /
+    partial-note / correct-note CSS (+ light variants). Off-the-record preserved
+    (no `noteStudyInteraction`).
+- **Ported duff PR #308 + #314 + #315 — SRS split-card round model + smoothing:**
+  - **#315 (`cd9c8087`) — split-card "parked-face round" model** (reworks, but
+    reuses, the #307 round machinery). A variant "… as cards" set runs as a round
+    (2h window from `cycleStartedAt`); each face is marked until **final** — Easy
+    (`cycleFacesPassed`) or **Uncertain** (new `cycleFacesUncertain`); a **Hard
+    just requeues** the face (no lapse, no round end). A final face parks **out of
+    "Due now"** (deferred); a pending one stays due. All-Easy advances the shared
+    schedule; any Uncertain — or the 2h elapsing with faces pending — **resets the
+    whole set** to due-now. The variant path of `applySpacedReview` is extracted to
+    a new **`applyVariantRoundReview`**; `isCardDue`/`endVariantRound`/`getWordProgress`
+    seed+sanitize, `migrations.js` (empty-check + compaction), and the
+    spaced-progress reset all carry the new `cycleFacesUncertain` field
+    (persistence.js needs no change — the whitelist lives in migrations.js). The
+    #298 per-face `cycleFacesHeld` 2h re-queue is superseded.
+  - **#308 (`7e407e09`) — "Uncertain does nothing on a split card" fix — FOLDED
+    INTO #315.** The standalone fix (drop the Uncertain'd face from
+    `spacedActiveIds` so `navigate(1)` advances) lives inside
+    `applyVariantRoundReview`'s `dropFromActive()`; #315 rewrites the whole branch
+    #308 touched, so no separate edit.
+  - **#314 (`03562d8b`) — "Smooth schedule" reset reworked to a 1.1×/1×
+    pile-shedding pass.** `performSpacedScheduleSmooth` (navigation.js) now buckets
+    cards by due-day over `[day 4 .. lastDay]`, computes `value = cards/n`, and
+    walks the window end-inward shedding each day's surplus above **1.1× value**
+    onto the nearest earlier day still under a **1× value** cap (cards only move
+    earlier, never past day 4, never delayed). Replaces the old least-loaded-day
+    placement. Manual reset only — there's no auto-smoothing.
+- **Ported duff PR #316 (`c906e2f4`) — parsing-review summary bar realigned to
+  testable-form counts.** The per-paradigm bar (and overall row) is now a **stacked
+  breakdown over the testable forms** — known · right-once · seen-but-wrong ·
+  not-seen, each form counted **once** — so its denominator matches the `X/Y forms`
+  tally on the same row (the old `lemmaParseProgress` counted 1-or-2 tested *parses*
+  per form, a mismatched denominator). The headline % and the worst-first sort both
+  re-point to `formStatusPctRight` (= `(known+right)/total`), so the number, the
+  sort, and the bar agree. `progress.js`: `lemmaParseProgress`/`parsingProgressBarHtml`
+  → `lemmaFormStatusCounts`/`formStatusPctRight`/`parsingBreakdownBarHtml` (drops the
+  now-unused `countLemmaFormRecent`/`FORM_RECENT_CAP` imports — both still exported
+  from `morph_steps.js` for other callers); `.parsing-review-bar-fill*` →
+  `.parsing-review-seg*` CSS. Composes with Mounce's broader default `baseStats`
+  (all in-scope paradigms) and memoized `cardsFor()` — both kept. `render.js`
+  untouched (Mounce's parsing-review panel lives entirely in `progress.js`).
 - **Mounce-specific (no duff equivalent):**
   - **Parsing steps collapse pool-constant dimensions to one option.**
     Any parsing step whose value never varies across the WHOLE pool the student

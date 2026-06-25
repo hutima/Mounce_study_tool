@@ -83,15 +83,20 @@ const PARADIGM_STEP_ATTEMPT_CAP = 20;
 // than two to average; the exclude-known "2/2 known" filter and dots still read
 // only the last 2 (FORM_RECENT_CAP in morph_steps.js).
 const FORM_HISTORY_CAP = 10;
-// Per-dimension parsing credit: 1 (clean correct), 0.5 (reattempted via undo,
-// re-picked correctly), 0 (wrong). Clamp saved/imported values into that set so
-// a fractional reattempt score survives a round-trip instead of snapping to 0/1.
-// (Deeper compounding fractions — 0.25, 0.125 — also clamp to 0.5; only the
-// in-session score keeps the exact halving.)
+// Per-dimension parsing credit snaps to a small ladder so a fractional score
+// survives a round-trip instead of being coerced back to a plain 0/1:
+//   1    — clean correct
+//   0.75 — partial composite (named one value of a multi-value case/gender/
+//          aspect form; PARTIAL_COMPOSITE_CREDIT in morph_steps.js). Kept
+//          distinct from 0.5 because getLemmaFormStatus treats ≥ 0.75 as
+//          "acceptable" (low shuffle priority) while a 0.5 reattempt is a miss.
+//   0.5  — reattempted via undo (re-picked correctly), or any other fraction
+//   0    — wrong
 function sanitizeDimCredit(v) {
   const n = Number(v);
   if (!Number.isFinite(n) || n <= 0) return 0;
   if (n >= 1) return 1;
+  if (n >= 0.75) return 0.75;
   return 0.5;
 }
 function sanitizeFormRecentList(input, legacyLastCorrect) {

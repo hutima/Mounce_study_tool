@@ -1460,6 +1460,7 @@ function performSpacedProgressReset(requiredOnly) {
       p.leechDrill = false;
       p.leechStreak = 0;
       p.cycleFacesPassed = [];
+      p.cycleFacesUncertain = [];
       p.cycleFacesHeld = {};
       p.cycleStartedAt = 0;
       p.cycleFaceSamples = {};
@@ -1512,11 +1513,23 @@ function performSpacedTimingReset(requiredOnly) {
 
 // Levels the future due-date pile-up: finishing a deck shortly after a
 // timing reset hands most cards the same interval, so they all land on the
-// same future day (typically the 14-day cap). This re-spreads the pile so
+// same future day (typically the interval cap). This re-spreads the pile so
 // roughly the same number of cards come due each day, with two guarantees:
-// cards due within the next 3 study-days are never touched (short intervals
-// are the stabilization churn — pulling them around would fight the
-// scheduler), and no card is ever pushed later than it already is.
+// cards due within the next 3 days are never touched (short intervals are the
+// stabilization churn — pulling them around would fight the scheduler), and no
+// card is ever pushed later than it already is.
+//
+// The smoothing window is [day 4 .. the latest due-day]. Its target daily load
+// is the plain average over that window:
+//     value = (cards due in the window) / n,   n = lastDay - 4 + 1
+// A day is a "pile" only when it carries MORE than 1.1× value; the surplus
+// (every card above 1.1× value) is shed onto earlier days. Receiving days fill
+// only up to a hard 1× value cap, so relieving one pile never builds another
+// and the filled days settle a touch below the piles they drain. Working from
+// the far end of the window inward and always preferring the nearest earlier
+// day with room, each pile drains into the days just before it first, and a
+// card only ever moves earlier (never later, never past day 4).
+//
 // intervalDays is left alone on purpose: it records the interval the card
 // *earned*, which seeds the next 'easy' growth — reviewing a few days early
 // shouldn't shrink a card's future intervals.
@@ -1532,51 +1545,53 @@ function performSpacedScheduleSmooth(requiredOnly) {
     if (p && typeof p === 'object' && Number(p.dueAt) > protectedUntil) entries.push(p);
   });
   if (entries.length < 2) return;
-  entries.sort((a, b) => a.dueAt - b.dueAt);
 
-  // Smoothing can only move a card EARLIER (never delay one), so each card's
-  // reachable window is [day 4 .. its own due-day]. Aim for the average daily
-  // load A = (cards due day 4+) / (max due-day - 3), and only relieve genuine
-  // pile-ups: a day whose card-count is at or below that average (or that holds
-  // just a lone card) is left exactly where it is, so an isolated far-out card
-  // is never dragged earlier for no benefit. The cards on over-average days are
-  // the movable ones; place each (earliest-due first, so its window is a
-  // growing prefix) on the LEAST-loaded day within its own window, ties to the
-  // earliest day. That flattens the busiest day wherever the pile sits, every
-  // filled day ends at the average or higher, and no card is ever delayed.
   const FIRST_DAY = 4;
   const MAX_SMOOTH_DAY = 366;  // bound the bucket array against any corrupt far-future dueAt
   const dayOf = (dueAt) => Math.min(MAX_SMOOTH_DAY, Math.max(FIRST_DAY, Math.ceil(daysFromMs(dueAt - now))));
-  const lastDay = dayOf(entries[entries.length - 1].dueAt);
-  if (lastDay - FIRST_DAY < 1) return;  // everything already lands within one day-slot
 
-  // Per-day counts and the target average over [day 4 .. lastDay].
-  const dayCounts = {};
-  entries.forEach((p) => { const d = dayOf(p.dueAt); dayCounts[d] = (dayCounts[d] || 0) + 1; });
-  const average = entries.length / (lastDay - FIRST_DAY + 1);  // = N / (max due-day - 3)
-  const pileThreshold = Math.max(1, average);
-
-  // Split into frozen (at-or-below-average days, and any lone card — left in
-  // place) and movable (the over-average pile-ups). Frozen cards still occupy
-  // their day so the redistribution below counts them.
-  const counts = new Array(lastDay + 1).fill(0);
-  const movable = [];
+  // Bucket every in-scope card by its due-day and find the far end of the
+  // window. Buckets and `counts` stay in lockstep so a card can be physically
+  // moved (popped from one day, pushed onto an earlier one) as it redistributes.
+  const buckets = new Map();  // day -> progress objects currently due that day
+  let lastDay = FIRST_DAY;
   entries.forEach((p) => {
     const d = dayOf(p.dueAt);
-    if (dayCounts[d] <= pileThreshold) counts[d] += 1;
-    else movable.push(p);
+    if (!buckets.has(d)) buckets.set(d, []);
+    buckets.get(d).push(p);
+    if (d > lastDay) lastDay = d;
   });
+  if (lastDay - FIRST_DAY < 1) return;  // everything already lands within one day-slot
 
-  movable.forEach((p) => {
-    const ceilingDay = dayOf(p.dueAt);
-    let best = FIRST_DAY;
-    for (let day = FIRST_DAY + 1; day <= ceilingDay; day++) {
-      if (counts[day] < counts[best]) best = day;
+  // value = average daily load over [day 4 .. lastDay]; a day over 1.1× value
+  // is a pile, and receiving days fill only up to 1× value (the hard cap).
+  const value = entries.length / (lastDay - FIRST_DAY + 1);  // = cards / n
+  const pileThreshold = value * 1.1;
+  const cap = value;
+
+  const counts = new Array(lastDay + 1).fill(0);
+  for (let d = FIRST_DAY; d <= lastDay; d++) counts[d] = (buckets.get(d) || []).length;
+
+  // Start at the end of the window and walk back toward day 4. Each pile sheds
+  // the cards above 1.1× value, one at a time, onto the nearest earlier day
+  // still under the cap — biased to the days closest to the pile. Cards only
+  // ever move earlier; a pile that runs out of earlier room keeps the rest.
+  for (let day = lastDay; day > FIRST_DAY; day--) {
+    while (counts[day] > pileThreshold) {
+      let dest = -1;
+      for (let earlier = day - 1; earlier >= FIRST_DAY; earlier--) {
+        if (counts[earlier] < cap) { dest = earlier; break; }
+      }
+      if (dest === -1) break;  // no earlier day has room — leave the rest here
+      const p = buckets.get(day).pop();
+      const targetDueAt = now + msFromDays(dest);
+      if (targetDueAt < p.dueAt) p.dueAt = targetDueAt;  // earlier-only guard
+      if (!buckets.has(dest)) buckets.set(dest, []);
+      buckets.get(dest).push(p);
+      counts[day] -= 1;
+      counts[dest] += 1;
     }
-    counts[best] += 1;
-    const targetDueAt = now + msFromDays(best);
-    if (targetDueAt < p.dueAt) p.dueAt = targetDueAt;  // earlier-only guard
-  });
+  }
 
   // Nothing becomes due immediately (earliest target is day 4), so the
   // active deck is unchanged — only the review panel's due times moved.

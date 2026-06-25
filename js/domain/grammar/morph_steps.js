@@ -1113,6 +1113,41 @@ export const FORM_RECENT_CAP = 2;
 // sanitizeFormRecentList in persistence.js, which caps to the same depth).
 const FORM_HISTORY_CAP = 10;
 
+// Per-dimension credit for a PARTIAL composite answer: naming one valid value
+// of a multi-value (syncretic) form — e.g. 'nominative' for a 'nominative/
+// accusative' neuter, 'masculine' for a 'masculine/neuter' form, or
+// 'continuous' for the present/future aspect 'continuous/undefined'. Accepted
+// (the form advances and the shuffler treats it as correct) but, being < 1,
+// never satisfies the strict 2/2 "known" test (evaluateRecentAttempt requires
+// an exact 1), so the form is never excluded as mastered until the student
+// names the FULL composite. Worth 0.75 in the accuracy stats. Must survive a
+// save round-trip — see sanitizeDimCredit in persistence.js, which snaps to it.
+export const PARTIAL_COMPOSITE_CREDIT = 0.75;
+
+// True when `picked` names a proper, non-empty SUBSET of a multi-value
+// (slash-composite) correct answer — e.g. 'nominative' for 'nominative/
+// accusative', 'masculine' for 'masculine/neuter', or 'continuous' for the
+// present/future aspect 'continuous/undefined'. Scoped to case, gender, and
+// aspect — the syncretisms the drill rewards partially. Voice's middle/passive
+// is already accepted in full via step.acceptable, so it's excluded (it stays
+// full credit, not partial). Returns false for the full composite or an exact
+// pick (plain-correct) and for any value carrying a component outside the
+// correct set (plain-wrong).
+export function isPartialCompositePick(step, picked) {
+  if (!step || !picked) return false;
+  if (step.key !== 'case' && step.key !== 'gender' && step.key !== 'aspect') return false;
+  const correct = String(step.correct || '');
+  if (!correct.includes('/')) return false;            // not a composite answer
+  const acceptable = Array.isArray(step.acceptable) && step.acceptable.length
+    ? step.acceptable : [correct];
+  if (acceptable.includes(picked)) return false;       // already fully accepted
+  if (picked === correct) return false;                // full composite = full credit
+  const correctParts = new Set(correct.split('/').filter(Boolean));
+  const pickedParts = String(picked).split('/').filter(Boolean);
+  if (!pickedParts.length || pickedParts.length >= correctParts.size) return false;
+  return pickedParts.every((p) => correctParts.has(p));
+}
+
 // Record one attempt: a fully walked card with per-dimension correctness.
 // stats: { byLemma: { lemma: { attempts: [{at, dims}],
 //                              forms: { [cardId]: { seen, recent: [{dims}] } } } } }
@@ -1361,14 +1396,34 @@ export function countLemmaFormDimCredit(stats, lemma, cardId, enabledDims, windo
   return { correct, total };
 }
 
+// Like evaluateRecentAttempt but LENIENT: an attempt is "acceptable" when every
+// enabled dim earned at least PARTIAL_COMPOSITE_CREDIT — i.e. it's clean (1) or
+// only short because of a partial-composite pick. Undo-reattempt fractions
+// (< PARTIAL_COMPOSITE_CREDIT) and outright misses (0) are NOT acceptable. Lets
+// getLemmaFormStatus give a form whose only shortfall is partial credit a
+// distinct 'partial' status (yellow, low shuffle priority) instead of 'wrong'.
+function attemptAllAcceptable(attempt, enabledDims) {
+  if (!attempt) return false;
+  if (typeof attempt.allDims === 'boolean') return attempt.allDims; // legacy
+  const dims = attempt.dims || {};
+  for (const [dim, val] of Object.entries(dims)) {
+    if (!isDimEnabled(enabledDims, dim)) continue;
+    if (!(Number(val) >= PARTIAL_COMPOSITE_CREDIT)) return false;
+  }
+  return true;
+}
+
 // Per-form recent-attempt status for the parsing-review "testable forms"
-// list. Returns 'known' / 'right' / 'wrong' / 'uncertain' / 'unseen' based
-// on the out-of-2 tally:
+// list. Returns 'known' / 'right' / 'partial' / 'wrong' / 'uncertain' /
+// 'unseen' based on the out-of-2 tally:
 //   0/0 → unseen (grey)
 //   1/1 → right (green)
 //   2/2 → known (blue) — both recent attempts correct; the same threshold
 //         isLemmaFormKnown uses for the exclude-known-morphs filter, so a
 //         blue dot is exactly a form "skip confident" mode would drop.
+//   partial (yellow) — no genuine miss, but at least one attempt was only a
+//         partial composite (named one value of a multi-value form); never
+//         reads as 'known', so the form keeps coming back until fully named.
 //   1/2 → uncertain (yellow)
 //   0/1, 0/2 → wrong (red)
 // Parsing mode doesn't write to the directional progress store, so this is
@@ -1377,10 +1432,20 @@ export function getLemmaFormStatus(stats, lemma, cardId, enabledDims) {
   // Dots reflect the same last-FORM_RECENT_CAP window as the exclude-known
   // filter, so a blue dot is exactly a form "skip confident" would drop —
   // unaffected by the deeper history kept for the confidence breakdown.
-  const { correct, total } = countLemmaFormRecent(stats, lemma, cardId, enabledDims, FORM_RECENT_CAP);
-  if (!total) return 'unseen';
-  if (correct === total) return total >= FORM_RECENT_CAP ? 'known' : 'right';
-  if (correct === 0) return 'wrong';
+  const entry = stats?.byLemma?.[lemma];
+  const form = entry?.forms && entry.forms[cardId];
+  if (!cardId || !form || !Array.isArray(form.recent) || !form.recent.length) return 'unseen';
+  const list = form.recent.slice(-FORM_RECENT_CAP);
+  const total = list.length;
+  let clean = 0;       // strict: every enabled dim === 1 (the unchanged 2/2 rule)
+  let acceptable = 0;  // lenient: clean OR only short by partial-composite credit
+  for (const a of list) {
+    if (evaluateRecentAttempt(a, enabledDims)) clean += 1;
+    if (attemptAllAcceptable(a, enabledDims)) acceptable += 1;
+  }
+  if (clean === total) return total >= FORM_RECENT_CAP ? 'known' : 'right';
+  if (acceptable === total) return 'partial';   // no genuine miss, ≥1 partial pick
+  if (clean === 0 && acceptable === 0) return 'wrong';
   return 'uncertain';
 }
 
