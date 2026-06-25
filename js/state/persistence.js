@@ -356,13 +356,13 @@ function sanitizeImportedState(candidate) {
   state.appProfile = 'vocab_grammar';
   state.gamification = sanitizeGamificationState(candidate.gamification);
   state.shuffled = candidate.shuffled !== false;
-  state.requiredOnly = candidate.requiredOnly !== false;
+  state.requiredOnly = false; // retired toggle — always off (see runtime.js)
   state.directionToGreek = !!candidate.directionToGreek;
   state.spacedRepetition = candidate.spacedRepetition !== false;
   state.spacedByMode = sanitizeSpacedByMode(candidate.spacedByMode, candidate.spacedRepetition);
   state.spacingCadence = sanitizeSpacingCadence(candidate.spacingCadence);
   state.hardVocabReviewMode = !!candidate.hardVocabReviewMode;
-  state.splitSelection = !!candidate.splitSelection;
+  state.splitSelection = candidate.splitSelection !== false; // on by default
   state.modeSelections = isPlainObject(candidate.modeSelections) ? candidate.modeSelections : {};
   state.morphSelfCheck = !!candidate.morphSelfCheck;
   state.morphStepByStep = !!candidate.morphStepByStep;
@@ -1043,11 +1043,11 @@ export function restoreState() {
     saved = compactPersistedState(saved);
 
     runtime.selectedKeys = Array.isArray(saved.selectedKeys) ? sortSetKeys(saved.selectedKeys.map(String)) : [];
-    runtime.requiredOnly = saved.requiredOnly !== false;
+    runtime.requiredOnly = false; // retired toggle — always off (see runtime.js)
     runtime.directionToGreek = !!saved.directionToGreek;
     runtime.spacedRepetition = saved.spacedRepetition !== false;
     runtime.hardVocabReviewMode = !!saved.hardVocabReviewMode;
-    runtime.splitSelection = !!saved.splitSelection;
+    runtime.splitSelection = saved.splitSelection !== false; // on by default
     runtime.modeSelections = saved.modeSelections && typeof saved.modeSelections === 'object' ? saved.modeSelections : {};
     runtime.appProfile = 'vocab_grammar';
     const hadSavedAchievementSnapshot = Array.isArray(saved?.gamification?.lastEarnedAchievementIds);

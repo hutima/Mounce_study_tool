@@ -133,9 +133,9 @@ export function buildChapterSelector() {
     const btn = document.createElement('button');
     btn.className = 'chapter-btn';
     btn.dataset.key = key;
-    const countLabel = host.canAccessGrammarUi()
-      ? `${vocabCount} vocab${studyCount ? ` · ${studyCount} grammar` : ''}`
-      : `${vocabCount} vocab`;
+    // Grammar counts dropped from the selector — show the vocab count, or
+    // "grammar only" for a chapter/set with no vocab cards.
+    const countLabel = vocabCount ? `${vocabCount} vocab` : 'grammar only';
     btn.innerHTML = `${set.label}<span class="chapter-count">${countLabel}</span>`;
     btn.onclick = () => toggleSet(key);
     grid.appendChild(btn);
@@ -257,9 +257,7 @@ export function deselectAllIrregular() {
 // replace the set's own label.
 function renderSupplementalEntry(container, key, set, vocabCount, studyCount, labelOverride) {
   const label = labelOverride || set.label;
-  const countLabel = host.canAccessGrammarUi()
-    ? `${vocabCount} vocab${studyCount ? ` · ${studyCount} grammar` : ''}`
-    : `${vocabCount} vocab`;
+  const countLabel = vocabCount ? `${vocabCount} vocab` : 'grammar only';
   const paradigmList = host.canAccessGrammarUi() ? getSupplementalParadigmsForKey(key) : [];
 
   if (paradigmList.length <= 1) {
@@ -374,9 +372,7 @@ export function buildSupplementalSelector() {
     const totalVocab = entries.reduce((s, e) => s + e.vocabCount, 0);
     const totalStudy = entries.reduce((s, e) => s + e.studyCount, 0);
     const weekLabel = weekNum == null ? 'Other supplements' : `Week ${weekNum}`;
-    const weekCount = host.canAccessGrammarUi()
-      ? `${entries.length} paradigm${entries.length === 1 ? '' : 's'} · ${totalVocab} vocab${totalStudy ? ` · ${totalStudy} grammar` : ''}`
-      : `${entries.length} paradigm${entries.length === 1 ? '' : 's'} · ${totalVocab} vocab`;
+    const weekCount = `${entries.length} paradigm${entries.length === 1 ? '' : 's'} · ${totalVocab} vocab`;
     weekSummary.innerHTML = `<span>${weekLabel}</span><span class="chapter-count">${weekCount}</span>`;
     weekDetails.appendChild(weekSummary);
 

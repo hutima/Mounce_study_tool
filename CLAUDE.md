@@ -33,12 +33,12 @@ presets, off-the-record parsing). Consult it before applying a duff diff.
 
 ### Porting status — last version ported
 
-**Last reviewed duff commit: `88ce77e0` (tip of duff `main`, 2026-06-25; merge of
-PR #316).** When checking for new duff work, diff `origin/main` against that
-commit forward. (PRs #300/#301/#305/#306, previously ported ahead, are now merged
-on duff `main` and folded into the boundary; #302/#303/#304/#307 and the
-#308–#316 batch ported below. Duff's `f92a2e6d` "Add files via upload" is just a
-binary `Paradigms.pdf` reference sheet — a duff asset, not code; not ported.)
+**Last reviewed duff commit: `b66a8b2e` (tip of duff `main`, 2026-06-25; PR #318).**
+When checking for new duff work, diff `origin/main` against that commit forward.
+(PRs #300/#301/#305/#306, previously ported ahead, are now merged on duff `main`
+and folded into the boundary; #302/#303/#304/#307, the #308–#316 batch, and
+#317–#318 ported below. Duff's `f92a2e6d` "Add files via upload" is just a binary
+`Paradigms.pdf` reference sheet — a duff asset, not code; not ported.)
 
 - **Ported in full through duff #288** (parsing undo + 3-tier scoring,
   restructured parse summary + "Why this form" notes, 3rd-person imperative
@@ -345,6 +345,53 @@ binary `Paradigms.pdf` reference sheet — a duff asset, not code; not ported.)
   `.parsing-review-seg*` CSS. Composes with Mounce's broader default `baseStats`
   (all in-scope paradigms) and memoized `cardsFor()` — both kept. `render.js`
   untouched (Mounce's parsing-review panel lives entirely in `progress.js`).
+- **Ported duff PR #317 (`c5c2d399`) — ADAPTED into a Mounce divergence.** #317
+  rewrote the spaced-reset labels to name their scope ("selected" / "starred
+  selected" per the required-only toggle). But **Mounce's core vocab is all
+  `required:true`** (zero `required:false` in the data), so the required/optional
+  split only ever excluded selected supplemental/advanced extras — the user judged
+  it pointless. So instead of the toggle-driven labels, Mounce **drops the
+  required/optional scope from the reset flow entirely**: the "Required cards only"
+  checkbox is removed from both the spaced AND unspaced reset modals, the dedicated
+  "Reset required" button (`#resetRequiredBtn`) and `resetRequiredOnly()` are gone,
+  and the labels are static "Set selected to now" / "Reset selected" (keeping #317's
+  clarification that reset targets the current *selection*, not "all"). Reset always
+  targets the whole selection now (`isResetScopeRequiredOnly` degrades to false).
+- **Ported duff PR #318 (`b66a8b2e`) — bounded SW navigation + re-surface update
+  on resume (the iOS-freeze fix).** Two model-agnostic cores, both PORTED:
+  - **`sw.js`: bounded navigation fetch.** The navigate handler now races the
+    network against a **4 s `NAV_TIMEOUT_MS`** (`Promise.race`) and falls back to
+    the cached shell (`cachedShell` helper) if the network errors OR *stalls* — a
+    stalled (not errored) launch fetch otherwise hangs forever, which on iOS
+    standalone PWAs renders a frozen page (taps dead until force-quit). The network
+    keeps running past the timeout to refresh the cache for next launch.
+  - **`main.js`: re-surface the update prompt on resume.** The `visibilitychange`
+    handler, after `reg.update()`, now also checks `reg.waiting && controller` and
+    re-shows `showAppUpdateBanner` — so reopening a backgrounded PWA that has a
+    worker waiting from before no longer sits silently on the old version (the
+    one-time waiting-check runs only at registration). Uses Mounce's
+    `showAppUpdateBanner` (duff's `showRefreshOverlay` modal stays N/A).
+- **Mounce-specific Advanced-settings + selector cleanup (no duff equivalent).**
+  A UX pass on the controls bar / session selector, layered on the #317/#318 ports:
+  - **Parsing-step toggles no longer leak into vocab/grammar.** The eight
+    parsing-step master toggles + their value-filter `<details>` + the optional-forms
+    toggle/filters are wrapped in a new **`#parsingStepOptions`** container, hidden
+    as a unit outside parsing mode (`syncLayoutVisibility`). Previously they had no
+    mode gating and showed in vocab.
+  - **`#requiredToggle` removed from the controls bar; `runtime.requiredOnly` forced
+    `false` everywhere** (runtime default + both load paths in `persistence.js`), so
+    the deck = whatever the user selected (selected supplemental/advanced cards are
+    no longer silently filtered out). `toggleRequiredOnly` + its wiring removed; the
+    inert `requiredFlag`/`isResetScopeRequiredOnly` plumbing is left (always false).
+  - **`#splitSelectionToggle` defaults ON** (`runtime.splitSelection` default true +
+    `!== false` load semantics) — separate vocab vs grammar chapter selections.
+  - **Grammar counts dropped from the session selector.** Chapter/supplemental/week
+    labels show only the vocab count (or **"grammar only"** for a 0-vocab set);
+    `selectors.js` no longer appends "· N grammar".
+  - **"No vocab" card.** A vocab deck that's empty because the selected chapters are
+    grammar-only now shows "Selected chapter(s) have no vocab — use the Grammar
+    section for chapter practice." (hard-review-drained decks get their own note);
+    `render.js` empty-state branch.
 - **Mounce-specific (no duff equivalent):**
   - **Parsing steps collapse pool-constant dimensions to one option.**
     Any parsing step whose value never varies across the WHOLE pool the student

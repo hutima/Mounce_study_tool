@@ -237,7 +237,7 @@ export const runtime = {
   // ── Current study session + deck cursor ─────────────────────────────
   currentSession: null,
   selectedKeys: [],
-  splitSelection: false,    // separate chapter selections for vocab vs grammar
+  splitSelection: true,     // separate chapter selections for vocab vs grammar (on by default)
   modeSelections: {},       // { vocab: {selectedKeys, currentSessionId}, morph: {...} }
   deck: [],
   originalDeck: [],
@@ -250,7 +250,10 @@ export const runtime = {
   currentIdx: 0,
   isFlipped: false,
   shuffled: true,           // shuffle on by default
-  requiredOnly: true,
+  // Required/optional split was retired from the UI — Mounce's core vocab is all
+  // required, so the distinction only ever excluded selected supplemental/advanced
+  // extras. Forced off everywhere so the deck = whatever the user selected.
+  requiredOnly: false,
   directionToGreek: false,  // false = Greek→English, true = English→Greek
   // Live spaced-repetition flag for the *current* study mode. Mirrors the
   // matching entry in `spacedByMode` — kept in sync on every mode switch and

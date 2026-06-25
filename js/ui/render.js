@@ -204,7 +204,13 @@ export function renderCard() {
         ? 'No reversible grammar items in this selection. Toggle “English → Greek” off to see all questions.'
         : 'No grammar quiz material is available yet for this selection.';
     } else {
-      emptyMessage = runtime.requiredOnly ? 'No required-vocabulary cards match this selection.' : 'No cards in this deck.';
+      // Empty vocab deck with a live selection. The usual cause in Mounce is a
+      // grammar-only chapter (intro/alphabet chapters carry grammar but no
+      // vocabulary), so point the student at the Grammar section. Hard-review
+      // mode draining the deck gets its own note.
+      emptyMessage = runtime.hardVocabReviewMode
+        ? 'No hard-review vocab matches this selection (nothing missed often enough yet).'
+        : 'Selected chapter(s) have no vocab — use the Grammar section for chapter practice.';
     }
     area.innerHTML = `<div class="empty-state"><div class="big">—</div>${emptyMessage}</div>`;
     return;

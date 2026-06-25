@@ -252,7 +252,6 @@ import {
   toggleMorphStepByStep,
   setMorphFocusedParadigm,
   toggleShuffle,
-  toggleRequiredOnly,
   toggleHardVocabReview,
   toggleStemNotes,
   toggleIrregularCards,
@@ -279,7 +278,6 @@ import {
   fastForwardOneDay,
   fastForwardOneWeek,
   resetCurrentDeck,
-  resetRequiredOnly,
   resetKnownMorphs,
   closeResetKnownModal,
   confirmResetKnownFocused,
@@ -1975,12 +1973,10 @@ function syncToggleButtons() {
   // required/supplemental split — parsing's record is the per-form recent
   // attempts). Swap both for a single "Reset known" that drops every
   // form's per-form tally back to 0/2 (per-paradigm history kept).
-  const resetRequiredBtn = document.getElementById('resetRequiredBtn');
   const resetKnownBtn = document.getElementById('resetKnownBtn');
   const clearParsingStatsBtn = document.getElementById('clearParsingStatsBtn');
   const parsing = isParsingMode();
   if (resetDeckBtn) resetDeckBtn.style.display = parsing ? 'none' : '';
-  if (resetRequiredBtn) resetRequiredBtn.style.display = parsing ? 'none' : '';
   if (resetKnownBtn) resetKnownBtn.style.display = parsing ? '' : 'none';
   // "Clear parsing stats" is parsing-mode-only — it wipes runtime.paradigmStepStats
   // and nothing else, so it's meaningless (and hidden) in vocab/morph/reader.
@@ -2077,6 +2073,11 @@ function syncLayoutVisibility() {
   // English → Greek (pick the form) is also a parsing-only drill direction.
   const parsingReverseToggle = document.getElementById('parsingReverseToggle');
   if (parsingReverseToggle) parsingReverseToggle.style.display = (isParsingMode() && !lookupActive) ? 'flex' : 'none';
+  // The parsing-step master toggles + optional-forms section (which dims to walk,
+  // the optional-form pool) only apply to the parsing drill, so hide the whole
+  // group outside parsing mode — otherwise they leak into vocab/grammar.
+  const parsingStepOptions = document.getElementById('parsingStepOptions');
+  if (parsingStepOptions) parsingStepOptions.style.display = isParsingMode() ? '' : 'none';
   // Lookup / Build mode toggle lives in its own row (under Text size); show it
   // whenever parsing mode is active.
   const parsingLookupRow = document.getElementById('parsingLookupRow');
@@ -3821,7 +3822,7 @@ const GLOBAL_CLICK_HANDLERS = {
   deselectAllChapters, deselectAllSupplementals, deselectAllAdvanced, deselectAllBooks, deselectAll,
   handleConsentAction, handleTransferPrimaryAction, handleTransferSecondaryAction,
   openShortcutsModal, openStudySelector,
-  openAnalyticsOverlay, resetAllStats, resetCurrentDeck, resetRequiredOnly,
+  openAnalyticsOverlay, resetAllStats, resetCurrentDeck,
   closeResetSpacedModal, confirmResetSpacedTimingOnly, confirmResetSpacedProgress,
   confirmResetSpacedSmooth,
   closeResetUnspacedModal, confirmResetUnspacedMarks,
@@ -3833,7 +3834,7 @@ const GLOBAL_CLICK_HANDLERS = {
   restoreSpacedUndo, setAppProfile, setStudyMode, setThemeMode, setFontFamily, setTextSize,
   showDisclaimerModal, startStudying, toggleDirection, toggleMorphSelfCheck,
   toggleMorphStepByStep, setMorphFocusedParadigm, setParsingChapter, goToStemDrillFromParsing,
-  toggleRequiredOnly, toggleHardVocabReview, toggleStemNotes, toggleIrregularCards, toggleIrregularTense, toggleShuffle, toggleSpacedRepetition, toggleSpacingCadence, toggleSplitSelection, toggleAspectStep, toggleDimStep, toggleOptionalForms, toggleOptionalFormFilter, toggleDimValueFilter, toggleExcludeKnownMorphs, toggleParsingShuffleAll, toggleParsingCustomReview, toggleParsingCustomParadigm, setAllParsingCustomParadigms, toggleParsingReverse, toggleParsingLookup, pickLookupDimension, editLookupDimension, resetLookup, toggleAccentLookalikes, resetKnownMorphs, closeResetKnownModal, confirmResetKnownFocused, confirmResetKnownAll, clearParsingStats, toggleUnspacedDailyReset, triggerImportProgress,
+  toggleHardVocabReview, toggleStemNotes, toggleIrregularCards, toggleIrregularTense, toggleShuffle, toggleSpacedRepetition, toggleSpacingCadence, toggleSplitSelection, toggleAspectStep, toggleDimStep, toggleOptionalForms, toggleOptionalFormFilter, toggleDimValueFilter, toggleExcludeKnownMorphs, toggleParsingShuffleAll, toggleParsingCustomReview, toggleParsingCustomParadigm, setAllParsingCustomParadigms, toggleParsingReverse, toggleParsingLookup, pickLookupDimension, editLookupDimension, resetLookup, toggleAccentLookalikes, resetKnownMorphs, closeResetKnownModal, confirmResetKnownFocused, confirmResetKnownAll, clearParsingStats, toggleUnspacedDailyReset, triggerImportProgress,
   openReaderTab, selectReaderDrillChoice, advanceReaderDrill,
   closeWhatsNewV1_1Modal, closeToggleInfoModal, onDueHistogramToggle,
   applyAppUpdate, dismissAppUpdate
@@ -3905,7 +3906,7 @@ function preventDoubleTapZoom(el) {
   }, false);
 }
 
-['shuffleToggle','requiredToggle','directionToggle','spacedToggle','splitSelectionToggle','selfCheckToggle','aspectStepToggle','tenseStepToggle','voiceStepToggle','moodStepToggle','personStepToggle','numberStepToggle','caseStepToggle','genderStepToggle','optionalFormsToggle','optionalFilter_imperative_Toggle','optionalFilter_subjunctive_Toggle','optionalFilter_infinitive_Toggle','optionalFilter_participle_Toggle','optionalFilter_thirdPerson_Toggle','optionalFilter_futureTense_Toggle','optionalFilter_perfectTense_Toggle','unspacedDailyResetToggle','modeVocabBtn','modeMorphBtn','modeReaderBtn','modeShortcutVocabBtn','modeShortcutMorphBtn','modeShortcutReaderBtn','themeSystemBtn','themeDarkBtn','themeLightBtn'].forEach(id => {
+['shuffleToggle','directionToggle','spacedToggle','splitSelectionToggle','selfCheckToggle','aspectStepToggle','tenseStepToggle','voiceStepToggle','moodStepToggle','personStepToggle','numberStepToggle','caseStepToggle','genderStepToggle','optionalFormsToggle','optionalFilter_imperative_Toggle','optionalFilter_subjunctive_Toggle','optionalFilter_infinitive_Toggle','optionalFilter_participle_Toggle','optionalFilter_thirdPerson_Toggle','optionalFilter_futureTense_Toggle','optionalFilter_perfectTense_Toggle','unspacedDailyResetToggle','modeVocabBtn','modeMorphBtn','modeReaderBtn','modeShortcutVocabBtn','modeShortcutMorphBtn','modeShortcutReaderBtn','themeSystemBtn','themeDarkBtn','themeLightBtn'].forEach(id => {
   const el = document.getElementById(id);
   if (el) preventDoubleTapZoom(el);
 });
@@ -3959,8 +3960,14 @@ if ('serviceWorker' in navigator) {
         // Also re-check whenever the tab regains focus, so a PWA reopened
         // a day later picks up a deploy without needing a hard reload.
         document.addEventListener('visibilitychange', () => {
-          if (document.visibilityState === 'visible') {
-            try { reg.update(); } catch (_) {}
+          if (document.visibilityState !== 'visible') return;
+          try { reg.update(); } catch (_) {}
+          // A worker can already be waiting from before this resume — the
+          // initial waiting-check runs only once at registration, so reopening a
+          // backgrounded PWA would otherwise sit silently on the old version.
+          // Re-surface the update banner here.
+          if (reg.waiting && navigator.serviceWorker.controller) {
+            showAppUpdateBanner(reg.waiting);
           }
         });
 
