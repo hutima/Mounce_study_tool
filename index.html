@@ -19,11 +19,11 @@ update that doc in the same commit. Line numbers in the doc are approximate.
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="Mounce Greek">
-<link rel="manifest" href="manifest.json?v=161">
-<link rel="apple-touch-icon" href="icons/apple-touch-icon.png?v=161">
-<link rel="icon" type="image/svg+xml" href="favicon.svg?v=161">
+<link rel="manifest" href="manifest.json?v=162">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png?v=162">
+<link rel="icon" type="image/svg+xml" href="favicon.svg?v=162">
 <title>Mounce BBG Greek — Flashcards</title>
-<link rel="stylesheet" href="styles.css?v=161">
+<link rel="stylesheet" href="styles.css?v=162">
 <script>
 (function(){
   try {
@@ -969,54 +969,61 @@ update that doc in the same commit. Line numbers in the doc are approximate.
   </div>
 </div>
 
-<div class="update-banner" id="updateAvailableBanner" role="status" aria-live="polite" hidden>
-  <span class="update-banner-text">A new version is available. Fully closing and reopening the app also updates it.</span>
-  <button class="ctrl-btn update-banner-btn" type="button" onclick="applyAppUpdate()">Refresh</button>
-  <button class="update-banner-dismiss" type="button" onclick="dismissAppUpdate()" aria-label="Dismiss">×</button>
+<div class="consent-overlay" id="refreshAvailableOverlay" aria-hidden="true">
+  <div class="consent-modal" role="dialog" aria-modal="true" aria-labelledby="refreshAvailableTitle">
+    <div class="consent-label">Update available</div>
+    <h2 id="refreshAvailableTitle">A new version is ready</h2>
+    <div class="consent-copy">
+      <p>A newer version of the app has been downloaded. Tap <strong>Refresh now</strong> to switch to it — or fully close the app and reopen it. Your saved progress and settings stay on this device and aren't affected.</p>
+    </div>
+    <div class="consent-actions">
+      <button class="ctrl-btn consent-primary" type="button" onclick="applyAppUpdate()">Refresh now</button>
+    </div>
+  </div>
 </div>
 
-<script defer src="js/data/words.js?v=161"></script>
-<script defer src="js/data/morphology.js?v=161"></script>
-<script defer src="js/data/lemma_inventory.js?v=161"></script>
-<script defer src="js/data/supplemental.js?v=161"></script>
-<script defer src="js/data/grammar.js?v=161"></script>
-<script defer src="js/data/supplementals/mounce_paradigms.js?v=161"></script>
-<script defer src="js/data/supplementals/stem_change_drills.js?v=161"></script>
-<script defer src="js/data/supplementals/second_aorist_flip.js?v=161"></script>
-<script defer src="js/data/supplementals/liquid_future_flip.js?v=161"></script>
-<script defer src="js/data/supplementals/w3_aorist_passive_flip.js?v=161"></script>
-<script defer src="js/data/supplementals/w3_perfect_active_flip.js?v=161"></script>
-<script defer src="js/data/supplementals/w4_mi_verb_principal_parts_flip.js?v=161"></script>
-<script defer src="js/data/advanced/advanced_01.js?v=161"></script>
-<script defer src="js/data/advanced/advanced_02.js?v=161"></script>
-<script defer src="js/data/advanced/advanced_03.js?v=161"></script>
-<script defer src="js/data/advanced/advanced_04.js?v=161"></script>
-<script defer src="js/data/advanced/advanced_05.js?v=161"></script>
-<script defer src="js/data/advanced/advanced_06.js?v=161"></script>
-<script defer src="js/data/advanced/advanced_07.js?v=161"></script>
-<script defer src="js/data/advanced/advanced_08.js?v=161"></script>
-<script defer src="js/data/advanced/advanced_09.js?v=161"></script>
-<script defer src="js/data/advanced/advanced_10.js?v=161"></script>
-<script defer src="js/data/advanced/advanced_11.js?v=161"></script>
-<script defer src="js/data/advanced/advanced_12.js?v=161"></script>
-<script defer src="js/data/advanced/advanced_13.js?v=161"></script>
-<script defer src="js/data/advanced/advanced_14.js?v=161"></script>
-<script defer src="js/data/advanced/advanced_15.js?v=161"></script>
-<script defer src="js/data/advanced/advanced_16.js?v=161"></script>
-<script defer src="js/data/advanced/advanced_17.js?v=161"></script>
-<script defer src="js/data/advanced/advanced_18.js?v=161"></script>
-<script defer src="js/data/advanced/advanced_19.js?v=161"></script>
-<script defer src="js/data/advanced/advanced_20.js?v=161"></script>
-<script defer src="js/data/advanced/advanced_21.js?v=161"></script>
-<script defer src="js/data/advanced/advanced_22.js?v=161"></script>
-<script defer src="js/data/advanced/advanced_23.js?v=161"></script>
-<script defer src="js/data/advanced/advanced_24.js?v=161"></script>
-<script defer src="js/data/advanced/advanced_25.js?v=161"></script>
-<script defer src="js/data/nt_book_vocab.js?v=161"></script>
-<script defer src="js/data/reader.js?v=161"></script>
-<script defer src="js/data/reader_verse_literals.js?v=161"></script>
-<script defer src="js/data/reader_translations.js?v=161"></script>
-<script defer src="js/logic/pos_logic.js?v=161"></script>
-<script type="module" src="js/app/main.js?v=161"></script>
+<script defer src="js/data/words.js?v=162"></script>
+<script defer src="js/data/morphology.js?v=162"></script>
+<script defer src="js/data/lemma_inventory.js?v=162"></script>
+<script defer src="js/data/supplemental.js?v=162"></script>
+<script defer src="js/data/grammar.js?v=162"></script>
+<script defer src="js/data/supplementals/mounce_paradigms.js?v=162"></script>
+<script defer src="js/data/supplementals/stem_change_drills.js?v=162"></script>
+<script defer src="js/data/supplementals/second_aorist_flip.js?v=162"></script>
+<script defer src="js/data/supplementals/liquid_future_flip.js?v=162"></script>
+<script defer src="js/data/supplementals/w3_aorist_passive_flip.js?v=162"></script>
+<script defer src="js/data/supplementals/w3_perfect_active_flip.js?v=162"></script>
+<script defer src="js/data/supplementals/w4_mi_verb_principal_parts_flip.js?v=162"></script>
+<script defer src="js/data/advanced/advanced_01.js?v=162"></script>
+<script defer src="js/data/advanced/advanced_02.js?v=162"></script>
+<script defer src="js/data/advanced/advanced_03.js?v=162"></script>
+<script defer src="js/data/advanced/advanced_04.js?v=162"></script>
+<script defer src="js/data/advanced/advanced_05.js?v=162"></script>
+<script defer src="js/data/advanced/advanced_06.js?v=162"></script>
+<script defer src="js/data/advanced/advanced_07.js?v=162"></script>
+<script defer src="js/data/advanced/advanced_08.js?v=162"></script>
+<script defer src="js/data/advanced/advanced_09.js?v=162"></script>
+<script defer src="js/data/advanced/advanced_10.js?v=162"></script>
+<script defer src="js/data/advanced/advanced_11.js?v=162"></script>
+<script defer src="js/data/advanced/advanced_12.js?v=162"></script>
+<script defer src="js/data/advanced/advanced_13.js?v=162"></script>
+<script defer src="js/data/advanced/advanced_14.js?v=162"></script>
+<script defer src="js/data/advanced/advanced_15.js?v=162"></script>
+<script defer src="js/data/advanced/advanced_16.js?v=162"></script>
+<script defer src="js/data/advanced/advanced_17.js?v=162"></script>
+<script defer src="js/data/advanced/advanced_18.js?v=162"></script>
+<script defer src="js/data/advanced/advanced_19.js?v=162"></script>
+<script defer src="js/data/advanced/advanced_20.js?v=162"></script>
+<script defer src="js/data/advanced/advanced_21.js?v=162"></script>
+<script defer src="js/data/advanced/advanced_22.js?v=162"></script>
+<script defer src="js/data/advanced/advanced_23.js?v=162"></script>
+<script defer src="js/data/advanced/advanced_24.js?v=162"></script>
+<script defer src="js/data/advanced/advanced_25.js?v=162"></script>
+<script defer src="js/data/nt_book_vocab.js?v=162"></script>
+<script defer src="js/data/reader.js?v=162"></script>
+<script defer src="js/data/reader_verse_literals.js?v=162"></script>
+<script defer src="js/data/reader_translations.js?v=162"></script>
+<script defer src="js/logic/pos_logic.js?v=162"></script>
+<script type="module" src="js/app/main.js?v=162"></script>
 </body>
 </html>

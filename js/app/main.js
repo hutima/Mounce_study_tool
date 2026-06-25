@@ -3920,10 +3920,17 @@ let __pendingSwUpdate = null;
 // cold start.
 let __refreshAccepted = false;
 
-function showAppUpdateBanner(worker) {
+// Surfaces "update available" as a BLOCKING modal (was a passive corner banner —
+// too easy to miss, which stranded users on a stale cached version). The waiting
+// worker won't apply on its own this session, so there's no auto-reload to race;
+// show it right away, the same way the reset modals open.
+function showAppUpdatePrompt(worker) {
   __pendingSwUpdate = worker;
-  const banner = document.getElementById('updateAvailableBanner');
-  if (banner) banner.hidden = false;
+  const overlay = document.getElementById('refreshAvailableOverlay');
+  if (!overlay) return;
+  overlay.classList.add('show');
+  overlay.setAttribute('aria-hidden', 'false');
+  document.body.classList.add('modal-open');
 }
 
 // "Refresh" button. The new SW installed but is WAITING (install no longer
@@ -3946,8 +3953,12 @@ function applyAppUpdate() {
 }
 
 function dismissAppUpdate() {
-  const banner = document.getElementById('updateAvailableBanner');
-  if (banner) banner.hidden = true;
+  const overlay = document.getElementById('refreshAvailableOverlay');
+  if (!overlay) return;
+  overlay.classList.remove('show');
+  overlay.setAttribute('aria-hidden', 'true');
+  const anyOtherOpen = document.querySelector('.consent-overlay.show');
+  if (!anyOtherOpen) document.body.classList.remove('modal-open');
 }
 
 if ('serviceWorker' in navigator) {
@@ -3967,13 +3978,13 @@ if ('serviceWorker' in navigator) {
           // backgrounded PWA would otherwise sit silently on the old version.
           // Re-surface the update banner here.
           if (reg.waiting && navigator.serviceWorker.controller) {
-            showAppUpdateBanner(reg.waiting);
+            showAppUpdatePrompt(reg.waiting);
           }
         });
 
         // A new SW already finished installing before we got here.
         if (reg.waiting && navigator.serviceWorker.controller) {
-          showAppUpdateBanner(reg.waiting);
+          showAppUpdatePrompt(reg.waiting);
         }
 
         reg.addEventListener('updatefound', () => {
@@ -3981,7 +3992,7 @@ if ('serviceWorker' in navigator) {
           if (!installing) return;
           installing.addEventListener('statechange', () => {
             if (installing.state === 'installed' && navigator.serviceWorker.controller) {
-              showAppUpdateBanner(installing);
+              showAppUpdatePrompt(installing);
             }
           });
         });

@@ -369,8 +369,8 @@ and folded into the boundary; #302/#303/#304/#307, the #308–#316 batch, and
     handler, after `reg.update()`, now also checks `reg.waiting && controller` and
     re-shows `showAppUpdateBanner` — so reopening a backgrounded PWA that has a
     worker waiting from before no longer sits silently on the old version (the
-    one-time waiting-check runs only at registration). Uses Mounce's
-    `showAppUpdateBanner` (duff's `showRefreshOverlay` modal stays N/A).
+    one-time waiting-check runs only at registration). Calls `showAppUpdatePrompt`
+    (see the banner→modal note below).
 - **Mounce-specific Advanced-settings + selector cleanup (no duff equivalent).**
   A UX pass on the controls bar / session selector, layered on the #317/#318 ports:
   - **Parsing-step toggles no longer leak into vocab/grammar.** The eight
@@ -392,6 +392,16 @@ and folded into the boundary; #302/#303/#304/#307, the #308–#316 batch, and
     grammar-only now shows "Selected chapter(s) have no vocab — use the Grammar
     section for chapter practice." (hard-review-drained decks get their own note);
     `render.js` empty-state branch.
+  - **Update prompt is now a BLOCKING MODAL, not a corner banner.** The old
+    non-modal `#updateAvailableBanner` (bottom-left, easy to ignore) left users
+    stranded on a stale cached version — they never noticed the update. Adopted
+    duff's **`#refreshAvailableOverlay`** approach: a `.consent-overlay`/`.consent-modal`
+    with a single **"Refresh now"** action (`applyAppUpdate`), shown by
+    `showAppUpdatePrompt` (renamed from `showAppUpdateBanner`; the 4 SW-block call
+    sites updated). This **reverses** the earlier #304/#306 "modal rework stays N/A"
+    call — the easy-to-miss banner was the actual cause of the stuck-on-old-version
+    reports. `.update-banner*` CSS removed; `dismissAppUpdate` now closes the modal
+    (no dismiss button is wired, matching duff's force-through prompt).
 - **Mounce-specific (no duff equivalent):**
   - **Parsing steps collapse pool-constant dimensions to one option.**
     Any parsing step whose value never varies across the WHOLE pool the student
