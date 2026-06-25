@@ -153,6 +153,7 @@ function isEmptyProgressEntry(entry) {
   if (PROGRESS_MEANINGFUL_NUMERIC_FIELDS.some(field => Number(entry[field]) > 0)) return false;
   if (Array.isArray(entry.confidenceHistory) && entry.confidenceHistory.length) return false;
   if (Array.isArray(entry.cycleFacesPassed) && entry.cycleFacesPassed.length) return false;
+  if (Array.isArray(entry.cycleFacesUncertain) && entry.cycleFacesUncertain.length) return false;
   if (isPlainObject(entry.cycleFacesHeld) && Object.keys(entry.cycleFacesHeld).length) return false;
   if (Number(entry.cycleStartedAt) > 0) return false;
   if (isPlainObject(entry.cycleFaceSamples) && Object.keys(entry.cycleFaceSamples).length) return false;
@@ -185,6 +186,9 @@ function compactProgressEntry(entry) {
   if (entry.leechDrill === true) out.leechDrill = true;
   if (Array.isArray(entry.cycleFacesPassed) && entry.cycleFacesPassed.length) {
     out.cycleFacesPassed = entry.cycleFacesPassed;
+  }
+  if (Array.isArray(entry.cycleFacesUncertain) && entry.cycleFacesUncertain.length) {
+    out.cycleFacesUncertain = entry.cycleFacesUncertain;
   }
   if (isPlainObject(entry.cycleFacesHeld) && Object.keys(entry.cycleFacesHeld).length) {
     out.cycleFacesHeld = entry.cycleFacesHeld;

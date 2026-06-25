@@ -1558,9 +1558,10 @@
     color: var(--muted);
   }
 
-  /* Overall progress bar per paradigm: completely-correct parses over total
-     tested parses (2/2 known window). Sits between the header and the weakest-
-     value pointer; the fill colour tracks the same 5-band gradient as the pct. */
+  /* Per-paradigm progress bar: a stacked breakdown over the testable forms —
+     known · right once · seen-but-wrong · not-seen — sized by each segment's
+     share of the form count, so the bar's denominator matches the "X/Y forms"
+     tally on the same row. Sits between the header and the weakest-value pointer. */
   .parsing-review-bar {
     display: flex;
     align-items: center;
@@ -1569,6 +1570,7 @@
   }
   .parsing-review-bar-track {
     flex: 1 1 auto;
+    display: flex;
     height: 6px;
     border-radius: 4px;
     background: rgba(255,255,255,0.08);
@@ -1577,16 +1579,19 @@
   html[data-theme="light"] .parsing-review-bar-track {
     background: rgba(0,0,0,0.08);
   }
-  .parsing-review-bar-fill {
+  /* Stacked form-status segments: known · right once · seen-but-wrong · not
+     seen. Colours mirror the per-form status dots so the bar and the expanded
+     dot list read the same. "Not seen" is left transparent so the track's grey
+     shows through as the unfilled remainder. */
+  .parsing-review-seg {
     display: block;
     height: 100%;
-    border-radius: 4px;
     transition: width 0.25s ease;
   }
-  .parsing-review-bar-fill.parsing-review-bar-high  { background: #9ad0a7; }
-  .parsing-review-bar-fill.parsing-review-bar-mid   { background: var(--gold); }
-  .parsing-review-bar-fill.parsing-review-bar-low   { background: #e7a1a1; }
-  .parsing-review-bar-fill.parsing-review-bar-empty { background: transparent; }
+  .parsing-review-seg-known  { background: rgba( 70, 142, 218, 0.88); }
+  .parsing-review-seg-right  { background: rgba(102, 164, 120, 0.85); }
+  .parsing-review-seg-wrong  { background: rgba(166,  88,  88, 0.85); }
+  .parsing-review-seg-unseen { background: transparent; }
   .parsing-review-bar-label {
     flex: 0 0 auto;
     font-family: var(--font-display);
@@ -1594,8 +1599,6 @@
     letter-spacing: 0.5px;
     color: var(--muted);
   }
-  html[data-theme="light"] .parsing-review-bar-fill.parsing-review-bar-high { background: #4f8a63; }
-  html[data-theme="light"] .parsing-review-bar-fill.parsing-review-bar-low  { background: #c06a6a; }
 
   /* ── Paradigm parsing performance bar chart (tappable row expand) ── */
   .paradigm-stat-row,
@@ -1703,6 +1706,7 @@
   }
   .parsing-review-form-dot-known     { background: rgba( 70, 142, 218, 0.88); }
   .parsing-review-form-dot-right     { background: rgba(102, 164, 120, 0.85); }
+  .parsing-review-form-dot-partial   { background: rgba(201, 168,  76, 0.85); }
   .parsing-review-form-dot-uncertain { background: rgba(201, 168,  76, 0.85); }
   .parsing-review-form-dot-wrong     { background: rgba(166,  88,  88, 0.85); }
   .parsing-review-form-dot-unseen    { background: rgba(255, 255, 255, 0.12); border: 1px solid rgba(255,255,255,0.18); }
@@ -2094,6 +2098,13 @@
     color: #e7c79a;
     background: rgba(201,168,76,0.14);
   }
+  /* Partial composite pick (one value of a multi-value form) — yellow,
+     accepted but not full. Distinct from the amber reattempt. */
+  .morph-step-dot.partial {
+    border-color: #9a8a3c;
+    color: #e6d685;
+    background: rgba(201,168,76,0.16);
+  }
   .morph-step-summary-row.morph-step-inferred .morph-step-summary-pick {
     color: var(--muted);
     font-style: italic;
@@ -2264,6 +2275,34 @@
   }
   /* Reattempted-row pick colour + shared footnote, amber (not red). */
   .morph-step-summary-row.morph-step-reattempted .morph-step-summary-pick { color: #e7c79a; }
+  /* Partial composite pick: one valid value of a multi-value form, accepted but
+     not full. Yellow superscript dagger + footnote, distinct from the amber
+     undo asterisk. */
+  .morph-step-summary-row.morph-step-partial .morph-step-summary-pick { color: #e6d685; }
+  .morph-step-dagger {
+    font-size: 0.8em;
+    vertical-align: super;
+    line-height: 0;
+  }
+  .morph-step-partial-note {
+    display: block;
+    margin-top: 6px;
+    color: #e6d685;
+    font-size: calc((11px) * var(--text-scale));
+    font-style: italic;
+    line-height: 1.4;
+  }
+  /* Correct-on-first-attempt-then-undone (correct → undo → correct): full
+     credit, shown green with an asterisk. Green footnote, distinct from the
+     amber "reattempted/miss" note. */
+  .morph-step-correct-note {
+    display: block;
+    margin-top: 6px;
+    color: #9ad0a7;
+    font-size: calc((11px) * var(--text-scale));
+    font-style: italic;
+    line-height: 1.4;
+  }
   .morph-step-undone-note {
     display: block;
     margin-top: 6px;
@@ -3539,6 +3578,14 @@
   }
   html[data-theme="light"] .morph-step-summary-row.morph-step-reattempted .morph-step-summary-pick { color: #8a6a1f; }
   html[data-theme="light"] .morph-step-undone-note { color: #8a6a1f; }
+  html[data-theme="light"] .morph-step-dot.partial {
+    border-color: #cdbd72;
+    color: #7a6a16;
+    background: rgba(201,168,76,0.12);
+  }
+  html[data-theme="light"] .morph-step-summary-row.morph-step-partial .morph-step-summary-pick { color: #7a6a16; }
+  html[data-theme="light"] .morph-step-partial-note { color: #7a6a16; }
+  html[data-theme="light"] .morph-step-correct-note { color: #3a6a4a; }
   html[data-theme="light"] .morph-step-parse-line-yours .morph-step-parse-label { color: #8c3a3a; }
   html[data-theme="light"] .morph-step-parse-line-correct .morph-step-parse-label { color: #3a6a4a; }
   html[data-theme="light"] .morph-step-parse-match-impossible { color: #8c3a3a; }
