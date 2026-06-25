@@ -3,98 +3,98 @@
 // GitHub Pages note: all app-shell URLs are resolved relative to the
 // service worker registration scope so this works both at a domain root
 // and at a project path such as https://user.github.io/repository/.
-const CACHE_NAME = 'mounce-bbg-greek-pwa-v160';
+const CACHE_NAME = 'mounce-bbg-greek-pwa-v161';
 const BASE_URL = new URL('./', self.registration.scope);
 
 const APP_SHELL_PATHS = [
   './',
   'index.html',
   'pages/memorization.html',
-  'styles.css?v=160',
-  'manifest.json?v=160',
-  'favicon.svg?v=160',
-  'js/data/words.js?v=160',
-  'js/data/morphology.js?v=160',
-  'js/data/lemma_inventory.js?v=160',
-  'js/data/supplemental.js?v=160',
-  'js/data/grammar.js?v=160',
-  'js/data/parsing_examples.js?v=160',
-  'js/data/concept_examples.js?v=160',
-  'js/data/grammar_examples.js?v=160',
-  'js/data/setMeta.js?v=160',
-  'js/logic/pos_logic.js?v=160',
-  'js/data/reader.js?v=160',
-  'js/data/reader_verse_literals.js?v=160',
-  'js/data/reader_translations.js?v=160',
-  'js/data/supplementals/mounce_paradigms.js?v=160',
-  'js/data/supplementals/stem_change_drills.js?v=160',
-  'js/data/supplementals/second_aorist_flip.js?v=160',
-  'js/data/supplementals/liquid_future_flip.js?v=160',
-  'js/data/supplementals/w3_aorist_passive_flip.js?v=160',
-  'js/data/supplementals/w3_perfect_active_flip.js?v=160',
-  'js/data/supplementals/w4_mi_verb_principal_parts_flip.js?v=160',
-  'js/app/main.js?v=160',
-  'js/data/advanced/advanced_01.js?v=160',
-  'js/data/advanced/advanced_02.js?v=160',
-  'js/data/advanced/advanced_03.js?v=160',
-  'js/data/advanced/advanced_04.js?v=160',
-  'js/data/advanced/advanced_05.js?v=160',
-  'js/data/advanced/advanced_06.js?v=160',
-  'js/data/advanced/advanced_07.js?v=160',
-  'js/data/advanced/advanced_08.js?v=160',
-  'js/data/advanced/advanced_09.js?v=160',
-  'js/data/advanced/advanced_10.js?v=160',
-  'js/data/advanced/advanced_11.js?v=160',
-  'js/data/advanced/advanced_12.js?v=160',
-  'js/data/advanced/advanced_13.js?v=160',
-  'js/data/advanced/advanced_14.js?v=160',
-  'js/data/advanced/advanced_15.js?v=160',
-  'js/data/advanced/advanced_16.js?v=160',
-  'js/data/advanced/advanced_17.js?v=160',
-  'js/data/advanced/advanced_18.js?v=160',
-  'js/data/advanced/advanced_19.js?v=160',
-  'js/data/advanced/advanced_20.js?v=160',
-  'js/data/advanced/advanced_21.js?v=160',
-  'js/data/advanced/advanced_22.js?v=160',
-  'js/data/advanced/advanced_23.js?v=160',
-  'js/data/advanced/advanced_24.js?v=160',
-  'js/data/advanced/advanced_25.js?v=160',
-  'js/data/nt_book_vocab.js?v=160',
-  'js/utils/helpers.js?v=160',
-  'js/utils/time.js?v=160',
-  'js/utils/storage.js?v=160',
-  'js/utils/greekSort.js?v=160',
-  'js/utils/clickShield.js?v=160',
-  'js/domain/srs/constants.js?v=160',
-  'js/domain/srs/scheduler.js?v=160',
-  'js/domain/srs/confidence.js?v=160',
-  'js/domain/gamification/levels.js?v=160',
-  'js/domain/gamification/usageStats.js?v=160',
-  'js/domain/deck/ordering.js?v=160',
-  'js/domain/deck/filters.js?v=160',
-  'js/domain/grammar/explanations.js?v=160',
-  'js/domain/grammar/morph_steps.js?v=160',
-  'js/domain/grammar/morph_lookup.js?v=160',
-  'js/domain/grammar/paradigm_focus.js?v=160',
-  'js/state/migrations.js?v=160',
-  'js/state/store.js?v=160',
-  'js/state/runtime.js?v=160',
-  'js/state/persistence.js?v=160',
-  'js/domain/gamification/xp.js?v=160',
-  'js/ui/analytics.js?v=160',
-  'js/ui/charts.js?v=160',
-  'js/ui/keyboard.js?v=160',
-  'js/ui/modals.js?v=160',
-  'js/ui/navigation.js?v=160',
-  'js/ui/progress.js?v=160',
-  'js/ui/reader.js?v=160',
-  'js/ui/render.js?v=160',
-  'js/ui/selectors.js?v=160',
-  'js/ui/toast.js?v=160',
-  'js/ui/touchTapBridge.js?v=160',
+  'styles.css?v=161',
+  'manifest.json?v=161',
+  'favicon.svg?v=161',
+  'js/data/words.js?v=161',
+  'js/data/morphology.js?v=161',
+  'js/data/lemma_inventory.js?v=161',
+  'js/data/supplemental.js?v=161',
+  'js/data/grammar.js?v=161',
+  'js/data/parsing_examples.js?v=161',
+  'js/data/concept_examples.js?v=161',
+  'js/data/grammar_examples.js?v=161',
+  'js/data/setMeta.js?v=161',
+  'js/logic/pos_logic.js?v=161',
+  'js/data/reader.js?v=161',
+  'js/data/reader_verse_literals.js?v=161',
+  'js/data/reader_translations.js?v=161',
+  'js/data/supplementals/mounce_paradigms.js?v=161',
+  'js/data/supplementals/stem_change_drills.js?v=161',
+  'js/data/supplementals/second_aorist_flip.js?v=161',
+  'js/data/supplementals/liquid_future_flip.js?v=161',
+  'js/data/supplementals/w3_aorist_passive_flip.js?v=161',
+  'js/data/supplementals/w3_perfect_active_flip.js?v=161',
+  'js/data/supplementals/w4_mi_verb_principal_parts_flip.js?v=161',
+  'js/app/main.js?v=161',
+  'js/data/advanced/advanced_01.js?v=161',
+  'js/data/advanced/advanced_02.js?v=161',
+  'js/data/advanced/advanced_03.js?v=161',
+  'js/data/advanced/advanced_04.js?v=161',
+  'js/data/advanced/advanced_05.js?v=161',
+  'js/data/advanced/advanced_06.js?v=161',
+  'js/data/advanced/advanced_07.js?v=161',
+  'js/data/advanced/advanced_08.js?v=161',
+  'js/data/advanced/advanced_09.js?v=161',
+  'js/data/advanced/advanced_10.js?v=161',
+  'js/data/advanced/advanced_11.js?v=161',
+  'js/data/advanced/advanced_12.js?v=161',
+  'js/data/advanced/advanced_13.js?v=161',
+  'js/data/advanced/advanced_14.js?v=161',
+  'js/data/advanced/advanced_15.js?v=161',
+  'js/data/advanced/advanced_16.js?v=161',
+  'js/data/advanced/advanced_17.js?v=161',
+  'js/data/advanced/advanced_18.js?v=161',
+  'js/data/advanced/advanced_19.js?v=161',
+  'js/data/advanced/advanced_20.js?v=161',
+  'js/data/advanced/advanced_21.js?v=161',
+  'js/data/advanced/advanced_22.js?v=161',
+  'js/data/advanced/advanced_23.js?v=161',
+  'js/data/advanced/advanced_24.js?v=161',
+  'js/data/advanced/advanced_25.js?v=161',
+  'js/data/nt_book_vocab.js?v=161',
+  'js/utils/helpers.js?v=161',
+  'js/utils/time.js?v=161',
+  'js/utils/storage.js?v=161',
+  'js/utils/greekSort.js?v=161',
+  'js/utils/clickShield.js?v=161',
+  'js/domain/srs/constants.js?v=161',
+  'js/domain/srs/scheduler.js?v=161',
+  'js/domain/srs/confidence.js?v=161',
+  'js/domain/gamification/levels.js?v=161',
+  'js/domain/gamification/usageStats.js?v=161',
+  'js/domain/deck/ordering.js?v=161',
+  'js/domain/deck/filters.js?v=161',
+  'js/domain/grammar/explanations.js?v=161',
+  'js/domain/grammar/morph_steps.js?v=161',
+  'js/domain/grammar/morph_lookup.js?v=161',
+  'js/domain/grammar/paradigm_focus.js?v=161',
+  'js/state/migrations.js?v=161',
+  'js/state/store.js?v=161',
+  'js/state/runtime.js?v=161',
+  'js/state/persistence.js?v=161',
+  'js/domain/gamification/xp.js?v=161',
+  'js/ui/analytics.js?v=161',
+  'js/ui/charts.js?v=161',
+  'js/ui/keyboard.js?v=161',
+  'js/ui/modals.js?v=161',
+  'js/ui/navigation.js?v=161',
+  'js/ui/progress.js?v=161',
+  'js/ui/reader.js?v=161',
+  'js/ui/render.js?v=161',
+  'js/ui/selectors.js?v=161',
+  'js/ui/toast.js?v=161',
+  'js/ui/touchTapBridge.js?v=161',
   'icons/icon-192.png',
   'icons/icon-512.png',
-  'icons/apple-touch-icon.png?v=160',
+  'icons/apple-touch-icon.png?v=161',
   // Bundled webfonts — referenced from styles.css @font-face declarations.
   // Same-origin, so no runtime CDN fetches. Gentium Plus is the serif
   // (regular/bold × upright/italic × 3 subsets = 12 files); Noto Sans is
@@ -122,6 +122,19 @@ const APP_SHELL_PATHS = [
 
 const APP_SHELL = APP_SHELL_PATHS.map(path => new URL(path, BASE_URL).toString());
 const INDEX_URL = new URL('index.html', BASE_URL).toString();
+
+// Upper bound on how long a navigation may wait for the network before we fall
+// back to the cached app shell. A stalled (not errored) launch fetch would
+// otherwise hang indefinitely — and on iOS standalone PWAs that renders a frozen
+// page whose taps do nothing until a force-quit. 4s is long enough that a
+// healthy connection still serves fresh HTML.
+const NAV_TIMEOUT_MS = 4000;
+
+// The cached app shell for a navigation: the exact cached navigation response if
+// present, otherwise the precached index. Used as the bounded-wait fallback.
+function cachedShell(req) {
+  return caches.match(req).then(cached => cached || caches.match(INDEX_URL));
+}
 
 self.addEventListener('install', event => {
   // Deliberately NO skipWaiting() here: a new worker installs and then WAITS.
@@ -175,20 +188,35 @@ self.addEventListener('fetch', event => {
   const req = event.request;
   if (req.method !== 'GET') return;
 
+  // Navigation: network first, but BOUNDED — fall back to the cached shell if
+  // the network errors OR stalls past NAV_TIMEOUT_MS, so a launch can never hang
+  // (see NAV_TIMEOUT_MS). The network request keeps running past a timeout to
+  // refresh the cache for next launch; the update-prompt flow (main.js) is what
+  // surfaces the newer version once it's cached.
   if (req.mode === 'navigate') {
-    event.respondWith(
-      fetch(req)
-        .then(res => {
-          // Only cache good responses — a 404/500 (e.g. a Pages outage)
-          // must not overwrite the working cached shell.
-          if (res.ok) {
-            const copy = res.clone();
-            caches.open(CACHE_NAME).then(cache => cache.put(req, copy));
-          }
-          return res;
-        })
-        .catch(() => caches.match(req).then(cached => cached || caches.match(INDEX_URL)))
-    );
+    event.respondWith((async () => {
+      const network = fetch(req).then(res => {
+        // Only cache good responses — a 404/500 (e.g. a Pages outage) must not
+        // overwrite the working cached shell.
+        if (res.ok) {
+          const copy = res.clone();
+          caches.open(CACHE_NAME).then(cache => cache.put(req, copy));
+        }
+        return res;
+      });
+      try {
+        return await Promise.race([
+          network,
+          new Promise((_, reject) => setTimeout(() => reject(new Error('nav-timeout')), NAV_TIMEOUT_MS))
+        ]);
+      } catch (_) {
+        // Timeout or network error: serve the cached app so launch stays
+        // responsive. If nothing is cached yet, wait out the real network.
+        const cached = await cachedShell(req);
+        if (cached) return cached;
+        return network.catch(() => caches.match(INDEX_URL));
+      }
+    })());
     return;
   }
 

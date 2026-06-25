@@ -690,17 +690,6 @@ export function toggleShuffle() {
   host.saveState();
 }
 
-export function toggleRequiredOnly() {
-  runtime.requiredOnly = !runtime.requiredOnly;
-  host.syncToggleButtons();
-  if (!runtime.selectedKeys.length) {
-    host.saveState();
-    return;
-  }
-  const keysToLoad = runtime.currentSession ? expandSessionSets(runtime.currentSession) : runtime.selectedKeys;
-  loadDeckFromKeys(keysToLoad, runtime.currentSession ? runtime.currentSession.id : null);
-}
-
 export function toggleHardVocabReview() {
   runtime.hardVocabReviewMode = !runtime.hardVocabReviewMode;
   host.syncToggleButtons();
@@ -734,7 +723,7 @@ export function toggleIrregularTense() {
 
 // Irregular forms as their own cards (e.g. εἶπον alongside λέγω, λέλυκα
 // alongside λύω). Unlike stem notes this changes the deck's contents, so it
-// rebuilds the deck the same way toggleRequiredOnly does. Clicking records an
+// rebuilds the deck the same way toggleHardVocabReview does. Clicking records an
 // explicit override (true/false) so the auto "on when the chapter is selected"
 // default no longer applies to that concept.
 export function toggleIrregularCards(tag) {
@@ -1195,7 +1184,7 @@ const OPTIONAL_FILTER_KEYS = new Set(['imperative', 'subjunctive', 'infinitive',
 // optional cards in the pool to filter), and never affect the
 // always-on fallback form-lookup. Flipping a filter rebuilds the
 // deck so the change shows up immediately, mirroring how
-// toggleOptionalForms / toggleRequiredOnly behave.
+// toggleOptionalForms / toggleHardVocabReview behave.
 export function toggleOptionalFormFilter(filterKey) {
   if (!OPTIONAL_FILTER_KEYS.has(filterKey)) return;
   if (!runtime.optionalFormFilters || typeof runtime.optionalFormFilters !== 'object') {
@@ -1366,23 +1355,6 @@ export function resetCurrentDeck() {
   }
 
   openResetUnspacedModal();
-}
-
-// Shortcut entry point: opens the same reset modal as `resetCurrentDeck`
-// but pre-checks the "Required cards only" scope so the action only touches
-// graded vocabulary in the current selection. The user still chooses
-// between "Set all to now" and "Reset progress" inside the spaced modal.
-export function resetRequiredOnly() {
-  if (!runtime.selectedKeys.length) return;
-  const overlayId = runtime.spacedRepetition ? 'resetSpacedOverlay' : 'resetUnspacedOverlay';
-  if (runtime.spacedRepetition) {
-    openResetSpacedModal();
-  } else {
-    openResetUnspacedModal();
-  }
-  const overlay = document.getElementById(overlayId);
-  const checkbox = overlay && overlay.querySelector('input[type="checkbox"][data-reset-required-only]');
-  if (checkbox) checkbox.checked = true;
 }
 
 // Returns true when a card should be touched by the reset operation,

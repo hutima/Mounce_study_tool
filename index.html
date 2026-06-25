@@ -19,11 +19,11 @@ update that doc in the same commit. Line numbers in the doc are approximate.
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="Mounce Greek">
-<link rel="manifest" href="manifest.json?v=160">
-<link rel="apple-touch-icon" href="icons/apple-touch-icon.png?v=160">
-<link rel="icon" type="image/svg+xml" href="favicon.svg?v=160">
+<link rel="manifest" href="manifest.json?v=161">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png?v=161">
+<link rel="icon" type="image/svg+xml" href="favicon.svg?v=161">
 <title>Mounce BBG Greek — Flashcards</title>
-<link rel="stylesheet" href="styles.css?v=160">
+<link rel="stylesheet" href="styles.css?v=161">
 <script>
 (function(){
   try {
@@ -143,10 +143,6 @@ update that doc in the same commit. Line numbers in the doc are approximate.
       <span class="toggle-text">Accent/breathing look-alike distractors</span>
       <span class="toggle-switch" id="accentLookalikeBtn" aria-hidden="true"></span>
     </button>
-    <button class="toggle-label" id="requiredToggle" type="button" role="switch" aria-checked="false" onclick="toggleRequiredOnly()" title="Limit the deck to required (graded) vocabulary for your selection, leaving out optional and supplemental words.">
-      <span class="toggle-text">Required only</span>
-      <span class="toggle-switch" id="requiredBtn" aria-hidden="true"></span>
-    </button>
     <button class="toggle-label" id="hardReviewToggle" type="button" role="switch" aria-checked="false" onclick="toggleHardVocabReview()" title="Drill only vocab you've missed more than 10 times and that's still under 40% confidence">
       <span class="toggle-text">Hard review</span>
       <span class="toggle-switch" id="hardReviewBtn" aria-hidden="true"></span>
@@ -206,6 +202,7 @@ update that doc in the same commit. Line numbers in the doc are approximate.
       <span class="toggle-text">Self-check</span>
       <span class="toggle-switch" id="selfCheckBtn" aria-hidden="true"></span>
     </button>
+    <div id="parsingStepOptions" class="parsing-step-options">
     <button class="toggle-label" id="aspectStepToggle" type="button" role="switch" aria-checked="true" onclick="toggleAspectStep()" title="Aspect is derivable from tense, so turning this off shortens the parsing walk by one step.">
       <span class="toggle-text">Aspect step (parsing)</span>
       <span class="toggle-switch" id="aspectStepBtn" aria-hidden="true"></span>
@@ -415,10 +412,10 @@ update that doc in the same commit. Line numbers in the doc are approximate.
         <span class="toggle-switch" id="optionalFilter_perfectTense_Btn" aria-hidden="true"></span>
       </button>
     </details>
+    </div>
     <div class="reset-actions-grid">
       <button class="ctrl-btn" type="button" onclick="reshuffleEligible()">Reshuffle</button>
       <button class="ctrl-btn" id="resetDeckBtn" type="button" onclick="resetCurrentDeck()">Reset deck</button>
-      <button class="ctrl-btn" id="resetRequiredBtn" type="button" onclick="resetRequiredOnly()" title="Reset only the required (graded) cards in this deck">Reset required</button>
       <button class="ctrl-btn" id="resetKnownBtn" type="button" onclick="resetKnownMorphs()" title="Set every form's parsing tally back to 0/2 — clears the per-form recent attempts so the dots all read as unseen. The per-paradigm rolling % is kept." style="display:none">Reset known</button>
       <button class="ctrl-btn" id="clearParsingStatsBtn" type="button" onclick="clearParsingStats()" title="Wipe ALL parsing stats — every paradigm's accuracy %, the per-mood/tense breakdown, and per-form tallies. Parsing mode only; vocab/morphology/reader progress are kept. No undo." style="display:none">Clear parsing stats</button>
       <button class="ctrl-btn" type="button" onclick="openResetStatsModal()">Reset stats</button>
@@ -823,7 +820,7 @@ update that doc in the same commit. Line numbers in the doc are approximate.
         <li><strong>Self-check</strong> (grammar) — hide the answer until you tap to reveal.</li>
         <li><strong>Parsing-step toggles</strong> (parsing mode) — turn any of the eight dimensions off, or open the nested "Exclude … values" panel to skip individual values (e.g. drill aorist only). Each label notes the chapter where the value enters.</li>
         <li><strong>Optional paradigm extensions</strong> (parsing) — include or exclude imperatives, subjunctives, infinitives, participles, 3rd-person forms, and future / perfect tense forms by category.</li>
-        <li><strong>Reshuffle</strong> / <strong>Reset deck</strong> / <strong>Reset required</strong> / <strong>Reset stats</strong>. The spaced-reset prompt also offers "Set all to now" (keep progress, make every card due) and can be scoped to required cards only.</li>
+        <li><strong>Reshuffle</strong> / <strong>Reset deck</strong> / <strong>Reset stats</strong>. The spaced-reset prompt also offers "Set selected to now" (keep progress, make every card in your selection due) and "Smooth schedule".</li>
       </ul>
 
       <h3 class="user-guide-heading">How spaced repetition works</h3>
@@ -899,23 +896,17 @@ update that doc in the same commit. Line numbers in the doc are approximate.
     <div class="consent-label">Reset spaced review</div>
     <h2 id="resetSpacedTitle">What would you like to reset?</h2>
     <div class="consent-copy">
-      <p><strong>Set all to now</strong> keeps your SRS progress (streaks, intervals, ease) but makes every card in this deck due immediately, so you can review them all right away.</p>
+      <p><strong>Set selected to now</strong> keeps your SRS progress (streaks, intervals, ease) but makes every card in your current selection due immediately, so you can review them right away.</p>
       <p><strong>Smooth schedule</strong> keeps all progress and just levels the review calendar: when many cards pile up on the same future day (e.g. after completing a reset), it pulls some of them to earlier days so roughly the same number come due each day. Cards due within the next 3 days are left alone, and nothing is ever pushed later.</p>
-      <p><strong>Reset progress</strong> clears all SRS scheduling and progress for this deck. Pass history and unspaced marks are kept.</p>
-      <p class="reset-scope-row">
-        <label>
-          <input type="checkbox" data-reset-required-only id="resetSpacedRequiredOnly">
-          <strong>Required cards only</strong> — apply just to graded vocabulary in the current selection (useful for quiz prep).
-        </label>
-      </p>
+      <p><strong>Reset selected</strong> clears all SRS scheduling and progress for the cards in your current selection. Pass history and unspaced marks are kept.</p>
     </div>
     <div class="consent-actions reset-spaced-actions">
       <button class="ctrl-btn" type="button" onclick="closeResetSpacedModal()">Cancel</button>
-      <button class="ctrl-btn reset-spaced-primary-btn" type="button" onclick="confirmResetSpacedTimingOnly()">Set all to now</button>
+      <button class="ctrl-btn reset-spaced-primary-btn" type="button" onclick="confirmResetSpacedTimingOnly()">Set selected to now</button>
       <button class="ctrl-btn reset-spaced-primary-btn" type="button" onclick="confirmResetSpacedSmooth()" title="Re-spread cards due more than 3 days out so a similar number come due each day. Never pushes a card later.">Smooth schedule</button>
     </div>
     <div class="reset-spaced-danger-row">
-      <button class="ctrl-btn reset-spaced-danger-btn" type="button" onclick="confirmResetSpacedProgress()">Reset progress</button>
+      <button class="ctrl-btn reset-spaced-danger-btn" type="button" onclick="confirmResetSpacedProgress()">Reset selected</button>
     </div>
   </div>
 </div>
@@ -942,12 +933,6 @@ update that doc in the same commit. Line numbers in the doc are approximate.
     <h2 id="resetUnspacedTitle">Reset this flip deck?</h2>
     <div class="consent-copy">
       <p>Brings every archived card back into rotation and reshuffles the deck. Your spaced-review scheduling, intervals, confidence history, and pass history are kept.</p>
-      <p class="reset-scope-row">
-        <label>
-          <input type="checkbox" data-reset-required-only id="resetUnspacedRequiredOnly">
-          <strong>Required cards only</strong> — apply just to graded vocabulary in the current selection (useful for quiz prep).
-        </label>
-      </p>
     </div>
     <div class="consent-actions reset-spaced-actions">
       <button class="ctrl-btn" type="button" onclick="closeResetUnspacedModal()">Cancel</button>
@@ -990,48 +975,48 @@ update that doc in the same commit. Line numbers in the doc are approximate.
   <button class="update-banner-dismiss" type="button" onclick="dismissAppUpdate()" aria-label="Dismiss">×</button>
 </div>
 
-<script defer src="js/data/words.js?v=160"></script>
-<script defer src="js/data/morphology.js?v=160"></script>
-<script defer src="js/data/lemma_inventory.js?v=160"></script>
-<script defer src="js/data/supplemental.js?v=160"></script>
-<script defer src="js/data/grammar.js?v=160"></script>
-<script defer src="js/data/supplementals/mounce_paradigms.js?v=160"></script>
-<script defer src="js/data/supplementals/stem_change_drills.js?v=160"></script>
-<script defer src="js/data/supplementals/second_aorist_flip.js?v=160"></script>
-<script defer src="js/data/supplementals/liquid_future_flip.js?v=160"></script>
-<script defer src="js/data/supplementals/w3_aorist_passive_flip.js?v=160"></script>
-<script defer src="js/data/supplementals/w3_perfect_active_flip.js?v=160"></script>
-<script defer src="js/data/supplementals/w4_mi_verb_principal_parts_flip.js?v=160"></script>
-<script defer src="js/data/advanced/advanced_01.js?v=160"></script>
-<script defer src="js/data/advanced/advanced_02.js?v=160"></script>
-<script defer src="js/data/advanced/advanced_03.js?v=160"></script>
-<script defer src="js/data/advanced/advanced_04.js?v=160"></script>
-<script defer src="js/data/advanced/advanced_05.js?v=160"></script>
-<script defer src="js/data/advanced/advanced_06.js?v=160"></script>
-<script defer src="js/data/advanced/advanced_07.js?v=160"></script>
-<script defer src="js/data/advanced/advanced_08.js?v=160"></script>
-<script defer src="js/data/advanced/advanced_09.js?v=160"></script>
-<script defer src="js/data/advanced/advanced_10.js?v=160"></script>
-<script defer src="js/data/advanced/advanced_11.js?v=160"></script>
-<script defer src="js/data/advanced/advanced_12.js?v=160"></script>
-<script defer src="js/data/advanced/advanced_13.js?v=160"></script>
-<script defer src="js/data/advanced/advanced_14.js?v=160"></script>
-<script defer src="js/data/advanced/advanced_15.js?v=160"></script>
-<script defer src="js/data/advanced/advanced_16.js?v=160"></script>
-<script defer src="js/data/advanced/advanced_17.js?v=160"></script>
-<script defer src="js/data/advanced/advanced_18.js?v=160"></script>
-<script defer src="js/data/advanced/advanced_19.js?v=160"></script>
-<script defer src="js/data/advanced/advanced_20.js?v=160"></script>
-<script defer src="js/data/advanced/advanced_21.js?v=160"></script>
-<script defer src="js/data/advanced/advanced_22.js?v=160"></script>
-<script defer src="js/data/advanced/advanced_23.js?v=160"></script>
-<script defer src="js/data/advanced/advanced_24.js?v=160"></script>
-<script defer src="js/data/advanced/advanced_25.js?v=160"></script>
-<script defer src="js/data/nt_book_vocab.js?v=160"></script>
-<script defer src="js/data/reader.js?v=160"></script>
-<script defer src="js/data/reader_verse_literals.js?v=160"></script>
-<script defer src="js/data/reader_translations.js?v=160"></script>
-<script defer src="js/logic/pos_logic.js?v=160"></script>
-<script type="module" src="js/app/main.js?v=160"></script>
+<script defer src="js/data/words.js?v=161"></script>
+<script defer src="js/data/morphology.js?v=161"></script>
+<script defer src="js/data/lemma_inventory.js?v=161"></script>
+<script defer src="js/data/supplemental.js?v=161"></script>
+<script defer src="js/data/grammar.js?v=161"></script>
+<script defer src="js/data/supplementals/mounce_paradigms.js?v=161"></script>
+<script defer src="js/data/supplementals/stem_change_drills.js?v=161"></script>
+<script defer src="js/data/supplementals/second_aorist_flip.js?v=161"></script>
+<script defer src="js/data/supplementals/liquid_future_flip.js?v=161"></script>
+<script defer src="js/data/supplementals/w3_aorist_passive_flip.js?v=161"></script>
+<script defer src="js/data/supplementals/w3_perfect_active_flip.js?v=161"></script>
+<script defer src="js/data/supplementals/w4_mi_verb_principal_parts_flip.js?v=161"></script>
+<script defer src="js/data/advanced/advanced_01.js?v=161"></script>
+<script defer src="js/data/advanced/advanced_02.js?v=161"></script>
+<script defer src="js/data/advanced/advanced_03.js?v=161"></script>
+<script defer src="js/data/advanced/advanced_04.js?v=161"></script>
+<script defer src="js/data/advanced/advanced_05.js?v=161"></script>
+<script defer src="js/data/advanced/advanced_06.js?v=161"></script>
+<script defer src="js/data/advanced/advanced_07.js?v=161"></script>
+<script defer src="js/data/advanced/advanced_08.js?v=161"></script>
+<script defer src="js/data/advanced/advanced_09.js?v=161"></script>
+<script defer src="js/data/advanced/advanced_10.js?v=161"></script>
+<script defer src="js/data/advanced/advanced_11.js?v=161"></script>
+<script defer src="js/data/advanced/advanced_12.js?v=161"></script>
+<script defer src="js/data/advanced/advanced_13.js?v=161"></script>
+<script defer src="js/data/advanced/advanced_14.js?v=161"></script>
+<script defer src="js/data/advanced/advanced_15.js?v=161"></script>
+<script defer src="js/data/advanced/advanced_16.js?v=161"></script>
+<script defer src="js/data/advanced/advanced_17.js?v=161"></script>
+<script defer src="js/data/advanced/advanced_18.js?v=161"></script>
+<script defer src="js/data/advanced/advanced_19.js?v=161"></script>
+<script defer src="js/data/advanced/advanced_20.js?v=161"></script>
+<script defer src="js/data/advanced/advanced_21.js?v=161"></script>
+<script defer src="js/data/advanced/advanced_22.js?v=161"></script>
+<script defer src="js/data/advanced/advanced_23.js?v=161"></script>
+<script defer src="js/data/advanced/advanced_24.js?v=161"></script>
+<script defer src="js/data/advanced/advanced_25.js?v=161"></script>
+<script defer src="js/data/nt_book_vocab.js?v=161"></script>
+<script defer src="js/data/reader.js?v=161"></script>
+<script defer src="js/data/reader_verse_literals.js?v=161"></script>
+<script defer src="js/data/reader_translations.js?v=161"></script>
+<script defer src="js/logic/pos_logic.js?v=161"></script>
+<script type="module" src="js/app/main.js?v=161"></script>
 </body>
 </html>
