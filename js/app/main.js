@@ -371,7 +371,13 @@ configureModals({
   setHasAcceptedDisclaimer: (v) => { runtime.hasAcceptedDisclaimer = v; },
   getDisclaimerModalRequiresAgreement: () => runtime.disclaimerModalRequiresAgreement,
   setDisclaimerModalRequiresAgreement: (v) => { runtime.disclaimerModalRequiresAgreement = v; },
-  hasSelectedKeys: () => runtime.selectedKeys.length > 0
+  hasSelectedKeys: () => runtime.selectedKeys.length > 0,
+  setSpacingCadence: (cadence) => {
+    if (cadence !== 'relaxed' && cadence !== 'intensive') return;
+    runtime.spacingCadence = cadence;
+    syncToggleButtons();
+    saveState();
+  }
 });
 configureProgress({
   accumulateUsageTime: () => accumulateUsageTime(),
@@ -1799,7 +1805,7 @@ function syncToggleButtons() {
   // Aspect's 'continuousUndefined' is a UI-only key — flipping it sets BOTH
   // dimValueFilters.aspect.continuous and .undefined to the same state.
   const DIM_VALUE_FILTER_VALUES = {
-    aspect: ['continuousUndefined', 'completed'],
+    aspect: ['continuousUndefined', 'perfect'],
     tense:  ['present', 'future', 'imperfect', 'aorist', 'perfect', 'pluperfect'],
     voice:  ['active', 'middle', 'passive'],
     mood:   ['indicative', 'subjunctive', 'imperative', 'infinitive', 'participle'],
@@ -1837,12 +1843,15 @@ function syncToggleButtons() {
   if (requiredSwitch)  requiredSwitch.classList.toggle('on',  !!runtime.requiredOnly);
   if (directionSwitch) directionSwitch.classList.toggle('on', !!runtime.directionToGreek);
   if (spacedSwitch)    spacedSwitch.classList.toggle('on',    !!runtime.spacedRepetition);
-  // Spacing cadence: ON = relaxed (8-month course), OFF = intensive (2-month, default).
-  const cadenceRelaxed = runtime.spacingCadence === 'relaxed';
+  // Spacing cadence (inverted toggle): ON = intensive (2-month course),
+  // OFF = relaxed (8-month, the default for new users — they pick it on the
+  // first-launch consent gate). Old/returning users keep intensive via their
+  // persisted value / the DEFAULT_SRS_CADENCE fallback.
+  const cadenceIntensive = runtime.spacingCadence === 'intensive';
   const cadenceSwitch = document.getElementById('cadenceBtn');
-  if (cadenceSwitch) cadenceSwitch.classList.toggle('on', cadenceRelaxed);
+  if (cadenceSwitch) cadenceSwitch.classList.toggle('on', cadenceIntensive);
   const cadenceToggleEl = document.getElementById('cadenceToggle');
-  if (cadenceToggleEl) cadenceToggleEl.setAttribute('aria-checked', cadenceRelaxed ? 'true' : 'false');
+  if (cadenceToggleEl) cadenceToggleEl.setAttribute('aria-checked', cadenceIntensive ? 'true' : 'false');
   if (hardReviewSwitch) hardReviewSwitch.classList.toggle('on', !!runtime.hardVocabReviewMode);
   const stemNotesSwitch = document.getElementById('stemNotesBtn');
   if (stemNotesSwitch) stemNotesSwitch.classList.toggle('on', runtime.stemNotes !== false);

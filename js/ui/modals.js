@@ -25,7 +25,10 @@ let host = {
   setHasAcceptedDisclaimer: () => {},
   setDisclaimerModalRequiresAgreement: () => {},
   getDisclaimerModalRequiresAgreement: () => false,
-  hasSelectedKeys: () => false
+  hasSelectedKeys: () => false,
+  // Apply the first-launch study-pace choice (new users only). No-op default
+  // keeps the consent flow working if the host doesn't wire it up.
+  setSpacingCadence: () => {}
 };
 
 export function configureModals(deps) {
@@ -56,6 +59,10 @@ export function openDisclaimerModal(requireAgreement = !host.getHasAcceptedDiscl
   host.setDisclaimerModalRequiresAgreement(!!requireAgreement);
   if (checkRow) checkRow.style.display = host.getDisclaimerModalRequiresAgreement() ? 'flex' : 'none';
   if (checkbox) checkbox.checked = false;
+  // The study-pace chooser is a first-launch-only decision (new users). When
+  // the disclaimer is reopened later from the menu (Close mode), hide it.
+  const pacingRow = document.getElementById('consentPacingRow');
+  if (pacingRow) pacingRow.style.display = host.getDisclaimerModalRequiresAgreement() ? 'block' : 'none';
   overlay.classList.add('show');
   overlay.setAttribute('aria-hidden', 'false');
   document.body.classList.add('modal-open');
@@ -81,6 +88,11 @@ export function handleConsentAction() {
   if (!checkbox || !checkbox.checked) return;
 
   host.setHasAcceptedDisclaimer(true);
+  // Apply the first-launch study-pace choice. New users default to the
+  // 8-month relaxed pace; old/returning users never reach this branch, so
+  // they keep their persisted (2-month intensive) cadence.
+  const pacingChoice = document.querySelector('input[name="consentPacing"]:checked');
+  if (pacingChoice) host.setSpacingCadence(pacingChoice.value);
   const storage = getStorage();
   if (storage) {
     storage.setItem(CONSENT_STORAGE_KEY, 'accepted');

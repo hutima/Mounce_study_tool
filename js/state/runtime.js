@@ -165,7 +165,7 @@ export const runtime = {
   // aorist qualifiers and slash-composites are derived, not toggled
   // independently.
   dimValueFilters: {
-    aspect: { continuous: true, undefined: true, completed: true },
+    aspect: { continuous: true, undefined: true, perfect: true },
     tense:  { present: true, future: true, imperfect: true, aorist: true, perfect: true, pluperfect: true },
     voice:  { active: true, middle: true, passive: true },
     mood:   { indicative: true, subjunctive: true, imperative: true, infinitive: true, participle: true },

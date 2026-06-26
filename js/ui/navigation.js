@@ -758,11 +758,14 @@ export function toggleDirection() {
   host.saveState();
 }
 
-// Switch the spaced-review spacing cadence between the 2-month intensive
-// default ('intensive') and the relaxed 8-month course pace ('relaxed'). Only
-// changes how *future* flips are scheduled (the easy-interval growth curve and
-// the max-interval cap) — already-scheduled cards keep their due dates, so the
-// deck and current due states are untouched and there's nothing to rebuild.
+// Switch the spaced-review spacing cadence between the relaxed 8-month course
+// pace ('relaxed', the default for new users — chosen on the first-launch
+// consent gate) and the 2-month intensive pace ('intensive'). The
+// Advanced-settings toggle is framed as the intensive opt-in (ON = intensive),
+// but this flip is symmetric. Only changes how *future* flips are scheduled
+// (the easy-interval growth curve and the max-interval cap) — already-scheduled
+// cards keep their due dates, so the deck and current due states are untouched
+// and there's nothing to rebuild.
 export function toggleSpacingCadence() {
   runtime.spacingCadence = runtime.spacingCadence === 'relaxed' ? 'intensive' : 'relaxed';
   host.syncToggleButtons();
@@ -1214,7 +1217,7 @@ export function toggleOptionalFormFilter(filterKey) {
 // and future forms are aspectually ambiguous between them — so a single
 // toggle that flips both halves at once matches the pedagogy).
 const DIM_VALUE_FILTER_VALUES = {
-  aspect: ['continuousUndefined', 'completed'],
+  aspect: ['continuousUndefined', 'perfect'],
   tense:  ['present', 'future', 'imperfect', 'aorist', 'perfect', 'pluperfect'],
   voice:  ['active', 'middle', 'passive'],
   mood:   ['indicative', 'subjunctive', 'imperative', 'infinitive', 'participle'],

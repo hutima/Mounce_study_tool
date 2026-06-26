@@ -1295,6 +1295,18 @@
     }
   }
 
+  /* Alternate-terminology sub-label under an aspect choice (Mounce's
+     "continuous/undefined/perfect" → the common imperfective/perfective/
+     stative labels). Small, italic, dimmed; sits on its own line. */
+  .choice-btn-alt {
+    display: block;
+    margin-top: 2px;
+    font-style: italic;
+    font-size: calc((12px) * var(--text-scale));
+    color: var(--gold-dim);
+    opacity: 0.75;
+  }
+
   .choice-btn.correct {
     border-color: #3a5a42;
     background: rgba(74,122,90,0.18);
@@ -2804,6 +2816,54 @@
 
   .consent-copy p + p {
     margin-top: 10px;
+  }
+
+  /* First-launch study-pace chooser (8-month relaxed vs 2-month intensive).
+     Shown only on the first-run consent gate; hidden when the disclaimer is
+     reopened later. */
+  .consent-pacing {
+    margin-top: 18px;
+    padding: 14px;
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    background: rgba(255,255,255,0.02);
+  }
+
+  .consent-pacing-label {
+    color: var(--gold-light);
+    font-size: calc((14px) * var(--text-scale));
+    font-weight: 600;
+    margin-bottom: 10px;
+  }
+
+  .consent-pacing-options {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  .consent-pacing-option {
+    display: flex;
+    gap: 12px;
+    align-items: flex-start;
+    color: var(--cream);
+    line-height: 1.45;
+    font-size: calc((14px) * var(--text-scale));
+    cursor: pointer;
+  }
+
+  .consent-pacing-option input {
+    margin-top: 3px;
+    accent-color: var(--gold);
+    width: 16px;
+    height: 16px;
+    flex-shrink: 0;
+  }
+
+  .consent-pacing-note {
+    margin-top: 10px;
+    color: var(--muted);
+    font-size: calc((12px) * var(--text-scale));
   }
 
   .consent-check-row {
