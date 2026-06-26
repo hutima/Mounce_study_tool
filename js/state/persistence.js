@@ -190,7 +190,7 @@ function sanitizeParadigmStepStats(input) {
 }
 
 const DIM_VALUE_FILTER_VALUES = {
-  aspect: ['continuous', 'undefined', 'completed'],
+  aspect: ['continuous', 'undefined', 'perfect'],
   tense:  ['present', 'future', 'imperfect', 'aorist', 'perfect', 'pluperfect'],
   voice:  ['active', 'middle', 'passive'],
   mood:   ['indicative', 'subjunctive', 'imperative', 'infinitive', 'participle'],

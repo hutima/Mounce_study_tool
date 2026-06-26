@@ -13,7 +13,7 @@
 // answer from the card's parsed answer string and pulls distractors from the
 // remaining pool entries for that dimension.
 const DIM_POOLS = {
-  aspect: ['continuous', 'undefined', 'continuous/undefined', 'completed'],
+  aspect: ['continuous', 'undefined', 'continuous/undefined', 'perfect'],
   tense:  ['present', 'future', 'imperfect', 'aorist', 'first aorist', 'second aorist', 'perfect', 'pluperfect'],
   voice:  ['active', 'middle', 'passive', 'middle/passive'],
   mood:   ['indicative', 'subjunctive', 'imperative', 'infinitive', 'participle'],
@@ -39,12 +39,16 @@ const DIM_LABEL = {
 // after the singles they combine — so a combined option (the neuter
 // "nominative/accusative", a 2-termination adjective's "masculine/feminine")
 // sits next to its components instead of being exiled to the end of the list,
-// where it's easy to overlook and skip past. This only affects ORDERING, never
+// where it's easy to overlook and skip past. Case uses Mounce's teaching
+// order (nominative, nominative/accusative, genitive, dative, accusative,
+// vocative) — the order his paradigm tables present, with the neuter
+// nominative/accusative syncretism slotted right after the nominative it
+// shares — rather than strict alphabetical. This only affects ORDERING, never
 // which choices appear (that's buildChoices) — composites still surface only
 // when they're the actual syncretic answer, not as distractors. Dimensions
 // without an entry here fall back to DIM_POOLS order.
 const CHOICE_SORT_ORDER = {
-  case:   ['nominative', 'accusative', 'nominative/accusative', 'genitive', 'dative', 'vocative'],
+  case:   ['nominative', 'nominative/accusative', 'genitive', 'dative', 'accusative', 'vocative'],
   gender: ['masculine', 'feminine', 'neuter', 'masculine/feminine', 'masculine/neuter', 'masculine/feminine/neuter']
 };
 
@@ -53,7 +57,7 @@ const CHOICE_SORT_ORDER = {
 // (aoristic) — the form alone doesn't pick one (progressive vs gnomic for
 // the present; context decides for the future), so the right parse is the
 // composite 'continuous/undefined'. Imperfect commits to continuous,
-// aorist to undefined, perfect/pluperfect to completed. Exactly one
+// aorist to undefined, perfect/pluperfect to perfect. Exactly one
 // correct aspect per tense; picking just one half of the composite for
 // present/future overcommits and is marked wrong.
 const TENSE_TO_ASPECT = {
@@ -63,8 +67,8 @@ const TENSE_TO_ASPECT = {
   'aorist':        'undefined',
   'first aorist':  'undefined',
   'second aorist': 'undefined',
-  'perfect':       'completed',
-  'pluperfect':    'completed'
+  'perfect':       'perfect',
+  'pluperfect':    'perfect'
 };
 
 export function aspectForTense(tense) {
@@ -325,7 +329,7 @@ export function computeAccessibleDimensionPools(cards) {
     // as choices — the student needs to distinguish "either reading is valid"
     // from "this form commits to one reading" on every card. The composite is
     // never auto-correct from being present in the choices: it's only right
-    // for present/future. 'completed' arrives via the per-card add above
+    // for present/future. 'perfect' arrives via the per-card add above
     // when a perfect-stem form is in the accessible set.
     if (dims.tense) {
       pools.aspect.add('continuous');

@@ -19,11 +19,11 @@ update that doc in the same commit. Line numbers in the doc are approximate.
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="Mounce Greek">
-<link rel="manifest" href="manifest.json?v=162">
-<link rel="apple-touch-icon" href="icons/apple-touch-icon.png?v=162">
-<link rel="icon" type="image/svg+xml" href="favicon.svg?v=162">
+<link rel="manifest" href="manifest.json?v=163">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png?v=163">
+<link rel="icon" type="image/svg+xml" href="favicon.svg?v=163">
 <title>Mounce BBG Greek — Flashcards</title>
-<link rel="stylesheet" href="styles.css?v=162">
+<link rel="stylesheet" href="styles.css?v=163">
 <script>
 (function(){
   try {
@@ -186,8 +186,8 @@ update that doc in the same commit. Line numbers in the doc are approximate.
       <span class="toggle-text">Spaced review</span>
       <span class="toggle-switch" id="spacedBtn" aria-hidden="true"></span>
     </button>
-    <button class="toggle-label" id="cadenceToggle" type="button" role="switch" aria-checked="false" onclick="toggleSpacingCadence()" title="8-month pace: switch spaced review from the 2-month intensive cadence (tight ~2-week interval cap) to a relaxed 8-month cadence — intervals grow gently and adapt to each card's difficulty, resting up to ~2 months, so it doubles as an indefinite retention deck. A slip no longer wipes a well-known card: it runs a short relearn ladder, then resumes at half its old spacing (and a card that keeps lapsing gets drilled). Only changes how future flips schedule; already-due cards keep their dates.">
-      <span class="toggle-text">8-month pace</span>
+    <button class="toggle-label" id="cadenceToggle" type="button" role="switch" aria-checked="false" onclick="toggleSpacingCadence()" title="Spacing cadence. Off = 8-month / continuous review (the default): intervals grow gently and adapt to each card's difficulty, resting up to ~2 months — also works as an ongoing retention deck. A slip no longer wipes a well-known card: it runs a short relearn ladder, then resumes at half its old spacing (and a card that keeps lapsing gets drilled). On = 2-month intensive: tighter intervals, ~2-week cap — for a fast-paced course. Affects spaced review only; switching reschedules future reviews, not cards already due.">
+      <span class="toggle-text">2-month pace</span>
       <span class="toggle-switch" id="cadenceBtn" aria-hidden="true"></span>
     </button>
     <button class="toggle-label" id="unspacedDailyResetToggle" type="button" role="switch" aria-checked="false" onclick="toggleUnspacedDailyReset()" title="Auto-clear archived (Easy) cards once a day around 5 AM local time so you wake up to a fresh deck.">
@@ -213,9 +213,9 @@ update that doc in the same commit. Line numbers in the doc are approximate.
         <span class="toggle-text">Continuous/undefined (Ch. 15)</span>
         <span class="toggle-switch" id="dimValueFilter_aspect_continuousUndefined_Btn" aria-hidden="true"></span>
       </button>
-      <button class="toggle-label" id="dimValueFilter_aspect_completed_Toggle" type="button" role="switch" aria-checked="false" onclick="toggleDimValueFilter('aspect','completed')">
-        <span class="toggle-text">Completed (Ch. 25)</span>
-        <span class="toggle-switch" id="dimValueFilter_aspect_completed_Btn" aria-hidden="true"></span>
+      <button class="toggle-label" id="dimValueFilter_aspect_perfect_Toggle" type="button" role="switch" aria-checked="false" onclick="toggleDimValueFilter('aspect','perfect')">
+        <span class="toggle-text">Perfect (Ch. 25)</span>
+        <span class="toggle-switch" id="dimValueFilter_aspect_perfect_Btn" aria-hidden="true"></span>
       </button>
     </details>
     <button class="toggle-label" id="tenseStepToggle" type="button" role="switch" aria-checked="true" onclick="toggleDimStep('tense')" title="Ask Tense as a parsing step. Off: skipped silently, doesn't count toward stats, omitted from the parse summary.">
@@ -862,6 +862,20 @@ update that doc in the same commit. Line numbers in the doc are approximate.
       <p>This app is meant to help with review and memorization, not to replace assigned coursework or authoritative sources.</p>
       <p>Quick start: flip a card, then mark <strong>Hard</strong>, <strong>Uncertain</strong>, or <strong>Easy</strong>.</p>
     </div>
+    <div class="consent-pacing" id="consentPacingRow">
+      <div class="consent-pacing-label">Choose your study pace</div>
+      <div class="consent-pacing-options" role="radiogroup" aria-label="Study pace">
+        <label class="consent-pacing-option">
+          <input type="radio" name="consentPacing" value="relaxed" checked>
+          <span><strong>8-month</strong> — relaxed, ongoing review that grows gently and rests up to ~2 months. Good for long-term retention.</span>
+        </label>
+        <label class="consent-pacing-option">
+          <input type="radio" name="consentPacing" value="intensive">
+          <span><strong>2-month</strong> — intensive course pace with tighter intervals (~2-week cap). Good for a fast semester.</span>
+        </label>
+      </div>
+      <div class="consent-pacing-note">You can change this anytime in Advanced settings.</div>
+    </div>
     <label class="consent-check-row" id="consentCheckRow">
       <input type="checkbox" id="consentCheckbox">
       <span>I understand this is an unofficial AI-assisted student study aid, and I will verify content against course materials and official sources.</span>
@@ -982,48 +996,48 @@ update that doc in the same commit. Line numbers in the doc are approximate.
   </div>
 </div>
 
-<script defer src="js/data/words.js?v=162"></script>
-<script defer src="js/data/morphology.js?v=162"></script>
-<script defer src="js/data/lemma_inventory.js?v=162"></script>
-<script defer src="js/data/supplemental.js?v=162"></script>
-<script defer src="js/data/grammar.js?v=162"></script>
-<script defer src="js/data/supplementals/mounce_paradigms.js?v=162"></script>
-<script defer src="js/data/supplementals/stem_change_drills.js?v=162"></script>
-<script defer src="js/data/supplementals/second_aorist_flip.js?v=162"></script>
-<script defer src="js/data/supplementals/liquid_future_flip.js?v=162"></script>
-<script defer src="js/data/supplementals/w3_aorist_passive_flip.js?v=162"></script>
-<script defer src="js/data/supplementals/w3_perfect_active_flip.js?v=162"></script>
-<script defer src="js/data/supplementals/w4_mi_verb_principal_parts_flip.js?v=162"></script>
-<script defer src="js/data/advanced/advanced_01.js?v=162"></script>
-<script defer src="js/data/advanced/advanced_02.js?v=162"></script>
-<script defer src="js/data/advanced/advanced_03.js?v=162"></script>
-<script defer src="js/data/advanced/advanced_04.js?v=162"></script>
-<script defer src="js/data/advanced/advanced_05.js?v=162"></script>
-<script defer src="js/data/advanced/advanced_06.js?v=162"></script>
-<script defer src="js/data/advanced/advanced_07.js?v=162"></script>
-<script defer src="js/data/advanced/advanced_08.js?v=162"></script>
-<script defer src="js/data/advanced/advanced_09.js?v=162"></script>
-<script defer src="js/data/advanced/advanced_10.js?v=162"></script>
-<script defer src="js/data/advanced/advanced_11.js?v=162"></script>
-<script defer src="js/data/advanced/advanced_12.js?v=162"></script>
-<script defer src="js/data/advanced/advanced_13.js?v=162"></script>
-<script defer src="js/data/advanced/advanced_14.js?v=162"></script>
-<script defer src="js/data/advanced/advanced_15.js?v=162"></script>
-<script defer src="js/data/advanced/advanced_16.js?v=162"></script>
-<script defer src="js/data/advanced/advanced_17.js?v=162"></script>
-<script defer src="js/data/advanced/advanced_18.js?v=162"></script>
-<script defer src="js/data/advanced/advanced_19.js?v=162"></script>
-<script defer src="js/data/advanced/advanced_20.js?v=162"></script>
-<script defer src="js/data/advanced/advanced_21.js?v=162"></script>
-<script defer src="js/data/advanced/advanced_22.js?v=162"></script>
-<script defer src="js/data/advanced/advanced_23.js?v=162"></script>
-<script defer src="js/data/advanced/advanced_24.js?v=162"></script>
-<script defer src="js/data/advanced/advanced_25.js?v=162"></script>
-<script defer src="js/data/nt_book_vocab.js?v=162"></script>
-<script defer src="js/data/reader.js?v=162"></script>
-<script defer src="js/data/reader_verse_literals.js?v=162"></script>
-<script defer src="js/data/reader_translations.js?v=162"></script>
-<script defer src="js/logic/pos_logic.js?v=162"></script>
-<script type="module" src="js/app/main.js?v=162"></script>
+<script defer src="js/data/words.js?v=163"></script>
+<script defer src="js/data/morphology.js?v=163"></script>
+<script defer src="js/data/lemma_inventory.js?v=163"></script>
+<script defer src="js/data/supplemental.js?v=163"></script>
+<script defer src="js/data/grammar.js?v=163"></script>
+<script defer src="js/data/supplementals/mounce_paradigms.js?v=163"></script>
+<script defer src="js/data/supplementals/stem_change_drills.js?v=163"></script>
+<script defer src="js/data/supplementals/second_aorist_flip.js?v=163"></script>
+<script defer src="js/data/supplementals/liquid_future_flip.js?v=163"></script>
+<script defer src="js/data/supplementals/w3_aorist_passive_flip.js?v=163"></script>
+<script defer src="js/data/supplementals/w3_perfect_active_flip.js?v=163"></script>
+<script defer src="js/data/supplementals/w4_mi_verb_principal_parts_flip.js?v=163"></script>
+<script defer src="js/data/advanced/advanced_01.js?v=163"></script>
+<script defer src="js/data/advanced/advanced_02.js?v=163"></script>
+<script defer src="js/data/advanced/advanced_03.js?v=163"></script>
+<script defer src="js/data/advanced/advanced_04.js?v=163"></script>
+<script defer src="js/data/advanced/advanced_05.js?v=163"></script>
+<script defer src="js/data/advanced/advanced_06.js?v=163"></script>
+<script defer src="js/data/advanced/advanced_07.js?v=163"></script>
+<script defer src="js/data/advanced/advanced_08.js?v=163"></script>
+<script defer src="js/data/advanced/advanced_09.js?v=163"></script>
+<script defer src="js/data/advanced/advanced_10.js?v=163"></script>
+<script defer src="js/data/advanced/advanced_11.js?v=163"></script>
+<script defer src="js/data/advanced/advanced_12.js?v=163"></script>
+<script defer src="js/data/advanced/advanced_13.js?v=163"></script>
+<script defer src="js/data/advanced/advanced_14.js?v=163"></script>
+<script defer src="js/data/advanced/advanced_15.js?v=163"></script>
+<script defer src="js/data/advanced/advanced_16.js?v=163"></script>
+<script defer src="js/data/advanced/advanced_17.js?v=163"></script>
+<script defer src="js/data/advanced/advanced_18.js?v=163"></script>
+<script defer src="js/data/advanced/advanced_19.js?v=163"></script>
+<script defer src="js/data/advanced/advanced_20.js?v=163"></script>
+<script defer src="js/data/advanced/advanced_21.js?v=163"></script>
+<script defer src="js/data/advanced/advanced_22.js?v=163"></script>
+<script defer src="js/data/advanced/advanced_23.js?v=163"></script>
+<script defer src="js/data/advanced/advanced_24.js?v=163"></script>
+<script defer src="js/data/advanced/advanced_25.js?v=163"></script>
+<script defer src="js/data/nt_book_vocab.js?v=163"></script>
+<script defer src="js/data/reader.js?v=163"></script>
+<script defer src="js/data/reader_verse_literals.js?v=163"></script>
+<script defer src="js/data/reader_translations.js?v=163"></script>
+<script defer src="js/logic/pos_logic.js?v=163"></script>
+<script type="module" src="js/app/main.js?v=163"></script>
 </body>
 </html>

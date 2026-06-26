@@ -33,11 +33,11 @@ presets, off-the-record parsing). Consult it before applying a duff diff.
 
 ### Porting status — last version ported
 
-**Last reviewed duff commit: `b66a8b2e` (tip of duff `main`, 2026-06-25; PR #318).**
+**Last reviewed duff commit: `9e0cf80` (tip of duff `main`, 2026-06-26; PR #319).**
 When checking for new duff work, diff `origin/main` against that commit forward.
 (PRs #300/#301/#305/#306, previously ported ahead, are now merged on duff `main`
 and folded into the boundary; #302/#303/#304/#307, the #308–#316 batch, and
-#317–#318 ported below. Duff's `f92a2e6d` "Add files via upload" is just a binary
+#317–#319 ported below. Duff's `f92a2e6d` "Add files via upload" is just a binary
 `Paradigms.pdf` reference sheet — a duff asset, not code; not ported.)
 
 - **Ported in full through duff #288** (parsing undo + 3-tier scoring,
@@ -371,6 +371,52 @@ and folded into the boundary; #302/#303/#304/#307, the #308–#316 batch, and
     worker waiting from before no longer sits silently on the old version (the
     one-time waiting-check runs only at registration). Calls `showAppUpdatePrompt`
     (see the banner→modal note below).
+- **Ported duff PR #319 (`9e0cf80`) — aspect alternates + study-pace chooser +
+  case order; one part ADAPTED, one N/A.** This was the duff PR that prompted the
+  user's explicit case-order / aspect-wording asks, so two of its four parts were
+  steered to Mounce's own teaching rather than copied verbatim:
+  - **Aspect wording → Mounce's "Perfect" (PRIMARY rename, Mounce divergence).**
+    Mounce's own aspect chart (Ch. 15, `mounce.pdf` p.49) lists the three aspects
+    as **Continuous / Undefined / Perfect** — Mounce calls the third **"Perfect"**,
+    not duff's "completed". So the aspect *value* `'completed'` was renamed to
+    `'perfect'` everywhere: `DIM_POOLS.aspect` + `TENSE_TO_ASPECT` (perfect/pluperfect
+    → `'perfect'`) in `morph_steps.js`, the `dimValueFilters.aspect` default
+    (`runtime.js`), the `DIM_VALUE_FILTER_VALUES` whitelist (`persistence.js`) and
+    UI lists (`main.js`/`navigation.js`), and the value-filter toggle in `index.html`
+    (`dimValueFilter_aspect_perfect_Toggle/Btn`, label "Perfect (Ch. 25)"). Aspect is
+    always *derived* from tense (never parsed from text), so the `'perfect'` aspect
+    value never collides with the `'perfect'` *tense*. (Descriptive prose in
+    `grammar.js`/`concept_examples.js` that says "completed action…" describes the
+    perfect's *meaning* and is left as-is.) **No save migration** — the aspect step
+    defaults OFF and an old `completed:false` exclusion just degrades to the
+    default-included `perfect:true`; Mounce is pre-release.
+  - **Aspect alternate labels (duff feature, ADAPTED to Mounce's terms).** A small
+    italic sub-label under each parsing aspect choice cross-references the common
+    linguistic terms (`ASPECT_ALTERNATE_LABELS` in `render.js` → `.choice-btn-alt`
+    CSS): continuous → *imperfective*, undefined → *perfective / aoristic*,
+    continuous/undefined → *imperfective / perfective*, **perfect → *stative*** (duff
+    keyed this off `'completed'` and mapped it to "stative / perfect"; since Mounce's
+    primary is now "perfect", the alt is just *stative*).
+  - **Case order → Mounce's teaching order (USER-SPECIFIED, diverges from duff's
+    own #319 order).** `CHOICE_SORT_ORDER.case` in `morph_steps.js` is now
+    **`['nominative', 'nominative/accusative', 'genitive', 'dative', 'accusative',
+    'vocative']`** — the order Mounce's paradigm tables use (nom, gen, dat, acc, voc)
+    with the neuter nom/acc syncretism slotted right after the nominative it shares.
+    duff #319 reordered to `nom, nom/acc, voc, acc, gen, dat`; Mounce follows the
+    user's explicit Mounce-paradigm order instead.
+  - **Study-pace chooser + inverted cadence toggle (duff feature, PORTED).** New
+    users pick their pace on the first-launch consent gate (`#consentPacingRow`
+    radios, default **relaxed 8-month**); `handleConsentAction` (`modals.js`) reads
+    the radio and calls a new `setSpacingCadence` host hook (`configureModals` in
+    `main.js`) to set `runtime.spacingCadence` + save. The Advanced-settings cadence
+    toggle is **inverted** to "2-month pace" (ON = intensive); `syncToggleButtons`
+    now reflects `cadenceIntensive`. `DEFAULT_SRS_CADENCE` stays `'intensive'`, so
+    old/returning users (who never hit the consent branch) keep their 2-month pace.
+    New `.consent-pacing*` CSS; the pacing row is hidden when the disclaimer is
+    reopened later (Close mode).
+  - **Session relabeling (Week N → Part N-M) — N/A.** Mounce already ships the
+    four-Parts + Cumulative session set (no "Week N" tags), so there was nothing to
+    relabel.
 - **Mounce-specific Advanced-settings + selector cleanup (no duff equivalent).**
   A UX pass on the controls bar / session selector, layered on the #317/#318 ports:
   - **Parsing-step toggles no longer leak into vocab/grammar.** The eight
