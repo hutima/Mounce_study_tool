@@ -24,6 +24,33 @@ Every asset URL in `index.html` ends in `?v=NNN`. The same number lives in
 `sw.js` (`CACHE_NAME = 'mounce-bbg-greek-pwa-vNN'` and the precache list).
 Bump both together on release.
 
+### ⚠ ES-module imports are NOT cache-busted — don't break cross-version mixing
+
+The `?v=NNN` only stamps the `<script>`/`<link>` URLs in `index.html`. The
+relative `import ... from '../ui/foo.js'` specifiers **inside** the JS modules
+carry no `?v=`, so they're fetched bare. During a service-worker update the
+browser can momentarily pair a **new** `main.js?v=NNN` (from the network) with an
+**old cached** sibling module (the bare import resolves via `ignoreSearch`).
+If the new importer references an export the old module doesn't have yet, the
+module throws a `SyntaxError` at load → `main.js` never runs → the whole app
+freezes (no click handlers, and the update prompt — which lives in `main.js` —
+never shows). This is the Safari "frozen on update" failure mode; it bit v166
+when `PARSING_SHUFFLE_ALL_VALUE` was added as a new `navigation.js` export and
+imported into `main.js`.
+
+Rules of thumb when changing module boundaries:
+- **Avoid importing a brand-new export across modules** if you can define the
+  value locally instead (e.g. a sentinel string constant — keep a mirrored copy
+  and a sync comment, as `PARSING_SHUFFLE_ALL_VALUE` now does in both
+  `navigation.js` and `main.js`).
+- **Never remove an export that an older shipped `main.js` still imports** —
+  keep it around (even if unused by the new code) so an old importer paired with
+  the new module doesn't `SyntaxError`.
+- Runtime wiring (deps objects passed to `installKeyboardShortcuts(...)`,
+  `window`/`globalThis` handler assignments) degrades to `undefined`, not a
+  module-load `SyntaxError`, so it's safe across versions — prefer it for new
+  cross-module hooks.
+
 ## Porting from duff_study_tool
 
 This repo is a Mounce-flavoured port of `hutima/duff_study_tool`. The

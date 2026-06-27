@@ -293,8 +293,7 @@ import {
   closeResetStatsModal,
   confirmResetStatsKeepSettings,
   confirmResetToStart,
-  resetAllStats,
-  PARSING_SHUFFLE_ALL_VALUE
+  resetAllStats
 } from '../ui/navigation.js';
 import {
   configureAnalytics,
@@ -1628,6 +1627,15 @@ function syncParsingCustomParadigmsUi() {
   list.scrollTop = prevScroll;
   if (countEl) countEl.textContent = checkedInScope ? `${checkedInScope} selected` : 'none selected';
 }
+
+// Sentinel value for the "All paradigms through selected chapter" dropdown
+// option. Defined locally (NOT imported from navigation.js) on purpose: ES-module
+// import paths carry no `?v=` cache-bust, so during a service-worker update the
+// new main.js can momentarily load against an OLD cached navigation.js. Importing
+// a brand-new export across that boundary throws a SyntaxError that wedges the
+// whole app (frozen page, no update prompt). Keep this string identical to the
+// `PARSING_SHUFFLE_ALL_VALUE` export in navigation.js — both must match.
+const PARSING_SHUFFLE_ALL_VALUE = '__shuffleAllToChapter__';
 
 function syncParadigmFocusUi() {
   const select = document.getElementById('paradigmFocusSelectPrimary');
