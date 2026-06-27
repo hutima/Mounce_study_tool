@@ -293,7 +293,8 @@ import {
   closeResetStatsModal,
   confirmResetStatsKeepSettings,
   confirmResetToStart,
-  resetAllStats
+  resetAllStats,
+  PARSING_SHUFFLE_ALL_VALUE
 } from '../ui/navigation.js';
 import {
   configureAnalytics,
@@ -1677,6 +1678,34 @@ function syncParadigmFocusUi() {
     buildModeLookup ? [] : grouped.filter((g) => g.lemmas.filter((p) => !p.isAggregate).length >= 2).map((g) => g.category)
   );
 
+  // "All paradigms through selected chapter" heads the list as the dropdown face
+  // of the shuffle-all toggle (see setMorphFocusedParadigm / the
+  // PARSING_SHUFFLE_ALL_VALUE sentinel) — mirrors the chapter dropdown's "Build
+  // mode" entry driving Lookup mode. Not offered in Build mode (Lookup), where
+  // the dropdown is a single-paradigm reference and shuffle-all doesn't apply.
+  const sentinelOpt = buildModeLookup
+    ? ''
+    : `<option value="${PARSING_SHUFFLE_ALL_VALUE}">All paradigms through selected chapter</option>`;
+  const groupsHtml = grouped.map((g) => {
+    const shuffleOpt = shuffleableCategories.has(g.category)
+      ? `<option value="${escapeHtml(makeCategoryShuffleValue(g.category))}">${escapeHtml(categoryShuffleLabel(g.category))}</option>`
+      : '';
+    const opts = g.lemmas
+      .map((p) => `<option value="${escapeHtml(p.lemma)}">${escapeHtml(p.displayLabel)}</option>`)
+      .join('');
+    return `<optgroup label="${escapeHtml(g.category)}">${shuffleOpt}${opts}</optgroup>`;
+  }).join('');
+
+  // Shuffle-all on: the dropdown stays visible but is the toggle's face — show
+  // the sentinel selected and leave runtime.morphFocusedParadigm untouched (the
+  // toggle owns the multi-paradigm deck). Picking a concrete paradigm drops back
+  // out of shuffle-all via setMorphFocusedParadigm.
+  if (runtime.parsingShuffleAll) {
+    select.innerHTML = sentinelOpt + groupsHtml;
+    select.value = PARSING_SHUFFLE_ALL_VALUE;
+    return;
+  }
+
   const currentValue = runtime.morphFocusedParadigm;
   const currentCategory = parseCategoryShuffleValue(currentValue);
   let chosen;
@@ -1702,16 +1731,9 @@ function syncParadigmFocusUi() {
   // type instead of reading a flat alphabetical list. Categories with two or
   // more concrete lemmas also get a "↯ Shuffle all — <type>" entry at the head
   // of their group (single-lemma categories don't — that would just equal
-  // picking the lemma).
-  select.innerHTML = grouped.map((g) => {
-    const shuffleOpt = shuffleableCategories.has(g.category)
-      ? `<option value="${escapeHtml(makeCategoryShuffleValue(g.category))}">${escapeHtml(categoryShuffleLabel(g.category))}</option>`
-      : '';
-    const opts = g.lemmas
-      .map((p) => `<option value="${escapeHtml(p.lemma)}">${escapeHtml(p.displayLabel)}</option>`)
-      .join('');
-    return `<optgroup label="${escapeHtml(g.category)}">${shuffleOpt}${opts}</optgroup>`;
-  }).join('');
+  // picking the lemma). The "All paradigms through selected chapter" sentinel
+  // (sentinelOpt, built above) heads the whole list outside Build mode.
+  select.innerHTML = sentinelOpt + groupsHtml;
   select.value = chosen;
 }
 
@@ -2075,12 +2097,12 @@ function syncLayoutVisibility() {
   const parsingChapterRow = document.getElementById('parsingChapterRow');
   if (parsingChapterRow) parsingChapterRow.style.display = isParsingMode() ? 'flex' : 'none';
   const paradigmFocusRowPrimary = document.getElementById('paradigmFocusRowPrimary');
-  // Shuffle-all and the custom paradigm set both turn the single focused
-  // paradigm off, so hide its dropdown whenever either is on (the deck is then
-  // a mix of multiple paradigms).
-  // Build mode keeps the focus dropdown (you pick which paradigm to build) even
-  // though it's a single paradigm; the shuffle/custom-set mixers are hidden.
-  if (paradigmFocusRowPrimary) paradigmFocusRowPrimary.style.display = (isParsingMode() && (lookupActive || (!runtime.parsingShuffleAll && !runtime.parsingCustomReview))) ? 'flex' : 'none';
+  // Shuffle-all keeps the dropdown visible — its head "All paradigms through
+  // selected chapter" entry is the toggle's own face (picking a real paradigm
+  // drops back out of shuffle-all). Only the custom paradigm set hides it,
+  // swapping in the checkbox selector. Build mode keeps the focus dropdown too
+  // (you pick which paradigm to build).
+  if (paradigmFocusRowPrimary) paradigmFocusRowPrimary.style.display = (isParsingMode() && (lookupActive || !runtime.parsingCustomReview)) ? 'flex' : 'none';
   // Custom paradigm set: the checkbox selector takes the dropdown's place while
   // the toggle is on.
   const parsingCustomParadigmsRow = document.getElementById('parsingCustomParadigmsRow');

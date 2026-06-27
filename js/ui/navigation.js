@@ -626,8 +626,29 @@ export function toggleMorphStepByStep() {
   // Intentionally empty — see setStudyMode('parsing') instead.
 }
 
+// Sentinel <option> value at the head of the focused-paradigm dropdown. It's the
+// dropdown face of the "Shuffle all paradigms (to chapter)" toggle: selecting it
+// turns shuffle-all on, and selecting any real paradigm turns it back off (see
+// setMorphFocusedParadigm / syncParadigmFocusUi in main.js). Mirrors how the
+// chapter dropdown's "Build mode" sentinel drives the Lookup-mode toggle. Not a
+// real lemma, so it can never collide with a paradigm value.
+export const PARSING_SHUFFLE_ALL_VALUE = '__shuffleAllToChapter__';
+
 export function setMorphFocusedParadigm(lemma) {
   if (!host.isParsingMode()) return;
+  // "All paradigms through selected chapter" sentinel — the dropdown face of the
+  // shuffle-all toggle. Picking it turns shuffle-all on; picking a concrete
+  // paradigm while shuffle-all is on sets the focus first, then turns it back off
+  // so the deck rebuild lands on that lemma. Keeps dropdown ⇄ toggle symmetrical.
+  if (lemma === PARSING_SHUFFLE_ALL_VALUE) {
+    if (!runtime.parsingShuffleAll) toggleParsingShuffleAll();
+    return;
+  }
+  if (runtime.parsingShuffleAll) {
+    runtime.morphFocusedParadigm = lemma || null;
+    toggleParsingShuffleAll();
+    return;
+  }
   // Bank the outgoing paradigm's cursor before swapping to a different lemma.
   host.saveCurrentDeckStateToBank();
   runtime.morphFocusedParadigm = lemma || null;
