@@ -511,6 +511,45 @@ just a binary `Paradigms.pdf` reference sheet — a duff asset, not code; not po
     call — the easy-to-miss banner was the actual cause of the stuck-on-old-version
     reports. `.update-banner*` CSS removed; `dismissAppUpdate` now closes the modal
     (no dismiss button is wired, matching duff's force-through prompt).
+- **Participle full declensions promoted to REQUIRED (no duff equivalent).**
+  Mounce teaches the λύω participle as a full paradigm, so every participle
+  declension in the Paradigms-page screenshots is now **drilled by default in
+  parsing**, not hidden behind the optional-extensions toggle (an earlier PR had
+  added them as `optionalFormGroups` only — toggle-gated). New mechanism: an
+  optional-form group can carry **`alwaysInclude: true`** (`js/data/lemma_inventory.js`)
+  — it's emitted regardless of `runtime.includeOptionalForms`, chapter-gated like
+  everything else, tagged as curriculum (`supplemental:false`), and ignores the
+  optional per-category filters. `buildOptionalMorphCardsForLemma` gained an
+  `includeToggleGated` param and `getCardsForFocusedParadigm` now *always* calls it
+  (`js/domain/grammar/paradigm_focus.js`); all parsing-deck/review/analytics
+  consumers funnel through there, so the change is one place. Promoted groups
+  (each `alwaysInclude`): **λύω** present-active (λύων), present-m/p (λυόμενος),
+  1st-aorist-active (λύσας), aorist-middle (λυσάμενος), 1st-aorist-passive
+  (λυθείς), perfect-active (λελυκώς), perfect-m/p (λελυμένος); **λείπω**
+  2nd-aorist-active (λιπών) + 2nd-aorist-middle (λιπόμενος); **γράφω**
+  2nd-aorist-passive (γραφείς). Two declensions were missing as data and added via
+  the existing generators (`LUO_PRESENT_ACTIVE_PARTICIPLE` = `presentActiveNtParticiple`,
+  `LUO_AORIST_PASSIVE_PARTICIPLE` = `aoristPassiveParticipleParadigm('λυ')`,
+  `LEIPO_AORIST_MIDDLE_PARTICIPLE` = `menosParticipleParadigm('λιπό','λιπο',…)`). The
+  **rare future participles stay toggle-gated** (no `alwaysInclude`). λύω stays
+  chapter-gated so cumulative parses flow through. The core `MORPHOLOGY_SETS`
+  participle subsets in `morphology.js` are kept (they own the lemma keys + dropdown
+  entries); per-form dedup collapses the overlap with the now-required full forms.
+- **`pages/memorization.html` — case order + participle tables (no duff equivalent).**
+  The page is a duff-derived static artifact that ordered case rows **nom, acc, gen,
+  dat**; every declension table is now reordered to Mounce's **nom, gen, dat, acc**
+  (90 four-row blocks; verb person/number tables, rule lists, and nom/acc-combined
+  plurals are untouched). The present-m/p and aorist-middle participle tables used
+  **ῥύομαι** (a duff model-verb leftover) — converted to **λύω** (λυόμενος /
+  λυσάμενος) to match the screenshots. Added full 3-gender declension tables for the
+  five missing participles: perfect-active (λελυκώς), perfect-m/p (λελυμένος), λείπω
+  2nd-aor-active (λιπών) + 2nd-aor-middle (λιπόμενος), γράφω 2nd-aor-passive
+  (γραφείς), plus the ἀγαθός 2-1-2 adjective paradigm. **Note / open item:** the
+  remaining ῥύομαι tables (deponent indicative, "Other Moods of the Middle Voice",
+  subjunctive, 3rd-person middle imperatives) are NOT yet converted — Mounce's
+  deponent models are πορεύομαι/ἔρχομαι, but neither has an aorist *middle* (their
+  aorist is passive-form ἐπορεύθην / 2nd-aor ἦλθον), so a clean ῥυ→ swap isn't
+  possible; left for a follow-up.
 - **Mounce-specific (no duff equivalent):**
   - **Parsing steps collapse pool-constant dimensions to one option.**
     Any parsing step whose value never varies across the WHOLE pool the student

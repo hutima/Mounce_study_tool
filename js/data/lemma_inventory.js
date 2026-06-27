@@ -1089,18 +1089,32 @@
     menosParticipleParadigm('λυό', 'λυο', 'present middle/passive participle');
   const LUO_AORIST_MIDDLE_PARTICIPLE =
     menosParticipleParadigm('λυσά', 'λυσα', 'aorist middle participle');
+  // Present active λύων (3-1-3 ντ-stem, recessive) and 1st-aorist passive λυθείς
+  // (θ-type) full declensions — the model verb's two remaining participle grids,
+  // promoted to REQUIRED below (Mounce drills the full participle paradigm of λύω).
+  const LUO_PRESENT_ACTIVE_PARTICIPLE =
+    presentActiveNtParticiple('λύ', 'λυ', 'λῦον');
+  const LUO_AORIST_PASSIVE_PARTICIPLE =
+    aoristPassiveParticipleParadigm('λυ');
 
-  // Participle optional groups, gated by max(tense-intro, ptc-intro).
+  // Participle groups, gated by max(tense-intro, ptc-intro). The seven λύω
+  // participle declensions Mounce teaches as paradigm tables are marked
+  // `alwaysInclude: true` — they're REQUIRED (drilled by default, not behind the
+  // optional-extensions toggle). The rare future participles stay toggle-gated.
   const LUO_PARTICIPLE_OPTIONAL = [
-    { chapter: 27, family: 'λύω — present middle/passive participle λυόμενος full declension (optional)',
+    { chapter: 27, alwaysInclude: true, family: 'λύω — present active participle λύων full declension',
+      forms: LUO_PRESENT_ACTIVE_PARTICIPLE },
+    { chapter: 27, alwaysInclude: true, family: 'λύω — present middle/passive participle λυόμενος full declension',
       forms: LUO_PRESENT_MP_PARTICIPLE },
-    { chapter: 28, family: 'λύω — 1st aorist active participle λύσας full declension (optional)',
+    { chapter: 28, alwaysInclude: true, family: 'λύω — 1st aorist active participle λύσας full declension',
       forms: LUO_AORIST_ACTIVE_PARTICIPLE },
-    { chapter: 28, family: 'λύω — aorist middle participle λυσάμενος full declension (optional)',
+    { chapter: 28, alwaysInclude: true, family: 'λύω — aorist middle participle λυσάμενος full declension',
       forms: LUO_AORIST_MIDDLE_PARTICIPLE },
-    { chapter: 30, family: 'λύω — perfect active participle λελυκώς (optional)',
+    { chapter: 28, alwaysInclude: true, family: 'λύω — 1st aorist passive participle λυθείς full declension',
+      forms: LUO_AORIST_PASSIVE_PARTICIPLE },
+    { chapter: 30, alwaysInclude: true, family: 'λύω — perfect active participle λελυκώς full declension',
       forms: LUO_PERFECT_ACTIVE_PARTICIPLE },
-    { chapter: 30, family: 'λύω — perfect middle/passive participle λελυμένος (optional)',
+    { chapter: 30, alwaysInclude: true, family: 'λύω — perfect middle/passive participle λελυμένος full declension',
       forms: LUO_PERFECT_MP_PARTICIPLE },
     { chapter: 27, family: 'λύω — future active participle λύσων (optional, rare)',
       forms: LUO_FUTURE_ACTIVE_PARTICIPLE },
@@ -1337,6 +1351,8 @@
 
   const LUO_FULL_EXTRA_FORMS = {
     ...LUO_EXTRA_FORMS,
+    ...LUO_PRESENT_ACTIVE_PARTICIPLE,
+    ...LUO_AORIST_PASSIVE_PARTICIPLE,
     ...LUO_PRESENT_MP_PARTICIPLE,
     ...LUO_AORIST_ACTIVE_PARTICIPLE,
     ...LUO_AORIST_MIDDLE_PARTICIPLE,
@@ -1636,6 +1652,7 @@
   };
   const LEIPO_PRESENT_ACTIVE_PARTICIPLE = presentActiveNtParticiple('λείπ', 'λειπ', 'λεῖπον');
   const LEIPO_AORIST_ACTIVE_PARTICIPLE  = aoristActiveParticipleParadigm('λιπ');
+  const LEIPO_AORIST_MIDDLE_PARTICIPLE  = menosParticipleParadigm('λιπό', 'λιπο', 'aorist middle participle');
   const LEIPO_AORIST_PASSIVE_PARTICIPLE = aoristPassiveParticipleParadigm('λειφ');
 
   const LEIPO_OPTIONAL_GROUPS = [
@@ -1665,8 +1682,10 @@
   const LEIPO_PARTICIPLE_OPTIONAL = [
     { chapter: 27, family: 'λείπω — present active participle λείπων full declension (optional)',
       forms: LEIPO_PRESENT_ACTIVE_PARTICIPLE },
-    { chapter: 28, family: 'λείπω — 2nd aorist active participle λιπών full declension (optional)',
+    { chapter: 28, alwaysInclude: true, family: 'λείπω — 2nd aorist active participle λιπών full declension',
       forms: LEIPO_AORIST_ACTIVE_PARTICIPLE },
+    { chapter: 28, alwaysInclude: true, family: 'λείπω — 2nd aorist middle participle λιπόμενος full declension',
+      forms: LEIPO_AORIST_MIDDLE_PARTICIPLE },
     { chapter: 28, family: 'λείπω — aorist passive participle λειφθείς (optional)',
       forms: LEIPO_AORIST_PASSIVE_PARTICIPLE }
   ];
@@ -1684,6 +1703,7 @@
     ...LEIPO_PERFECT_ACTIVE_INDICATIVE,
     ...LEIPO_PRESENT_ACTIVE_PARTICIPLE,
     ...LEIPO_AORIST_ACTIVE_PARTICIPLE,
+    ...LEIPO_AORIST_MIDDLE_PARTICIPLE,
     ...LEIPO_AORIST_PASSIVE_PARTICIPLE
   };
   const LEIPO_FULL_OPTIONAL_GROUPS = [
@@ -2002,7 +2022,7 @@
       forms: GRAPHO_AORIST_PASSIVE_IMPERATIVE },
     { chapter: 32, family: 'γράφω — aorist passive infinitive γραφῆναι (optional)',
       forms: GRAPHO_AORIST_PASSIVE_INFINITIVE },
-    { chapter: 28, family: 'γράφω — aorist passive participle γραφείς (optional)',
+    { chapter: 28, alwaysInclude: true, family: 'γράφω — 2nd aorist passive participle γραφείς full declension',
       forms: GRAPHO_AORIST_PASSIVE_PARTICIPLE }
   ];
   const GRAPHO_VARIANTS = ['γράφω → ἐγράφην'];
