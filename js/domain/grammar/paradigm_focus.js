@@ -424,7 +424,14 @@ function sourcePassesLevel(sourceKey, levels) {
 // extension content). choices/reverseChoices are left as the single-item
 // arrays the form-lookup feedback uses; the parsing walk doesn't read
 // these.
-function buildOptionalMorphCardsForLemma(lemma, levels, filters) {
+// `includeToggleGated` controls whether the toggle-gated optional extensions
+// (the "Optional paradigm extensions" switch) are emitted. Groups flagged
+// `alwaysInclude: true` are part of the REQUIRED curriculum — full participle
+// declensions promoted out of the optional pool — and are emitted regardless of
+// that toggle: they're chapter-gated like everything else, tagged as curriculum
+// (supplemental:false), and ignore the optional per-category filters (those
+// only scope the toggle-gated extensions).
+function buildOptionalMorphCardsForLemma(lemma, levels, filters, includeToggleGated) {
   if (!lemma || !levels || levels.maxEffectiveChapter == null) return [];
   const inv = (typeof window !== 'undefined' && window.LEMMA_INVENTORY)
     ? window.LEMMA_INVENTORY[lemma]
@@ -453,19 +460,21 @@ function buildOptionalMorphCardsForLemma(lemma, levels, filters) {
   inv.optionalFormGroups.forEach((group, groupIdx) => {
     if (!group || !group.forms || typeof group.chapter !== 'number') return;
     if (group.chapter > levels.maxEffectiveChapter) return;
+    const always = group.alwaysInclude === true;
+    if (!always && !includeToggleGated) return;
     const sourceKey = `OPT_${group.chapter}`;
     const sourceLabel = group.family || `${lemma} — optional (ch ${group.chapter})`;
     const entries = Object.entries(group.forms);
     entries.forEach(([form, parsedAnswer], formIdx) => {
       if (!form || !parsedAnswer) return;
-      if (!filterCard(parsedAnswer)) return;
+      if (!always && !filterCard(parsedAnswer)) return;
       out.push({
         id: `morph-OPT-${stableOptMorphKey(lemma)}-${group.chapter}-${groupIdx}-${formIdx}-${stableOptMorphKey(form)}`,
         kind: 'morph',
         required: true,
         sourceKey,
         sourceLabel,
-        supplemental: true,
+        supplemental: !always,
         chapter: group.chapter,
         family: group.family || `${lemma} — optional`,
         lemma,
@@ -654,10 +663,13 @@ export function getCardsForFocusedParadigm(selectedKeys, focusedLemma, options =
   // (rather than per member) yields every optional form without 15× the
   // duplication, and keys the synthetic cards' stats under the base lemma —
   // matching what focusing the base lemma alone with the toggle on produces.
+  // Always build from the optional pool: required full-paradigm groups
+  // (alwaysInclude) are drilled regardless of the toggle, while the toggle-gated
+  // extensions are added only when options.includeOptional is on.
   const optionalSourceLemma = aggregateBaseLemma(focusedLemma) || focusedLemma;
-  const optionalCards = options.includeOptional
-    ? buildOptionalMorphCardsForLemma(optionalSourceLemma, levels, options.optionalFilters)
-    : [];
+  const optionalCards = buildOptionalMorphCardsForLemma(
+    optionalSourceLemma, levels, options.optionalFilters, !!options.includeOptional
+  );
 
   if (!eligibleSourceKeys.length && !optionalCards.length) return [];
   const drilledCards = eligibleSourceKeys.length
