@@ -649,6 +649,23 @@
     font-style: italic;
     margin-top: 6px;
   }
+  /* Alphabet cards (Chapter 0): one large glyph (upper + lower case) with the
+     letter's name spelt out in small muted text beneath it. The glyph is scaled
+     up from the usual headword size; the name mirrors the small "spelling"
+     treatment the stem-flip stem gets. */
+  .card-alphabet-letter {
+    font-size: calc((clamp(40px, 11vw, 72px)) * var(--text-scale));
+    line-height: 1.15;
+    margin-bottom: 4px;
+  }
+  .card-letter-name {
+    font-family: var(--font-greek);
+    font-size: calc((16px) * var(--text-scale));
+    color: var(--gold-dim);
+    text-align: center;
+    letter-spacing: 1px;
+    margin-top: 2px;
+  }
 
   .flip-hint {
     position: absolute; bottom: 16px; left: 50%; transform: translateX(-50%);
@@ -2720,6 +2737,27 @@
     margin-bottom: 12px;
   }
 
+  /* Small "Contact author" credit link below the progress panel. */
+  .app-footer {
+    text-align: center;
+    margin-top: 18px;
+    padding-bottom: 10px;
+  }
+  .app-footer-link {
+    background: none;
+    border: 0;
+    color: var(--muted);
+    font-family: var(--font-body);
+    font-size: calc((12px) * var(--text-scale));
+    letter-spacing: 0.3px;
+    text-decoration: underline;
+    text-underline-offset: 2px;
+    cursor: pointer;
+    padding: 4px 8px;
+    transition: color 0.08s;
+  }
+  .app-footer-link:hover { color: var(--gold); }
+
   .study-selector-modal {
     max-width: 920px;
   }
@@ -2817,6 +2855,20 @@
   .consent-copy p + p {
     margin-top: 10px;
   }
+
+  .consent-copy a {
+    color: var(--gold);
+    text-decoration: underline;
+    text-underline-offset: 2px;
+  }
+  .consent-copy a:hover { color: var(--gold-light); }
+
+  /* "Other projects" list inside the Contact-author modal. */
+  .contact-projects {
+    margin: 6px 0 0;
+    padding-left: 20px;
+  }
+  .contact-projects li + li { margin-top: 4px; }
 
   /* First-launch study-pace chooser (8-month relaxed vs 2-month intensive).
      Shown only on the first-run consent gate; hidden when the disclaimer is
@@ -2998,6 +3050,34 @@
   .user-guide-modal {
     max-width: 720px;
     margin: 24px auto;
+    position: relative;
+  }
+  /* Top-right ✕ close button (currently on the user-guide modal). Lets you
+     dismiss a long modal without scrolling to the bottom Close button. */
+  .modal-close-x {
+    position: absolute;
+    top: 8px;
+    right: 10px;
+    z-index: 2;
+    background: none;
+    border: 0;
+    color: var(--muted);
+    font-size: calc((20px) * var(--text-scale));
+    line-height: 1;
+    cursor: pointer;
+    padding: 6px 10px;
+    transition: color 0.08s;
+  }
+  .modal-close-x:hover { color: var(--gold); }
+  /* User-guide footer: Contact-author link on the left, Close on the right. */
+  .user-guide-actions {
+    justify-content: space-between;
+    align-items: center;
+  }
+  /* The Contact-author modal can open on top of the user guide, so it sits
+     above the base consent-overlay layer. */
+  #contactAuthorOverlay {
+    z-index: 1100;
   }
 
   .user-guide-copy {

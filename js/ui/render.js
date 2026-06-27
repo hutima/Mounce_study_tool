@@ -499,6 +499,43 @@ export function renderCard() {
   // line of the Greek-bearing face, anchoring each noun to its model paradigm.
   const declModelTag = notesOn ? nounDeclensionModelSuffix(card, maxCh) : '';
 
+  // Alphabet cards (Chapter 0): a single Greek letter (upper + lower case) on
+  // one face, its transliteration on the other, each with the letter's name
+  // spelt out in small muted text beneath — the same "spelling" treatment the
+  // stem-flip cards give the stem. Respects the study direction (Greek ⇄
+  // English) like a normal card; handled before the standard layout so the
+  // larger glyph and letter-name subtitle render without the stem/POS
+  // annotations. No req/opt label — it's meaningless for letters.
+  if (card.alphabet) {
+    const greekFace = `
+          <span class="card-label">Greek</span>
+          <div class="card-greek card-alphabet-letter">${escapeHtml(card.g)}</div>
+          ${card.gName ? `<div class="card-letter-name">${escapeHtml(card.gName)}</div>` : ''}`;
+    const englishFace = `
+          <span class="card-label">English</span>
+          <div class="card-english card-alphabet-letter">${escapeHtml(card.e || '—')}</div>
+          ${card.eName ? `<div class="card-letter-name">${escapeHtml(card.eName)}</div>` : ''}`;
+    const greekIsFront = !runtime.directionToGreek;
+    const frontFace = greekIsFront ? greekFace : englishFace;
+    const backFace = greekIsFront ? englishFace : greekFace;
+    area.innerHTML = `
+      <div class="card-wrapper" id="cardWrapper" onclick="flipCard()">
+        <div class="card-inner" id="cardInner">
+          <div class="card-face card-front card-alphabet">
+            ${frontFace}
+            <div class="card-hint">${sourceLabelDisplay}</div>
+            <div class="flip-hint">click to reveal →</div>
+          </div>
+          <div class="card-face card-back card-alphabet">
+            ${backFace}
+          </div>
+        </div>
+      </div>`;
+    runtime.isFlipped = false;
+    renderProgress();
+    return;
+  }
+
   // Stem-flip cards (2nd-aorist / liquid-future / aorist-passive /
   // perfect-active / μι-verb supplements): both faces show Greek + English
   // gloss subtitle, with the differing characters highlighted so the stem
