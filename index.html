@@ -19,11 +19,11 @@ update that doc in the same commit. Line numbers in the doc are approximate.
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="Mounce Greek">
-<link rel="manifest" href="manifest.json?v=165">
-<link rel="apple-touch-icon" href="icons/apple-touch-icon.png?v=165">
-<link rel="icon" type="image/svg+xml" href="favicon.svg?v=165">
+<link rel="manifest" href="manifest.json?v=166">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png?v=166">
+<link rel="icon" type="image/svg+xml" href="favicon.svg?v=166">
 <title>Mounce BBG Greek — Flashcards</title>
-<link rel="stylesheet" href="styles.css?v=165">
+<link rel="stylesheet" href="styles.css?v=166">
 <script>
 (function(){
   try {
@@ -127,7 +127,7 @@ update that doc in the same commit. Line numbers in the doc are approximate.
       <span class="toggle-text">Exclude known morphs (2/2)</span>
       <span class="toggle-switch" id="excludeKnownMorphsBtn" aria-hidden="true"></span>
     </button>
-    <button class="toggle-label" id="parsingShuffleAllToggle" type="button" role="switch" aria-checked="false" onclick="toggleParsingShuffleAll()" title="Drill a shuffled mix of every paradigm in scope (up to your current parsing chapter) instead of one focused paradigm at a time. The focused-paradigm dropdown is hidden while this is on. To shuffle just one paradigm type, use a '↯ Shuffle all — …' entry inside that dropdown instead.">
+    <button class="toggle-label" id="parsingShuffleAllToggle" type="button" role="switch" aria-checked="false" onclick="toggleParsingShuffleAll()" title="Drill a shuffled mix of every paradigm in scope (up to your current parsing chapter) instead of one focused paradigm at a time. The focused-paradigm dropdown stays visible with its 'All paradigms through selected chapter' entry selected (the toggle's dropdown face); pick a real paradigm there to switch back. To shuffle just one paradigm type, use a '↯ Shuffle all — …' entry inside that dropdown instead.">
       <span class="toggle-text">Shuffle all paradigms (to chapter)</span>
       <span class="toggle-switch" id="parsingShuffleAllBtn" aria-hidden="true"></span>
     </button>
@@ -494,6 +494,30 @@ update that doc in the same commit. Line numbers in the doc are approximate.
   </div>
   </section>
 
+  <footer class="app-footer">
+    <button type="button" class="app-footer-link" onclick="openContactAuthorModal()">Contact author</button>
+  </footer>
+
+</div>
+
+<div class="consent-overlay" id="contactAuthorOverlay" aria-hidden="true" onclick="if(event.target===this)closeContactAuthorModal()">
+  <div class="consent-modal" role="dialog" aria-modal="true" aria-labelledby="contactAuthorTitle">
+    <h2 id="contactAuthorTitle">Contact the author</h2>
+    <div class="consent-copy">
+      <p>This app is maintained by Timothy Hutama, an MTS student at Wycliffe College. It was originally prepared for the 2026 Summer Intensive. The author makes no guarantees about the content but has made a best attempt to make sure everything is accurate.</p>
+      <p>Timothy blogs at <a href="https://definedfaith.wordpress.com/" target="_blank" rel="noopener noreferrer">definedfaith.wordpress.com</a>.</p>
+      <p>If you have comments or issues, please reach out on <a href="https://www.linkedin.com/in/timothyhutama/" target="_blank" rel="noopener noreferrer">LinkedIn</a>.</p>
+      <p>Other projects by Timothy:</p>
+      <ul class="contact-projects">
+        <li><a href="https://hutima.github.io/Lectio-Memorization/" target="_blank" rel="noopener noreferrer">Bible &amp; catechism memorization</a></li>
+        <li><a href="https://hutima.github.io/PCA_Ordination_Study/" target="_blank" rel="noopener noreferrer">PCA ordination study</a></li>
+      </ul>
+      <p>If you'd like to buy me a coffee as thanks, you can send me a gift via e-transfer to <a href="mailto:t.hutama@queensu.ca">t.hutama@queensu.ca</a> or Venmo at <strong>@hutima</strong>.</p>
+    </div>
+    <div class="consent-actions">
+      <button class="ctrl-btn consent-primary" type="button" onclick="closeContactAuthorModal()">Close</button>
+    </div>
+  </div>
 </div>
 
 <div class="consent-overlay transfer-overlay" id="transferOverlay" aria-hidden="true">
@@ -798,8 +822,9 @@ update that doc in the same commit. Line numbers in the doc are approximate.
   </div>
 </div>
 
-<div class="consent-overlay user-guide-overlay" id="shortcutsOverlay" aria-hidden="true">
+<div class="consent-overlay user-guide-overlay" id="shortcutsOverlay" aria-hidden="true" onclick="if(event.target===this)closeShortcutsModal()">
   <div class="consent-modal user-guide-modal" role="dialog" aria-modal="true" aria-labelledby="shortcutsTitle">
+    <button type="button" class="modal-close-x" aria-label="Close" onclick="closeShortcutsModal()">✕</button>
     <div class="consent-label">User guide</div>
     <h2 id="shortcutsTitle">How to use this app</h2>
     <div class="consent-copy user-guide-copy">
@@ -811,7 +836,7 @@ update that doc in the same commit. Line numbers in the doc are approximate.
       <ul class="user-guide-list">
         <li><strong>Vocab</strong> — Greek ↔ English flashcards.</li>
         <li><strong>Grammar</strong> — multiple-choice parsing and concept drills (Noun Rules, Five Rules of Contraction / μι Verbs, Master Verb Chart).</li>
-        <li><strong>Parsing</strong> — walk the parse of a real inflected form one step at a time (aspect, tense, voice, mood, person, number, case, gender). Each step is chapter-gated so values appear only after Mounce introduces them. Wrong answers show <em>your parse</em> vs <em>correct</em> with the Greek form; stem-recall dead-ends redirect to the matching FLIP set.</li>
+        <li><strong>Parsing</strong> — walk the parse of a real inflected form one step at a time (aspect, tense, voice, mood, person, number, case, gender), chapter-gated so values appear only after Mounce introduces them. Drill one paradigm, all paradigms through a chapter, or a custom set; or flip to <em>English → Greek</em>, or <em>Build mode</em> to look up any form. Wrong answers show <em>your parse</em> vs <em>correct</em> with the Greek form.</li>
         <li><strong>Translate</strong> — graded NT reader. Each chapter lists every verse whose lemmas are all in your cumulative vocab through that chapter (Robinson-Pierpont 2005 Byzantine text, joined on Strong's). Tap a verse for a literal gloss.</li>
         <li><strong>Memorization</strong> — separate page with full paradigm tables; toolbar hides Greek, English, or notes for self-testing.</li>
       </ul>
@@ -821,13 +846,15 @@ update that doc in the same commit. Line numbers in the doc are approximate.
       <p>All toggles persist across sessions.</p>
       <ul class="user-guide-list">
         <li><strong>Font</strong> — Serif (Gentium Plus) or Sans (Noto Sans), both bundled locally. <strong>Text size</strong> — Medium / Large / X-Large.</li>
-        <li><strong>Shuffle</strong>, <strong>Required only</strong>, <strong>Eng → Gk</strong>, <strong>Spaced review</strong>.</li>
+        <li><strong>Shuffle</strong>, <strong>Eng → Gk</strong>, <strong>Spaced review</strong> (with a <strong>2-month pace</strong> toggle — see below).</li>
+        <li><strong>Stem &amp; declension notes</strong> (vocab) — inline stems, principal parts, and "declines like" hints on cards.</li>
+        <li><strong>Variant forms as cards</strong> (vocab) — drill a verb's other principal parts (2nd aorist, liquid future, aorist passive, perfect, μι) as their own cards.</li>
         <li><strong>Hard review</strong> — drill only vocab you've missed 10+ times and are still under 40% on.</li>
         <li><strong>Daily archive reset</strong> — clear archived (Easy) cards around 5 AM so unspaced decks start fresh each day.</li>
-        <li><strong>Split vocab/grammar selection</strong> — keep separate chapter selections for the two modes.</li>
+        <li><strong>Split vocab/grammar selection</strong> (default on) — keep separate chapter selections for the two modes.</li>
         <li><strong>Self-check</strong> (grammar) — hide the answer until you tap to reveal.</li>
-        <li><strong>Parsing-step toggles</strong> (parsing mode) — turn any of the eight dimensions off, or open the nested "Exclude … values" panel to skip individual values (e.g. drill aorist only). Each label notes the chapter where the value enters.</li>
-        <li><strong>Optional paradigm extensions</strong> (parsing) — include or exclude imperatives, subjunctives, infinitives, participles, 3rd-person forms, and future / perfect tense forms by category.</li>
+        <li><strong>Parsing-step toggles</strong> (parsing) — turn any of the eight dimensions off, or open "Exclude … values" to skip individual values (e.g. drill aorist only); each label notes the chapter the value enters. Also: <strong>Exclude known morphs</strong> (drop forms you've aced twice) and <strong>accent / breathing look-alike</strong> distractors.</li>
+        <li><strong>Optional paradigm extensions</strong> (parsing) — include or exclude imperatives, subjunctives, optatives, infinitives, participles, 3rd-person, and future / perfect forms by category.</li>
         <li><strong>Reshuffle</strong> / <strong>Reset deck</strong> / <strong>Reset stats</strong>. The spaced-reset prompt also offers "Set selected to now" (keep progress, make every card in your selection due) and "Smooth schedule".</li>
       </ul>
 
@@ -837,6 +864,7 @@ update that doc in the same commit. Line numbers in the doc are approximate.
         <li><strong>~ Uncertain</strong> — re-tests in ~2 h for one confirming pass, then resumes at half the previous interval.</li>
         <li><strong>✓ Easy</strong> — advances ~1 → 3 → 8 → 14 days (intensive), then grows; the 8-month pace grows gently to a ~2-month cap and drills a card that keeps lapsing.</li>
       </ul>
+      <p>New users pick a pace at first launch (8-month default); switch any time with the <strong>2-month pace</strong> toggle.</p>
       <p>With <strong>Spaced review off</strong>, Hard / Uncertain shuffle the card back into the active pile; Easy archives it. The deck reshuffles when the pass ends; archived cards stay until you tap <strong>↻ Reset</strong> or pick a new session. Use <strong>↶ Undo</strong> to reverse your last spaced mark.</p>
 
       <h3 class="user-guide-heading">Progress tools and notice</h3>
@@ -854,7 +882,8 @@ update that doc in the same commit. Line numbers in the doc are approximate.
         <li>Theme, font, and text size are in the header / advanced settings.</li>
       </ul>
     </div>
-    <div class="consent-actions">
+    <div class="consent-actions user-guide-actions">
+      <button type="button" class="app-footer-link" onclick="openContactAuthorModal()">Contact author</button>
       <button class="ctrl-btn consent-primary" type="button" onclick="closeShortcutsModal()">Close</button>
     </div>
   </div>
@@ -1004,48 +1033,48 @@ update that doc in the same commit. Line numbers in the doc are approximate.
   </div>
 </div>
 
-<script defer src="js/data/words.js?v=165"></script>
-<script defer src="js/data/morphology.js?v=165"></script>
-<script defer src="js/data/lemma_inventory.js?v=165"></script>
-<script defer src="js/data/supplemental.js?v=165"></script>
-<script defer src="js/data/grammar.js?v=165"></script>
-<script defer src="js/data/supplementals/mounce_paradigms.js?v=165"></script>
-<script defer src="js/data/supplementals/stem_change_drills.js?v=165"></script>
-<script defer src="js/data/supplementals/second_aorist_flip.js?v=165"></script>
-<script defer src="js/data/supplementals/liquid_future_flip.js?v=165"></script>
-<script defer src="js/data/supplementals/w3_aorist_passive_flip.js?v=165"></script>
-<script defer src="js/data/supplementals/w3_perfect_active_flip.js?v=165"></script>
-<script defer src="js/data/supplementals/w4_mi_verb_principal_parts_flip.js?v=165"></script>
-<script defer src="js/data/advanced/advanced_01.js?v=165"></script>
-<script defer src="js/data/advanced/advanced_02.js?v=165"></script>
-<script defer src="js/data/advanced/advanced_03.js?v=165"></script>
-<script defer src="js/data/advanced/advanced_04.js?v=165"></script>
-<script defer src="js/data/advanced/advanced_05.js?v=165"></script>
-<script defer src="js/data/advanced/advanced_06.js?v=165"></script>
-<script defer src="js/data/advanced/advanced_07.js?v=165"></script>
-<script defer src="js/data/advanced/advanced_08.js?v=165"></script>
-<script defer src="js/data/advanced/advanced_09.js?v=165"></script>
-<script defer src="js/data/advanced/advanced_10.js?v=165"></script>
-<script defer src="js/data/advanced/advanced_11.js?v=165"></script>
-<script defer src="js/data/advanced/advanced_12.js?v=165"></script>
-<script defer src="js/data/advanced/advanced_13.js?v=165"></script>
-<script defer src="js/data/advanced/advanced_14.js?v=165"></script>
-<script defer src="js/data/advanced/advanced_15.js?v=165"></script>
-<script defer src="js/data/advanced/advanced_16.js?v=165"></script>
-<script defer src="js/data/advanced/advanced_17.js?v=165"></script>
-<script defer src="js/data/advanced/advanced_18.js?v=165"></script>
-<script defer src="js/data/advanced/advanced_19.js?v=165"></script>
-<script defer src="js/data/advanced/advanced_20.js?v=165"></script>
-<script defer src="js/data/advanced/advanced_21.js?v=165"></script>
-<script defer src="js/data/advanced/advanced_22.js?v=165"></script>
-<script defer src="js/data/advanced/advanced_23.js?v=165"></script>
-<script defer src="js/data/advanced/advanced_24.js?v=165"></script>
-<script defer src="js/data/advanced/advanced_25.js?v=165"></script>
-<script defer src="js/data/nt_book_vocab.js?v=165"></script>
-<script defer src="js/data/reader.js?v=165"></script>
-<script defer src="js/data/reader_verse_literals.js?v=165"></script>
-<script defer src="js/data/reader_translations.js?v=165"></script>
-<script defer src="js/logic/pos_logic.js?v=165"></script>
-<script type="module" src="js/app/main.js?v=165"></script>
+<script defer src="js/data/words.js?v=166"></script>
+<script defer src="js/data/morphology.js?v=166"></script>
+<script defer src="js/data/lemma_inventory.js?v=166"></script>
+<script defer src="js/data/supplemental.js?v=166"></script>
+<script defer src="js/data/grammar.js?v=166"></script>
+<script defer src="js/data/supplementals/mounce_paradigms.js?v=166"></script>
+<script defer src="js/data/supplementals/stem_change_drills.js?v=166"></script>
+<script defer src="js/data/supplementals/second_aorist_flip.js?v=166"></script>
+<script defer src="js/data/supplementals/liquid_future_flip.js?v=166"></script>
+<script defer src="js/data/supplementals/w3_aorist_passive_flip.js?v=166"></script>
+<script defer src="js/data/supplementals/w3_perfect_active_flip.js?v=166"></script>
+<script defer src="js/data/supplementals/w4_mi_verb_principal_parts_flip.js?v=166"></script>
+<script defer src="js/data/advanced/advanced_01.js?v=166"></script>
+<script defer src="js/data/advanced/advanced_02.js?v=166"></script>
+<script defer src="js/data/advanced/advanced_03.js?v=166"></script>
+<script defer src="js/data/advanced/advanced_04.js?v=166"></script>
+<script defer src="js/data/advanced/advanced_05.js?v=166"></script>
+<script defer src="js/data/advanced/advanced_06.js?v=166"></script>
+<script defer src="js/data/advanced/advanced_07.js?v=166"></script>
+<script defer src="js/data/advanced/advanced_08.js?v=166"></script>
+<script defer src="js/data/advanced/advanced_09.js?v=166"></script>
+<script defer src="js/data/advanced/advanced_10.js?v=166"></script>
+<script defer src="js/data/advanced/advanced_11.js?v=166"></script>
+<script defer src="js/data/advanced/advanced_12.js?v=166"></script>
+<script defer src="js/data/advanced/advanced_13.js?v=166"></script>
+<script defer src="js/data/advanced/advanced_14.js?v=166"></script>
+<script defer src="js/data/advanced/advanced_15.js?v=166"></script>
+<script defer src="js/data/advanced/advanced_16.js?v=166"></script>
+<script defer src="js/data/advanced/advanced_17.js?v=166"></script>
+<script defer src="js/data/advanced/advanced_18.js?v=166"></script>
+<script defer src="js/data/advanced/advanced_19.js?v=166"></script>
+<script defer src="js/data/advanced/advanced_20.js?v=166"></script>
+<script defer src="js/data/advanced/advanced_21.js?v=166"></script>
+<script defer src="js/data/advanced/advanced_22.js?v=166"></script>
+<script defer src="js/data/advanced/advanced_23.js?v=166"></script>
+<script defer src="js/data/advanced/advanced_24.js?v=166"></script>
+<script defer src="js/data/advanced/advanced_25.js?v=166"></script>
+<script defer src="js/data/nt_book_vocab.js?v=166"></script>
+<script defer src="js/data/reader.js?v=166"></script>
+<script defer src="js/data/reader_verse_literals.js?v=166"></script>
+<script defer src="js/data/reader_translations.js?v=166"></script>
+<script defer src="js/logic/pos_logic.js?v=166"></script>
+<script type="module" src="js/app/main.js?v=166"></script>
 </body>
 </html>

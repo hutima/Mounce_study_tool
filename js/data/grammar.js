@@ -42,20 +42,7 @@
             { form: "Koine Greek", prompt: "What does \"Koine\" (κοινή) mean?",
               answer: "common (everyday)",
               choices: ["common (everyday)", "classical / literary", "old / archaic", "sacred / liturgical"],
-              note: "Mounce: Koine = the common Greek of the Hellenistic world, the language of the New Testament." },
-            { form: "NT Greek dialect",
-              prompt: "Which broad period of Greek does the NT use?",
-              answer: "Koine (Hellenistic) Greek",
-              choices: ["Koine (Hellenistic) Greek", "Classical Attic", "Mycenaean", "Modern Demotic"] },
-            { form: "Why study Greek?",
-              prompt: "Mounce's main rationale for learning NT Greek?",
-              answer: "to read the NT in its original language and ground translation/exegesis",
-              choices: [
-                "to read the NT in its original language and ground translation/exegesis",
-                "to write modern Greek emails",
-                "to read the Septuagint only",
-                "to recite liturgy aloud"
-              ] }
+              note: "Mounce: Koine = the common Greek of the Hellenistic world, the language of the New Testament." }
           ]
         }
       ]
@@ -70,19 +57,6 @@
           lemma: "Mounce's approach",
           gloss: "method",
           questions: [
-            { form: "Memorize what?",
-              prompt: "What two categories does Mounce ask you to memorize most rigorously?",
-              answer: "vocabulary and paradigms",
-              choices: [
-                "vocabulary and paradigms",
-                "verses and footnotes",
-                "alphabet and dates",
-                "vocabulary alone"
-              ] },
-            { form: "Daily review",
-              prompt: "Mounce's recommended review frequency for vocabulary?",
-              answer: "daily, in small doses",
-              choices: ["daily, in small doses", "weekly, in long sessions", "only before quizzes", "only on review days"] },
             { form: "Vocabulary scope",
               prompt: "Mounce's vocabulary corpus is built around words that occur how often in the NT?",
               answer: "50 times or more",
@@ -102,27 +76,19 @@
           lemma: "Greek alphabet",
           gloss: "letter names",
           questions: [
-            { form: "α", prompt: "Which letter is this?", answer: "alpha",
-              choices: ["alpha", "lambda", "delta", "eta"] },
-            { form: "β", prompt: "Which letter is this?", answer: "beta",
-              choices: ["beta", "theta", "delta", "rho"] },
-            { form: "γ", prompt: "Which letter is this?", answer: "gamma",
-              choices: ["gamma", "tau", "rho", "upsilon"] },
-            { form: "δ", prompt: "Which letter is this?", answer: "delta",
-              choices: ["delta", "alpha", "lambda", "omega"] },
-            { form: "ε", prompt: "Which letter is this?", answer: "epsilon",
-              choices: ["epsilon", "eta", "iota", "omicron"] },
             { form: "η", prompt: "Which letter is this?", answer: "eta",
               choices: ["eta", "epsilon", "nu", "iota"] },
             { form: "θ", prompt: "Which letter is this?", answer: "theta",
               choices: ["theta", "omicron", "phi", "beta"] },
             { form: "ξ", prompt: "Which letter is this?", answer: "xi",
               choices: ["xi", "zeta", "psi", "chi"] },
-            { form: "ω", prompt: "Which letter is this?", answer: "omega",
-              choices: ["omega", "omicron", "upsilon", "eta"] },
+            { form: "σ vs ς", prompt: "When is the final-form sigma (ς) used instead of σ?",
+              answer: "at the end of a word",
+              choices: ["at the end of a word", "at the start of a word", "before a vowel", "only in the dative"],
+              note: "Mounce: σ in the middle of a word, ς at the end (e.g. ἀπόστολος)." },
             { form: "ς", prompt: "Which letter-form is this?", answer: "final sigma",
               choices: ["final sigma", "sigma", "xi", "psi"],
-              note: "Mounce: σ in the middle of a word, ς at the end." }
+              note: "The word-final form of sigma." }
           ]
         },
         {
@@ -167,15 +133,9 @@
           lemma: "diphthongs",
           gloss: "two vowels in one syllable",
           questions: [
-            { form: "αι", prompt: "How is the diphthong αι usually pronounced (academic)?",
-              answer: "approximately like 'ai' in 'aisle'",
-              choices: ["approximately like 'ai' in 'aisle'", "like 'ay' in 'day'", "like 'ee' in 'see'", "like 'oy' in 'boy'"] },
-            { form: "ει", prompt: "How is the diphthong ει usually pronounced (academic)?",
-              answer: "approximately like 'ei' in 'eight'",
-              choices: ["approximately like 'ei' in 'eight'", "approximately like 'ai' in 'aisle'", "like 'oy' in 'boy'", "like 'oo' in 'food'"] },
-            { form: "ου", prompt: "How is the diphthong ου pronounced (academic)?",
-              answer: "like 'oo' in 'food'",
-              choices: ["like 'oo' in 'food'", "like 'ow' in 'cow'", "like 'oy' in 'boy'", "like 'ee' in 'see'"] },
+            { form: "Diphthong", prompt: "What is a diphthong?",
+              answer: "two vowels pronounced as one syllable",
+              choices: ["two vowels pronounced as one syllable", "a long vowel", "a vowel plus a consonant", "a silent vowel"] },
             { form: "ᾳ ῃ ῳ", prompt: "What is the small ι written under these vowels called?",
               answer: "iota subscript",
               choices: ["iota subscript", "iota adscript", "smooth breathing", "circumflex"],
@@ -353,14 +313,6 @@
           lemma: "case endings preview",
           gloss: "ς -ν / ν ν ν / ι ι α / υς ς α",
           questions: [
-            { form: "λόγος",
-              prompt: "Parse this form (2nd declension masculine).",
-              answer: "nominative singular masculine",
-              choices: ["nominative singular masculine", "accusative singular masculine", "nominative plural masculine", "genitive singular masculine"] },
-            { form: "λόγον",
-              prompt: "Parse this form.",
-              answer: "accusative singular masculine",
-              choices: ["accusative singular masculine", "nominative singular masculine", "accusative plural masculine", "genitive singular masculine"] },
             { form: "ἔργα",
               prompt: "Parse this form (neuter).",
               answer: "nominative or accusative plural neuter",
@@ -370,11 +322,7 @@
                 "genitive plural neuter",
                 "dative singular neuter"
               ],
-              note: "Rule 3: neuter nom/acc plural = α. Rule 2: nom = acc for neuters." },
-            { form: "γραφαί",
-              prompt: "Parse this form (1st declension feminine).",
-              answer: "nominative plural feminine",
-              choices: ["nominative plural feminine", "nominative singular feminine", "accusative plural feminine", "genitive singular feminine"] }
+              note: "Rule 3: neuter nom/acc plural = α. Rule 2: nom = acc for neuters — so the form alone is ambiguous. (Drill full paradigms in Parsing mode.)" }
           ]
         }
       ]
@@ -389,18 +337,12 @@
           lemma: "ὁ, ἡ, τό",
           gloss: "the (full)",
           questions: [
-            { form: "ὁ", answer: "nominative singular masculine", prompt: "Parse this article.",
-              choices: ["nominative singular masculine", "accusative singular masculine", "nominative singular feminine", "accusative singular neuter"] },
             { form: "τοῦ", answer: "genitive singular masculine/neuter", prompt: "Parse this article.",
-              choices: ["genitive singular masculine/neuter", "dative singular masculine/neuter", "accusative plural masculine", "genitive plural"] },
-            { form: "τῷ", answer: "dative singular masculine/neuter", prompt: "Parse this article.",
-              choices: ["dative singular masculine/neuter", "genitive singular masculine/neuter", "nominative singular masculine", "accusative singular masculine"] },
-            { form: "τήν", answer: "accusative singular feminine", prompt: "Parse this article.",
-              choices: ["accusative singular feminine", "nominative singular feminine", "accusative singular masculine", "genitive singular feminine"] },
+              choices: ["genitive singular masculine/neuter", "dative singular masculine/neuter", "accusative plural masculine", "genitive plural"],
+              note: "Masc. and neut. share genitive/dative endings (Noun Rule 6) — the article form alone can't tell them apart." },
             { form: "τῶν", answer: "genitive plural (all genders)", prompt: "Parse this article.",
-              choices: ["genitive plural (all genders)", "dative plural masculine", "accusative plural feminine", "nominative plural neuter"] },
-            { form: "τοῖς", answer: "dative plural masculine/neuter", prompt: "Parse this article.",
-              choices: ["dative plural masculine/neuter", "genitive plural", "dative plural feminine", "accusative plural masculine"] }
+              choices: ["genitive plural (all genders)", "dative plural masculine", "accusative plural feminine", "nominative plural neuter"],
+              note: "One form for all three genders in the genitive plural. (Drill the full article paradigm in Parsing mode.)" }
           ]
         },
         {
@@ -524,10 +466,6 @@
               prompt: "Identify the form.",
               answer: "1st singular ('I am')",
               choices: ["1st singular ('I am')", "3rd singular ('he/she/it is')", "1st plural ('we are')", "2nd plural ('you all are')"] },
-            { form: "ἐστίν",
-              prompt: "Identify the form.",
-              answer: "3rd singular ('he/she/it is')",
-              choices: ["3rd singular ('he/she/it is')", "2nd singular ('you are')", "3rd plural ('they are')", "1st singular"] },
             { form: "Predicate of εἰμί",
               prompt: "After εἰμί, what case does the predicate noun take?",
               answer: "nominative (predicate nominative)",
@@ -634,22 +572,10 @@
               choices: ["nominative singular feminine", "accusative singular feminine", "nominative plural feminine", "dative singular feminine"],
               note: "Square of Stops (Rule 7): velar κ + σ → ξ." },
             { form: "σαρκός",
-              prompt: "Parse.",
-              answer: "genitive singular feminine",
-              choices: ["genitive singular feminine", "accusative plural feminine", "dative singular feminine", "nominative plural feminine"] },
-            { form: "σαρκί",
-              prompt: "Parse.",
-              answer: "dative singular feminine",
-              choices: ["dative singular feminine", "genitive singular feminine", "nominative plural feminine", "accusative singular feminine"] },
-            { form: "σάρκα",
-              prompt: "Parse.",
-              answer: "accusative singular feminine",
-              choices: ["accusative singular feminine", "nominative plural neuter", "genitive singular feminine", "nominative singular feminine"] },
-            { form: "σαρξί(ν)",
-              prompt: "Parse.",
-              answer: "dative plural feminine",
-              choices: ["dative plural feminine", "accusative plural feminine", "nominative plural feminine", "genitive plural feminine"],
-              note: "Square of Stops at work again: κ + σι → ξι." }
+              prompt: "Parse — and what does this form reveal?",
+              answer: "genitive singular feminine; the genitive shows the true stem σαρκ-",
+              choices: ["genitive singular feminine; the genitive shows the true stem σαρκ-", "accusative plural feminine", "dative singular feminine", "nominative plural feminine"],
+              note: "For 3rd-declension nouns the genitive singular exposes the stem the nominative hides. (Drill the full σάρξ paradigm in Parsing mode.)" }
           ]
         },
         {
@@ -700,11 +626,8 @@
           gloss: "I / we",
           questions: [
             { form: "ἐγώ", answer: "nominative singular ('I')", prompt: "Parse.",
-              choices: ["nominative singular ('I')", "genitive singular ('my')", "dative singular ('to me')", "accusative singular ('me')"] },
-            { form: "μου", answer: "genitive singular ('my')", prompt: "Parse.",
-              choices: ["genitive singular ('my')", "dative singular ('to me')", "accusative singular ('me')", "nominative singular ('I')"] },
-            { form: "ἡμᾶς", answer: "accusative plural ('us')", prompt: "Parse.",
-              choices: ["accusative plural ('us')", "dative plural ('to us')", "genitive plural ('our')", "nominative plural ('we')"] }
+              choices: ["nominative singular ('I')", "genitive singular ('my')", "dative singular ('to me')", "accusative singular ('me')"],
+              note: "1st/2nd-person pronouns have no gender. (Drill their full case forms in Parsing mode.)" }
           ]
         },
         {
@@ -714,8 +637,6 @@
           questions: [
             { form: "σύ", answer: "nominative singular ('you')", prompt: "Parse.",
               choices: ["nominative singular ('you')", "genitive singular ('your')", "accusative singular ('you')", "nominative plural ('you all')"] },
-            { form: "ὑμῖν", answer: "dative plural ('to you all')", prompt: "Parse.",
-              choices: ["dative plural ('to you all')", "genitive plural ('of you all')", "dative singular ('to you')", "accusative plural"] },
             { form: "Why μου / σου (no accent)?",
               prompt: "When 1st/2nd person pronouns are unstressed (enclitic) the accent is …",
               answer: "thrown back onto the previous word",
@@ -787,14 +708,18 @@
           lemma: "demonstratives",
           gloss: "this vs. that",
           questions: [
-            { form: "οὗτος", answer: "nominative singular masculine ('this')", prompt: "Parse this demonstrative.",
-              choices: ["nominative singular masculine ('this')", "accusative singular masculine ('this one')", "genitive singular masculine ('of this')", "nominative singular feminine ('this woman')"] },
-            { form: "αὕτη", answer: "nominative singular feminine ('this')", prompt: "Parse.",
-              choices: ["nominative singular feminine ('this')", "nominative singular masculine ('this')", "nominative plural neuter ('these things')", "nominative plural feminine ('these women')"] },
+            { form: "οὗτος vs ἐκεῖνος", prompt: "What is the basic difference between οὗτος and ἐκεῖνος?",
+              answer: "οὗτος = 'this' (near); ἐκεῖνος = 'that' (far)",
+              choices: [
+                "οὗτος = 'this' (near); ἐκεῖνος = 'that' (far)",
+                "οὗτος = 'that' (far); ἐκεῖνος = 'this' (near)",
+                "they are interchangeable",
+                "οὗτος is singular only; ἐκεῖνος plural only"
+              ],
+              note: "Demonstratives point: οὗτος to what is near, ἐκεῖνος to what is far." },
             { form: "ταῦτα", answer: "nominative/accusative plural neuter ('these things')", prompt: "Parse.",
-              choices: ["nominative/accusative plural neuter ('these things')", "nominative plural feminine ('these')", "nominative singular feminine ('this')", "genitive plural ('of these')"] },
-            { form: "ἐκεῖνος", answer: "nominative singular masculine ('that')", prompt: "Parse.",
-              choices: ["nominative singular masculine ('that')", "nominative singular masculine ('this')", "accusative singular masculine", "nominative singular neuter"] },
+              choices: ["nominative/accusative plural neuter ('these things')", "nominative plural feminine ('these')", "nominative singular feminine ('this')", "genitive plural ('of these')"],
+              note: "Easily misread as a feminine singular — the neuter nom/acc plural α ending wins. (Drill the full οὗτος paradigm in Parsing mode.)" },
             { form: "Position",
               prompt: "Where do demonstrative pronouns sit relative to the article?",
               answer: "predicate position when used adjectivally with a noun (e.g. οὗτος ὁ ἄνθρωπος)",
@@ -820,11 +745,8 @@
           gloss: "who / which / that",
           questions: [
             { form: "ὅς", answer: "nominative singular masculine ('who/which')", prompt: "Parse.",
-              choices: ["nominative singular masculine ('who/which')", "genitive singular masculine", "accusative singular masculine", "nominative singular neuter"] },
-            { form: "ἥν", answer: "accusative singular feminine ('whom/which')", prompt: "Parse.",
-              choices: ["accusative singular feminine ('whom/which')", "nominative singular feminine ('who')", "accusative plural feminine", "genitive singular feminine"] },
-            { form: "οἷς", answer: "dative plural masculine/neuter ('to whom/which')", prompt: "Parse.",
-              choices: ["dative plural masculine/neuter ('to whom/which')", "dative plural feminine", "genitive plural", "accusative plural masculine"] },
+              choices: ["nominative singular masculine ('who/which')", "genitive singular masculine", "accusative singular masculine", "nominative singular neuter"],
+              note: "Watch the breathing/accent: relative ὅς vs. article ὁ. (Drill the full relative paradigm in Parsing mode.)" },
             { form: "Agreement rule",
               prompt: "How does the relative pronoun agree with its antecedent?",
               answer: "in gender and number, but its case comes from its own clause",
@@ -833,7 +755,16 @@
                 "in case, gender, and number — all three from the antecedent",
                 "in case only",
                 "it never agrees with its antecedent"
-              ] }
+              ] },
+            { form: "ὅς vs ὁ", prompt: "How do you tell the relative pronoun ὅς from the article ὁ?",
+              answer: "the relative has an accent and ends in -ς; the article ὁ has neither",
+              choices: [
+                "the relative has an accent and ends in -ς; the article ὁ has neither",
+                "they are spelled identically",
+                "the relative always has a rough breathing, the article smooth",
+                "the relative is always plural"
+              ],
+              note: "Both take the rough breathing; the accent and the final ς mark the relative." }
           ]
         }
       ]
@@ -1217,9 +1148,7 @@
                 "liquid stems form 2nd aorists with no formative",
                 "the verb is irregular; no rule applies",
                 "the σ is hidden in the accent"
-              ] },
-            { form: "ἐλυσάμην", answer: "1st aorist middle indicative, 1st singular", prompt: "Parse.",
-              choices: ["1st aorist middle indicative, 1st singular", "imperfect mid/pas indicative, 1st singular", "future middle indicative, 1st singular", "1st aorist active indicative, 1st singular"] }
+              ] }
           ]
         }
       ]
@@ -1252,9 +1181,7 @@
                 "γράφω never forms a passive",
                 "the θ is hidden in the augment",
                 "this is not an aorist passive form"
-              ] },
-            { form: "ἐλύθησαν", answer: "1st aorist passive indicative, 3rd plural", prompt: "Parse.",
-              choices: ["1st aorist passive indicative, 3rd plural", "1st aorist active indicative, 3rd plural", "1st aorist passive indicative, 2nd plural", "imperfect mid/pas indicative, 3rd plural"] }
+              ] }
           ]
         },
         {
@@ -1382,8 +1309,6 @@
           questions: [
             { form: "λύων", answer: "present active participle, nom. sg. masc.", prompt: "Parse.",
               choices: ["present active participle, nom. sg. masc.", "present active indicative, 3rd plural", "present mid/pas participle, nom. sg. masc.", "aorist active participle, nom. sg. masc."] },
-            { form: "λύουσα", answer: "present active participle, nom. sg. fem.", prompt: "Parse.",
-              choices: ["present active participle, nom. sg. fem.", "present active indicative, 3rd plural", "present mid/pas participle, nom. sg. fem.", "aorist active participle, nom. sg. fem."] },
             { form: "λυόμενος", answer: "present mid/pas participle, nom. sg. masc.", prompt: "Parse.",
               choices: ["present mid/pas participle, nom. sg. masc.", "present active participle, nom. sg. masc.", "aorist mid participle, nom. sg. masc.", "perfect mid/pas participle, nom. sg. masc."] },
             { form: "Active morpheme",
@@ -1408,16 +1333,12 @@
           lemma: "λύσας / λυσάμενος / λυθείς",
           gloss: "having loosed / having loosed (mid) / having been loosed",
           questions: [
-            { form: "λύσας", answer: "1st aorist active participle, nom. sg. masc.", prompt: "Parse.",
-              choices: ["1st aorist active participle, nom. sg. masc.", "1st aorist active indicative, 2nd singular", "present active participle, nom. sg. masc.", "perfect active participle, nom. sg. masc."] },
-            { form: "λυσάμενος", answer: "1st aorist middle participle, nom. sg. masc.", prompt: "Parse.",
-              choices: ["1st aorist middle participle, nom. sg. masc.", "1st aorist passive participle, nom. sg. masc.", "present middle participle, nom. sg. masc.", "perfect middle participle, nom. sg. masc."] },
-            { form: "λυθείς", answer: "1st aorist passive participle, nom. sg. masc.", prompt: "Parse.",
-              choices: ["1st aorist passive participle, nom. sg. masc.", "1st aorist active participle, nom. sg. masc.", "present passive participle, nom. sg. masc.", "perfect passive participle, nom. sg. masc."] },
-            { form: "λιπών", answer: "2nd aorist active participle, nom. sg. masc.", prompt: "Parse.",
-              choices: ["2nd aorist active participle, nom. sg. masc.", "present active participle, nom. sg. masc.", "1st aorist active participle, nom. sg. masc.", "future active participle, nom. sg. masc."] },
-            { form: "γραφείς", answer: "2nd aorist passive participle, nom. sg. masc.", prompt: "Parse.",
-              choices: ["2nd aorist passive participle, nom. sg. masc.", "1st aorist passive participle, nom. sg. masc.", "present passive participle, nom. sg. masc.", "perfect passive participle, nom. sg. masc."] }
+            { form: "λύσας", answer: "1st aorist active participle, nom. sg. masc.", prompt: "Parse — note the morpheme.",
+              choices: ["1st aorist active participle, nom. sg. masc.", "1st aorist active indicative, 2nd singular", "present active participle, nom. sg. masc.", "perfect active participle, nom. sg. masc."],
+              note: "Active aorist participle: σα + the ντ morpheme (→ -σας)." },
+            { form: "λυθείς", answer: "1st aorist passive participle, nom. sg. masc.", prompt: "Parse — note the morpheme.",
+              choices: ["1st aorist passive participle, nom. sg. masc.", "1st aorist active participle, nom. sg. masc.", "present passive participle, nom. sg. masc.", "perfect passive participle, nom. sg. masc."],
+              note: "Passive θη + ντ (→ -θεις). Contrast with active -σας. (Drill all voices/declensions in Parsing mode.)" }
           ]
         }
       ]
@@ -1464,9 +1385,8 @@
           gloss: "having loosed / having been loosed",
           questions: [
             { form: "λελυκώς", answer: "perfect active participle, nom. sg. masc.", prompt: "Parse.",
-              choices: ["perfect active participle, nom. sg. masc.", "perfect active indicative, 3rd singular", "1st aorist active participle, nom. sg. masc.", "present active participle, nom. sg. masc."] },
-            { form: "λελυμένος", answer: "perfect mid/pas participle, nom. sg. masc.", prompt: "Parse.",
-              choices: ["perfect mid/pas participle, nom. sg. masc.", "perfect active participle, nom. sg. masc.", "1st aorist mid/pas participle, nom. sg. masc.", "present mid/pas participle, nom. sg. masc."] },
+              choices: ["perfect active participle, nom. sg. masc.", "perfect active indicative, 3rd singular", "1st aorist active participle, nom. sg. masc.", "present active participle, nom. sg. masc."],
+              note: "Reduplication (λε-) + the perfect-active οτ morpheme. (Drill the m/p participle too in Parsing mode.)" },
             { form: "Perfect-active morpheme",
               prompt: "Mounce's perfect-active participle morpheme?",
               answer: "οτ",
@@ -1512,8 +1432,6 @@
                 "only future active 3sg"
               ],
               note: "λύῃ is famously ambiguous; context disambiguates." },
-            { form: "λύσωμεν", answer: "1st aorist active subjunctive, 1st plural", prompt: "Parse.",
-              choices: ["1st aorist active subjunctive, 1st plural", "1st aorist active indicative, 1st plural", "future active 1st plural", "present active 1st plural"] },
             { form: "Subjunctive recognition",
               prompt: "Quickest formal clue that a verb is subjunctive?",
               answer: "lengthened thematic vowel (ω or η) where you'd expect ο/ε",
@@ -1549,11 +1467,8 @@
             { form: "λύειν", answer: "present active infinitive", prompt: "Parse.",
               choices: ["present active infinitive", "present mid/pas infinitive", "1st aorist active infinitive", "perfect active infinitive"] },
             { form: "λῦσαι", answer: "1st aorist active infinitive", prompt: "Parse.",
-              choices: ["1st aorist active infinitive", "1st aorist middle infinitive", "present active infinitive", "perfect active infinitive"] },
-            { form: "λυθῆναι", answer: "1st aorist passive infinitive", prompt: "Parse.",
-              choices: ["1st aorist passive infinitive", "1st aorist active infinitive", "present passive infinitive", "perfect passive infinitive"] },
-            { form: "λελυκέναι", answer: "perfect active infinitive", prompt: "Parse.",
-              choices: ["perfect active infinitive", "1st aorist active infinitive", "present active infinitive", "perfect mid/pas infinitive"] }
+              choices: ["1st aorist active infinitive", "1st aorist middle infinitive", "present active infinitive", "perfect active infinitive"],
+              note: "Present (λύειν) vs. aorist (λῦσαι) infinitive differ in aspect, not time. (Drill the other voices/tenses in Parsing mode.)" }
           ]
         },
         {
@@ -1606,10 +1521,6 @@
           questions: [
             { form: "λῦε", answer: "present active imperative, 2nd singular", prompt: "Parse.",
               choices: ["present active imperative, 2nd singular", "present active indicative, 3rd singular", "present active subjunctive, 2nd singular", "1st aorist active imperative, 2nd singular"] },
-            { form: "λύσον", answer: "1st aorist active imperative, 2nd singular", prompt: "Parse.",
-              choices: ["1st aorist active imperative, 2nd singular", "future active indicative, 2nd singular", "1st aorist active indicative, 1st singular", "present active imperative, 2nd singular"] },
-            { form: "λυέτω", answer: "present active imperative, 3rd singular ('let him loose')", prompt: "Parse.",
-              choices: ["present active imperative, 3rd singular ('let him loose')", "present active indicative, 3rd singular", "present active subjunctive, 3rd singular", "1st aorist active imperative, 3rd singular"] },
             { form: "λύεσθε", answer: "present mid/pas imperative or indicative, 2nd plural", prompt: "Parse.",
               choices: ["present mid/pas imperative or indicative, 2nd plural", "present active imperative, 2nd plural", "present mid/pas indicative, 1st plural", "imperfect mid/pas, 2nd plural"],
               note: "Without context, this form is ambiguous between imperative and indicative." },

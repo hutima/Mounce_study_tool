@@ -18,6 +18,8 @@ export function installKeyboardShortcuts(deps) {
     closeWhatsNewV1_1Modal,
     isToggleInfoModalOpen,
     closeToggleInfoModal,
+    isContactAuthorModalOpen,
+    closeContactAuthorModal,
     isDisclaimerModalOpen,
     isTransferModalOpen,
     closeTransferModal,
@@ -38,13 +40,16 @@ export function installKeyboardShortcuts(deps) {
   } = deps;
 
   document.addEventListener('keydown', e => {
+    // Contact-author can stack on top of the user guide, so it's the topmost
+    // modal — close it before any of the others it may be covering.
+    if (e.key === 'Escape' && isContactAuthorModalOpen()) { closeContactAuthorModal(); return; }
     if (e.key === 'Escape' && isAnalyticsModalOpen()) { closeAnalyticsOverlay(); return; }
     if (e.key === 'Escape' && isStudySelectorOpen()) { closeStudySelector(); return; }
     if (e.key === 'Escape' && isShortcutsModalOpen()) { closeShortcutsModal(); return; }
     if (e.key === 'Escape' && isWhatsNewV1_1ModalOpen()) { closeWhatsNewV1_1Modal(); return; }
     if (e.key === 'Escape' && isToggleInfoModalOpen()) { closeToggleInfoModal(); return; }
     if (e.key === 'Escape' && isTransferModalOpen()) { closeTransferModal(); return; }
-    if (isDisclaimerModalOpen() || isTransferModalOpen() || isAnalyticsModalOpen() || isStudySelectorOpen() || isShortcutsModalOpen() || isWhatsNewV1_1ModalOpen() || isToggleInfoModalOpen()) return;
+    if (isDisclaimerModalOpen() || isTransferModalOpen() || isAnalyticsModalOpen() || isStudySelectorOpen() || isShortcutsModalOpen() || isWhatsNewV1_1ModalOpen() || isToggleInfoModalOpen() || isContactAuthorModalOpen()) return;
     if (!isReviewDeckMode() || !getSelectedKeys().length) return;
 
     if (isMorphologyMode()) {

@@ -33,13 +33,56 @@ presets, off-the-record parsing). Consult it before applying a duff diff.
 
 ### Porting status — last version ported
 
-**Last reviewed duff commit: `2d0a5017` (tip of duff `main`, 2026-06-27; the two
-"optative mood" commits `4fabcb6f` + `2d0a5017`, ported below).**
+**Last reviewed duff commit: `22aee43` (tip of duff `main`, 2026-06-27; the three
+commits after `2d0a5017` — `776791f5`, the #320 merge `7eff9571`, and #321
+`22aee43` — evaluated below, only the parsing dropdown bit applied).**
 When checking for new duff work, diff `origin/main` against that commit forward.
 (PRs #300/#301/#305/#306, previously ported ahead, are now merged on duff `main`
 and folded into the boundary; #302/#303/#304/#307, the #308–#316 batch, #317–#319,
 and the optative pair ported below. Duff's `f92a2e6d` "Add files via upload" is
 just a binary `Paradigms.pdf` reference sheet — a duff asset, not code; not ported.)
+
+- **Evaluated the three duff commits after `2d0a5017` (`776791f5`, #320 merge
+  `7eff9571`, #321 `22aee43`) — only #321's parsing dropdown bit was applicable;
+  the rest was already in Mounce or is duff-specific.**
+  - **`776791f5` "Normalize optative aorist labels to plain 'aorist'" — ALREADY
+    INCORPORATED.** Mounce's optative port already stores plain `'aorist …'` for the
+    γίνομαι (γένοιτο) and λαμβάνω (λάβοιμι) optatives (the comment already reads
+    "Stored plain 'aorist middle' (Mounce parses …)") and no `'second aorist
+    optative'` exists anywhere; nothing to change.
+  - **#321 (`22aee43`) "Add Chapter 0 alphabet deck, combine session parts, parsing
+    shuffle-all dropdown" — only the parsing part applied:**
+    - **Sessions: week-halves → Part N (wk0..wk8), drop Mid-Term/Final subtitles,
+      `buildSessions` skips empty summaries — N/A.** Mounce already ships its own
+      Mounce-book Parts structure (Letters / Part I–IV / Cumulative in `SESSIONS`,
+      `words.js`), all with non-empty summaries, so the duff week→Part merge and the
+      `s.summary` guard don't apply.
+    - **Chapter 0 alphabet deck — ALREADY PRESENT (divergent design).** Mounce has
+      `SETS["0"]` + the "Letters (Ch 0)" session already, with a richer
+      upper+lower-case design (`"α / Α"` → `"alpha (a)"`) rendered as standard
+      flashcards. duff's alternative treatment (single glyph + `alphabet`/`gName`/
+      `eName` flag + dedicated `.card-alphabet-letter`/`.card-letter-name` render
+      branch) is a cosmetic redesign of an existing working feature, not an
+      unincorporated change — **not ported** (Mounce's pairs are arguably the better
+      drill).
+    - **Parsing "All paradigms through selected chapter" dropdown sentinel —
+      PORTED.** The focused-paradigm dropdown (`#paradigmFocusSelectPrimary`) now
+      heads its list with a sentinel (`PARSING_SHUFFLE_ALL_VALUE =
+      '__shuffleAllToChapter__'` in `navigation.js`) that is the dropdown face of the
+      `#parsingShuffleAllToggle`: picking it turns shuffle-all on, picking a concrete
+      paradigm while shuffle-all is on turns it back off (`setMorphFocusedParadigm`),
+      and the dropdown now **stays visible** while shuffle-all is on showing the
+      sentinel selected — mirroring the chapter dropdown's "Build mode" ⇄ Lookup
+      relationship. `syncParadigmFocusUi` (main.js) factors out `sentinelOpt` +
+      `groupsHtml`, early-returns with the sentinel selected when
+      `runtime.parsingShuffleAll`, and **suppresses the sentinel in Build mode
+      (Lookup)** (the dropdown is a single-paradigm reference there, and shuffle-all
+      is mutually exclusive with lookup). `syncLayoutVisibility` now hides the
+      dropdown only for the custom-paradigm-set toggle, not shuffle-all. The
+      `#parsingShuffleAllToggle` `title` text + the index-structure rows were updated
+      to match. Verified in a headless browser: sentinel present + first, toggling
+      on keeps the row visible with the sentinel selected, and picking a concrete
+      paradigm drops back out of shuffle-all.
 
 - **Ported duff's two "optative mood" commits (`4fabcb6f` "Add the optative mood"
   + `2d0a5017` "Mirror the GNT optative parses") — optative integrated into the
