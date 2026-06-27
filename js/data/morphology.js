@@ -113,7 +113,9 @@
             { form: "λόγοι", answer: "nominative plural masculine" },
             { form: "λόγων", answer: "genitive plural masculine" },
             { form: "λόγοις", answer: "dative plural masculine" },
-            { form: "λόγους", answer: "accusative plural masculine" }
+            { form: "λόγους", answer: "accusative plural masculine" },
+            { form: "λόγε", answer: "vocative singular masculine",
+              note: "2nd-decl masc. vocative sg ends in ‑ε — the one case distinct from the nominative (voc. pl. = nom. pl. λόγοι)." }
           ]
         },
         {
@@ -171,7 +173,9 @@
             { form: "ἀγαθαί", answer: "nominative plural feminine" },
             { form: "ἀγαθαῖς", answer: "dative plural feminine" },
             { form: "ἀγαθάς", answer: "accusative plural feminine" },
-            { form: "ἀγαθά", answer: "nominative or accusative plural neuter" }
+            { form: "ἀγαθά", answer: "nominative or accusative plural neuter" },
+            { form: "ἀγαθέ", answer: "vocative singular masculine",
+              note: "2-1-2 adjectives take a distinct masc. vocative sg in ‑ε (ἀγαθέ), like 2nd-decl masc. nouns (λόγε)." }
           ]
         }
       ]
@@ -695,7 +699,7 @@
 
     "25": {
       label: "Chapter 25 Morphology",
-      notes: "Perfect active and mid/pas — λέλυκα, λέλυμαι",
+      notes: "Perfect & pluperfect, active and mid/pas — λέλυκα, λέλυμαι, ἐλελύκειν",
       items: [
         {
           family: "Perfect active — λέλυκα",
@@ -721,6 +725,33 @@
             { form: "λελύμεθα", answer: "1st plural perfect mid/pas" },
             { form: "λέλυσθε", answer: "2nd plural perfect mid/pas" },
             { form: "λέλυνται", answer: "3rd plural perfect mid/pas" }
+          ]
+        },
+        {
+          family: "Pluperfect active — ἐλελύκειν (past of the perfect)",
+          lemma: "λύω → λέλυκα",
+          gloss: "I had loosed",
+          questions: [
+            { form: "ἐλελύκειν", answer: "1st singular pluperfect active",
+              note: "Pluperfect = the past of the perfect; built on the perfect stem (λελυκ‑) with ‑ει‑ endings. The augment is frequently dropped in Koine." },
+            { form: "ἐλελύκεις", answer: "2nd singular pluperfect active" },
+            { form: "ἐλελύκει", answer: "3rd singular pluperfect active" },
+            { form: "ἐλελύκειμεν", answer: "1st plural pluperfect active" },
+            { form: "ἐλελύκειτε", answer: "2nd plural pluperfect active" },
+            { form: "ἐλελύκεισαν", answer: "3rd plural pluperfect active" }
+          ]
+        },
+        {
+          family: "Pluperfect mid/pas — ἐλελύμην",
+          lemma: "λύω → λέλυμαι",
+          gloss: "I had been loosed",
+          questions: [
+            { form: "ἐλελύμην", answer: "1st singular pluperfect mid/pas" },
+            { form: "ἐλέλυσο", answer: "2nd singular pluperfect mid/pas" },
+            { form: "ἐλέλυτο", answer: "3rd singular pluperfect mid/pas" },
+            { form: "ἐλελύμεθα", answer: "1st plural pluperfect mid/pas" },
+            { form: "ἐλέλυσθε", answer: "2nd plural pluperfect mid/pas" },
+            { form: "ἐλέλυντο", answer: "3rd plural pluperfect mid/pas" }
           ]
         }
       ]
@@ -800,7 +831,9 @@
             { form: "λυομένου", answer: "present mid/pas participle, gen. sg. masc./neut." },
             { form: "λυόμενον", answer: "present mid/pas participle, acc. sg. masc. or nom./acc. sg. neut." },
             { form: "λυομένη", answer: "present mid/pas participle, nom. sg. fem." },
-            { form: "λυομένης", answer: "present mid/pas participle, gen. sg. fem." }
+            { form: "λυομένης", answer: "present mid/pas participle, gen. sg. fem." },
+            { form: "λυόμενε", answer: "present mid/pas participle, voc. sg. masc.",
+              note: "2-1-2 participles take a distinct vocative sg masc in ‑ε (λυόμενε); the 3-1-3 active participle λύων has voc = nom." }
           ]
         }
       ]
@@ -881,6 +914,116 @@
             { form: "λελυμένου", answer: "perfect mid/pas participle, gen. sg. masc./neut." },
             { form: "λελυμένη", answer: "perfect mid/pas participle, nom. sg. fem." },
             { form: "λελυμένον", answer: "perfect mid/pas participle, acc. sg. masc. or nom./acc. sg. neut." }
+          ]
+        }
+      ]
+    },
+
+    "31": {
+      label: "Chapter 31 Morphology",
+      notes: "Subjunctive — λύω (present & aorist, all voices) + εἰμί; plus the rare optative (the NT forms εἴη / δῴη / γένοιτο, mirrored onto λύω & πορεύομαι). No augment; the subjunctive lengthens the connecting vowel (η/ω), the optative shows the iota mood-sign (‑οι‑ / ‑αι‑ / ‑ει‑).",
+      items: [
+        {
+          family: "Present active subjunctive — λύω",
+          lemma: "λύω",
+          gloss: "(that) I loose",
+          questions: [
+            { form: "λύω", answer: "1st singular present active subjunctive",
+              note: "Identical in spelling to the present active indicative 1sg λύω; context/mood disambiguates." },
+            { form: "λύῃς", answer: "2nd singular present active subjunctive" },
+            { form: "λύῃ", answer: "3rd singular present active subjunctive" },
+            { form: "λύωμεν", answer: "1st plural present active subjunctive" },
+            { form: "λύητε", answer: "2nd plural present active subjunctive" },
+            { form: "λύωσι(ν)", answer: "3rd plural present active subjunctive" }
+          ]
+        },
+        {
+          family: "Aorist active subjunctive — λύσω",
+          lemma: "λύω",
+          gloss: "(that) I loose (aor.)",
+          questions: [
+            { form: "λύσω", answer: "1st singular aorist active subjunctive",
+              note: "Aorist subjunctive: aorist stem (λυσ‑) + lengthened endings, NO augment (the augment is indicative-only)." },
+            { form: "λύσῃς", answer: "2nd singular aorist active subjunctive" },
+            { form: "λύσῃ", answer: "3rd singular aorist active subjunctive" },
+            { form: "λύσωμεν", answer: "1st plural aorist active subjunctive" },
+            { form: "λύσητε", answer: "2nd plural aorist active subjunctive" },
+            { form: "λύσωσι(ν)", answer: "3rd plural aorist active subjunctive" }
+          ]
+        },
+        {
+          family: "Present middle/passive subjunctive — λύωμαι",
+          lemma: "λύω",
+          gloss: "(that) I am loosed",
+          questions: [
+            { form: "λύωμαι", answer: "1st singular present mid/pas subjunctive" },
+            { form: "λύηται", answer: "3rd singular present mid/pas subjunctive" },
+            { form: "λυώμεθα", answer: "1st plural present mid/pas subjunctive" },
+            { form: "λύησθε", answer: "2nd plural present mid/pas subjunctive" },
+            { form: "λύωνται", answer: "3rd plural present mid/pas subjunctive" }
+          ]
+        },
+        {
+          family: "Aorist middle subjunctive — λύσωμαι",
+          lemma: "λύω",
+          gloss: "(that) I loose for myself",
+          questions: [
+            { form: "λύσωμαι", answer: "1st singular aorist middle subjunctive" },
+            { form: "λύσηται", answer: "3rd singular aorist middle subjunctive" },
+            { form: "λυσώμεθα", answer: "1st plural aorist middle subjunctive" },
+            { form: "λύσησθε", answer: "2nd plural aorist middle subjunctive" },
+            { form: "λύσωνται", answer: "3rd plural aorist middle subjunctive" }
+          ]
+        },
+        {
+          family: "Aorist passive subjunctive — λυθῶ",
+          lemma: "λύω",
+          gloss: "(that) I am loosed (aor.)",
+          questions: [
+            { form: "λυθῶ", answer: "1st singular aorist passive subjunctive",
+              note: "Aorist passive subjunctive: passive stem (λυθ‑) + contracted ‑ῶ endings, no augment." },
+            { form: "λυθῇς", answer: "2nd singular aorist passive subjunctive" },
+            { form: "λυθῇ", answer: "3rd singular aorist passive subjunctive" },
+            { form: "λυθῶμεν", answer: "1st plural aorist passive subjunctive" },
+            { form: "λυθῆτε", answer: "2nd plural aorist passive subjunctive" },
+            { form: "λυθῶσι(ν)", answer: "3rd plural aorist passive subjunctive" }
+          ]
+        },
+        {
+          family: "Present subjunctive of εἰμί — ὦ",
+          lemma: "εἰμί",
+          gloss: "(that) I am",
+          questions: [
+            { form: "ὦ", answer: "1st singular present active subjunctive",
+              note: "εἰμί has only a present subjunctive (ὦ, ᾖς, ᾖ, ὦμεν, ἦτε, ὦσι(ν)); extremely common after ἵνα." },
+            { form: "ᾖς", answer: "2nd singular present active subjunctive" },
+            { form: "ᾖ", answer: "3rd singular present active subjunctive" },
+            { form: "ὦμεν", answer: "1st plural present active subjunctive" },
+            { form: "ἦτε", answer: "2nd plural present active subjunctive" },
+            { form: "ὦσι(ν)", answer: "3rd plural present active subjunctive" }
+          ]
+        },
+        {
+          family: "Optative (rare) — NT forms + λύω / πορεύομαι models",
+          lemma: "λύω",
+          gloss: "might / would …",
+          questions: [
+            // The three optatives that actually occur in the GNT (all 3sg).
+            { form: "εἴη", lemma: "εἰμί", answer: "3rd singular present active optative",
+              note: "The only optative of εἰμί in the GNT (always 3sg) — e.g. Lk 1:29, Acts 8:20. The iota ‑ει‑ marks the optative." },
+            { form: "δῴη", lemma: "δίδωμι", answer: "3rd singular aorist active optative",
+              note: "“may the Lord grant”, 2 Tim 1:16. A contracted by-form of the regular δοίη." },
+            { form: "γένοιτο", lemma: "γίνομαι", answer: "3rd singular aorist middle optative",
+              note: "Paul’s μὴ γένοιτο, “may it never be!” (Rom 6:2 etc.). 2nd-aorist middle of γίνομαι." },
+            // The same three parses mirrored onto the model verbs the student knows.
+            { form: "λύοι", answer: "3rd singular present active optative", context: "λύω in the slot of εἴη" },
+            { form: "λύσαι", answer: "3rd singular aorist active optative",
+              context: "λύω in the slot of δῴη", note: "λύσαι (acute) = aorist active optative 3sg; the infinitive λῦσαι has a circumflex." },
+            { form: "λύσαιτο", answer: "3rd singular aorist middle optative", context: "λύω in the slot of γένοιτο" },
+            { form: "πορεύοιτο", lemma: "πορεύομαι", answer: "3rd singular present middle optative",
+              context: "πορεύομαι (deponent) in the slot of εἴη" },
+            { form: "πορευθείη", lemma: "πορεύομαι", answer: "3rd singular aorist passive optative",
+              context: "πορεύομαι (deponent) in the slot of δῴη / γένοιτο — its aorist is passive-form" }
           ]
         }
       ]
@@ -974,6 +1117,29 @@
             { form: "πορευθήτω", answer: "3rd singular 1st aorist passive imperative" },
             { form: "πορεύθητε", answer: "2nd plural 1st aorist passive imperative" },
             { form: "πορευθήτωσαν", answer: "3rd plural 1st aorist passive imperative" }
+          ]
+        },
+        {
+          family: "Present middle/passive imperative — λύου, λυέσθω",
+          lemma: "λύω",
+          gloss: "be loosed! / loose for yourself!",
+          questions: [
+            { form: "λύου", answer: "2nd singular present middle/passive imperative" },
+            { form: "λυέσθω", answer: "3rd singular present middle/passive imperative ('let him be loosed')" },
+            { form: "λύεσθε", answer: "2nd plural present middle/passive imperative" },
+            { form: "λυέσθωσαν", answer: "3rd plural present middle/passive imperative" }
+          ]
+        },
+        {
+          family: "Imperative of εἰμί — ἴσθι, ἔστω",
+          lemma: "εἰμί",
+          gloss: "be!",
+          questions: [
+            { form: "ἴσθι", answer: "2nd singular present active imperative" },
+            { form: "ἔστω", answer: "3rd singular present active imperative ('let him/her/it be')",
+              note: "ἔστω (3sg) and ἔστωσαν (3pl) are the common NT imperatives of εἰμί." },
+            { form: "ἔστε", answer: "2nd plural present active imperative" },
+            { form: "ἔστωσαν", answer: "3rd plural present active imperative" }
           ]
         }
       ]

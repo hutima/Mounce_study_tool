@@ -1643,7 +1643,25 @@ function syncParadigmFocusUi() {
   // forward to κρίνω → κρινῶ.
   const PARSING_DROPDOWN_SUBSTITUTIONS = { 'Liquid-stem futures': 'κρίνω → κρινῶ' };
   const isHiddenFromParsing = (lemma) => Object.prototype.hasOwnProperty.call(PARSING_DROPDOWN_SUBSTITUTIONS, lemma);
-  const available = listAvailableParadigms(aggregateKeys).filter((p) => !isHiddenFromParsing(p.lemma));
+  // Build mode (Lookup) is a whole-paradigm reference, so collapse the focus
+  // dropdown to the cumulative "— all forms" aggregates: hide the individual
+  // principal-part sub-paradigms (all reachable from the aggregate) and the
+  // "↯ Shuffle all" entries. Standalone paradigms with no ≥2-member aggregate
+  // family (single nouns / adjectives / pronouns / εἰμί / contracts) stay —
+  // they already ARE the whole paradigm.
+  const buildModeLookup = !!runtime.parsingLookup;
+  const aggregateMemberLemmas = new Set();
+  if (buildModeLookup) {
+    const fams = (typeof window !== 'undefined' && window.PARADIGM_VARIANT_FAMILIES) || {};
+    Object.keys(fams).forEach((base) => {
+      const members = Array.isArray(fams[base]) ? fams[base] : [];
+      if (members.length >= 2) members.forEach((m) => aggregateMemberLemmas.add(m));
+    });
+  }
+  const visibleInLookup = (p) => !buildModeLookup || p.isAggregate || !aggregateMemberLemmas.has(p.lemma);
+  const available = listAvailableParadigms(aggregateKeys)
+    .filter((p) => !isHiddenFromParsing(p.lemma))
+    .filter(visibleInLookup);
   if (!available.length) {
     select.innerHTML = '<option value="">No paradigms in current selection</option>';
     select.value = '';
@@ -1653,10 +1671,10 @@ function syncParadigmFocusUi() {
   // the current-pick fallback both depend on which categories have two or more
   // concrete (non-aggregate) lemmas in scope.
   const grouped = listAvailableParadigmsByCategory(aggregateKeys)
-    .map((g) => ({ category: g.category, lemmas: g.lemmas.filter((p) => !isHiddenFromParsing(p.lemma)) }))
+    .map((g) => ({ category: g.category, lemmas: g.lemmas.filter((p) => !isHiddenFromParsing(p.lemma) && visibleInLookup(p)) }))
     .filter((g) => g.lemmas.length);
   const shuffleableCategories = new Set(
-    grouped.filter((g) => g.lemmas.filter((p) => !p.isAggregate).length >= 2).map((g) => g.category)
+    buildModeLookup ? [] : grouped.filter((g) => g.lemmas.filter((p) => !p.isAggregate).length >= 2).map((g) => g.category)
   );
 
   const currentValue = runtime.morphFocusedParadigm;
@@ -1797,7 +1815,7 @@ function syncToggleButtons() {
   const dimStepToggles = Object.fromEntries(DIM_TOGGLE_KEYS.map(k => [k, document.getElementById(`${k}StepToggle`)]));
   const optionalFormsSwitch = document.getElementById('optionalFormsBtn');
   const optionalFormsToggle = document.getElementById('optionalFormsToggle');
-  const OPTIONAL_FILTER_KEYS = ['imperative', 'subjunctive', 'infinitive', 'participle', 'thirdPerson', 'futureTense', 'perfectTense'];
+  const OPTIONAL_FILTER_KEYS = ['imperative', 'subjunctive', 'optative', 'infinitive', 'participle', 'thirdPerson', 'futureTense', 'perfectTense'];
   const optionalFilterSwitches = Object.fromEntries(OPTIONAL_FILTER_KEYS.map(k => [k, document.getElementById(`optionalFilter_${k}_Btn`)]));
   const optionalFilterToggles  = Object.fromEntries(OPTIONAL_FILTER_KEYS.map(k => [k, document.getElementById(`optionalFilter_${k}_Toggle`)]));
   // Per-value sub-filters under each parsing dim. Keys mirror DIM_VALUE_FILTER_VALUES
@@ -1808,7 +1826,7 @@ function syncToggleButtons() {
     aspect: ['continuousUndefined', 'perfect'],
     tense:  ['present', 'future', 'imperfect', 'aorist', 'perfect', 'pluperfect'],
     voice:  ['active', 'middle', 'passive'],
-    mood:   ['indicative', 'subjunctive', 'imperative', 'infinitive', 'participle'],
+    mood:   ['indicative', 'subjunctive', 'optative', 'imperative', 'infinitive', 'participle'],
     person: ['first', 'second', 'third'],
     number: ['singular', 'plural'],
     case:   ['nominative', 'accusative', 'genitive', 'dative', 'vocative'],

@@ -33,12 +33,75 @@ presets, off-the-record parsing). Consult it before applying a duff diff.
 
 ### Porting status — last version ported
 
-**Last reviewed duff commit: `9e0cf80` (tip of duff `main`, 2026-06-26; PR #319).**
+**Last reviewed duff commit: `2d0a5017` (tip of duff `main`, 2026-06-27; the two
+"optative mood" commits `4fabcb6f` + `2d0a5017`, ported below).**
 When checking for new duff work, diff `origin/main` against that commit forward.
 (PRs #300/#301/#305/#306, previously ported ahead, are now merged on duff `main`
-and folded into the boundary; #302/#303/#304/#307, the #308–#316 batch, and
-#317–#319 ported below. Duff's `f92a2e6d` "Add files via upload" is just a binary
-`Paradigms.pdf` reference sheet — a duff asset, not code; not ported.)
+and folded into the boundary; #302/#303/#304/#307, the #308–#316 batch, #317–#319,
+and the optative pair ported below. Duff's `f92a2e6d` "Add files via upload" is
+just a binary `Paradigms.pdf` reference sheet — a duff asset, not code; not ported.)
+
+- **Ported duff's two "optative mood" commits (`4fabcb6f` "Add the optative mood"
+  + `2d0a5017` "Mirror the GNT optative parses") — optative integrated into the
+  parsing dimension, ADAPTED to Mounce and extended per a user review.**
+  - **Plumbing (verbatim).** `'optative'` added to every mood pool/regex/list:
+    `DIM_POOLS`/`parseAnswerDimensions`/`VALUE_ORDER` (morph_steps), `VALUE_ORDER`
+    (morph_lookup), `DIM_VALUE_FILTER_VALUES` + `OPTIONAL_FILTER_KEYS`
+    (main/persistence/navigation), `dimValueFilters.mood` + `optionalFormFilters`
+    (runtime), `PARSE_WORD_ABBREVS` (progress → `opt`), the optional-form category
+    filter (paradigm_focus). `STRUCTURAL_TENSE_MOOD_IMPOSSIBILITIES` gains the
+    imperfect/pluperfect-optative bars (the future optative λύσοιμι is real, so NO
+    future bar). render.js: `glossEimi` ("might be"), `conjugateVerbGloss`, and the
+    `buildWhyThisFormNote` iota-mood-sign note.
+  - **Full optative paradigms → OPTIONAL pool** (lemma_inventory `optionalFormGroups`
+    + `extraForms`, mirroring how Mounce already parks the subjunctive). λύω / εἰμί /
+    γίνομαι / δίδωμι / ποιέω / λαμβάνω ported verbatim from duff. **duff's model
+    middle ῥύομαι (absent in Mounce) is swapped for Mounce's model deponent
+    πορεύομαι** — present middle + aorist **PASSIVE** optative (πορευθείην, since its
+    aorist is the passive-form ἐπορεύθην), hand-authored on the λυθείην pattern.
+    Aorist qualifiers normalized to plain "aorist" (Mounce convention; the
+    2nd-aorist fact stays in the family label). Gated at **ch 31** (Mounce's
+    subjunctive chapter; δίδωμι at 34/35). Two `index.html` toggles added: mood
+    value-filter "Optative (Ch. 31)" + optional-filter "Include optatives".
+  - **duff's `week_8_optative.js` required set has NO Mounce file equivalent.**
+    Mounce has no `paradigm_morphology.js` auto-gen (porting it would double-convert
+    every existing parse-bearing supplemental vocab set), so the required NT forms
+    are authored as a Mounce-native **core `MORPHOLOGY_SETS["31"]` deck** instead
+    (see below) — the NT optatives εἴη/δῴη/γένοιτο + the λύω/πορεύομαι mirrors
+    (λύοι/λύσαι/λύσαιτο, πορεύοιτο/πορευθείη), all 3sg, matching the GNT.
+  - **Mounce-specific extensions from the user review (no duff source):**
+    - **New core `MORPHOLOGY_SETS["31"]`** — Mounce previously drilled the subjunctive
+      ONLY as optional groups (no core ch-31 deck). Added required λύω subjunctive
+      (present + aorist, all voices) + εἰμί present subjunctive (ὦ/ᾖς/ᾖ…) + the
+      optative item. Overlap with the optional λύω subjunctive groups is collapsed by
+      the existing per-form dedup. Flows into cumulative λύω (lemma `"λύω"` ∈
+      `LUO_VARIANTS`).
+    - **Pluperfect** (ἐλελύκειν active + ἐλελύμην m/p) added to core **ch 25** — it
+      existed only in grammar/parsing *examples*, never in a drillable paradigm, so it
+      never surfaced (even in cumulative λύω). Keyed `"λύω → λέλυκα"`/`"λύω → λέλυμαι"`
+      so it pools into the cumulative.
+    - **Vocatives made drillable**: λόγε (ch 7, 2nd-decl masc noun), ἀγαθέ (ch 9,
+      2-1-2 adjective), λυόμενε (ch 27, m/p participle → gives cumulative λύω a
+      vocative). Only the genuinely-distinct (‑ε) vocatives are added; syncretic
+      voc=nom forms are left as-is (Mounce's deliberate convention).
+    - **3rd-person imperatives completed**: λύω present m/p imperative (λυέσθω…) +
+      εἰμί imperative (ἔστω…) added to core **ch 33** (active + deponent 3rd-person
+      were already there).
+    - **Pool-constant collapse restricted** (`computeParadigmConstantDims`): now
+      collapses a parsing step to one option ONLY for a **middle-only/deponent verb's
+      voice** (πορεύομαι, γίνομαι). A full verb like λύω is never collapsed — drilling
+      "λύω — aorist middle" tests the real tense/voice/mood options (the in-scope
+      distractor pool is unchanged). Single-gender-noun **gender** still collapses, but
+      via the separate `fixedGenderNoun` path. (Previously every constant dim of a
+      focused sub-paradigm collapsed; the user judged that bad pedagogy for full verbs.)
+    - **Build mode → cumulative only** (`syncParadigmFocusUi`, gated on
+      `runtime.parsingLookup`): the focus dropdown lists only the "— all forms"
+      aggregates + standalone paradigms with no ≥2-member family, hiding the
+      principal-part sub-paradigms and the "↯ Shuffle all" entries.
+    - **Chapter 0 — Letters**: a 24-card Greek-alphabet flashcard deck (`SETS["0"]`,
+      letter ↔ name + transliteration) with its own **"Alphabet (Ch 0)" session**.
+      Every other session (incl. "All Chapters 1–36") uses explicit lists that omit
+      `"0"`, so it is never pulled in by a select-all.
 
 - **Ported in full through duff #288** (parsing undo + 3-tier scoring,
   restructured parse summary + "Why this form" notes, 3rd-person imperative

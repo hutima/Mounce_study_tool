@@ -33,7 +33,7 @@ export const LOOKUP_DIMENSION_ORDER = ['tense', 'voice', 'mood', 'person', 'case
 const VALUE_ORDER = {
   tense:  ['present', 'future', 'imperfect', 'aorist', 'perfect', 'pluperfect'],
   voice:  ['active', 'middle', 'passive', 'middle/passive'],
-  mood:   ['indicative', 'subjunctive', 'imperative', 'infinitive', 'participle'],
+  mood:   ['indicative', 'subjunctive', 'optative', 'imperative', 'infinitive', 'participle'],
   person: ['first', 'second', 'third'],
   case:   ['nominative', 'accusative', 'genitive', 'dative', 'vocative'],
   number: ['singular', 'plural'],

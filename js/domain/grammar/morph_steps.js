@@ -16,7 +16,7 @@ const DIM_POOLS = {
   aspect: ['continuous', 'undefined', 'continuous/undefined', 'perfect'],
   tense:  ['present', 'future', 'imperfect', 'aorist', 'first aorist', 'second aorist', 'perfect', 'pluperfect'],
   voice:  ['active', 'middle', 'passive', 'middle/passive'],
-  mood:   ['indicative', 'subjunctive', 'imperative', 'infinitive', 'participle'],
+  mood:   ['indicative', 'subjunctive', 'optative', 'imperative', 'infinitive', 'participle'],
   person: ['first', 'second', 'third'],
   case:   ['nominative', 'accusative', 'genitive', 'dative', 'vocative'],
   number: ['singular', 'plural'],
@@ -156,7 +156,7 @@ export function parseAnswerDimensions(answer) {
     || findToken(cleaned, /\b(present|future|imperfect|aorist|perfect|pluperfect)\b/);
   const voice = findToken(cleaned, /\b(middle\/passive|mid\/pas|active|middle|passive)\b/)
     .replace(/^mid\/pas$/, 'middle/passive');
-  const mood = findToken(cleaned, /\b(indicative|subjunctive|imperative|infinitive|participle)\b/);
+  const mood = findToken(cleaned, /\b(indicative|subjunctive|optative|imperative|infinitive|participle)\b/);
   // Person: accept "first person" (long form) and "1st" (Mounce shorthand,
   // where person appears as "1st singular" / "2nd plural" / "1st sg." with
   // no "person" token). The number-qualifier lookahead prevents "1st aorist"
@@ -375,12 +375,16 @@ export function computeAccessibleDimensionPools(cards) {
 // middle/passive paradigm counts as a single voice rather than two.
 //
 // buildMorphSteps consumes this (options.singleParadigmConstantDims) to collapse
-// such a step's choices to that single option: the student still clicks through
-// it — reinforcing "this paradigm is future" — but isn't quizzed with
-// distractors on a dimension the paradigm fixes. It's deliberately NOT applied
-// to pooled decks (shuffle-all / category-shuffle / the cumulative aggregate /
-// custom set), where the dimension genuinely varies and must be tested; the
-// caller passes an empty map in those modes.
+// a step's choices to that single option. PEDAGOGY RULE — kept deliberately
+// narrow: the only dimension this collapses is the VOICE of a genuine middle-only
+// / deponent verb (πορεύομαι, γίνομαι, εἰμί's ἔσομαι), which has no active/passive
+// contrast to test. A FULL verb like λύω is never collapsed — drilling "λύω —
+// aorist middle" still tests tense / voice / mood, because λύω genuinely has
+// present/future, active/passive, and subjunctive/imperative forms; hiding those
+// would hand the student the answer. (Single-gender-noun GENDER is collapsed too,
+// but that's handled separately by `fixedGenderNoun` in buildMorphSteps, not
+// here.) Still deliberately NOT applied to pooled decks (shuffle-all / cumulative
+// aggregate / custom set), where the caller passes an empty map.
 export function computeParadigmConstantDims(cards) {
   const dimKeys = ['aspect', 'tense', 'voice', 'mood', 'person', 'case', 'number', 'gender'];
   const seen = {};
@@ -402,7 +406,17 @@ export function computeParadigmConstantDims(cards) {
     dimKeys.forEach((k) => { if (dims[k]) seen[k].add(dims[k]); });
   });
   const out = {};
-  dimKeys.forEach((k) => { if (seen[k].size === 1) out[k] = [...seen[k]][0]; });
+  // Collapse ONLY the voice of a middle-only / deponent verb (every card deponent
+  // and the sole voice is middle / middle-passive). Tense, mood, person, number,
+  // case, aspect — and the voice of a full verb like λύω — are intentionally left
+  // OUT so they stay real multiple-choice tests even when the focused slice is
+  // constant on them. (Single-gender-noun gender is handled by fixedGenderNoun.)
+  if (seen.voice.size === 1) {
+    const v = [...seen.voice][0];
+    const everyCardDeponent = (cards || []).length > 0
+      && (cards || []).every((card) => card && isDeponentLemma(card.lemma));
+    if (everyCardDeponent && (v === 'middle' || v === 'middle/passive')) out.voice = v;
+  }
   return out;
 }
 
@@ -521,6 +535,12 @@ export function inferredFollowupDims(stepKey, picked, existingStepKeys, options 
 const STRUCTURAL_TENSE_MOOD_IMPOSSIBILITIES = [
   { tense: 'future',     mood: 'imperative',  why: 'no future imperative exists' },
   { tense: 'future',     mood: 'subjunctive', why: 'no future subjunctive exists' },
+  // The optative IS attested in present, future, aorist, and perfect — the
+  // future optative (λυσοίμην, λύσοιμι) is the one mood that keeps a future
+  // form Koine's subjunctive lacks — so there is no future-optative gap here.
+  // It is barred only from the two indicative-only past tenses.
+  { tense: 'imperfect',  mood: 'optative',    why: 'no imperfect optative exists (imperfect is indicative-only)' },
+  { tense: 'pluperfect', mood: 'optative',    why: 'no pluperfect optative exists (pluperfect is indicative-only)' },
   { tense: 'imperfect',  mood: 'subjunctive', why: 'no imperfect subjunctive exists (imperfect is indicative-only)' },
   { tense: 'imperfect',  mood: 'imperative',  why: 'no imperfect imperative exists (imperfect is indicative-only)' },
   { tense: 'imperfect',  mood: 'infinitive',  why: 'no imperfect infinitive exists (imperfect is indicative-only)' },
@@ -1553,7 +1573,7 @@ export function getParadigmStepAttemptWindow() {
 const VALUE_BREAKDOWN_DIMS = ['tense', 'mood', 'voice', 'person', 'case', 'number', 'gender'];
 const VALUE_ORDER = {
   tense:  ['present', 'future', 'imperfect', 'aorist', 'perfect', 'pluperfect'],
-  mood:   ['indicative', 'subjunctive', 'imperative', 'infinitive', 'participle'],
+  mood:   ['indicative', 'subjunctive', 'optative', 'imperative', 'infinitive', 'participle'],
   voice:  ['active', 'middle', 'passive', 'middle/passive'],
   person: ['first', 'second', 'third'],
   case:   ['nominative', 'accusative', 'genitive', 'dative', 'vocative'],

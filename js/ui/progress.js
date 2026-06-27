@@ -655,7 +655,7 @@ const PARSE_WORD_ABBREVS = {
   present: 'pres', future: 'fut', imperfect: 'impf',
   aorist: 'aor', perfect: 'pf', pluperfect: 'plpf',
   active: 'act', middle: 'mid', passive: 'pass',
-  indicative: 'ind', subjunctive: 'subj', imperative: 'impv',
+  indicative: 'ind', subjunctive: 'subj', optative: 'opt', imperative: 'impv',
   infinitive: 'inf', participle: 'ptcp',
   singular: 'sg', plural: 'pl',
   nominative: 'nom', accusative: 'acc', genitive: 'gen', dative: 'dat', vocative: 'voc',
