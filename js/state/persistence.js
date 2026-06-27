@@ -193,7 +193,7 @@ const DIM_VALUE_FILTER_VALUES = {
   aspect: ['continuous', 'undefined', 'perfect'],
   tense:  ['present', 'future', 'imperfect', 'aorist', 'perfect', 'pluperfect'],
   voice:  ['active', 'middle', 'passive'],
-  mood:   ['indicative', 'subjunctive', 'imperative', 'infinitive', 'participle'],
+  mood:   ['indicative', 'subjunctive', 'optative', 'imperative', 'infinitive', 'participle'],
   person: ['first', 'second', 'third'],
   number: ['singular', 'plural'],
   case:   ['nominative', 'accusative', 'genitive', 'dative', 'vocative'],
@@ -416,7 +416,7 @@ function sanitizeImportedState(candidate) {
   // the parent on without touching filters reproduces the original
   // "all optional forms" behavior. Missing keys from older exports
   // hydrate to true.
-  const OPTIONAL_FILTER_KEYS = ['imperative', 'subjunctive', 'infinitive', 'participle', 'thirdPerson', 'futureTense', 'perfectTense'];
+  const OPTIONAL_FILTER_KEYS = ['imperative', 'subjunctive', 'optative', 'infinitive', 'participle', 'thirdPerson', 'futureTense', 'perfectTense'];
   const filterSrc = (candidate.optionalFormFilters && typeof candidate.optionalFormFilters === 'object') ? candidate.optionalFormFilters : {};
   const filterOut = {};
   OPTIONAL_FILTER_KEYS.forEach((k) => { filterOut[k] = filterSrc[k] !== false; });
@@ -1101,7 +1101,7 @@ export function restoreState() {
     // Accent/breathing look-alike distractors in the reverse drill (default false).
     runtime.accentLookalikes = !!saved.accentLookalikes;
     // Per-category sub-filters: default each to true if missing.
-    const OPTIONAL_FILTER_KEYS = ['imperative', 'subjunctive', 'infinitive', 'participle', 'thirdPerson', 'futureTense', 'perfectTense'];
+    const OPTIONAL_FILTER_KEYS = ['imperative', 'subjunctive', 'optative', 'infinitive', 'participle', 'thirdPerson', 'futureTense', 'perfectTense'];
     const savedFilters = (saved.optionalFormFilters && typeof saved.optionalFormFilters === 'object') ? saved.optionalFormFilters : {};
     runtime.optionalFormFilters = {};
     OPTIONAL_FILTER_KEYS.forEach((k) => { runtime.optionalFormFilters[k] = savedFilters[k] !== false; });

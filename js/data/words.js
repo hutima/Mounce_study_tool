@@ -17,6 +17,36 @@
 // ═══════════════════════════════════════════════════════════════════════
 
 const SETS = {
+  "0": {
+    "label": "Chapter 0 — Letters (alphabet practice)",
+    "type": "chapter",
+    "cards": [
+      { "g": "α / Α", "e": "alpha (a)", "required": true },
+      { "g": "β / Β", "e": "beta (b)", "required": true },
+      { "g": "γ / Γ", "e": "gamma (g)", "required": true },
+      { "g": "δ / Δ", "e": "delta (d)", "required": true },
+      { "g": "ε / Ε", "e": "epsilon (e — short)", "required": true },
+      { "g": "ζ / Ζ", "e": "zeta (z)", "required": true },
+      { "g": "η / Η", "e": "eta (ē — long e)", "required": true },
+      { "g": "θ / Θ", "e": "theta (th)", "required": true },
+      { "g": "ι / Ι", "e": "iota (i)", "required": true },
+      { "g": "κ / Κ", "e": "kappa (k)", "required": true },
+      { "g": "λ / Λ", "e": "lambda (l)", "required": true },
+      { "g": "μ / Μ", "e": "mu (m)", "required": true },
+      { "g": "ν / Ν", "e": "nu (n)", "required": true },
+      { "g": "ξ / Ξ", "e": "xi (x)", "required": true },
+      { "g": "ο / Ο", "e": "omicron (o — short)", "required": true },
+      { "g": "π / Π", "e": "pi (p)", "required": true },
+      { "g": "ρ / Ρ", "e": "rho (r)", "required": true },
+      { "g": "σ, ς / Σ", "e": "sigma (s — ς is the final form)", "required": true },
+      { "g": "τ / Τ", "e": "tau (t)", "required": true },
+      { "g": "υ / Υ", "e": "upsilon (u / y)", "required": true },
+      { "g": "φ / Φ", "e": "phi (ph)", "required": true },
+      { "g": "χ / Χ", "e": "chi (ch)", "required": true },
+      { "g": "ψ / Ψ", "e": "psi (ps)", "required": true },
+      { "g": "ω / Ω", "e": "omega (ō — long o)", "required": true }
+    ]
+  },
   "1": {
     "label": "Chapter 1 — The Greek Language",
     "type": "chapter",
@@ -1990,6 +2020,16 @@ const SETS = {
 };
 
 const SESSIONS = [
+  {
+    "id": "letters",
+    "tag": "Letters",
+    "label": "Alphabet (Ch 0)",
+    "sets": [
+      "0"
+    ],
+    "special": false,
+    "summary": "Greek letters — names, forms & sounds (its own deck; not in the cumulative)"
+  },
   {
     "id": "part1",
     "tag": "Part I",

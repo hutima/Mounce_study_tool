@@ -168,7 +168,7 @@ export const runtime = {
     aspect: { continuous: true, undefined: true, perfect: true },
     tense:  { present: true, future: true, imperfect: true, aorist: true, perfect: true, pluperfect: true },
     voice:  { active: true, middle: true, passive: true },
-    mood:   { indicative: true, subjunctive: true, imperative: true, infinitive: true, participle: true },
+    mood:   { indicative: true, subjunctive: true, optative: true, imperative: true, infinitive: true, participle: true },
     person: { first: true, second: true, third: true },
     number: { singular: true, plural: true },
     case:   { nominative: true, accusative: true, genitive: true, dative: true, vocative: true },
@@ -222,6 +222,7 @@ export const runtime = {
   optionalFormFilters: {
     imperative: true,
     subjunctive: true,
+    optative: true,
     infinitive: true,
     participle: true,
     thirdPerson: true,

@@ -619,16 +619,13 @@ function ensureStepStateForCard(card) {
   const paradigmCards = host.getFocusedParadigmAllCards(card);
   const paradigmPool = Array.isArray(paradigmCards) && paradigmCards.length ? paradigmCards : [card];
   const paradigmPresentValues = computeParadigmPresentValues(paradigmPool);
-  // Collapse any parsing step whose value is constant across the WHOLE pool the
-  // student is drilling to a single reinforcing option — they click through it
-  // ("yes, still future / still a participle") instead of choosing from
-  // distractors that the deck never actually contrasts. This is pool-aware, so it
-  // covers both a single focused paradigm (tense/voice/mood fixed) AND a pooled
-  // deck that's still constant on some dim (e.g. the participles "↯ Shuffle all",
-  // where mood is always "participle"). A deck that genuinely varies a dimension
-  // — the cumulative "— all forms" aggregate, shuffle-all across types — keeps
-  // the full test there. Computed from the real pool only (an empty pool would
-  // make every dim look "constant" and collapse the whole walk).
+  // Collapse a parsing step to a single reinforcing option only where the contrast
+  // genuinely doesn't exist for what's being drilled — kept deliberately narrow
+  // (see computeParadigmConstantDims): just the VOICE of a middle-only / deponent
+  // paradigm (πορεύομαι, γίνομαι). A full verb like λύω is NOT collapsed, so
+  // drilling "λύω — aorist middle" still tests tense / voice / mood. (Single-gender
+  // -noun gender is collapsed separately via fixedGenderNoun.) Computed from the
+  // real focused pool only; pooled/cumulative decks pass an empty map.
   const poolCards = host.getParsingPoolCards();
   const singleParadigmConstantDims = (Array.isArray(poolCards) && poolCards.length)
     ? computeParadigmConstantDims(poolCards)
@@ -1288,7 +1285,7 @@ function augmentAnswerWithLabel(answer, label) {
   if (!label) return answer;
   const t = String(label).toLowerCase();
   const voiceMatch = t.match(/\b(middle\/passive|middle or passive|active|middle|passive)\b/);
-  const moodMatch  = t.match(/\b(indicative|subjunctive|imperative|infinitive|participle)\b/);
+  const moodMatch  = t.match(/\b(indicative|subjunctive|optative|imperative|infinitive|participle)\b/);
   const lcAns = String(answer).toLowerCase();
   // Only augment when the answer doesn't already carry its OWN mood/voice
   // marker. Comparing against the label's first match (the previous logic)
@@ -1297,7 +1294,7 @@ function augmentAnswerWithLabel(answer, label) {
   // participle card, so ans.mood parses as 'infinitive' and the form
   // lookup can no longer match the card on a participle pick.
   const ansHasVoice = /\b(active|middle|passive|middle\/passive)\b/.test(lcAns);
-  const ansHasMood  = /\b(indicative|subjunctive|imperative|infinitive|participle)\b/.test(lcAns);
+  const ansHasMood  = /\b(indicative|subjunctive|optative|imperative|infinitive|participle)\b/.test(lcAns);
   let out = String(answer);
   if (voiceMatch && !ansHasVoice) {
     const v = voiceMatch[0].replace(/middle or passive/, 'middle/passive');
@@ -1630,6 +1627,7 @@ function glossEimi(dims) {
   const subj = glossSubject(person, number);
   if (!subj) return '';
   if (mood === 'subjunctive') return `${subj} may be`;
+  if (mood === 'optative') return `${subj} might be`;
   if (mood === 'imperative') {
     return person === 'third' ? `let ${number === 'plural' ? 'them' : 'him/her/it'} be` : 'be!';
   }
@@ -1669,6 +1667,10 @@ function conjugateVerbGloss(v, dims, lemma) {
   if (mood === 'subjunctive') {
     if (!subj) return '';
     return passive ? `${subj} may be ${v.pastPart}` : `${subj} may ${v.pres}`;
+  }
+  if (mood === 'optative') {
+    if (!subj) return '';
+    return passive ? `${subj} might be ${v.pastPart}` : `${subj} might ${v.pres}`;
   }
   if (mood === 'imperative') {
     if (person === 'third') {
@@ -1812,6 +1814,9 @@ function buildWhyThisFormNote(card, dims, category) {
   // ── Subjunctive / imperative: the mood is marked the same across tenses ──
   if (mood === 'subjunctive') {
     return 'The lengthened connecting vowel (η / ω) marks the subjunctive; the aorist subjunctive carries no augment.';
+  }
+  if (mood === 'optative') {
+    return 'The iota mood-sign marks the optative — ‑οι‑ (present/future λύοιμι, λυοίμην), ‑αι‑ (aorist λύσαιμι), ‑ει‑/‑ιη‑ (aorist passive λυθείην, athematic διδοίην / εἴην); like the subjunctive it takes no augment.';
   }
   if (mood === 'imperative') {
     return 'Imperative endings (‑ε, ‑έτω, ‑ετε, ‑έτωσαν …) give the command; the aorist imperative takes no augment.';
