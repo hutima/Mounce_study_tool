@@ -2177,8 +2177,56 @@
   };
   const GRAPHO_AORIST_PASSIVE_INFINITIVE = { 'γραφῆναι': 'aorist passive infinitive' };
   const GRAPHO_AORIST_PASSIVE_PARTICIPLE = eisParticipleParadigm('γραφ');
+  // Principal parts 2–5 (future active, 1st-aorist active, perfect active,
+  // perfect middle/passive). γράφω's full set is γράφω, γράψω, ἔγραψα,
+  // γέγραφα, γέγραμμαι, ἐγράφην. The labial stem (γραφ-) drives the perfect
+  // m/p sandhi: φ+μαι→μμαι, φ+σαι→ψαι, φ+ται→πται, φ+σθε→φθε; the 3pl is
+  // periphrastic (γεγραμμένοι εἰσί) so it's omitted rather than invented.
+  const GRAPHO_FUTURE_ACTIVE_INDICATIVE = {
+    'γράψω':     'future active indicative first person singular',
+    'γράψεις':   'future active indicative second person singular',
+    'γράψει':    'future active indicative third person singular',
+    'γράψομεν':  'future active indicative first person plural',
+    'γράψετε':   'future active indicative second person plural',
+    'γράψουσι':  'future active indicative third person plural',
+    'γράψουσιν': 'future active indicative third person plural'
+  };
+  const GRAPHO_AORIST_ACTIVE_INDICATIVE = {
+    'ἔγραψα':    'aorist active indicative first person singular',
+    'ἔγραψας':   'aorist active indicative second person singular',
+    'ἔγραψε':    'aorist active indicative third person singular',
+    'ἔγραψεν':   'aorist active indicative third person singular',
+    'ἐγράψαμεν': 'aorist active indicative first person plural',
+    'ἐγράψατε':  'aorist active indicative second person plural',
+    'ἔγραψαν':   'aorist active indicative third person plural'
+  };
+  const GRAPHO_PERFECT_ACTIVE_INDICATIVE = {
+    'γέγραφα':    'perfect active indicative first person singular',
+    'γέγραφας':   'perfect active indicative second person singular',
+    'γέγραφε':    'perfect active indicative third person singular',
+    'γέγραφεν':   'perfect active indicative third person singular',
+    'γεγράφαμεν': 'perfect active indicative first person plural',
+    'γεγράφατε':  'perfect active indicative second person plural',
+    'γεγράφασι':  'perfect active indicative third person plural',
+    'γεγράφασιν': 'perfect active indicative third person plural'
+  };
+  const GRAPHO_PERFECT_MP_INDICATIVE = {
+    'γέγραμμαι':  'perfect middle/passive indicative first person singular',
+    'γέγραψαι':   'perfect middle/passive indicative second person singular',
+    'γέγραπται':  'perfect middle/passive indicative third person singular',
+    'γεγράμμεθα': 'perfect middle/passive indicative first person plural',
+    'γέγραφθε':   'perfect middle/passive indicative second person plural'
+  };
+  const GRAPHO_PRESENT_ACTIVE_INFINITIVE = { 'γράφειν': 'present active infinitive' };
+  const GRAPHO_AORIST_ACTIVE_INFINITIVE = { 'γράψαι': 'aorist active infinitive' };
   const GRAPHO_EXTRA_FORMS = {
     ...GRAPHO_PRESENT_ACTIVE_INDICATIVE,
+    ...GRAPHO_FUTURE_ACTIVE_INDICATIVE,
+    ...GRAPHO_AORIST_ACTIVE_INDICATIVE,
+    ...GRAPHO_PERFECT_ACTIVE_INDICATIVE,
+    ...GRAPHO_PERFECT_MP_INDICATIVE,
+    ...GRAPHO_PRESENT_ACTIVE_INFINITIVE,
+    ...GRAPHO_AORIST_ACTIVE_INFINITIVE,
     ...GRAPHO_AORIST_PASSIVE_INDICATIVE,
     ...GRAPHO_AORIST_PASSIVE_SUBJUNCTIVE,
     ...GRAPHO_AORIST_PASSIVE_IMPERATIVE,
@@ -2188,6 +2236,18 @@
   const GRAPHO_OPTIONAL_GROUPS = [
     { chapter: 16, alwaysInclude: true, family: 'γράφω — present active indicative (required)',
       forms: GRAPHO_PRESENT_ACTIVE_INDICATIVE },
+    { chapter: 19, alwaysInclude: true, family: 'γράφω — future active indicative γράψω (required)',
+      forms: GRAPHO_FUTURE_ACTIVE_INDICATIVE },
+    { chapter: 23, alwaysInclude: true, family: 'γράφω — aorist active indicative ἔγραψα (required)',
+      forms: GRAPHO_AORIST_ACTIVE_INDICATIVE },
+    { chapter: 25, alwaysInclude: true, family: 'γράφω — perfect active indicative γέγραφα (required)',
+      forms: GRAPHO_PERFECT_ACTIVE_INDICATIVE },
+    { chapter: 25, alwaysInclude: true, family: 'γράφω — perfect middle/passive indicative γέγραμμαι (required)',
+      forms: GRAPHO_PERFECT_MP_INDICATIVE },
+    { chapter: 32, alwaysInclude: true, family: 'γράφω — present active infinitive γράφειν (required)',
+      forms: GRAPHO_PRESENT_ACTIVE_INFINITIVE },
+    { chapter: 32, alwaysInclude: true, family: 'γράφω — aorist active infinitive γράψαι (required)',
+      forms: GRAPHO_AORIST_ACTIVE_INFINITIVE },
     { chapter: 31, family: 'γράφω — aorist passive subjunctive γραφῶ (optional)',
       forms: GRAPHO_AORIST_PASSIVE_SUBJUNCTIVE },
     { chapter: 33, family: 'γράφω — aorist passive imperative γράφηθι (optional)',
