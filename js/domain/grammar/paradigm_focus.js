@@ -308,15 +308,31 @@ function variantFamilies() {
 // anything richer than the single member, so they're skipped.
 function aggregateDescriptors() {
   const families = variantFamilies();
+  const inv = (typeof window !== 'undefined' && window.LEMMA_INVENTORY) || {};
+  const hasOpt = (lem) => {
+    const e = inv[lem];
+    return !!(e && Array.isArray(e.optionalFormGroups) && e.optionalFormGroups.length);
+  };
   const out = {};
   Object.keys(families).forEach((base) => {
     const members = Array.isArray(families[base]) ? families[base] : [];
-    if (members.length < 2) return;
+    // The optional / required-promoted forms (the cumulative's full set of
+    // principal parts) live on whichever lemma registerVariants attached them to
+    // — the base for the big families (λύω), the single split lemma for the
+    // one-form verbs (λαμβάνω → ἔλαβον). Track it separately from the display
+    // base so the aggregate can source them, while the limited "→" sub-deck
+    // never does (see getCardsForFocusedParadigm).
+    const optionalSource = hasOpt(base) ? base : (members.find(hasOpt) || base);
+    // Build an aggregate when the family has ≥2 members, OR a single member that
+    // carries optional/required forms the limited sub-deck won't show — so the
+    // cumulative is always strictly richer than focusing any one split.
+    if (members.length < 2 && !hasOpt(optionalSource)) return;
     const key = base + AGGREGATE_SUFFIX;
     out[key] = {
       key,
       base,
       members,
+      optionalSource,
       displayLabel: `${base}${AGGREGATE_SUFFIX} (cumulative)`,
       category: AGGREGATE_CATEGORY
     };
@@ -334,6 +350,42 @@ export function isAggregateParadigm(lemma) {
 function aggregateBaseLemma(lemma) {
   const agg = aggregateDescriptors()[lemma];
   return agg ? agg.base : null;
+}
+
+// Lemma the aggregate's optional/required-promoted forms are sourced from (the
+// member registerVariants attached them to), or null when `lemma` is not an
+// aggregate key. Distinct from aggregateBaseLemma, which is the display base.
+function aggregateOptionalSource(lemma) {
+  const agg = aggregateDescriptors()[lemma];
+  return agg ? agg.optionalSource : null;
+}
+
+// True when `lemma` is the base or a member of any variant family — i.e. a split
+// verb's sub-view (base or "→" principal-part deck). Those stay LIMITED to their
+// own forms; the family's required principal parts surface only in its "— all
+// forms" aggregate. A lemma in no family is a standalone verb whose single view
+// does carry its principal parts.
+function isVariantFamilyMember(lemma) {
+  if (!lemma) return false;
+  const families = variantFamilies();
+  return Object.keys(families).some((base) => {
+    if (base === lemma) return true;
+    const members = families[base];
+    return Array.isArray(members) && members.includes(lemma);
+  });
+}
+
+// Whether an aggregate's optional source carries a required (alwaysInclude) group
+// in scope — i.e. promoted principal parts the limited sub-deck won't show, which
+// make the cumulative worth listing even when only one member is unlocked.
+function aggregateHasInScopeRequired(agg, levels) {
+  const inv = (typeof window !== 'undefined' && window.LEMMA_INVENTORY) || {};
+  const entry = inv[agg.optionalSource];
+  if (!entry || !Array.isArray(entry.optionalFormGroups)) return false;
+  return entry.optionalFormGroups.some(
+    (g) => g && g.alwaysInclude === true && typeof g.chapter === 'number'
+           && g.chapter <= levels.maxEffectiveChapter
+  );
 }
 
 // Real member lemmas a focused-paradigm key resolves to: an aggregate
@@ -561,7 +613,11 @@ export function listAvailableParadigms(selectedKeys) {
   const aggregates = [];
   Object.values(aggregateDescriptors()).forEach((agg) => {
     const inScope = agg.members.filter((m) => realByLemma.has(m));
-    if (inScope.length < 2) return;
+    if (!inScope.length) return;
+    // ≥2 members pool together; OR a single member whose cumulative still adds
+    // promoted (alwaysInclude) principal parts the limited "→" sub-deck hides, so
+    // a one-form verb's "— all forms" is strictly richer than focusing its split.
+    if (inScope.length < 2 && !aggregateHasInScopeRequired(agg, levels)) return;
     const sources = new Set();
     let firstChapter = Infinity;
     inScope.forEach((m) => {
@@ -657,19 +713,28 @@ export function getCardsForFocusedParadigm(selectedKeys, focusedLemma, options =
   // added — but the fallback form-lookup in render.js still consults
   // LEMMA_INVENTORY.extraForms, so wrong-pick feedback stays canonical.
   //
-  // For an aggregate, optionals come from the base lemma: registerVariants
-  // attaches the same optionalFormGroups to every family member, so the base
-  // already carries the complete optional paradigm. Building from it once
-  // (rather than per member) yields every optional form without 15× the
-  // duplication, and keys the synthetic cards' stats under the base lemma —
-  // matching what focusing the base lemma alone with the toggle on produces.
-  // Always build from the optional pool: required full-paradigm groups
-  // (alwaysInclude) are drilled regardless of the toggle, while the toggle-gated
-  // extensions are added only when options.includeOptional is on.
-  const optionalSourceLemma = aggregateBaseLemma(focusedLemma) || focusedLemma;
-  const optionalCards = buildOptionalMorphCardsForLemma(
-    optionalSourceLemma, levels, options.optionalFilters, !!options.includeOptional
-  );
+  // Optional / required-promoted forms (a verb's full set of principal parts)
+  // belong to the master "— all forms" AGGREGATE, or to a STANDALONE verb's
+  // single view — never to a split verb's "→" sub-deck (or base sub-view), which
+  // stays LIMITED to its one tested principal part. So emit them only when:
+  //   • focusing an aggregate — sourced from wherever registerVariants attached
+  //     them (the base for big families, the lone split lemma for one-form
+  //     verbs); required full-paradigm groups (alwaysInclude) drill regardless of
+  //     the toggle, toggle-gated extensions only when options.includeOptional; OR
+  //   • focusing a lemma that's in no variant family (a standalone verb).
+  // A split verb's sub-view gets nothing here — its required principal parts live
+  // in its cumulative. (Stats for the synthetic cards key under the source lemma.)
+  const aggOptSource = aggregateOptionalSource(focusedLemma);
+  let optionalCards = [];
+  if (aggOptSource) {
+    optionalCards = buildOptionalMorphCardsForLemma(
+      aggOptSource, levels, options.optionalFilters, !!options.includeOptional
+    );
+  } else if (!isVariantFamilyMember(focusedLemma)) {
+    optionalCards = buildOptionalMorphCardsForLemma(
+      focusedLemma, levels, options.optionalFilters, !!options.includeOptional
+    );
+  }
 
   if (!eligibleSourceKeys.length && !optionalCards.length) return [];
   const drilledCards = eligibleSourceKeys.length
