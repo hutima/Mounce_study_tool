@@ -1815,13 +1815,65 @@
   ];
   const LEIPO_VARIANTS = ['λείπω → ἔλιπον'];
 
-  // ─── κρίνω (liquid future, "to judge") — lookup-only participles ───
+  // ─── κρίνω (liquid future, "to judge") — full principal parts ─────
   //
-  // Mounce drills the liquid future κρινῶ (Ch 20). κρίνω's participles are
-  // registered as extraForms ONLY (no optionalFormGroups, mirroring duff):
-  // they back the wrong-parse form-lookup feedback without adding drill
-  // cards. κρίνω forms a liquid 1st aorist ἔκρινα, so its aorist active
-  // participle is the -ας/-αντος type (κρίνας), NOT the 2nd-aorist -ών type.
+  // Mounce drills the liquid future κρινῶ (Ch 20) as the core paradigm; the
+  // "κρίνω → κρινῶ" sub-deck stays limited to it. The other five principal
+  // parts (present κρίνω, 1st-aorist active ἔκρινα, perfect active κέκρικα,
+  // perfect m/p κέκριμαι, aorist passive ἐκρίθην) are authored here as
+  // alwaysInclude groups so the cumulative "κρίνω — all forms" drills the full
+  // set — κρίνω is registered in PARADIGM_VARIANT_FAMILIES below to give it that
+  // cumulative (single-member family, mirroring λαμβάνω). Principal parts:
+  // κρίνω, κρινῶ, ἔκρινα, κέκρικα, κέκριμαι, ἐκρίθην (Dickinson core list). The
+  // stem loses its ν before consonantal endings (κρι-), so the perfect m/p 3pl
+  // is periphrastic and omitted. κρίνω forms a liquid 1st aorist ἔκρινα, so its
+  // aorist active participle is the -ας/-αντος type (κρίνας), NOT the 2nd-aorist
+  // -ών type.
+  const KRINO_PRESENT_ACTIVE_INDICATIVE = {
+    'κρίνω':     'present active indicative first person singular',
+    'κρίνεις':   'present active indicative second person singular',
+    'κρίνει':    'present active indicative third person singular',
+    'κρίνομεν':  'present active indicative first person plural',
+    'κρίνετε':   'present active indicative second person plural',
+    'κρίνουσι':  'present active indicative third person plural',
+    'κρίνουσιν': 'present active indicative third person plural'
+  };
+  const KRINO_AORIST_ACTIVE_INDICATIVE = {
+    'ἔκρινα':    'aorist active indicative first person singular',
+    'ἔκρινας':   'aorist active indicative second person singular',
+    'ἔκρινε':    'aorist active indicative third person singular',
+    'ἔκρινεν':   'aorist active indicative third person singular',
+    'ἐκρίναμεν': 'aorist active indicative first person plural',
+    'ἐκρίνατε':  'aorist active indicative second person plural',
+    'ἔκριναν':   'aorist active indicative third person plural'
+  };
+  const KRINO_PERFECT_ACTIVE_INDICATIVE = {
+    'κέκρικα':    'perfect active indicative first person singular',
+    'κέκρικας':   'perfect active indicative second person singular',
+    'κέκρικε':    'perfect active indicative third person singular',
+    'κέκρικεν':   'perfect active indicative third person singular',
+    'κεκρίκαμεν': 'perfect active indicative first person plural',
+    'κεκρίκατε':  'perfect active indicative second person plural',
+    'κεκρίκασι':  'perfect active indicative third person plural',
+    'κεκρίκασιν': 'perfect active indicative third person plural'
+  };
+  const KRINO_PERFECT_MP_INDICATIVE = {
+    'κέκριμαι':  'perfect middle/passive indicative first person singular',
+    'κέκρισαι':  'perfect middle/passive indicative second person singular',
+    'κέκριται':  'perfect middle/passive indicative third person singular',
+    'κεκρίμεθα': 'perfect middle/passive indicative first person plural',
+    'κέκρισθε':  'perfect middle/passive indicative second person plural'
+  };
+  const KRINO_AORIST_PASSIVE_INDICATIVE = {
+    'ἐκρίθην':   'aorist passive indicative first person singular',
+    'ἐκρίθης':   'aorist passive indicative second person singular',
+    'ἐκρίθη':    'aorist passive indicative third person singular',
+    'ἐκρίθημεν': 'aorist passive indicative first person plural',
+    'ἐκρίθητε':  'aorist passive indicative second person plural',
+    'ἐκρίθησαν': 'aorist passive indicative third person plural'
+  };
+  const KRINO_PRESENT_ACTIVE_INFINITIVE = { 'κρίνειν': 'present active infinitive' };
+  const KRINO_AORIST_ACTIVE_INFINITIVE = { 'κρῖναι': 'aorist active infinitive' };
   const KRINO_AORIST_ACTIVE_PARTICIPLE = {
     'κρίνας':     'aorist active participle nominative singular masculine',
     'κρίναντος':  'aorist active participle genitive singular masculine/neuter',
@@ -1844,7 +1896,30 @@
   };
   const KRINO_PRESENT_ACTIVE_PARTICIPLE = presentActiveNtParticiple('κρίν', 'κριν', 'κρῖνον');
   const KRINO_AORIST_PASSIVE_PARTICIPLE = aoristPassiveParticipleParadigm('κρι');
+  const KRINO_OPTIONAL_GROUPS = [
+    { chapter: 16, alwaysInclude: true, family: 'κρίνω — present active indicative (required)',
+      forms: KRINO_PRESENT_ACTIVE_INDICATIVE },
+    { chapter: 23, alwaysInclude: true, family: 'κρίνω — aorist active indicative ἔκρινα (liquid, required)',
+      forms: KRINO_AORIST_ACTIVE_INDICATIVE },
+    { chapter: 24, alwaysInclude: true, family: 'κρίνω — aorist passive indicative ἐκρίθην (required)',
+      forms: KRINO_AORIST_PASSIVE_INDICATIVE },
+    { chapter: 25, alwaysInclude: true, family: 'κρίνω — perfect active indicative κέκρικα (required)',
+      forms: KRINO_PERFECT_ACTIVE_INDICATIVE },
+    { chapter: 25, alwaysInclude: true, family: 'κρίνω — perfect middle/passive indicative κέκριμαι (required)',
+      forms: KRINO_PERFECT_MP_INDICATIVE },
+    { chapter: 32, alwaysInclude: true, family: 'κρίνω — present active infinitive κρίνειν (required)',
+      forms: KRINO_PRESENT_ACTIVE_INFINITIVE },
+    { chapter: 32, alwaysInclude: true, family: 'κρίνω — aorist active infinitive κρῖναι (required)',
+      forms: KRINO_AORIST_ACTIVE_INFINITIVE }
+  ];
   const KRINO_EXTRA_FORMS = {
+    ...KRINO_PRESENT_ACTIVE_INDICATIVE,
+    ...KRINO_AORIST_ACTIVE_INDICATIVE,
+    ...KRINO_PERFECT_ACTIVE_INDICATIVE,
+    ...KRINO_PERFECT_MP_INDICATIVE,
+    ...KRINO_AORIST_PASSIVE_INDICATIVE,
+    ...KRINO_PRESENT_ACTIVE_INFINITIVE,
+    ...KRINO_AORIST_ACTIVE_INFINITIVE,
     ...KRINO_PRESENT_ACTIVE_PARTICIPLE,
     ...KRINO_AORIST_ACTIVE_PARTICIPLE,
     ...KRINO_AORIST_PASSIVE_PARTICIPLE
@@ -2910,9 +2985,12 @@
     extraForms: LEIPO_EXTRA_FORMS,
     optionalFormGroups: LEIPO_FULL_OPTIONAL_GROUPS
   });
-  // κρίνω: extraForms only (lookup feedback), no drillable optional groups.
+  // κρίνω: the "→ κρινῶ" sub-deck drills the core liquid future only; the other
+  // five principal parts ride as alwaysInclude groups so the cumulative
+  // "κρίνω — all forms" (registered below) drills the full set.
   registerVariants(KRINO_VARIANTS, {
-    extraForms: KRINO_EXTRA_FORMS
+    extraForms: KRINO_EXTRA_FORMS,
+    optionalFormGroups: KRINO_OPTIONAL_GROUPS
   });
   // Hand-authored (no duff source) — contract verbs, γράφω, πορεύομαι, δείκνυμι.
   registerVariants(AGAPAO_VARIANTS, {
@@ -2979,6 +3057,7 @@
       'λείπω': LEIPO_VARIANTS,
       'γίνομαι': GINOMAI_VARIANTS,
       'γράφω': GRAPHO_VARIANTS,
+      'κρίνω': KRINO_VARIANTS,
       'τίθημι': TITHEMI_VARIANTS,
       'ἵστημι': HISTEMI_VARIANTS,
       'δείκνυμι': DEIKNYMI_VARIANTS
