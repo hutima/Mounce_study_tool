@@ -69,6 +69,27 @@
             { form: "ἔργα", answer: "nominative or accusative plural neuter",
               note: "Rule 3: neuter nom/acc plural = α." }
           ]
+        },
+        {
+          // Ch 6's title is "Nominative & Accusative; Article" — the article's
+          // nom/acc is introduced here alongside the nouns (its gen/dat comes in
+          // Ch 7 with the full paradigm below). Same lemma as the Ch-7 article,
+          // so the per-form dedup collapses the overlap once both are in scope.
+          family: "Definite article ὁ, ἡ, τό (nom/acc only)",
+          lemma: "ὁ, ἡ, τό",
+          gloss: "the",
+          questions: [
+            { form: "ὁ", answer: "nominative singular masculine" },
+            { form: "τόν", answer: "accusative singular masculine" },
+            { form: "οἱ", answer: "nominative plural masculine" },
+            { form: "τούς", answer: "accusative plural masculine" },
+            { form: "ἡ", answer: "nominative singular feminine" },
+            { form: "τήν", answer: "accusative singular feminine" },
+            { form: "αἱ", answer: "nominative plural feminine" },
+            { form: "τάς", answer: "accusative plural feminine" },
+            { form: "τό", answer: "nominative or accusative singular neuter" },
+            { form: "τά", answer: "nominative or accusative plural neuter" }
+          ]
         }
       ]
     },
