@@ -21,10 +21,13 @@ import { getStorage } from '../utils/storage.js';
 // lacks the export. See CLAUDE.md › "ES-module imports are NOT cache-busted".
 const PWA_INSTALL_DISMISSED_STORAGE_KEY = 'mounceBbgFlashcardsInstallPromptDismissedV1';
 
-// Give the user a little time with the app before nudging them to install.
-const FIRST_LAUNCH_DELAY_MS = 60 * 1000;
-// If a modal is covering the screen when the timer fires, retry sooner.
-const BUSY_RETRY_MS = 12 * 1000;
+// Scheduled right after the new user accepts the consent gate — show the nudge
+// almost immediately once they reach the app (a brief beat, not a long wait).
+const FIRST_LAUNCH_DELAY_MS = 2 * 1000;
+// If a modal is still covering the screen when the timer fires (e.g. the study
+// selector that opens on consent-accept), re-check shortly so the banner lands
+// right after it closes.
+const BUSY_RETRY_MS = 2 * 1000;
 // Treat a screen whose shorter edge is at most this many CSS px as a phone.
 const PHONE_MAX_SHORT_EDGE = 480;
 
