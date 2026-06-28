@@ -108,7 +108,7 @@
   const EIMI_OPTIONAL_GROUPS = [
     { chapter: 27, family: 'εἰμί — future middle participle (optional)',
       forms: EIMI_FUTURE_MIDDLE_PARTICIPLE },
-    { chapter: 32, family: 'εἰμί — future middle infinitive (optional)',
+    { chapter: 32, alwaysInclude: true, family: 'εἰμί — future middle infinitive (required)',
       forms: EIMI_FUTURE_MIDDLE_INFINITIVE },
     { chapter: 33, family: 'εἰμί — present active imperative (optional)',
       forms: EIMI_PRESENT_ACTIVE_IMPERATIVE }
@@ -235,9 +235,9 @@
   };
 
   const LUO_OPTIONAL_GROUPS = [
-    { chapter: 32, family: 'λύω — future active infinitive (optional)',
+    { chapter: 32, alwaysInclude: true, family: 'λύω — future active infinitive (required)',
       forms: { 'λύσειν': 'future active infinitive' } },
-    { chapter: 32, family: 'λύω — future middle/passive + perfect + aor middle infinitives (optional)',
+    { chapter: 32, alwaysInclude: true, family: 'λύω — future middle/passive + perfect + aor middle infinitives (required)',
       forms: {
         'λύσεσθαι':    'future middle infinitive',
         'λυθήσεσθαι':  'future passive infinitive',
@@ -374,25 +374,25 @@
   };
 
   const GINOMAI_OPTIONAL_GROUPS = [
-    { chapter: 18, family: 'γίνομαι — present middle indicative (optional)',
+    { chapter: 18, alwaysInclude: true, family: 'γίνομαι — present middle indicative (required)',
       forms: GINOMAI_PRESENT_MIDDLE_INDICATIVE },
     { chapter: 21, family: 'γίνομαι — imperfect middle indicative (optional)',
       forms: GINOMAI_IMPERFECT_MIDDLE_INDICATIVE },
-    { chapter: 19, family: 'γίνομαι — future middle indicative (optional)',
+    { chapter: 19, alwaysInclude: true, family: 'γίνομαι — future middle indicative (required)',
       forms: GINOMAI_FUTURE_MIDDLE_INDICATIVE },
-    { chapter: 32, family: 'γίνομαι — present middle infinitive (optional)',
+    { chapter: 32, alwaysInclude: true, family: 'γίνομαι — present middle infinitive (required)',
       forms: GINOMAI_PRESENT_MIDDLE_INFINITIVE },
-    { chapter: 22, family: 'γίνομαι — aorist middle indicative (2nd aorist, optional)',
+    { chapter: 22, alwaysInclude: true, family: 'γίνομαι — aorist middle indicative (2nd aorist, required)',
       forms: GINOMAI_AORIST_MIDDLE_INDICATIVE },
-    { chapter: 32, family: 'γίνομαι — aorist middle infinitive γενέσθαι (optional)',
+    { chapter: 32, alwaysInclude: true, family: 'γίνομαι — aorist middle infinitive γενέσθαι (required)',
       forms: GINOMAI_AORIST_MIDDLE_INFINITIVE },
     { chapter: 33, family: 'γίνομαι — present middle imperative (optional)',
       forms: GINOMAI_PRESENT_MIDDLE_IMPERATIVE },
     { chapter: 33, family: 'γίνομαι — aorist middle imperative (optional)',
       forms: GINOMAI_AORIST_MIDDLE_IMPERATIVE },
-    { chapter: 24, family: 'γίνομαι — aorist passive indicative (optional)',
+    { chapter: 24, alwaysInclude: true, family: 'γίνομαι — aorist passive indicative (required)',
       forms: GINOMAI_AORIST_PASSIVE_INDICATIVE },
-    { chapter: 25, family: 'γίνομαι — perfect active indicative γέγονα (optional)',
+    { chapter: 25, alwaysInclude: true, family: 'γίνομαι — perfect active indicative γέγονα (required)',
       forms: GINOMAI_PERFECT_ACTIVE_INDICATIVE }
   ];
 
@@ -449,13 +449,13 @@
   };
 
   const DIDOMI_OPTIONAL_GROUPS = [
-    { chapter: 35, family: 'δίδωμι — aorist active infinitive δοῦναι (optional)',
+    { chapter: 35, alwaysInclude: true, family: 'δίδωμι — aorist active infinitive δοῦναι (required)',
       forms: DIDOMI_AORIST_ACTIVE_INFINITIVE },
     { chapter: 35, family: 'δίδωμι — aorist active imperative δός (optional)',
       forms: DIDOMI_AORIST_ACTIVE_IMPERATIVE },
     { chapter: 35, family: 'δίδωμι — aorist active subjunctive δῶ (optional)',
       forms: DIDOMI_AORIST_ACTIVE_SUBJUNCTIVE },
-    { chapter: 34, family: 'δίδωμι — aorist passive indicative ἐδόθην (optional)',
+    { chapter: 34, alwaysInclude: true, family: 'δίδωμι — aorist passive indicative ἐδόθην (required)',
       forms: DIDOMI_AORIST_PASSIVE_INDICATIVE }
   ];
 
@@ -537,17 +537,17 @@
   const TITHEMI_OPTIONAL_GROUPS = [
     { chapter: 36, family: 'τίθημι — imperfect active indicative (optional)',
       forms: TITHEMI_IMPERFECT_ACTIVE_INDICATIVE },
-    { chapter: 36, family: 'τίθημι — future active indicative (optional)',
+    { chapter: 36, alwaysInclude: true, family: 'τίθημι — future active indicative (required)',
       forms: TITHEMI_FUTURE_ACTIVE_INDICATIVE },
-    { chapter: 36, family: 'τίθημι — aorist active indicative ἔθηκα (optional)',
+    { chapter: 36, alwaysInclude: true, family: 'τίθημι — aorist active indicative ἔθηκα (required)',
       forms: TITHEMI_AORIST_ACTIVE_INDICATIVE },
-    { chapter: 36, family: 'τίθημι — aorist active infinitive θεῖναι (optional)',
+    { chapter: 36, alwaysInclude: true, family: 'τίθημι — aorist active infinitive θεῖναι (required)',
       forms: TITHEMI_AORIST_ACTIVE_INFINITIVE },
     { chapter: 36, family: 'τίθημι — aorist active imperative θές (optional)',
       forms: TITHEMI_AORIST_ACTIVE_IMPERATIVE },
     { chapter: 36, family: 'τίθημι — aorist active subjunctive θῶ (optional)',
       forms: TITHEMI_AORIST_ACTIVE_SUBJUNCTIVE },
-    { chapter: 36, family: 'τίθημι — aorist passive indicative ἐτέθην (optional)',
+    { chapter: 36, alwaysInclude: true, family: 'τίθημι — aorist passive indicative ἐτέθην (required)',
       forms: TITHEMI_AORIST_PASSIVE_INDICATIVE }
   ];
 
@@ -657,21 +657,21 @@
   const HISTEMI_OPTIONAL_GROUPS = [
     { chapter: 36, family: 'ἵστημι — imperfect active indicative (optional)',
       forms: HISTEMI_IMPERFECT_ACTIVE_INDICATIVE },
-    { chapter: 36, family: 'ἵστημι — future active indicative στήσω (optional)',
+    { chapter: 36, alwaysInclude: true, family: 'ἵστημι — future active indicative στήσω (required)',
       forms: HISTEMI_FUTURE_ACTIVE_INDICATIVE },
-    { chapter: 36, family: 'ἵστημι — 1st aorist active ἔστησα (transitive, optional)',
+    { chapter: 36, alwaysInclude: true, family: 'ἵστημι — 1st aorist active ἔστησα (transitive, required)',
       forms: HISTEMI_FIRST_AORIST_ACTIVE_INDICATIVE },
-    { chapter: 36, family: 'ἵστημι — 2nd aorist active ἔστην (intransitive, optional)',
+    { chapter: 36, alwaysInclude: true, family: 'ἵστημι — 2nd aorist active ἔστην (intransitive, required)',
       forms: HISTEMI_SECOND_AORIST_ACTIVE_INDICATIVE },
-    { chapter: 36, family: 'ἵστημι — aorist active infinitives στῆσαι / στῆναι (optional)',
+    { chapter: 36, alwaysInclude: true, family: 'ἵστημι — aorist active infinitives στῆσαι / στῆναι (required)',
       forms: HISTEMI_AORIST_INFINITIVES },
     { chapter: 36, family: 'ἵστημι — 2nd aorist active subjunctive στῶ (optional)',
       forms: HISTEMI_SECOND_AORIST_SUBJUNCTIVE },
     { chapter: 36, family: 'ἵστημι — 2nd aorist active imperative στῆθι (optional)',
       forms: HISTEMI_SECOND_AORIST_IMPERATIVE },
-    { chapter: 36, family: 'ἵστημι — aorist passive indicative ἐστάθην (optional)',
+    { chapter: 36, alwaysInclude: true, family: 'ἵστημι — aorist passive indicative ἐστάθην (required)',
       forms: HISTEMI_AORIST_PASSIVE_INDICATIVE },
-    { chapter: 36, family: 'ἵστημι — perfect active indicative ἕστηκα (optional)',
+    { chapter: 36, alwaysInclude: true, family: 'ἵστημι — perfect active indicative ἕστηκα (required)',
       forms: HISTEMI_PERFECT_ACTIVE_INDICATIVE }
   ];
 
@@ -1513,17 +1513,17 @@
   const LAMBANO_AORIST_PASSIVE_PARTICIPLE = aoristPassiveParticipleParadigm('λημφ');
 
   const LAMBANO_OPTIONAL_GROUPS = [
-    { chapter: 16, family: 'λαμβάνω — present active indicative (optional)',
+    { chapter: 16, alwaysInclude: true, family: 'λαμβάνω — present active indicative (required)',
       forms: LAMBANO_PRESENT_ACTIVE_INDICATIVE },
     { chapter: 21, family: 'λαμβάνω — imperfect active indicative (optional)',
       forms: LAMBANO_IMPERFECT_ACTIVE_INDICATIVE },
-    { chapter: 19, family: 'λαμβάνω — future middle indicative λήμψομαι (optional, deponent)',
+    { chapter: 19, alwaysInclude: true, family: 'λαμβάνω — future middle indicative λήμψομαι (required, deponent)',
       forms: LAMBANO_FUTURE_MIDDLE_INDICATIVE },
-    { chapter: 22, family: 'λαμβάνω — aorist active indicative ἔλαβον (2nd aorist, optional)',
+    { chapter: 22, alwaysInclude: true, family: 'λαμβάνω — aorist active indicative ἔλαβον (2nd aorist, required)',
       forms: LAMBANO_AORIST_ACTIVE_INDICATIVE },
-    { chapter: 32, family: 'λαμβάνω — present active infinitive λαμβάνειν (optional)',
+    { chapter: 32, alwaysInclude: true, family: 'λαμβάνω — present active infinitive λαμβάνειν (required)',
       forms: LAMBANO_PRESENT_ACTIVE_INFINITIVE },
-    { chapter: 32, family: 'λαμβάνω — aorist active infinitive λαβεῖν (optional)',
+    { chapter: 32, alwaysInclude: true, family: 'λαμβάνω — aorist active infinitive λαβεῖν (required)',
       forms: LAMBANO_AORIST_ACTIVE_INFINITIVE },
     { chapter: 33, family: 'λαμβάνω — present active imperative (optional)',
       forms: LAMBANO_PRESENT_ACTIVE_IMPERATIVE },
@@ -1531,9 +1531,9 @@
       forms: LAMBANO_AORIST_ACTIVE_IMPERATIVE },
     { chapter: 31, family: 'λαμβάνω — aorist active subjunctive λάβω (optional)',
       forms: LAMBANO_AORIST_ACTIVE_SUBJUNCTIVE },
-    { chapter: 24, family: 'λαμβάνω — aorist passive indicative ἐλήμφθην (optional)',
+    { chapter: 24, alwaysInclude: true, family: 'λαμβάνω — aorist passive indicative ἐλήμφθην (required)',
       forms: LAMBANO_AORIST_PASSIVE_INDICATIVE },
-    { chapter: 25, family: 'λαμβάνω — perfect active indicative εἴληφα (optional)',
+    { chapter: 25, alwaysInclude: true, family: 'λαμβάνω — perfect active indicative εἴληφα (required)',
       forms: LAMBANO_PERFECT_ACTIVE_INDICATIVE }
   ];
   const LAMBANO_PARTICIPLE_OPTIONAL = [
@@ -1656,17 +1656,17 @@
   const LEIPO_AORIST_PASSIVE_PARTICIPLE = aoristPassiveParticipleParadigm('λειφ');
 
   const LEIPO_OPTIONAL_GROUPS = [
-    { chapter: 16, family: 'λείπω — present active indicative (optional)',
+    { chapter: 16, alwaysInclude: true, family: 'λείπω — present active indicative (required)',
       forms: LEIPO_PRESENT_ACTIVE_INDICATIVE },
     { chapter: 21, family: 'λείπω — imperfect active indicative (optional)',
       forms: LEIPO_IMPERFECT_ACTIVE_INDICATIVE },
-    { chapter: 19, family: 'λείπω — future active indicative λείψω (optional)',
+    { chapter: 19, alwaysInclude: true, family: 'λείπω — future active indicative λείψω (required)',
       forms: LEIPO_FUTURE_ACTIVE_INDICATIVE },
-    { chapter: 22, family: 'λείπω — aorist active indicative ἔλιπον (2nd aorist, optional)',
+    { chapter: 22, alwaysInclude: true, family: 'λείπω — aorist active indicative ἔλιπον (2nd aorist, required)',
       forms: LEIPO_AORIST_ACTIVE_INDICATIVE },
-    { chapter: 32, family: 'λείπω — present active infinitive λείπειν (optional)',
+    { chapter: 32, alwaysInclude: true, family: 'λείπω — present active infinitive λείπειν (required)',
       forms: LEIPO_PRESENT_ACTIVE_INFINITIVE },
-    { chapter: 32, family: 'λείπω — aorist active infinitive λιπεῖν (optional)',
+    { chapter: 32, alwaysInclude: true, family: 'λείπω — aorist active infinitive λιπεῖν (required)',
       forms: LEIPO_AORIST_ACTIVE_INFINITIVE },
     { chapter: 33, family: 'λείπω — present active imperative (optional)',
       forms: LEIPO_PRESENT_ACTIVE_IMPERATIVE },
@@ -1674,9 +1674,9 @@
       forms: LEIPO_AORIST_ACTIVE_IMPERATIVE },
     { chapter: 31, family: 'λείπω — aorist active subjunctive λίπω (optional)',
       forms: LEIPO_AORIST_ACTIVE_SUBJUNCTIVE },
-    { chapter: 24, family: 'λείπω — aorist passive indicative ἐλείφθην (optional)',
+    { chapter: 24, alwaysInclude: true, family: 'λείπω — aorist passive indicative ἐλείφθην (required)',
       forms: LEIPO_AORIST_PASSIVE_INDICATIVE },
-    { chapter: 25, family: 'λείπω — perfect active indicative λέλοιπα (optional)',
+    { chapter: 25, alwaysInclude: true, family: 'λείπω — perfect active indicative λέλοιπα (required)',
       forms: LEIPO_PERFECT_ACTIVE_INDICATIVE }
   ];
   const LEIPO_PARTICIPLE_OPTIONAL = [
@@ -1810,15 +1810,15 @@
     ...AGAPAO_PRESENT_ACTIVE_PARTICIPLE_NOM
   };
   const AGAPAO_OPTIONAL_GROUPS = [
-    { chapter: 18, family: 'ἀγαπάω — present middle/passive indicative (optional)',
+    { chapter: 18, alwaysInclude: true, family: 'ἀγαπάω — present middle/passive indicative (required)',
       forms: AGAPAO_PRESENT_MP_INDICATIVE },
     { chapter: 21, family: 'ἀγαπάω — imperfect active indicative (optional)',
       forms: AGAPAO_IMPERFECT_ACTIVE_INDICATIVE },
     { chapter: 21, family: 'ἀγαπάω — imperfect middle/passive indicative (optional)',
       forms: AGAPAO_IMPERFECT_MP_INDICATIVE },
-    { chapter: 32, family: 'ἀγαπάω — present active infinitive ἀγαπᾶν (optional)',
+    { chapter: 32, alwaysInclude: true, family: 'ἀγαπάω — present active infinitive ἀγαπᾶν (required)',
       forms: AGAPAO_PRESENT_ACTIVE_INFINITIVE },
-    { chapter: 32, family: 'ἀγαπάω — present middle/passive infinitive ἀγαπᾶσθαι (optional)',
+    { chapter: 32, alwaysInclude: true, family: 'ἀγαπάω — present middle/passive infinitive ἀγαπᾶσθαι (required)',
       forms: AGAPAO_PRESENT_MP_INFINITIVE },
     { chapter: 27, family: 'ἀγαπάω — present active participle ἀγαπῶν (optional, nom.)',
       forms: AGAPAO_PRESENT_ACTIVE_PARTICIPLE_NOM },
@@ -1879,15 +1879,15 @@
     ...POIEO_PRESENT_ACTIVE_PARTICIPLE_NOM
   };
   const POIEO_OPTIONAL_GROUPS = [
-    { chapter: 18, family: 'ποιέω — present middle/passive indicative (optional)',
+    { chapter: 18, alwaysInclude: true, family: 'ποιέω — present middle/passive indicative (required)',
       forms: POIEO_PRESENT_MP_INDICATIVE },
     { chapter: 21, family: 'ποιέω — imperfect active indicative (optional)',
       forms: POIEO_IMPERFECT_ACTIVE_INDICATIVE },
     { chapter: 21, family: 'ποιέω — imperfect middle/passive indicative (optional)',
       forms: POIEO_IMPERFECT_MP_INDICATIVE },
-    { chapter: 32, family: 'ποιέω — present active infinitive ποιεῖν (optional)',
+    { chapter: 32, alwaysInclude: true, family: 'ποιέω — present active infinitive ποιεῖν (required)',
       forms: POIEO_PRESENT_ACTIVE_INFINITIVE },
-    { chapter: 32, family: 'ποιέω — present middle/passive infinitive ποιεῖσθαι (optional)',
+    { chapter: 32, alwaysInclude: true, family: 'ποιέω — present middle/passive infinitive ποιεῖσθαι (required)',
       forms: POIEO_PRESENT_MP_INFINITIVE },
     { chapter: 27, family: 'ποιέω — present active participle ποιῶν (optional, nom.)',
       forms: POIEO_PRESENT_ACTIVE_PARTICIPLE_NOM },
@@ -1947,15 +1947,15 @@
     ...PLEROO_PRESENT_ACTIVE_PARTICIPLE_NOM
   };
   const PLEROO_OPTIONAL_GROUPS = [
-    { chapter: 18, family: 'πληρόω — present middle/passive indicative (optional)',
+    { chapter: 18, alwaysInclude: true, family: 'πληρόω — present middle/passive indicative (required)',
       forms: PLEROO_PRESENT_MP_INDICATIVE },
     { chapter: 21, family: 'πληρόω — imperfect active indicative (optional)',
       forms: PLEROO_IMPERFECT_ACTIVE_INDICATIVE },
     { chapter: 21, family: 'πληρόω — imperfect middle/passive indicative (optional)',
       forms: PLEROO_IMPERFECT_MP_INDICATIVE },
-    { chapter: 32, family: 'πληρόω — present active infinitive πληροῦν (optional)',
+    { chapter: 32, alwaysInclude: true, family: 'πληρόω — present active infinitive πληροῦν (required)',
       forms: PLEROO_PRESENT_ACTIVE_INFINITIVE },
-    { chapter: 32, family: 'πληρόω — present middle/passive infinitive πληροῦσθαι (optional)',
+    { chapter: 32, alwaysInclude: true, family: 'πληρόω — present middle/passive infinitive πληροῦσθαι (required)',
       forms: PLEROO_PRESENT_MP_INFINITIVE },
     { chapter: 27, family: 'πληρόω — present active participle πληρῶν (optional, nom.)',
       forms: PLEROO_PRESENT_ACTIVE_PARTICIPLE_NOM },
@@ -2014,13 +2014,13 @@
     ...GRAPHO_AORIST_PASSIVE_PARTICIPLE
   };
   const GRAPHO_OPTIONAL_GROUPS = [
-    { chapter: 16, family: 'γράφω — present active indicative (optional)',
+    { chapter: 16, alwaysInclude: true, family: 'γράφω — present active indicative (required)',
       forms: GRAPHO_PRESENT_ACTIVE_INDICATIVE },
     { chapter: 31, family: 'γράφω — aorist passive subjunctive γραφῶ (optional)',
       forms: GRAPHO_AORIST_PASSIVE_SUBJUNCTIVE },
     { chapter: 33, family: 'γράφω — aorist passive imperative γράφηθι (optional)',
       forms: GRAPHO_AORIST_PASSIVE_IMPERATIVE },
-    { chapter: 32, family: 'γράφω — aorist passive infinitive γραφῆναι (optional)',
+    { chapter: 32, alwaysInclude: true, family: 'γράφω — aorist passive infinitive γραφῆναι (required)',
       forms: GRAPHO_AORIST_PASSIVE_INFINITIVE },
     { chapter: 28, alwaysInclude: true, family: 'γράφω — 2nd aorist passive participle γραφείς full declension',
       forms: GRAPHO_AORIST_PASSIVE_PARTICIPLE }
@@ -2150,11 +2150,11 @@
     ...DEIKNYMI_AORIST_ACTIVE_PARTICIPLE_NOM
   };
   const DEIKNYMI_OPTIONAL_GROUPS = [
-    { chapter: 36, family: 'δείκνυμι — present active infinitive δεικνύναι (optional)',
+    { chapter: 36, alwaysInclude: true, family: 'δείκνυμι — present active infinitive δεικνύναι (required)',
       forms: DEIKNYMI_PRESENT_ACTIVE_INFINITIVE },
-    { chapter: 36, family: 'δείκνυμι — aorist active indicative ἔδειξα (optional)',
+    { chapter: 36, alwaysInclude: true, family: 'δείκνυμι — aorist active indicative ἔδειξα (required)',
       forms: DEIKNYMI_AORIST_ACTIVE_INDICATIVE },
-    { chapter: 36, family: 'δείκνυμι — aorist active infinitive δεῖξαι (optional)',
+    { chapter: 36, alwaysInclude: true, family: 'δείκνυμι — aorist active infinitive δεῖξαι (required)',
       forms: DEIKNYMI_AORIST_ACTIVE_INFINITIVE },
     { chapter: 36, family: 'δείκνυμι — present active participle δεικνύς (optional, nom.)',
       forms: DEIKNYMI_PRESENT_ACTIVE_PARTICIPLE_NOM },
@@ -2568,7 +2568,19 @@
     window.PARADIGM_VARIANT_FAMILIES = {
       'λύω': LUO_VARIANTS,
       'δίδωμι': DIDOMI_VARIANTS,
-      'πορεύομαι': POREUOMAI_VARIANTS
+      'πορεύομαι': POREUOMAI_VARIANTS,
+      // One-form verbs: a single focusable "→" split lemma that carries the
+      // verb's optional/required principal parts. Registering a family gives each
+      // a master "— all forms" cumulative (drilling all 6 principal parts) while
+      // the "→" deck stays limited to its one tested part (see aggregateDescriptors
+      // / the optional-emission scoping in paradigm_focus.js).
+      'λαμβάνω': LAMBANO_VARIANTS,
+      'λείπω': LEIPO_VARIANTS,
+      'γίνομαι': GINOMAI_VARIANTS,
+      'γράφω': GRAPHO_VARIANTS,
+      'τίθημι': TITHEMI_VARIANTS,
+      'ἵστημι': HISTEMI_VARIANTS,
+      'δείκνυμι': DEIKNYMI_VARIANTS
     };
   }
 })();

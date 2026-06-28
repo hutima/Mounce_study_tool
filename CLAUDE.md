@@ -693,8 +693,10 @@ just a binary `Paradigms.pdf` reference sheet — a duff asset, not code; not po
     embeds the lemma, so each λύω principal part re-emitted the same optional
     forms; core cards keep id-dedup.
   - **Dedicated "Cumulative (full paradigms)" dropdown category** — the
-    summative "— all forms (cumulative)" aggregates (λύω, **πορεύομαι**, δίδωμι)
-    now live in their own optgroup (`AGGREGATE_CATEGORY` in `paradigm_focus.js`,
+    summative "— all forms (cumulative)" aggregates (originally λύω, **πορεύομαι**,
+    δίδωμι; now also the one-form split verbs — see the "Principal parts required in
+    the CUMULATIVE" note below) now live in their own optgroup (`AGGREGATE_CATEGORY`
+    in `paradigm_focus.js`,
     placed before the verb categories in `CATEGORY_ORDER`) instead of inheriting
     their base lemma's category. This keeps the comprehensive cumulative deck
     (every tense/voice/mood **plus** participles, imperatives, infinitives — it
@@ -706,6 +708,35 @@ just a binary `Paradigms.pdf` reference sheet — a duff asset, not code; not po
     own `Infinitives` optgroup (it had briefly been folded into `Verbs ·
     standard ω-pattern (λύω)`) so the ω-pattern shuffle stays scoped to finite
     forms; the cumulative still includes the infinitives via family membership.
+  - **Principal parts required in the CUMULATIVE; split decks stay limited (master
+    cumulative + virtual sub-decks).** Every verb's six principal parts (present,
+    future, aorist active, perfect active, perfect mid/pas, aorist passive) **plus
+    its infinitive** are drilled by default in its **"— all forms" cumulative**, but
+    the per-principal-part **"→" practice decks stay scoped to their one form**.
+    Mechanism: (1) `PARADIGM_VARIANT_FAMILIES` now also covers the one-form split
+    verbs (λαμβάνω, λείπω, γίνομαι, γράφω, τίθημι, ἵστημι, δείκνυμι), so each gets a
+    master "— all forms" cumulative (was λύω/δίδωμι/πορεύομαι only). (2)
+    `aggregateDescriptors` (paradigm_focus.js) tracks an `optionalSource` (the
+    member `registerVariants` attached the optional groups to — the lone "→" lemma
+    for one-form verbs) separately from the display `base`, and now builds an
+    aggregate for a single-member family **when that source carries promoted forms**
+    (`aggregateHasInScopeRequired` gates the dropdown listing the same way). (3)
+    `getCardsForFocusedParadigm` emits optional/`alwaysInclude` cards **only** for an
+    aggregate (from its `optionalSource`) **or a standalone verb** (no variant
+    family); a split/base sub-view (`isVariantFamilyMember`) gets none — so the "→"
+    deck and λύω's present base no longer leak the other principal parts. (4) The
+    six principal-part **indicatives + infinitives** are promoted to required via
+    `alwaysInclude: true` on their lemma-inventory `optionalFormGroups`,
+    chapter-gated as authored (future→19, aorist→22, aor-pass→24, perfect→25,
+    infinitives→32, μι-verbs→34-36). Full multi-mood paradigms stay optional (for
+    wrong-parse lookup); only the 6 principal parts + infinitive are promoted.
+    **Verified** in a headless browser: each cumulative shows the principal parts;
+    every "→" split (and λύω's base) stays limited to its own forms; all 10
+    cumulatives list; no errors. **Authoring gaps deferred** (the principal parts
+    that don't yet exist as data — perfect mid/pas for most verbs; the contract
+    verbs' future/aorist/perfect/aorist-passive; κρίνω; δείκνυμι future/perfect;
+    δίδωμι/γράφω future/perfect) are the "author next" pass, using online Koine
+    sources for accurate forms.
   - **Friendly verb-paradigm dropdown labels.** Verb principal-part lemma keys
     (`'λύω → λύσω'`) render as `"<base> — <form name>"` ("λύω — future active",
     "πορεύομαι — present middle", …) via `PARADIGM_FORM_DISPLAY_NAMES` in
