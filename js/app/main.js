@@ -787,12 +787,24 @@ function rebuildMorphDeckForStepMode() {
   loadDeckFromKeys(runtime.selectedKeys, runtime.currentSession ? runtime.currentSession.id : null);
 }
 
-// Coerce runtime.parsingChapter to a valid 1..36 integer. Returns 36 as
-// the fallback (every Mounce chapter in scope).
+// The earliest chapter that introduces a parseable paradigm — the lowest
+// MORPHOLOGY_SETS chapter key (the Ch-6 nouns today). Memoized. Parsing mode
+// defaults its scope here so a new user starts at the first gate.
+let _firstParadigmChapter = null;
+function firstParadigmChapter() {
+  if (_firstParadigmChapter != null) return _firstParadigmChapter;
+  const sets = (typeof window !== 'undefined' && window.MORPHOLOGY_SETS) || {};
+  const chapters = Object.keys(sets).map(Number).filter((n) => Number.isInteger(n) && n >= 1);
+  _firstParadigmChapter = chapters.length ? Math.min(...chapters) : 6;
+  return _firstParadigmChapter;
+}
+
+// Coerce runtime.parsingChapter to a valid 1..36 integer. Falls back to the
+// first parseable-paradigm chapter (the default scope) for unset/invalid values.
 function getParsingChapter() {
   const n = Number(runtime.parsingChapter);
   if (Number.isFinite(n) && Number.isInteger(n) && n >= 1 && n <= 36) return n;
-  return 36;
+  return firstParadigmChapter();
 }
 
 // Handler for the parsing-mode redirect card. The stem-highlighted

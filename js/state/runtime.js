@@ -92,8 +92,11 @@ export const runtime = {
   // dedicated chapter dropdown above the focused paradigm. Replaces the
   // shared `selectedKeys`-based gating used by vocab/grammar so picking
   // chapters in those modes never widens or narrows the parsing pool.
-  // Default 36 = the last Mounce chapter (every paradigm in scope).
-  parsingChapter: 36,
+  // Default 6 = the FIRST chapter with a parseable paradigm (the lowest
+  // MORPHOLOGY_SETS gate — the Ch-6 nouns), so a new user starts at the
+  // beginning and widens scope by raising the chapter, rather than being
+  // dropped into all 36 chapters at once.
+  parsingChapter: 6,
   morphStepState: { cardId: null, steps: [], stepIdx: 0, answers: [], completed: false },
   // Per-session parsing display tally: parsingShowCounts maps a card id to how
   // many times it has been shown this run, and parsingLastShownCardId is the id
