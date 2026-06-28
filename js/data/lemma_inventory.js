@@ -345,6 +345,16 @@
     'γεγόνασι':  'perfect active indicative third person plural',
     'γεγόνασιν': 'perfect active indicative third person plural'
   };
+  // Perfect middle/passive (P5): γεγένημαι (the ν-stem γεν-, distinct from the
+  // 2nd-perfect active γέγονα). Vowel/sonorant stem → full six forms.
+  const GINOMAI_PERFECT_MP_INDICATIVE = {
+    'γεγένημαι':  'perfect middle/passive indicative first person singular',
+    'γεγένησαι':  'perfect middle/passive indicative second person singular',
+    'γεγένηται':  'perfect middle/passive indicative third person singular',
+    'γεγενήμεθα': 'perfect middle/passive indicative first person plural',
+    'γεγένησθε':  'perfect middle/passive indicative second person plural',
+    'γεγένηνται': 'perfect middle/passive indicative third person plural'
+  };
 
   const GINOMAI_AORIST_MIDDLE_INFINITIVE = {
     'γενέσθαι': 'aorist middle infinitive'
@@ -393,7 +403,9 @@
     { chapter: 24, alwaysInclude: true, family: 'γίνομαι — aorist passive indicative (required)',
       forms: GINOMAI_AORIST_PASSIVE_INDICATIVE },
     { chapter: 25, alwaysInclude: true, family: 'γίνομαι — perfect active indicative γέγονα (required)',
-      forms: GINOMAI_PERFECT_ACTIVE_INDICATIVE }
+      forms: GINOMAI_PERFECT_ACTIVE_INDICATIVE },
+    { chapter: 25, alwaysInclude: true, family: 'γίνομαι — perfect middle/passive indicative γεγένημαι (required)',
+      forms: GINOMAI_PERFECT_MP_INDICATIVE }
   ];
 
   const GINOMAI_EXTRA_FORMS = {
@@ -404,6 +416,7 @@
     ...GINOMAI_AORIST_MIDDLE_INDICATIVE,
     ...GINOMAI_AORIST_PASSIVE_INDICATIVE,
     ...GINOMAI_PERFECT_ACTIVE_INDICATIVE,
+    ...GINOMAI_PERFECT_MP_INDICATIVE,
     ...GINOMAI_AORIST_MIDDLE_INFINITIVE,
     ...GINOMAI_PRESENT_MIDDLE_INFINITIVE,
     ...GINOMAI_AORIST_MIDDLE_IMPERATIVE
@@ -1508,6 +1521,15 @@
     'εἰλήφασι':  'perfect active indicative third person plural',
     'εἰλήφασιν': 'perfect active indicative third person plural'
   };
+  // Perfect middle/passive (P5): εἴλημμαι. Labial/nasal stem → μμ/ψ/πτ sandhi;
+  // 3pl is periphrastic (εἰλημμένοι εἰσί), omitted rather than invented.
+  const LAMBANO_PERFECT_MP_INDICATIVE = {
+    'εἴλημμαι':  'perfect middle/passive indicative first person singular',
+    'εἴληψαι':   'perfect middle/passive indicative second person singular',
+    'εἴληπται':  'perfect middle/passive indicative third person singular',
+    'εἰλήμμεθα': 'perfect middle/passive indicative first person plural',
+    'εἴληφθε':   'perfect middle/passive indicative second person plural'
+  };
   const LAMBANO_PRESENT_ACTIVE_PARTICIPLE = presentActiveNtParticiple('λαμβάν', 'λαμβαν', 'λαμβάνον');
   const LAMBANO_AORIST_ACTIVE_PARTICIPLE  = aoristActiveParticipleParadigm('λαβ');
   const LAMBANO_AORIST_PASSIVE_PARTICIPLE = aoristPassiveParticipleParadigm('λημφ');
@@ -1534,7 +1556,9 @@
     { chapter: 24, alwaysInclude: true, family: 'λαμβάνω — aorist passive indicative ἐλήμφθην (required)',
       forms: LAMBANO_AORIST_PASSIVE_INDICATIVE },
     { chapter: 25, alwaysInclude: true, family: 'λαμβάνω — perfect active indicative εἴληφα (required)',
-      forms: LAMBANO_PERFECT_ACTIVE_INDICATIVE }
+      forms: LAMBANO_PERFECT_ACTIVE_INDICATIVE },
+    { chapter: 25, alwaysInclude: true, family: 'λαμβάνω — perfect middle/passive indicative εἴλημμαι (required)',
+      forms: LAMBANO_PERFECT_MP_INDICATIVE }
   ];
   const LAMBANO_PARTICIPLE_OPTIONAL = [
     { chapter: 27, family: 'λαμβάνω — present active participle λαμβάνων full declension (optional)',
@@ -1556,6 +1580,7 @@
     ...LAMBANO_AORIST_ACTIVE_SUBJUNCTIVE,
     ...LAMBANO_AORIST_PASSIVE_INDICATIVE,
     ...LAMBANO_PERFECT_ACTIVE_INDICATIVE,
+    ...LAMBANO_PERFECT_MP_INDICATIVE,
     ...LAMBANO_PRESENT_ACTIVE_PARTICIPLE,
     ...LAMBANO_AORIST_ACTIVE_PARTICIPLE,
     ...LAMBANO_AORIST_PASSIVE_PARTICIPLE
@@ -1650,6 +1675,15 @@
     'λελοίπασι':  'perfect active indicative third person plural',
     'λελοίπασιν': 'perfect active indicative third person plural'
   };
+  // Perfect middle/passive (P5): λέλειμμαι. Labial stem (λειπ-) → μμ/ψ/πτ
+  // sandhi; 3pl periphrastic (λελειμμένοι εἰσί), omitted.
+  const LEIPO_PERFECT_MP_INDICATIVE = {
+    'λέλειμμαι':  'perfect middle/passive indicative first person singular',
+    'λέλειψαι':   'perfect middle/passive indicative second person singular',
+    'λέλειπται':  'perfect middle/passive indicative third person singular',
+    'λελείμμεθα': 'perfect middle/passive indicative first person plural',
+    'λέλειφθε':   'perfect middle/passive indicative second person plural'
+  };
   const LEIPO_PRESENT_ACTIVE_PARTICIPLE = presentActiveNtParticiple('λείπ', 'λειπ', 'λεῖπον');
   const LEIPO_AORIST_ACTIVE_PARTICIPLE  = aoristActiveParticipleParadigm('λιπ');
   const LEIPO_AORIST_MIDDLE_PARTICIPLE  = menosParticipleParadigm('λιπό', 'λιπο', 'aorist middle participle');
@@ -1677,7 +1711,9 @@
     { chapter: 24, alwaysInclude: true, family: 'λείπω — aorist passive indicative ἐλείφθην (required)',
       forms: LEIPO_AORIST_PASSIVE_INDICATIVE },
     { chapter: 25, alwaysInclude: true, family: 'λείπω — perfect active indicative λέλοιπα (required)',
-      forms: LEIPO_PERFECT_ACTIVE_INDICATIVE }
+      forms: LEIPO_PERFECT_ACTIVE_INDICATIVE },
+    { chapter: 25, alwaysInclude: true, family: 'λείπω — perfect middle/passive indicative λέλειμμαι (required)',
+      forms: LEIPO_PERFECT_MP_INDICATIVE }
   ];
   const LEIPO_PARTICIPLE_OPTIONAL = [
     { chapter: 27, family: 'λείπω — present active participle λείπων full declension (optional)',
@@ -1701,6 +1737,7 @@
     ...LEIPO_AORIST_ACTIVE_SUBJUNCTIVE,
     ...LEIPO_AORIST_PASSIVE_INDICATIVE,
     ...LEIPO_PERFECT_ACTIVE_INDICATIVE,
+    ...LEIPO_PERFECT_MP_INDICATIVE,
     ...LEIPO_PRESENT_ACTIVE_PARTICIPLE,
     ...LEIPO_AORIST_ACTIVE_PARTICIPLE,
     ...LEIPO_AORIST_MIDDLE_PARTICIPLE,
@@ -2305,10 +2342,22 @@
   };
   const POREUOMAI_PRESENT_MP_PARTICIPLE = menosParticipleParadigm('πορευό', 'πορευο', 'present middle participle');
   const POREUOMAI_AORIST_PASSIVE_PARTICIPLE = aoristPassiveParticipleParadigm('πορευ');
+  // Perfect middle/passive (P4/P5): πεπόρευμαι. πορεύομαι is deponent, so its
+  // perfect is the middle/passive (no separate perfect active). The -υ stem
+  // takes the endings cleanly → full six forms.
+  const POREUOMAI_PERFECT_MP_INDICATIVE = {
+    'πεπόρευμαι':  'perfect middle/passive indicative first person singular',
+    'πεπόρευσαι':  'perfect middle/passive indicative second person singular',
+    'πεπόρευται':  'perfect middle/passive indicative third person singular',
+    'πεπορεύμεθα': 'perfect middle/passive indicative first person plural',
+    'πεπόρευσθε':  'perfect middle/passive indicative second person plural',
+    'πεπόρευνται': 'perfect middle/passive indicative third person plural'
+  };
   const POREUOMAI_EXTRA_FORMS = {
     ...POREUOMAI_PRESENT_MP_INDICATIVE,
     ...POREUOMAI_IMPERFECT_MP_INDICATIVE,
     ...POREUOMAI_AORIST_PASSIVE_INDICATIVE,
+    ...POREUOMAI_PERFECT_MP_INDICATIVE,
     ...POREUOMAI_PRESENT_MP_INFINITIVE,
     ...POREUOMAI_AORIST_PASSIVE_INFINITIVE,
     ...POREUOMAI_PRESENT_MP_IMPERATIVE,
@@ -2316,15 +2365,18 @@
     ...POREUOMAI_PRESENT_MP_PARTICIPLE,
     ...POREUOMAI_AORIST_PASSIVE_PARTICIPLE
   };
-  // πορεύομαι's full paradigm is now drilled as CORE morphology paradigms (its
-  // own dropdown entries — present/imperfect/future/aorist + participle/
-  // infinitive, mirroring how λύω is split across principal-part lemma keys), so
-  // there are no "optional extension" forms left to add: the optional-groups list
-  // is empty, just like λύω only lists genuinely-non-core forms (subjunctives,
-  // extra imperatives) there. The full participle declensions stay in
-  // POREUOMAI_EXTRA_FORMS for wrong-parse lookup (same as λύω, whose drilled
-  // participle paradigms are recognition-nominative subsets).
-  const POREUOMAI_OPTIONAL_GROUPS = [];
+  // πορεύομαι's full paradigm is drilled as CORE morphology paradigms (its own
+  // dropdown entries — present/imperfect/future/aorist + participle/infinitive,
+  // mirroring how λύω is split across principal-part lemma keys). The one
+  // principal part with no core deck is the perfect (πεπόρευμαι), added here as
+  // an alwaysInclude group so the cumulative drills all six; the limited "→"
+  // sub-decks suppress it (variant-member emission scoping). The full participle
+  // declensions stay in POREUOMAI_EXTRA_FORMS for wrong-parse lookup (same as
+  // λύω, whose drilled participle paradigms are recognition-nominative subsets).
+  const POREUOMAI_OPTIONAL_GROUPS = [
+    { chapter: 25, alwaysInclude: true, family: 'πορεύομαι — perfect middle/passive indicative πεπόρευμαι (required, deponent)',
+      forms: POREUOMAI_PERFECT_MP_INDICATIVE }
+  ];
   const POREUOMAI_VARIANTS = [
     'πορεύομαι',
     'πορεύομαι → ἐπορευόμην',
