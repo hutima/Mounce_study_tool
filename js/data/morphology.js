@@ -149,6 +149,32 @@
       ]
     },
 
+    "8": {
+      label: "Chapter 8 Morphology",
+      notes: "εἰμί — present indicative (the verb 'to be')",
+      items: [
+        {
+          // εἰμί's present indicative is introduced in Ch 8 — the most common
+          // verb in the NT. Drilled as a core paradigm so it's discoverable +
+          // parseable from Ch 8 on (its other moods — subjunctive/optative/
+          // imperative — and its future ἔσομαι come later, in their chapters).
+          family: "Present indicative — εἰμί (\"I am\")",
+          lemma: "εἰμί",
+          gloss: "I am",
+          questions: [
+            { form: "εἰμί", answer: "1st singular present active",
+              note: "Enclitic except the 2sg εἶ; parsed 'active' though εἰμί has no voice contrast." },
+            { form: "εἶ", answer: "2nd singular present active" },
+            { form: "ἐστί(ν)", answer: "3rd singular present active",
+              note: "Takes the movable ν: ἐστίν before a vowel or at a pause." },
+            { form: "ἐσμέν", answer: "1st plural present active" },
+            { form: "ἐστέ", answer: "2nd plural present active" },
+            { form: "εἰσί(ν)", answer: "3rd plural present active" }
+          ]
+        }
+      ]
+    },
+
     "9": {
       label: "Chapter 9 Morphology",
       notes: "2-1-2 adjective paradigm (ἀγαθός)",
