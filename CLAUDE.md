@@ -731,12 +731,45 @@ just a binary `Paradigms.pdf` reference sheet — a duff asset, not code; not po
     infinitives→32, μι-verbs→34-36). Full multi-mood paradigms stay optional (for
     wrong-parse lookup); only the 6 principal parts + infinitive are promoted.
     **Verified** in a headless browser: each cumulative shows the principal parts;
-    every "→" split (and λύω's base) stays limited to its own forms; all 10
-    cumulatives list; no errors. **Authoring gaps deferred** (the principal parts
-    that don't yet exist as data — perfect mid/pas for most verbs; the contract
-    verbs' future/aorist/perfect/aorist-passive; κρίνω; δείκνυμι future/perfect;
-    δίδωμι/γράφω future/perfect) are the "author next" pass, using online Koine
-    sources for accurate forms.
+    every "→" split (and λύω's base) stays limited to its own forms; all
+    cumulatives list; no errors.
+  - **Principal-part authoring is now COMPLETE** (the "author next" pass above is
+    done; every verb parsing paradigm drills its applicable 6 principal parts +
+    infinitive in its cumulative/standalone view). Verified deterministically
+    through the real `getCardsForFocusedParadigm` code path (an `audit_harness.html`
+    + Playwright driver, kept out of the repo). Authored, online-verified where
+    possible (Dickinson core lists / LSJ / Koine paradigms), else from standard
+    grammar:
+    - **Contract verbs ἀγαπάω/ποιέω/πληρόω** — future act, aorist act, perfect act,
+      perfect m/p, aorist pass + both present infinitives (standalone single-lemma
+      paradigms, so their own view carries the forms; no cumulative needed).
+    - **γράφω** — future γράψω, aorist ἔγραψα, perfect γέγραφα, perfect m/p
+      γέγραμμαι + present/aorist infinitives.
+    - **Perfect-m/p gaps**: λαμβάνω εἴλημμαι, λείπω λέλειμμαι, γίνομαι γεγένημαι,
+      πορεύομαι πεπόρευμαι (deponent perfect m/p).
+    - **μι-verbs**: δίδωμι (fut δώσω, pf δέδωκα, pf-m/p δέδομαι), τίθημι (pf τέθεικα,
+      pf-m/p τέθειμαι), δείκνυμι (fut δείξω, pf δέδειχα, pf-m/p δέδειγμαι, aor-pass
+      ἐδείχθην) — all gated at the verb's μι-chapter (34/36), the max-of-tense-and-
+      verb-intro convention.
+    - **κρίνω** — newly registered in `PARADIGM_VARIANT_FAMILIES` (single-member,
+      like λαμβάνω); present κρίνω, aorist ἔκρινα, perfect κέκρικα, perfect m/p
+      κέκριμαι, aor-pass ἐκρίθην + infinitives ride as `alwaysInclude` so the
+      cumulative drills the full set while the core `κρίνω → κρινῶ` liquid-future
+      sub-deck stays limited.
+    - **εἰμί** — its **present active indicative** (εἰμί/εἶ/ἐστί(ν)/…) was entirely
+      absent from the parsing data (only subj/opt/impv existed); added (ch8) plus
+      the future ἔσομαι (ch19). Defective (no aorist/perfect), so that's its full set.
+    - **ὁράω** — a NEW suppletive paradigm (not previously in the parsing inventory;
+      not in `words.js`, only `nt_book_vocab.js` + the flip sets). Present α-contract
+      ὁρῶ is the core morphology paradigm (`morphology.js` ch17, the one
+      morphology.js touch); suppletive parts ὄψομαι / εἶδον (ἰδ- root, 2nd aor) /
+      ὤφθην / ἑώρακα + inf ἰδεῖν ride as `alwaysInclude`. Rare perfect-m/p ὦμμαι is
+      skipped (applicable parts only, per the brief). 1sg/3pl εἶδον syncretism keys
+      once (1sg).
+    - **Intentional skips** (parts that don't meaningfully exist): ἵστημι perfect
+      m/p (ἕσταμαι, not standard NT); οἶδα present/future/aorist (it's a perfect used
+      as present — the existing perfect+pluperfect deck is its whole paradigm);
+      consonant-stem perfect-m/p 3pl (periphrastic — γέγραμμαι/εἴλημμαι/… stop at 2pl).
   - **Friendly verb-paradigm dropdown labels.** Verb principal-part lemma keys
     (`'λύω → λύσω'`) render as `"<base> — <form name>"` ("λύω — future active",
     "πορεύομαι — present middle", …) via `PARADIGM_FORM_DISPLAY_NAMES` in

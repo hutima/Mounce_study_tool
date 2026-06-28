@@ -434,6 +434,27 @@
             { form: "πληροῦτε", answer: "2nd plural present active" },
             { form: "πληροῦσι(ν)", answer: "3rd plural present active" }
           ]
+        },
+        {
+          // ὁράω is a SUPPLETIVE verb: its present is a regular α-contract
+          // (ὁρῶ), but its other principal parts come from unrelated roots
+          // (fut. ὄψομαι, 2aor. εἶδον, pf. ἑώρακα, aor.pas. ὤφθην). The
+          // present is the core citation form here; the suppletive parts are
+          // authored as required optional groups in lemma_inventory.js, so
+          // "ὁράω — all forms" drills the whole famous set.
+          family: "Present active — ὁράω (α-contract, suppletive verb)",
+          lemma: "ὁράω",
+          gloss: "I see",
+          questions: [
+            { form: "ὁρῶ", answer: "1st singular present active",
+              note: "α + ω → ω (Rule 3). The present is a regular α-contract; the other principal parts are suppletive." },
+            { form: "ὁρᾷς", answer: "2nd singular present active" },
+            { form: "ὁρᾷ", answer: "3rd singular present active" },
+            { form: "ὁρῶμεν", answer: "1st plural present active" },
+            { form: "ὁρᾶτε", answer: "2nd plural present active",
+              note: "α + ε → α (Rule 4)." },
+            { form: "ὁρῶσι(ν)", answer: "3rd plural present active" }
+          ]
         }
       ]
     },
