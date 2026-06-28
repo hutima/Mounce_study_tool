@@ -753,6 +753,43 @@
             { form: "ἐλέλυσθε", answer: "2nd plural pluperfect mid/pas" },
             { form: "ἐλέλυντο", answer: "3rd plural pluperfect mid/pas" }
           ]
+        },
+        {
+          // οἶδα is a second perfect that functions as a PRESENT ("I know"). It
+          // has no present tense, so the perfect does that work; parsed
+          // morphologically it is perfect active indicative. The "perfect as
+          // present" example for parsing — gated at Ch 25 (where the perfect is
+          // taught), though οἶδα appears as vocab back in Ch 17. The result card
+          // adds a "Form vs meaning" note (keyed off lemma "οἶδα") explaining the
+          // mismatch (see FORM_VS_MEANING_NOTES in render.js).
+          family: "οἶδα — perfect active, present in meaning (“I know”)",
+          lemma: "οἶδα",
+          gloss: "I know",
+          questions: [
+            { form: "οἶδα", answer: "1st singular perfect active",
+              note: "οἶδα is perfect in form but present in meaning — “I know”, not “I have known”. It has no present tense." },
+            { form: "οἶδας", answer: "2nd singular perfect active" },
+            { form: "οἶδε(ν)", answer: "3rd singular perfect active" },
+            { form: "οἴδαμεν", answer: "1st plural perfect active" },
+            { form: "οἴδατε", answer: "2nd plural perfect active" },
+            { form: "οἴδασι(ν)", answer: "3rd plural perfect active" }
+          ]
+        },
+        {
+          // οἶδα's pluperfect (ᾔδειν…) serves as a simple PAST ("I knew"),
+          // mirroring the perfect-as-present pattern.
+          family: "οἶδα — pluperfect active, past in meaning (“I knew”)",
+          lemma: "οἶδα",
+          gloss: "I knew",
+          questions: [
+            { form: "ᾔδειν", answer: "1st singular pluperfect active",
+              note: "ᾔδειν is pluperfect in form but past in meaning — “I knew”; the pluperfect supplies οἶδα's past." },
+            { form: "ᾔδεις", answer: "2nd singular pluperfect active" },
+            { form: "ᾔδει", answer: "3rd singular pluperfect active" },
+            { form: "ᾔδειμεν", answer: "1st plural pluperfect active" },
+            { form: "ᾔδειτε", answer: "2nd plural pluperfect active" },
+            { form: "ᾔδεισαν", answer: "3rd plural pluperfect active" }
+          ]
         }
       ]
     },

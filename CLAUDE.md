@@ -60,10 +60,36 @@ presets, off-the-record parsing). Consult it before applying a duff diff.
 
 ### Porting status — last version ported
 
-**Last reviewed duff commit: `22aee43` (tip of duff `main`, 2026-06-27; the three
-commits after `2d0a5017` — `776791f5`, the #320 merge `7eff9571`, and #321
-`22aee43` — evaluated below, only the parsing dropdown bit applied).**
+**Last reviewed duff commit: `d15f82d` (tip of duff `main`, 2026-06-28; the eight
+commits after `22aee43` evaluated below — only #325's οἶδα "perfect-as-present"
+paradigm and #326's "Form vs meaning" result-card note were applied; the rest is
+duff back-porting Mounce work, or not requested).**
 When checking for new duff work, diff `origin/main` against that commit forward.
+
+- **Evaluated the eight duff commits after `22aee43` (through `d15f82d`):**
+  - **#326 (`45d90879`) "perfect as present" note on the parsing result card —
+    PORTED.** οἶδα is a second perfect used as a PRESENT ("I know"); its pluperfect
+    ᾔδειν is a simple past ("I knew"). A `FORM_VS_MEANING_NOTES` map (render.js,
+    keyed lemma→tense) drives a blue-accented **"Form vs meaning"** box in
+    `renderMorphStepSummary` (after the "Your parse" line), shown unconditionally
+    when `card.lemma` + `parsedDims.tense` match. `.morph-step-meaning-note`/`-label`
+    CSS mirrors Mounce's `.morph-step-ambig-note`. Verified end-to-end.
+  - **#325 (`aca3ae0f`) δύναμαι / οἶδα / μάρτυς parsing paradigms — only οἶδα ported
+    (the "perfect as present" example the user asked for).** Mounce had οἶδα as
+    Ch-17 *vocab* but no parsing paradigm. Added as a core `MORPHOLOGY_SETS["25"]`
+    deck (lemma `"οἶδα"`): perfect active (οἶδα/οἶδας/οἶδε(ν)/οἴδαμεν/οἴδατε/οἴδασι(ν))
+    + pluperfect active (ᾔδειν…), all 3 persons × 2 numbers. **Gated at Ch 25** (where
+    the perfect is taught) though οἶδα-the-word is Ch 17 — you can't parse a perfect
+    before learning it. The lemma `"οἶδα"` is what keys the #326 note. **δύναμαι and
+    μάρτυς NOT ported** — not "perfect-as-present", not requested (available if wanted;
+    δύναμαι would gate at Ch 18, μάρτυς is a 3rd-decl noun).
+  - **`0c5ae7b5` (#325 merge) "PWA install nudge + scrollable modals (port from Mounce
+    #107)", `9e9b6be7` "Safari frozen-on-update fix + Contact author in user guide",
+    `c8ca188c` "user guide: stacked contact card, ✕ + tap-outside close" — N/A, duff
+    BACK-porting Mounce work** (the SW module-mismatch fix = Mounce #105; the
+    contact-card/user-guide work = Mounce #104; the PWA install nudge = Mounce #107,
+    already merged on Mounce `main`). Nothing to bring back.
+
 (PRs #300/#301/#305/#306, previously ported ahead, are now merged on duff `main`
 and folded into the boundary; #302/#303/#304/#307, the #308–#316 batch, #317–#319,
 and the optative pair ported below. Duff's `f92a2e6d` "Add files via upload" is
