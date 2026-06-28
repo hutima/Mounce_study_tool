@@ -460,8 +460,41 @@
     'ἐδόθητε':   'aorist passive indicative second person plural',
     'ἐδόθησαν':  'aorist passive indicative third person plural'
   };
+  // Principal parts 2/4/5 (future active δώσω, perfect active δέδωκα, perfect
+  // middle/passive δέδομαι). δίδωμι is introduced in Ch 34, so every form gates
+  // there regardless of the tense's own chapter (the same max-of-tense-and-verb
+  // convention the aorist-passive group above uses: ἐδόθην at 34, not 24).
+  const DIDOMI_FUTURE_ACTIVE_INDICATIVE = {
+    'δώσω':     'future active indicative first person singular',
+    'δώσεις':   'future active indicative second person singular',
+    'δώσει':    'future active indicative third person singular',
+    'δώσομεν':  'future active indicative first person plural',
+    'δώσετε':   'future active indicative second person plural',
+    'δώσουσι':  'future active indicative third person plural',
+    'δώσουσιν': 'future active indicative third person plural'
+  };
+  const DIDOMI_PERFECT_ACTIVE_INDICATIVE = {
+    'δέδωκα':    'perfect active indicative first person singular',
+    'δέδωκας':   'perfect active indicative second person singular',
+    'δέδωκε':    'perfect active indicative third person singular',
+    'δέδωκεν':   'perfect active indicative third person singular',
+    'δεδώκαμεν': 'perfect active indicative first person plural',
+    'δεδώκατε':  'perfect active indicative second person plural',
+    'δεδώκασι':  'perfect active indicative third person plural',
+    'δεδώκασιν': 'perfect active indicative third person plural'
+  };
+  const DIDOMI_PERFECT_MP_INDICATIVE = {
+    'δέδομαι':  'perfect middle/passive indicative first person singular',
+    'δέδοσαι':  'perfect middle/passive indicative second person singular',
+    'δέδοται':  'perfect middle/passive indicative third person singular',
+    'δεδόμεθα': 'perfect middle/passive indicative first person plural',
+    'δέδοσθε':  'perfect middle/passive indicative second person plural',
+    'δέδονται': 'perfect middle/passive indicative third person plural'
+  };
 
   const DIDOMI_OPTIONAL_GROUPS = [
+    { chapter: 34, alwaysInclude: true, family: 'δίδωμι — future active indicative δώσω (required)',
+      forms: DIDOMI_FUTURE_ACTIVE_INDICATIVE },
     { chapter: 35, alwaysInclude: true, family: 'δίδωμι — aorist active infinitive δοῦναι (required)',
       forms: DIDOMI_AORIST_ACTIVE_INFINITIVE },
     { chapter: 35, family: 'δίδωμι — aorist active imperative δός (optional)',
@@ -469,10 +502,17 @@
     { chapter: 35, family: 'δίδωμι — aorist active subjunctive δῶ (optional)',
       forms: DIDOMI_AORIST_ACTIVE_SUBJUNCTIVE },
     { chapter: 34, alwaysInclude: true, family: 'δίδωμι — aorist passive indicative ἐδόθην (required)',
-      forms: DIDOMI_AORIST_PASSIVE_INDICATIVE }
+      forms: DIDOMI_AORIST_PASSIVE_INDICATIVE },
+    { chapter: 34, alwaysInclude: true, family: 'δίδωμι — perfect active indicative δέδωκα (required)',
+      forms: DIDOMI_PERFECT_ACTIVE_INDICATIVE },
+    { chapter: 34, alwaysInclude: true, family: 'δίδωμι — perfect middle/passive indicative δέδομαι (required)',
+      forms: DIDOMI_PERFECT_MP_INDICATIVE }
   ];
 
   const DIDOMI_EXTRA_FORMS = {
+    ...DIDOMI_FUTURE_ACTIVE_INDICATIVE,
+    ...DIDOMI_PERFECT_ACTIVE_INDICATIVE,
+    ...DIDOMI_PERFECT_MP_INDICATIVE,
     ...DIDOMI_AORIST_ACTIVE_INFINITIVE,
     ...DIDOMI_AORIST_ACTIVE_IMPERATIVE,
     ...DIDOMI_AORIST_ACTIVE_SUBJUNCTIVE,
@@ -546,6 +586,26 @@
     'ἐτέθητε':   'aorist passive indicative second person plural',
     'ἐτέθησαν':  'aorist passive indicative third person plural'
   };
+  // Principal parts 4/5 (perfect active τέθεικα, perfect middle/passive
+  // τέθειμαι). τίθημι is a Ch-36 verb, so both gate there.
+  const TITHEMI_PERFECT_ACTIVE_INDICATIVE = {
+    'τέθεικα':    'perfect active indicative first person singular',
+    'τέθεικας':   'perfect active indicative second person singular',
+    'τέθεικε':    'perfect active indicative third person singular',
+    'τέθεικεν':   'perfect active indicative third person singular',
+    'τεθείκαμεν': 'perfect active indicative first person plural',
+    'τεθείκατε':  'perfect active indicative second person plural',
+    'τεθείκασι':  'perfect active indicative third person plural',
+    'τεθείκασιν': 'perfect active indicative third person plural'
+  };
+  const TITHEMI_PERFECT_MP_INDICATIVE = {
+    'τέθειμαι':  'perfect middle/passive indicative first person singular',
+    'τέθεισαι':  'perfect middle/passive indicative second person singular',
+    'τέθειται':  'perfect middle/passive indicative third person singular',
+    'τεθείμεθα': 'perfect middle/passive indicative first person plural',
+    'τέθεισθε':  'perfect middle/passive indicative second person plural',
+    'τέθεινται': 'perfect middle/passive indicative third person plural'
+  };
 
   const TITHEMI_OPTIONAL_GROUPS = [
     { chapter: 36, family: 'τίθημι — imperfect active indicative (optional)',
@@ -561,13 +621,19 @@
     { chapter: 36, family: 'τίθημι — aorist active subjunctive θῶ (optional)',
       forms: TITHEMI_AORIST_ACTIVE_SUBJUNCTIVE },
     { chapter: 36, alwaysInclude: true, family: 'τίθημι — aorist passive indicative ἐτέθην (required)',
-      forms: TITHEMI_AORIST_PASSIVE_INDICATIVE }
+      forms: TITHEMI_AORIST_PASSIVE_INDICATIVE },
+    { chapter: 36, alwaysInclude: true, family: 'τίθημι — perfect active indicative τέθεικα (required)',
+      forms: TITHEMI_PERFECT_ACTIVE_INDICATIVE },
+    { chapter: 36, alwaysInclude: true, family: 'τίθημι — perfect middle/passive indicative τέθειμαι (required)',
+      forms: TITHEMI_PERFECT_MP_INDICATIVE }
   ];
 
   const TITHEMI_EXTRA_FORMS = {
     ...TITHEMI_IMPERFECT_ACTIVE_INDICATIVE,
     ...TITHEMI_FUTURE_ACTIVE_INDICATIVE,
     ...TITHEMI_AORIST_ACTIVE_INDICATIVE,
+    ...TITHEMI_PERFECT_ACTIVE_INDICATIVE,
+    ...TITHEMI_PERFECT_MP_INDICATIVE,
     ...TITHEMI_AORIST_ACTIVE_INFINITIVE,
     ...TITHEMI_AORIST_ACTIVE_IMPERATIVE,
     ...TITHEMI_AORIST_ACTIVE_SUBJUNCTIVE,
@@ -2415,6 +2481,45 @@
     'ἔδειξαν':   'aorist active indicative third person plural'
   };
   const DEIKNYMI_AORIST_ACTIVE_INFINITIVE = { 'δεῖξαι': 'aorist active infinitive' };
+  // Principal parts 2/4/5/6 (future δείξω, perfect active δέδειχα, perfect m/p
+  // δέδειγμαι, aorist passive ἐδείχθην). Velar stem (δεικ-) drives the future/
+  // perfect sandhi (κ+σ→ξ, aspirated perfect κ→χ) and the perfect m/p
+  // assimilation (κ+μαι→γμαι, κ+σαι→ξαι, κ+ται→κται, κ+σθε→χθε; 3pl periphrastic,
+  // omitted). δείκνυμι is a Ch-36 verb, so every form gates there.
+  const DEIKNYMI_FUTURE_ACTIVE_INDICATIVE = {
+    'δείξω':     'future active indicative first person singular',
+    'δείξεις':   'future active indicative second person singular',
+    'δείξει':    'future active indicative third person singular',
+    'δείξομεν':  'future active indicative first person plural',
+    'δείξετε':   'future active indicative second person plural',
+    'δείξουσι':  'future active indicative third person plural',
+    'δείξουσιν': 'future active indicative third person plural'
+  };
+  const DEIKNYMI_PERFECT_ACTIVE_INDICATIVE = {
+    'δέδειχα':    'perfect active indicative first person singular',
+    'δέδειχας':   'perfect active indicative second person singular',
+    'δέδειχε':    'perfect active indicative third person singular',
+    'δέδειχεν':   'perfect active indicative third person singular',
+    'δεδείχαμεν': 'perfect active indicative first person plural',
+    'δεδείχατε':  'perfect active indicative second person plural',
+    'δεδείχασι':  'perfect active indicative third person plural',
+    'δεδείχασιν': 'perfect active indicative third person plural'
+  };
+  const DEIKNYMI_PERFECT_MP_INDICATIVE = {
+    'δέδειγμαι':  'perfect middle/passive indicative first person singular',
+    'δέδειξαι':   'perfect middle/passive indicative second person singular',
+    'δέδεικται':  'perfect middle/passive indicative third person singular',
+    'δεδείγμεθα': 'perfect middle/passive indicative first person plural',
+    'δέδειχθε':   'perfect middle/passive indicative second person plural'
+  };
+  const DEIKNYMI_AORIST_PASSIVE_INDICATIVE = {
+    'ἐδείχθην':   'aorist passive indicative first person singular',
+    'ἐδείχθης':   'aorist passive indicative second person singular',
+    'ἐδείχθη':    'aorist passive indicative third person singular',
+    'ἐδείχθημεν': 'aorist passive indicative first person plural',
+    'ἐδείχθητε':  'aorist passive indicative second person plural',
+    'ἐδείχθησαν': 'aorist passive indicative third person plural'
+  };
   const DEIKNYMI_PRESENT_ACTIVE_PARTICIPLE_NOM = {
     'δεικνύς':  'present active participle nominative singular masculine',
     'δεικνῦσα': 'present active participle nominative singular feminine',
@@ -2428,18 +2533,30 @@
   const DEIKNYMI_EXTRA_FORMS = {
     ...DEIKNYMI_PRESENT_ACTIVE_INDICATIVE,
     ...DEIKNYMI_PRESENT_ACTIVE_INFINITIVE,
+    ...DEIKNYMI_FUTURE_ACTIVE_INDICATIVE,
     ...DEIKNYMI_AORIST_ACTIVE_INDICATIVE,
     ...DEIKNYMI_AORIST_ACTIVE_INFINITIVE,
+    ...DEIKNYMI_PERFECT_ACTIVE_INDICATIVE,
+    ...DEIKNYMI_PERFECT_MP_INDICATIVE,
+    ...DEIKNYMI_AORIST_PASSIVE_INDICATIVE,
     ...DEIKNYMI_PRESENT_ACTIVE_PARTICIPLE_NOM,
     ...DEIKNYMI_AORIST_ACTIVE_PARTICIPLE_NOM
   };
   const DEIKNYMI_OPTIONAL_GROUPS = [
     { chapter: 36, alwaysInclude: true, family: 'δείκνυμι — present active infinitive δεικνύναι (required)',
       forms: DEIKNYMI_PRESENT_ACTIVE_INFINITIVE },
+    { chapter: 36, alwaysInclude: true, family: 'δείκνυμι — future active indicative δείξω (required)',
+      forms: DEIKNYMI_FUTURE_ACTIVE_INDICATIVE },
     { chapter: 36, alwaysInclude: true, family: 'δείκνυμι — aorist active indicative ἔδειξα (required)',
       forms: DEIKNYMI_AORIST_ACTIVE_INDICATIVE },
     { chapter: 36, alwaysInclude: true, family: 'δείκνυμι — aorist active infinitive δεῖξαι (required)',
       forms: DEIKNYMI_AORIST_ACTIVE_INFINITIVE },
+    { chapter: 36, alwaysInclude: true, family: 'δείκνυμι — perfect active indicative δέδειχα (required)',
+      forms: DEIKNYMI_PERFECT_ACTIVE_INDICATIVE },
+    { chapter: 36, alwaysInclude: true, family: 'δείκνυμι — perfect middle/passive indicative δέδειγμαι (required)',
+      forms: DEIKNYMI_PERFECT_MP_INDICATIVE },
+    { chapter: 36, alwaysInclude: true, family: 'δείκνυμι — aorist passive indicative ἐδείχθην (required)',
+      forms: DEIKNYMI_AORIST_PASSIVE_INDICATIVE },
     { chapter: 36, family: 'δείκνυμι — present active participle δεικνύς (optional, nom.)',
       forms: DEIKNYMI_PRESENT_ACTIVE_PARTICIPLE_NOM },
     { chapter: 36, family: 'δείκνυμι — aorist active participle δείξας (optional, nom.)',
