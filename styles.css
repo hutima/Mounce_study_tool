@@ -1026,11 +1026,16 @@
     width: 32px;
     height: 32px;
     border-radius: 999px;
-    background: var(--gold-light, #d8ca8a);
+    background: var(--gold);
     color: #1b1c12;
     font-family: var(--font-display);
     font-size: calc((15px) * var(--text-scale));
     font-weight: 700;
+  }
+  /* Light theme's --gold is a dark umber, so the dark number is unreadable on
+     it — flip to white text there. (Dark theme keeps dark-on-bright-gold.) */
+  html[data-theme="light"] .install-step-num {
+    color: #fff;
   }
   .install-step-copy { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
   .install-step-title {

@@ -186,6 +186,10 @@ function installStepsHtml() {
 export function openInstallInstructions() {
   const overlay = document.getElementById('installInstructionsOverlay');
   if (!overlay) return;
+  // The how-to takes over, so retire the banner as it comes up (visual dismiss
+  // only — the forever-dismiss flag stays owned by the banner ✕ / "Don't show
+  // again").
+  hideBanner();
   const body = document.getElementById('installInstructionsBody');
   if (body) {
     body.innerHTML =
