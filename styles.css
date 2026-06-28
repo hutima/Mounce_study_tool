@@ -903,6 +903,162 @@
     .level-toast-badge { min-width: 52px; padding: 7px 9px; font-size: calc((11px) * var(--text-scale)); }
   }
 
+  /* ── PWA install banner (persistent — explicit Install / ✕ to clear) ── */
+  .pwa-install-host {
+    position: fixed;
+    top: calc(env(safe-area-inset-top, 0px) + 12px);
+    left: 50%;
+    transform: translate(-50%, -8px);
+    width: min(94vw, 540px);
+    /* Below the consent-overlay (1000) so the "how to install" modal and its
+       dimmed backdrop sit ON TOP of the banner, rather than the banner covering
+       the modal's ✕. Still well above the page content. */
+    z-index: 950;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.18s ease, transform 0.18s ease;
+  }
+  .pwa-install-host.show {
+    opacity: 1;
+    transform: translate(-50%, 0);
+    pointer-events: auto;
+  }
+  .pwa-install {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 14px;
+    border-radius: 16px;
+    border: 1px solid var(--gold);
+    background: linear-gradient(180deg, rgba(17, 18, 24, 0.96), rgba(24, 25, 34, 0.98));
+    box-shadow: 0 16px 36px rgba(0, 0, 0, 0.34);
+    color: var(--text);
+    text-align: left;
+  }
+  .pwa-install-icon {
+    flex: 0 0 auto;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 42px;
+    height: 42px;
+    border-radius: 12px;
+    border: 1px solid rgba(201,168,76,0.45);
+    background: rgba(201,168,76,0.14);
+    color: var(--gold-light);
+  }
+  .pwa-install-icon svg { width: 22px; height: 22px; }
+  .pwa-install-copy {
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    flex: 1;
+  }
+  .pwa-install-title {
+    font-family: var(--font-display);
+    font-size: calc((15px) * var(--text-scale));
+    color: var(--gold-light);
+  }
+  .pwa-install-body {
+    font-size: calc((13px) * var(--text-scale));
+    color: var(--muted);
+    line-height: 1.35;
+  }
+  .pwa-install-action {
+    flex: 0 0 auto;
+    align-self: center;
+    padding: 8px 16px;
+    border-radius: 999px;
+    border: 1px solid var(--gold);
+    background: rgba(201,168,76,0.16);
+    color: var(--gold-light);
+    font-family: var(--font-display);
+    font-size: calc((14px) * var(--text-scale));
+    cursor: pointer;
+  }
+  .pwa-install-action:hover { background: rgba(201,168,76,0.26); }
+  .pwa-install-close {
+    flex: 0 0 auto;
+    align-self: flex-start;
+    background: none;
+    border: none;
+    color: var(--muted);
+    font-size: calc((22px) * var(--text-scale));
+    line-height: 1;
+    cursor: pointer;
+    padding: 0 2px;
+  }
+  .pwa-install-close:hover { color: var(--gold); }
+  html[data-theme="light"] .pwa-install {
+    background: linear-gradient(180deg, rgba(255, 251, 242, 0.98), rgba(248, 242, 230, 0.99));
+    border-color: rgba(168,132,45,0.55);
+    box-shadow: 0 14px 28px rgba(92, 71, 24, 0.14);
+  }
+  html[data-theme="light"] .pwa-install-icon { background: rgba(168,132,45,0.12); border-color: rgba(168,132,45,0.35); }
+  html[data-theme="light"] .pwa-install-action { background: rgba(168,132,45,0.12); border-color: rgba(168,132,45,0.5); }
+  @media (max-width: 640px) {
+    .pwa-install { gap: 10px; padding: 10px 12px; }
+    .pwa-install-title { font-size: calc((14px) * var(--text-scale)); }
+    .pwa-install-body { font-size: calc((12px) * var(--text-scale)); }
+    .pwa-install-action { padding: 7px 13px; font-size: calc((13px) * var(--text-scale)); }
+  }
+
+  /* ── "How to install" modal (numbered steps) ── */
+  .install-steps {
+    list-style: none;
+    margin: 16px 0 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+  }
+  .install-step {
+    display: flex;
+    gap: 14px;
+    align-items: flex-start;
+  }
+  .install-step-num {
+    flex: 0 0 auto;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 32px;
+    height: 32px;
+    border-radius: 999px;
+    background: var(--gold-light, #d8ca8a);
+    color: #1b1c12;
+    font-family: var(--font-display);
+    font-size: calc((15px) * var(--text-scale));
+    font-weight: 700;
+  }
+  .install-step-copy { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+  .install-step-title {
+    font-family: var(--font-display);
+    font-size: calc((15px) * var(--text-scale));
+    color: var(--text);
+  }
+  .install-step-body {
+    font-size: calc((14px) * var(--text-scale));
+    color: var(--muted);
+    line-height: 1.4;
+  }
+  .consent-actions.install-actions {
+    justify-content: flex-start;
+    flex-wrap: wrap;
+    gap: 10px;
+  }
+  .consent-actions.install-actions .ctrl-btn {
+    flex: 0 0 auto;
+    width: auto;
+    min-width: 0;
+  }
+  .user-guide-actions-right {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
   .review-panel {
     display: none;
     background: var(--surface); border: 1px solid var(--border);

@@ -183,6 +183,14 @@ import {
 } from '../ui/reader.js';
 import { installKeyboardShortcuts } from '../ui/keyboard.js';
 import { showLevelToast, showBadgeToast } from '../ui/toast.js';
+import {
+  initPwaInstall,
+  maybeScheduleInstallPrompt,
+  triggerInstall,
+  closeInstallInstructions,
+  isInstallInstructionsOpen,
+  dontShowInstallAgain
+} from '../ui/pwaInstall.js';
 import { installTouchSafeTapBridge } from '../ui/touchTapBridge.js';
 import { installClickShield, shieldClicksBriefly } from '../utils/clickShield.js';
 import {
@@ -3877,6 +3885,7 @@ installKeyboardShortcuts({
   isWhatsNewV1_1ModalOpen, closeWhatsNewV1_1Modal,
   isToggleInfoModalOpen, closeToggleInfoModal,
   isContactAuthorModalOpen, closeContactAuthorModal,
+  isInstallInstructionsOpen, closeInstallInstructions,
   isDisclaimerModalOpen, isTransferModalOpen, closeTransferModal,
   isReviewDeckMode,
   getSelectedKeys: () => runtime.selectedKeys,
@@ -3920,7 +3929,8 @@ const GLOBAL_CLICK_HANDLERS = {
   openReaderTab, selectReaderDrillChoice, advanceReaderDrill,
   closeWhatsNewV1_1Modal, closeToggleInfoModal, onDueHistogramToggle,
   openContactAuthorModal, closeContactAuthorModal,
-  applyAppUpdate, dismissAppUpdate
+  applyAppUpdate, dismissAppUpdate,
+  triggerInstall, closeInstallInstructions, dontShowInstallAgain
 };
 if (typeof globalThis !== 'undefined') Object.assign(globalThis, GLOBAL_CLICK_HANDLERS);
 if (typeof window !== 'undefined' && window !== globalThis) Object.assign(window, GLOBAL_CLICK_HANDLERS);
@@ -3945,6 +3955,11 @@ buildSupplementalSelector();
 buildAdvancedSelector();
 buildBookVocabSelector();
 initializeConsentGate();
+// PWA install nudge: capture the native prompt + (phone only) schedule the
+// one-time banner. anyOverlayOpen() inside the scheduler keeps it from popping
+// over the consent gate, so it lands after the user has dealt with that.
+initPwaInstall();
+maybeScheduleInstallPrompt();
 if (isReaderMode()) renderReaderModule();
 
 window.addEventListener('greekSupplementalDataChanged', () => {

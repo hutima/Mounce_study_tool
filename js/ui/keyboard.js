@@ -20,6 +20,8 @@ export function installKeyboardShortcuts(deps) {
     closeToggleInfoModal,
     isContactAuthorModalOpen,
     closeContactAuthorModal,
+    isInstallInstructionsOpen,
+    closeInstallInstructions,
     isDisclaimerModalOpen,
     isTransferModalOpen,
     closeTransferModal,
@@ -43,13 +45,16 @@ export function installKeyboardShortcuts(deps) {
     // Contact-author can stack on top of the user guide, so it's the topmost
     // modal — close it before any of the others it may be covering.
     if (e.key === 'Escape' && isContactAuthorModalOpen()) { closeContactAuthorModal(); return; }
+    // Guarded: an old cached keyboard.js paired with a new main.js (or vice
+    // versa) during a SW update may not have this dep wired — degrade quietly.
+    if (e.key === 'Escape' && typeof isInstallInstructionsOpen === 'function' && isInstallInstructionsOpen()) { closeInstallInstructions(); return; }
     if (e.key === 'Escape' && isAnalyticsModalOpen()) { closeAnalyticsOverlay(); return; }
     if (e.key === 'Escape' && isStudySelectorOpen()) { closeStudySelector(); return; }
     if (e.key === 'Escape' && isShortcutsModalOpen()) { closeShortcutsModal(); return; }
     if (e.key === 'Escape' && isWhatsNewV1_1ModalOpen()) { closeWhatsNewV1_1Modal(); return; }
     if (e.key === 'Escape' && isToggleInfoModalOpen()) { closeToggleInfoModal(); return; }
     if (e.key === 'Escape' && isTransferModalOpen()) { closeTransferModal(); return; }
-    if (isDisclaimerModalOpen() || isTransferModalOpen() || isAnalyticsModalOpen() || isStudySelectorOpen() || isShortcutsModalOpen() || isWhatsNewV1_1ModalOpen() || isToggleInfoModalOpen() || isContactAuthorModalOpen()) return;
+    if (isDisclaimerModalOpen() || isTransferModalOpen() || isAnalyticsModalOpen() || isStudySelectorOpen() || isShortcutsModalOpen() || isWhatsNewV1_1ModalOpen() || isToggleInfoModalOpen() || isContactAuthorModalOpen() || (typeof isInstallInstructionsOpen === 'function' && isInstallInstructionsOpen())) return;
     if (!isReviewDeckMode() || !getSelectedKeys().length) return;
 
     if (isMorphologyMode()) {
