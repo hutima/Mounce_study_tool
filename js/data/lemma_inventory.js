@@ -133,8 +133,11 @@
   // εἰμί gate map: future infinitive/participle once future + non-finite
   // moods are in scope; imperative once Mounce introduces the mood.
   const EIMI_OPTIONAL_GROUPS = [
-    { chapter: 8, alwaysInclude: true, family: 'εἰμί — present active indicative (required)',
-      forms: EIMI_PRESENT_ACTIVE_INDICATIVE },
+    // NB: the present active indicative is drilled as a CORE morphology set
+    // (morphology.js ch 8) so εἰμί is discoverable + parseable from ch 8 — a
+    // lemma_inventory-only group wouldn't surface, since the dropdown discovers
+    // paradigms via core sets. The forms stay in EIMI_PRESENT_ACTIVE_INDICATIVE
+    // / extraForms below for wrong-parse lookup.
     { chapter: 19, alwaysInclude: true, family: 'εἰμί — future middle indicative ἔσομαι (required)',
       forms: EIMI_FUTURE_MIDDLE_INDICATIVE },
     { chapter: 27, family: 'εἰμί — future middle participle (optional)',

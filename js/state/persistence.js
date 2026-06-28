@@ -138,7 +138,10 @@ function sanitizeLemmaForms(input) {
 function sanitizeParsingChapter(input) {
   const n = Number(input);
   if (Number.isFinite(n) && Number.isInteger(n) && n >= 1 && n <= 36) return n;
-  return 36;
+  // Unset/invalid → the first parseable-paradigm chapter (Ch 6, the lowest
+  // MORPHOLOGY_SETS gate), matching the runtime default. A new user starts at
+  // the beginning of the curriculum rather than with every paradigm in scope.
+  return 6;
 }
 
 // Per-section spaced-repetition preference. Newer saves carry a `spacedByMode`

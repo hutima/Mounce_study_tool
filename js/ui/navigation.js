@@ -539,7 +539,7 @@ export function setStudyMode(mode) {
   if (nextMode === 'parsing') {
     const chapter = Number.isInteger(runtime.parsingChapter) && runtime.parsingChapter >= 1 && runtime.parsingChapter <= 36
       ? runtime.parsingChapter
-      : 36;
+      : 6; // first parseable-paradigm chapter (lowest MORPHOLOGY_SETS gate)
     runtime.parsingChapter = chapter;
     runtime.selectedKeys = [String(chapter)];
     runtime.currentSession = null;

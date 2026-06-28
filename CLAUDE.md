@@ -757,8 +757,18 @@ just a binary `Paradigms.pdf` reference sheet — a duff asset, not code; not po
       cumulative drills the full set while the core `κρίνω → κρινῶ` liquid-future
       sub-deck stays limited.
     - **εἰμί** — its **present active indicative** (εἰμί/εἶ/ἐστί(ν)/…) was entirely
-      absent from the parsing data (only subj/opt/impv existed); added (ch8) plus
-      the future ἔσομαι (ch19). Defective (no aorist/perfect), so that's its full set.
+      absent from the parsing data (only subj/opt/impv existed); added as a **core
+      `MORPHOLOGY_SETS["8"]` set** plus the future ἔσομαι (lemma_inventory
+      alwaysInclude, ch19). Defective (no aorist/perfect), so that's its full set.
+      **It must be a CORE set, not a lemma_inventory-only group**: `listAvailable­Paradigms`
+      discovers focusable lemmas **only by walking `MORPHOLOGY_SETS` items**, and
+      εἰμί's other core sets are all late (subjunctive ch31, imperative ch33). So a
+      ch8 present gated only in lemma_inventory would never surface in the dropdown
+      until ch31 — the bug that prompted this. The present forms also stay in
+      `EIMI_*`/`extraForms` for wrong-parse lookup. (Other early-gated optionals on
+      verbs whose core set is later — λαμβάνω's present at 16, core 2nd-aor at 22 —
+      are intentionally left: those presents are regular and low-value; the taught
+      paradigm IS the later irregular one, so the cumulative correctly appears then.)
     - **ὁράω** — a NEW suppletive paradigm (not previously in the parsing inventory;
       not in `words.js`, only `nt_book_vocab.js` + the flip sets). Present α-contract
       ὁρῶ is the core morphology paradigm (`morphology.js` ch17, the one
@@ -770,6 +780,15 @@ just a binary `Paradigms.pdf` reference sheet — a duff asset, not code; not po
       m/p (ἕσταμαι, not standard NT); οἶδα present/future/aorist (it's a perfect used
       as present — the existing perfect+pluperfect deck is its whole paradigm);
       consonant-stem perfect-m/p 3pl (periphrastic — γέγραμμαι/εἴλημμαι/… stop at 2pl).
+  - **Parsing mode defaults to the FIRST chapter gate, not the whole curriculum.**
+    `runtime.parsingChapter` now defaults to **6** — the lowest `MORPHOLOGY_SETS`
+    chapter (the Ch-6 nouns), i.e. the first parseable paradigm — instead of 36, so a
+    new user starts at the beginning and widens scope by raising the chapter.
+    `getParsingChapter()` (main.js) computes the gate dynamically via a memoized
+    `firstParadigmChapter()` (min numeric `MORPHOLOGY_SETS` key) as its invalid-value
+    fallback; the static defaults (`runtime.js` `parsingChapter: 6`,
+    `sanitizeParsingChapter`, navigation.js's enter-parsing fallback) mirror it.
+    Returning users keep their saved chapter (only new/unset state gets the default).
   - **Friendly verb-paradigm dropdown labels.** Verb principal-part lemma keys
     (`'λύω → λύσω'`) render as `"<base> — <form name>"` ("λύω — future active",
     "πορεύομαι — present middle", …) via `PARADIGM_FORM_DISPLAY_NAMES` in
