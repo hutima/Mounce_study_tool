@@ -789,6 +789,22 @@ just a binary `Paradigms.pdf` reference sheet — a duff asset, not code; not po
     fallback; the static defaults (`runtime.js` `parsingChapter: 6`,
     `sanitizeParsingChapter`, navigation.js's enter-parsing fallback) mirror it.
     Returning users keep their saved chapter (only new/unset state gets the default).
+  - **Chapter-title ↔ paradigm alignment audit.** Cross-referenced every Mounce
+    chapter title (the `words.js` `label` per chapter) against the paradigms the
+    parsing module gates there. Two genuine gaps surfaced and were fixed: **εἰμί**
+    (Ch 8 "Prepositions & εἰμί" — see above) and the **definite article at Ch 6**
+    ("Nominative & Accusative; Article" named the article, but its paradigm was only
+    at Ch 7). Added a **nom/acc-only article** core set to `MORPHOLOGY_SETS["6"]`
+    (same lemma `"ὁ, ἡ, τό"` as the full Ch-7 article, so the per-form dedup
+    collapses the overlap — the Ch-6 deck drills the 10 nom/acc forms, Ch 7 still
+    drills the full 17). Mirrors the Ch-6/Ch-7 noun split (λόγος nom/acc → full).
+    Conceptual chapters with no new parseable form (15 Intro to Verbs, 26 Intro to
+    Participles, 29 Adjectival Participles) correctly have no paradigm. **Known,
+    deliberately-unfixed:** some family verbs' present indicatives are gated a few
+    chapters before the verb's vocab intro (e.g. λαμβάνω present at 16, vocab/2nd-aor
+    at 22) — harmless, because the family's cumulative only becomes *discoverable* at
+    its core-paradigm chapter (22), so the early present gate never surfaces on its
+    own.
   - **Friendly verb-paradigm dropdown labels.** Verb principal-part lemma keys
     (`'λύω → λύσω'`) render as `"<base> — <form name>"` ("λύω — future active",
     "πορεύομαι — present middle", …) via `PARADIGM_FORM_DISPLAY_NAMES` in
