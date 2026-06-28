@@ -1914,6 +1914,20 @@ function buildWhyThisFormNote(card, dims, category) {
   return '';
 }
 
+// Form-vs-meaning notes for verbs parsed by one tense but carrying another
+// tense's sense. οἶδα is a second perfect used as a PRESENT ("I know", not
+// "I have known"); its pluperfect ᾔδειν serves as a simple past ("I knew").
+// Surfaced on the completed result card, keyed by lemma + parsed tense, so the
+// perfect/pluperfect parse doesn't read as a contradiction of the present/past
+// gloss. (Deponents' middle-form/active-meaning mismatch is handled separately
+// by the deponent voice note.)
+const FORM_VS_MEANING_NOTES = {
+  'οἶδα': {
+    perfect: 'οἶδα is a perfect in form but present in meaning — “I know”, not “I have known”. It has no present tense, so the perfect does that work.',
+    pluperfect: 'ᾔδειν is a pluperfect in form but past in meaning — “I knew”. This mirrors οἶδα’s perfect-as-present pattern: the pluperfect supplies the past.'
+  }
+};
+
 function renderMorphStepSummary(card, state) {
   const rows = state.steps.map((step, idx) => {
     const answer = state.answers[idx];
@@ -2174,6 +2188,15 @@ function renderMorphStepSummary(card, state) {
     ? `<div class="morph-step-ambig-note"><span class="morph-step-ambig-label">Ambiguous form</span> 2nd-plural present is spelt the same in the indicative and the imperative — only context picks the mood. Either reading is accepted.</div>`
     : '';
 
+  // Form-vs-meaning note: shown for the few verbs whose tense in FORM differs
+  // from their SENSE (οἶδα — parsed perfect/pluperfect, but present/past in
+  // meaning), keyed by lemma + parsed tense. Explains why the correct parse can
+  // look at odds with the gloss.
+  const formMeaningEntry = card.lemma ? FORM_VS_MEANING_NOTES[card.lemma] : null;
+  const formMeaningNote = (formMeaningEntry && formMeaningEntry[parsedDims.tense])
+    ? `<div class="morph-step-meaning-note"><span class="morph-step-meaning-label">Form vs meaning</span> ${escapeHtml(formMeaningEntry[parsedDims.tense])}</div>`
+    : '';
+
   // Differentiation note. A short, affirmative "why this form" morphology tell
   // sits always-visible; the deeper "how to tell it apart" disambiguation hints
   // (present vs future — the σ; etc.) tuck behind a collapsed disclosure so the
@@ -2228,6 +2251,7 @@ function renderMorphStepSummary(card, state) {
       ${partialFirstNote}
       ${correctFirstNote}
       ${youParseLine}
+      ${formMeaningNote}
       ${paradigmGapNote}
       ${ambigNote}
       ${personInferredNote}
