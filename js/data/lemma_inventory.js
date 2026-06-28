@@ -87,6 +87,33 @@
     'ἐσόμενα':   'future middle participle nominative/accusative plural neuter'
   };
 
+  // εἰμί's present active indicative — the single most common verb paradigm in
+  // the NT, yet absent from the core morphology sets (which carry only its
+  // subjunctive/optative/imperative). Added here as a required group so the
+  // "present" principal part is actually drilled. εἰμί is introduced in Ch 8.
+  // Forms are enclitic except 2sg εἶ; 3sg/3pl carry the movable ν.
+  const EIMI_PRESENT_ACTIVE_INDICATIVE = {
+    'εἰμί':   'present active indicative first person singular',
+    'εἶ':     'present active indicative second person singular',
+    'ἐστί':   'present active indicative third person singular',
+    'ἐστίν':  'present active indicative third person singular',
+    'ἐσμέν':  'present active indicative first person plural',
+    'ἐστέ':   'present active indicative second person plural',
+    'εἰσί':   'present active indicative third person plural',
+    'εἰσίν':  'present active indicative third person plural'
+  };
+  // εἰμί is defective — present + imperfect + future only (no aorist/perfect,
+  // see impossibleTenses). Its one finite principal part beyond the present is
+  // the future, which is middle/deponent: ἔσομαι. (2sg ἔσῃ is the NT form.)
+  const EIMI_FUTURE_MIDDLE_INDICATIVE = {
+    'ἔσομαι':   'future middle indicative first person singular',
+    'ἔσῃ':      'future middle indicative second person singular',
+    'ἔσται':    'future middle indicative third person singular',
+    'ἐσόμεθα':  'future middle indicative first person plural',
+    'ἔσεσθε':   'future middle indicative second person plural',
+    'ἔσονται':  'future middle indicative third person plural'
+  };
+
   const EIMI_FUTURE_MIDDLE_INFINITIVE = {
     'ἔσεσθαι': 'future middle infinitive'
   };
@@ -106,12 +133,82 @@
   // εἰμί gate map: future infinitive/participle once future + non-finite
   // moods are in scope; imperative once Mounce introduces the mood.
   const EIMI_OPTIONAL_GROUPS = [
+    { chapter: 8, alwaysInclude: true, family: 'εἰμί — present active indicative (required)',
+      forms: EIMI_PRESENT_ACTIVE_INDICATIVE },
+    { chapter: 19, alwaysInclude: true, family: 'εἰμί — future middle indicative ἔσομαι (required)',
+      forms: EIMI_FUTURE_MIDDLE_INDICATIVE },
     { chapter: 27, family: 'εἰμί — future middle participle (optional)',
       forms: EIMI_FUTURE_MIDDLE_PARTICIPLE },
     { chapter: 32, alwaysInclude: true, family: 'εἰμί — future middle infinitive (required)',
       forms: EIMI_FUTURE_MIDDLE_INFINITIVE },
     { chapter: 33, family: 'εἰμί — present active imperative (optional)',
       forms: EIMI_PRESENT_ACTIVE_IMPERATIVE }
+  ];
+
+  // ─── ὁράω (suppletive, "to see") ──────────────────────────────────
+  //
+  // Suppletive across three roots: ὁρα- (present), ὀπ- (future ὄψομαι, aorist
+  // passive ὤφθην), ἰδ- (2nd aorist εἶδον). Principal parts ὁράω, ὄψομαι,
+  // εἶδον, ἑώρακα, ὤφθην (the perfect m/p ὦμμαι/ἑώραμαι is rare and skipped —
+  // "applicable" parts only, per the brief). The present α-contract is the core
+  // morphology paradigm (morphology.js Ch 17); these are the suppletive
+  // principal parts, each gated at the chapter where Mounce's irregular-stem
+  // flip set introduces it (2aor 22, aor-pass 24, perfect 25; future 19).
+  const ORAO_FUTURE_MIDDLE_INDICATIVE = {
+    'ὄψομαι':   'future middle indicative first person singular',
+    'ὄψῃ':      'future middle indicative second person singular',
+    'ὄψεται':   'future middle indicative third person singular',
+    'ὀψόμεθα':  'future middle indicative first person plural',
+    'ὄψεσθε':   'future middle indicative second person plural',
+    'ὄψονται':  'future middle indicative third person plural'
+  };
+  const ORAO_AORIST_ACTIVE_INDICATIVE = {
+    // 1sg and 3pl are both εἶδον (2nd-aorist syncretism); the form keys once,
+    // under the 1sg reading, so the 3pl is not a separate entry.
+    'εἶδον':   'aorist active indicative first person singular',
+    'εἶδες':   'aorist active indicative second person singular',
+    'εἶδε':    'aorist active indicative third person singular',
+    'εἶδεν':   'aorist active indicative third person singular',
+    'εἴδομεν': 'aorist active indicative first person plural',
+    'εἴδετε':  'aorist active indicative second person plural'
+  };
+  const ORAO_PERFECT_ACTIVE_INDICATIVE = {
+    'ἑώρακα':    'perfect active indicative first person singular',
+    'ἑώρακας':   'perfect active indicative second person singular',
+    'ἑώρακε':    'perfect active indicative third person singular',
+    'ἑώρακεν':   'perfect active indicative third person singular',
+    'ἑωράκαμεν': 'perfect active indicative first person plural',
+    'ἑωράκατε':  'perfect active indicative second person plural',
+    'ἑωράκασι':  'perfect active indicative third person plural',
+    'ἑωράκασιν': 'perfect active indicative third person plural'
+  };
+  const ORAO_AORIST_PASSIVE_INDICATIVE = {
+    'ὤφθην':   'aorist passive indicative first person singular',
+    'ὤφθης':   'aorist passive indicative second person singular',
+    'ὤφθη':    'aorist passive indicative third person singular',
+    'ὤφθημεν': 'aorist passive indicative first person plural',
+    'ὤφθητε':  'aorist passive indicative second person plural',
+    'ὤφθησαν': 'aorist passive indicative third person plural'
+  };
+  const ORAO_AORIST_ACTIVE_INFINITIVE = { 'ἰδεῖν': 'aorist active infinitive' };
+  const ORAO_EXTRA_FORMS = {
+    ...ORAO_FUTURE_MIDDLE_INDICATIVE,
+    ...ORAO_AORIST_ACTIVE_INDICATIVE,
+    ...ORAO_PERFECT_ACTIVE_INDICATIVE,
+    ...ORAO_AORIST_PASSIVE_INDICATIVE,
+    ...ORAO_AORIST_ACTIVE_INFINITIVE
+  };
+  const ORAO_OPTIONAL_GROUPS = [
+    { chapter: 19, alwaysInclude: true, family: 'ὁράω — future middle indicative ὄψομαι (required, suppletive)',
+      forms: ORAO_FUTURE_MIDDLE_INDICATIVE },
+    { chapter: 22, alwaysInclude: true, family: 'ὁράω — aorist active indicative εἶδον (2nd aorist, suppletive, required)',
+      forms: ORAO_AORIST_ACTIVE_INDICATIVE },
+    { chapter: 24, alwaysInclude: true, family: 'ὁράω — aorist passive indicative ὤφθην (suppletive, required)',
+      forms: ORAO_AORIST_PASSIVE_INDICATIVE },
+    { chapter: 25, alwaysInclude: true, family: 'ὁράω — perfect active indicative ἑώρακα (required)',
+      forms: ORAO_PERFECT_ACTIVE_INDICATIVE },
+    { chapter: 32, alwaysInclude: true, family: 'ὁράω — aorist active infinitive ἰδεῖν (required)',
+      forms: ORAO_AORIST_ACTIVE_INFINITIVE }
   ];
 
   // ─── λύω (model regular ω-verb) ────────────────────────────────────
@@ -2936,12 +3033,21 @@
     'εἰμί': {
       impossibleTenses: ['aorist', 'first aorist', 'second aorist', 'perfect', 'pluperfect'],
       extraForms: {
+        ...EIMI_PRESENT_ACTIVE_INDICATIVE,
+        ...EIMI_FUTURE_MIDDLE_INDICATIVE,
         ...EIMI_FUTURE_MIDDLE_PARTICIPLE,
         ...EIMI_FUTURE_MIDDLE_INFINITIVE,
         ...EIMI_PRESENT_ACTIVE_IMPERATIVE,
         ...EIMI_OPTATIVE_ALL
       },
       optionalFormGroups: [...EIMI_OPTIONAL_GROUPS, ...EIMI_OPTATIVE_GROUPS]
+    },
+    'ὁράω': {
+      // Suppletive but complete (it has imperfect ἑώρων and pluperfect ἑωράκειν
+      // too), so no tense is marked impossible. The present (core morphology)
+      // plus these suppletive principal parts make the full required set.
+      extraForms: ORAO_EXTRA_FORMS,
+      optionalFormGroups: ORAO_OPTIONAL_GROUPS
     },
     'λόγος': {
       extraForms: LOGOS_VOCATIVE
