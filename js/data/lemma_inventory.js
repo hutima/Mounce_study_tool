@@ -1799,11 +1799,59 @@
     'ἀγαπῶν':  'present active participle nominative singular masculine',
     'ἀγαπῶσα': 'present active participle nominative singular feminine'
   };
+  // Principal parts of ἀγαπάω (α-contract; the α lengthens to η before the
+  // tense formative — ἀγαπη‑). Future/aorist/perfect/aor-passive are regular,
+  // uncontracted; the present is the only contracted system.
+  const AGAPAO_FUTURE_ACTIVE_INDICATIVE = {
+    'ἀγαπήσω':    'future active indicative first person singular',
+    'ἀγαπήσεις':  'future active indicative second person singular',
+    'ἀγαπήσει':   'future active indicative third person singular',
+    'ἀγαπήσομεν': 'future active indicative first person plural',
+    'ἀγαπήσετε':  'future active indicative second person plural',
+    'ἀγαπήσουσι(ν)': 'future active indicative third person plural'
+  };
+  const AGAPAO_AORIST_ACTIVE_INDICATIVE = {
+    'ἠγάπησα':    'aorist active indicative first person singular',
+    'ἠγάπησας':   'aorist active indicative second person singular',
+    'ἠγάπησε(ν)': 'aorist active indicative third person singular',
+    'ἠγαπήσαμεν': 'aorist active indicative first person plural',
+    'ἠγαπήσατε':  'aorist active indicative second person plural',
+    'ἠγάπησαν':   'aorist active indicative third person plural'
+  };
+  const AGAPAO_PERFECT_ACTIVE_INDICATIVE = {
+    'ἠγάπηκα':     'perfect active indicative first person singular',
+    'ἠγάπηκας':    'perfect active indicative second person singular',
+    'ἠγάπηκε(ν)':  'perfect active indicative third person singular',
+    'ἠγαπήκαμεν':  'perfect active indicative first person plural',
+    'ἠγαπήκατε':   'perfect active indicative second person plural',
+    'ἠγαπήκασι(ν)':'perfect active indicative third person plural'
+  };
+  const AGAPAO_PERFECT_MP_INDICATIVE = {
+    'ἠγάπημαι':   'perfect middle/passive indicative first person singular',
+    'ἠγάπησαι':   'perfect middle/passive indicative second person singular',
+    'ἠγάπηται':   'perfect middle/passive indicative third person singular',
+    'ἠγαπήμεθα':  'perfect middle/passive indicative first person plural',
+    'ἠγάπησθε':   'perfect middle/passive indicative second person plural',
+    'ἠγάπηνται':  'perfect middle/passive indicative third person plural'
+  };
+  const AGAPAO_AORIST_PASSIVE_INDICATIVE = {
+    'ἠγαπήθην':   'aorist passive indicative first person singular',
+    'ἠγαπήθης':   'aorist passive indicative second person singular',
+    'ἠγαπήθη':    'aorist passive indicative third person singular',
+    'ἠγαπήθημεν': 'aorist passive indicative first person plural',
+    'ἠγαπήθητε':  'aorist passive indicative second person plural',
+    'ἠγαπήθησαν': 'aorist passive indicative third person plural'
+  };
   const AGAPAO_EXTRA_FORMS = {
     ...AGAPAO_PRESENT_ACTIVE_INDICATIVE,
     ...AGAPAO_PRESENT_MP_INDICATIVE,
     ...AGAPAO_IMPERFECT_ACTIVE_INDICATIVE,
     ...AGAPAO_IMPERFECT_MP_INDICATIVE,
+    ...AGAPAO_FUTURE_ACTIVE_INDICATIVE,
+    ...AGAPAO_AORIST_ACTIVE_INDICATIVE,
+    ...AGAPAO_PERFECT_ACTIVE_INDICATIVE,
+    ...AGAPAO_PERFECT_MP_INDICATIVE,
+    ...AGAPAO_AORIST_PASSIVE_INDICATIVE,
     ...AGAPAO_PRESENT_ACTIVE_INFINITIVE,
     ...AGAPAO_PRESENT_MP_INFINITIVE,
     ...AGAPAO_PRESENT_MP_PARTICIPLE,
@@ -1812,6 +1860,16 @@
   const AGAPAO_OPTIONAL_GROUPS = [
     { chapter: 18, alwaysInclude: true, family: 'ἀγαπάω — present middle/passive indicative (required)',
       forms: AGAPAO_PRESENT_MP_INDICATIVE },
+    { chapter: 19, alwaysInclude: true, family: 'ἀγαπάω — future active indicative (required)',
+      forms: AGAPAO_FUTURE_ACTIVE_INDICATIVE },
+    { chapter: 23, alwaysInclude: true, family: 'ἀγαπάω — aorist active indicative (required)',
+      forms: AGAPAO_AORIST_ACTIVE_INDICATIVE },
+    { chapter: 24, alwaysInclude: true, family: 'ἀγαπάω — aorist passive indicative (required)',
+      forms: AGAPAO_AORIST_PASSIVE_INDICATIVE },
+    { chapter: 25, alwaysInclude: true, family: 'ἀγαπάω — perfect active indicative (required)',
+      forms: AGAPAO_PERFECT_ACTIVE_INDICATIVE },
+    { chapter: 25, alwaysInclude: true, family: 'ἀγαπάω — perfect middle/passive indicative (required)',
+      forms: AGAPAO_PERFECT_MP_INDICATIVE },
     { chapter: 21, family: 'ἀγαπάω — imperfect active indicative (optional)',
       forms: AGAPAO_IMPERFECT_ACTIVE_INDICATIVE },
     { chapter: 21, family: 'ἀγαπάω — imperfect middle/passive indicative (optional)',
@@ -1868,11 +1926,58 @@
     'ποιοῦσα': 'present active participle nominative singular feminine',
     'ποιοῦν':  'present active participle nominative/accusative singular neuter'
   };
+  // Principal parts of ποιέω (ε-contract; the ε lengthens to η before the tense
+  // formative — ποιη‑). Future/aorist/perfect/aor-passive are regular.
+  const POIEO_FUTURE_ACTIVE_INDICATIVE = {
+    'ποιήσω':    'future active indicative first person singular',
+    'ποιήσεις':  'future active indicative second person singular',
+    'ποιήσει':   'future active indicative third person singular',
+    'ποιήσομεν': 'future active indicative first person plural',
+    'ποιήσετε':  'future active indicative second person plural',
+    'ποιήσουσι(ν)': 'future active indicative third person plural'
+  };
+  const POIEO_AORIST_ACTIVE_INDICATIVE = {
+    'ἐποίησα':    'aorist active indicative first person singular',
+    'ἐποίησας':   'aorist active indicative second person singular',
+    'ἐποίησε(ν)': 'aorist active indicative third person singular',
+    'ἐποιήσαμεν': 'aorist active indicative first person plural',
+    'ἐποιήσατε':  'aorist active indicative second person plural',
+    'ἐποίησαν':   'aorist active indicative third person plural'
+  };
+  const POIEO_PERFECT_ACTIVE_INDICATIVE = {
+    'πεποίηκα':     'perfect active indicative first person singular',
+    'πεποίηκας':    'perfect active indicative second person singular',
+    'πεποίηκε(ν)':  'perfect active indicative third person singular',
+    'πεποιήκαμεν':  'perfect active indicative first person plural',
+    'πεποιήκατε':   'perfect active indicative second person plural',
+    'πεποιήκασι(ν)':'perfect active indicative third person plural'
+  };
+  const POIEO_PERFECT_MP_INDICATIVE = {
+    'πεποίημαι':  'perfect middle/passive indicative first person singular',
+    'πεποίησαι':  'perfect middle/passive indicative second person singular',
+    'πεποίηται':  'perfect middle/passive indicative third person singular',
+    'πεποιήμεθα': 'perfect middle/passive indicative first person plural',
+    'πεποίησθε':  'perfect middle/passive indicative second person plural',
+    'πεποίηνται': 'perfect middle/passive indicative third person plural'
+  };
+  const POIEO_AORIST_PASSIVE_INDICATIVE = {
+    'ἐποιήθην':   'aorist passive indicative first person singular',
+    'ἐποιήθης':   'aorist passive indicative second person singular',
+    'ἐποιήθη':    'aorist passive indicative third person singular',
+    'ἐποιήθημεν': 'aorist passive indicative first person plural',
+    'ἐποιήθητε':  'aorist passive indicative second person plural',
+    'ἐποιήθησαν': 'aorist passive indicative third person plural'
+  };
   const POIEO_EXTRA_FORMS = {
     ...POIEO_PRESENT_ACTIVE_INDICATIVE,
     ...POIEO_PRESENT_MP_INDICATIVE,
     ...POIEO_IMPERFECT_ACTIVE_INDICATIVE,
     ...POIEO_IMPERFECT_MP_INDICATIVE,
+    ...POIEO_FUTURE_ACTIVE_INDICATIVE,
+    ...POIEO_AORIST_ACTIVE_INDICATIVE,
+    ...POIEO_PERFECT_ACTIVE_INDICATIVE,
+    ...POIEO_PERFECT_MP_INDICATIVE,
+    ...POIEO_AORIST_PASSIVE_INDICATIVE,
     ...POIEO_PRESENT_ACTIVE_INFINITIVE,
     ...POIEO_PRESENT_MP_INFINITIVE,
     ...POIEO_PRESENT_MP_PARTICIPLE,
@@ -1881,6 +1986,16 @@
   const POIEO_OPTIONAL_GROUPS = [
     { chapter: 18, alwaysInclude: true, family: 'ποιέω — present middle/passive indicative (required)',
       forms: POIEO_PRESENT_MP_INDICATIVE },
+    { chapter: 19, alwaysInclude: true, family: 'ποιέω — future active indicative (required)',
+      forms: POIEO_FUTURE_ACTIVE_INDICATIVE },
+    { chapter: 23, alwaysInclude: true, family: 'ποιέω — aorist active indicative (required)',
+      forms: POIEO_AORIST_ACTIVE_INDICATIVE },
+    { chapter: 24, alwaysInclude: true, family: 'ποιέω — aorist passive indicative (required)',
+      forms: POIEO_AORIST_PASSIVE_INDICATIVE },
+    { chapter: 25, alwaysInclude: true, family: 'ποιέω — perfect active indicative (required)',
+      forms: POIEO_PERFECT_ACTIVE_INDICATIVE },
+    { chapter: 25, alwaysInclude: true, family: 'ποιέω — perfect middle/passive indicative (required)',
+      forms: POIEO_PERFECT_MP_INDICATIVE },
     { chapter: 21, family: 'ποιέω — imperfect active indicative (optional)',
       forms: POIEO_IMPERFECT_ACTIVE_INDICATIVE },
     { chapter: 21, family: 'ποιέω — imperfect middle/passive indicative (optional)',
@@ -1936,11 +2051,58 @@
     'πληροῦσα': 'present active participle nominative singular feminine',
     'πληροῦν':  'present active participle nominative/accusative singular neuter'
   };
+  // Principal parts of πληρόω (ο-contract; the ο lengthens to ω before the tense
+  // formative — πληρω‑). Future/aorist/perfect/aor-passive are regular.
+  const PLEROO_FUTURE_ACTIVE_INDICATIVE = {
+    'πληρώσω':    'future active indicative first person singular',
+    'πληρώσεις':  'future active indicative second person singular',
+    'πληρώσει':   'future active indicative third person singular',
+    'πληρώσομεν': 'future active indicative first person plural',
+    'πληρώσετε':  'future active indicative second person plural',
+    'πληρώσουσι(ν)': 'future active indicative third person plural'
+  };
+  const PLEROO_AORIST_ACTIVE_INDICATIVE = {
+    'ἐπλήρωσα':    'aorist active indicative first person singular',
+    'ἐπλήρωσας':   'aorist active indicative second person singular',
+    'ἐπλήρωσε(ν)': 'aorist active indicative third person singular',
+    'ἐπληρώσαμεν': 'aorist active indicative first person plural',
+    'ἐπληρώσατε':  'aorist active indicative second person plural',
+    'ἐπλήρωσαν':   'aorist active indicative third person plural'
+  };
+  const PLEROO_PERFECT_ACTIVE_INDICATIVE = {
+    'πεπλήρωκα':     'perfect active indicative first person singular',
+    'πεπλήρωκας':    'perfect active indicative second person singular',
+    'πεπλήρωκε(ν)':  'perfect active indicative third person singular',
+    'πεπληρώκαμεν':  'perfect active indicative first person plural',
+    'πεπληρώκατε':   'perfect active indicative second person plural',
+    'πεπληρώκασι(ν)':'perfect active indicative third person plural'
+  };
+  const PLEROO_PERFECT_MP_INDICATIVE = {
+    'πεπλήρωμαι':  'perfect middle/passive indicative first person singular',
+    'πεπλήρωσαι':  'perfect middle/passive indicative second person singular',
+    'πεπλήρωται':  'perfect middle/passive indicative third person singular',
+    'πεπληρώμεθα': 'perfect middle/passive indicative first person plural',
+    'πεπλήρωσθε':  'perfect middle/passive indicative second person plural',
+    'πεπλήρωνται': 'perfect middle/passive indicative third person plural'
+  };
+  const PLEROO_AORIST_PASSIVE_INDICATIVE = {
+    'ἐπληρώθην':   'aorist passive indicative first person singular',
+    'ἐπληρώθης':   'aorist passive indicative second person singular',
+    'ἐπληρώθη':    'aorist passive indicative third person singular',
+    'ἐπληρώθημεν': 'aorist passive indicative first person plural',
+    'ἐπληρώθητε':  'aorist passive indicative second person plural',
+    'ἐπληρώθησαν': 'aorist passive indicative third person plural'
+  };
   const PLEROO_EXTRA_FORMS = {
     ...PLEROO_PRESENT_ACTIVE_INDICATIVE,
     ...PLEROO_PRESENT_MP_INDICATIVE,
     ...PLEROO_IMPERFECT_ACTIVE_INDICATIVE,
     ...PLEROO_IMPERFECT_MP_INDICATIVE,
+    ...PLEROO_FUTURE_ACTIVE_INDICATIVE,
+    ...PLEROO_AORIST_ACTIVE_INDICATIVE,
+    ...PLEROO_PERFECT_ACTIVE_INDICATIVE,
+    ...PLEROO_PERFECT_MP_INDICATIVE,
+    ...PLEROO_AORIST_PASSIVE_INDICATIVE,
     ...PLEROO_PRESENT_ACTIVE_INFINITIVE,
     ...PLEROO_PRESENT_MP_INFINITIVE,
     ...PLEROO_PRESENT_MP_PARTICIPLE,
@@ -1949,6 +2111,16 @@
   const PLEROO_OPTIONAL_GROUPS = [
     { chapter: 18, alwaysInclude: true, family: 'πληρόω — present middle/passive indicative (required)',
       forms: PLEROO_PRESENT_MP_INDICATIVE },
+    { chapter: 19, alwaysInclude: true, family: 'πληρόω — future active indicative (required)',
+      forms: PLEROO_FUTURE_ACTIVE_INDICATIVE },
+    { chapter: 23, alwaysInclude: true, family: 'πληρόω — aorist active indicative (required)',
+      forms: PLEROO_AORIST_ACTIVE_INDICATIVE },
+    { chapter: 24, alwaysInclude: true, family: 'πληρόω — aorist passive indicative (required)',
+      forms: PLEROO_AORIST_PASSIVE_INDICATIVE },
+    { chapter: 25, alwaysInclude: true, family: 'πληρόω — perfect active indicative (required)',
+      forms: PLEROO_PERFECT_ACTIVE_INDICATIVE },
+    { chapter: 25, alwaysInclude: true, family: 'πληρόω — perfect middle/passive indicative (required)',
+      forms: PLEROO_PERFECT_MP_INDICATIVE },
     { chapter: 21, family: 'πληρόω — imperfect active indicative (optional)',
       forms: PLEROO_IMPERFECT_ACTIVE_INDICATIVE },
     { chapter: 21, family: 'πληρόω — imperfect middle/passive indicative (optional)',
