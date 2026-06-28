@@ -385,7 +385,9 @@ configureModals({
     runtime.spacingCadence = cadence;
     syncToggleButtons();
     saveState();
-  }
+  },
+  // New user accepted consent → schedule the phone-only PWA install banner.
+  onDisclaimerAccepted: () => maybeScheduleInstallPrompt()
 });
 configureProgress({
   accumulateUsageTime: () => accumulateUsageTime(),
@@ -3954,12 +3956,12 @@ buildChapterSelector();
 buildSupplementalSelector();
 buildAdvancedSelector();
 buildBookVocabSelector();
-initializeConsentGate();
-// PWA install nudge: capture the native prompt + (phone only) schedule the
-// one-time banner. anyOverlayOpen() inside the scheduler keeps it from popping
-// over the consent gate, so it lands after the user has dealt with that.
+// PWA install nudge: capture the native prompt + sync the user-guide button.
+// The banner itself is NOT scheduled here — it's scheduled only when a NEW user
+// accepts the consent gate (configureModals.onDisclaimerAccepted below), so
+// existing/returning users never see it.
 initPwaInstall();
-maybeScheduleInstallPrompt();
+initializeConsentGate();
 if (isReaderMode()) renderReaderModule();
 
 window.addEventListener('greekSupplementalDataChanged', () => {

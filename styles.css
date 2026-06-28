@@ -2988,6 +2988,15 @@
     border-radius: 16px;
     box-shadow: var(--shadow);
     padding: 26px 24px 22px;
+    /* Constrain to the visible viewport and scroll internally so a tall modal
+       (consent gate, install how-to) is fully reachable on a phone instead of
+       overflowing off-screen with no way to scroll. dvh tracks the iOS dynamic
+       toolbar; vh is the fallback. */
+    max-height: calc(100vh - 32px);
+    max-height: calc(100dvh - 32px);
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    -webkit-overflow-scrolling: touch;
   }
 
   .consent-label {
