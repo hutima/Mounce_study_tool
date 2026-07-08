@@ -174,7 +174,7 @@
       { g: "λακτίζω", e: "kick", count: 1, sub: "151–175" },
       { g: "πειράω", e: "assay", count: 1, sub: "151–175" },
       { g: "ἐπικουρία", e: "help", count: 1, sub: "151–175" },
-      { g: "παθητός", e: "suffer", count: 1, sub: "151–175" },
+      { g: "παθητός", e: "subject to suffering", count: 1, sub: "151–175" },
       { g: "μανία", e: "(+ make) X mad", count: 1, sub: "151–175" },
       { g: "περιτρέπω", e: "make mad", count: 1, sub: "151–175" },
       { g: "Ἀδραμυττηνός", e: "of Adramyttium", count: 1, sub: "151–175" },

@@ -145,7 +145,7 @@
       { g: "Ἰουνία", e: "Junia (a Christian woman greeted in Rom 16:7)", count: 1, sub: "126–150" },
       { g: "Ἀμπλιᾶτος", e: "Ampliatus (a Christian greeted in Rom 16:8)", count: 1, sub: "126–150" },
       { g: "Οὐρβανός", e: "Urbanus", count: 1, sub: "126–150" },
-      { g: "Στάχυς", e: "ear (of corn)", count: 1, sub: "126–150" },
+      { g: "Στάχυς", e: "ear (of grain)", count: 1, sub: "126–150" },
       { g: "Ἀπελλῆς", e: "Apelles", count: 1, sub: "126–150" },
       { g: "Ἀριστόβουλος", e: "Aristobulus", count: 1, sub: "126–150" },
       { g: "Ἡρῳδίων", e: "Herodion", count: 1, sub: "126–150" },

@@ -71,7 +71,7 @@
       { g: "Ἐλιούδ", e: "Eliud", count: 2, sub: "51–75" },
       { g: "Ἐλεάζαρ", e: "Eleazar", count: 2, sub: "51–75" },
       { g: "Ματθάν", e: "Matthan", count: 2, sub: "51–75" },
-      { g: "δειγματίζω", e: "make a shew", count: 2, sub: "51–75" },
+      { g: "δειγματίζω", e: "make a show", count: 2, sub: "51–75" },
       { g: "ἐνθυμέομαι", e: "think", count: 2, sub: "51–75" },
       { g: "ἀκριβόω", e: "enquire diligently", count: 2, sub: "51–75" },
       { g: "λίβανος", e: "frankincense", count: 2, sub: "51–75" },
