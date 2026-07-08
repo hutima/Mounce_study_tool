@@ -1866,6 +1866,44 @@ function isContactAuthorModalOpen() {
   return !!overlay && overlay.classList.contains('show');
 }
 
+// Open a "Contact the author" link reliably from an installed PWA. Two things
+// break a plain <a target="_blank"> there:
+//   1. In a standalone/installed PWA (notably iOS home-screen apps) WebKit
+//      silently swallows the "open in a new tab" default of a target="_blank"
+//      link — there's no browser tab to open into — so the tap does nothing.
+//   2. The touch-tap bridge (touchTapBridge.js) treats only buttons and
+//      [onclick] elements as tap targets. A bare link in the modal matches
+//      neither, so the bridge routed the synthetic tap up to the nearest
+//      match — the overlay's [onclick] close handler — and tapping a link
+//      CLOSED the modal instead of following it (while suppressing the link's
+//      own native click).
+// Giving each link its own onclick makes it a first-class tap target (fixes 2)
+// and routes the open through window.open() from inside the tap gesture, which
+// iOS honours where the bare target="_blank" default does not (fixes 1). http
+// links open in a new context; mailto:/tel: hand off to the OS handler in place.
+// Modified / non-primary clicks fall through to the browser's native handling.
+function openExternalLink(anchor, event) {
+  if (event && (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey || event.button > 0)) {
+    return true; // let the browser open-in-new-tab / save-link / etc. natively
+  }
+  const href = anchor && anchor.href;
+  if (!href) return true;
+  if (event && typeof event.preventDefault === 'function') event.preventDefault();
+  if (/^https?:/i.test(href)) {
+    let opened = null;
+    try { opened = window.open(href, '_blank'); } catch (_) {}
+    if (opened) {
+      try { opened.opener = null; } catch (_) {} // reverse-tabnabbing guard
+    } else {
+      window.location.href = href; // popup blocked → open in place (swipe back to return)
+    }
+  } else {
+    // mailto:, tel:, etc. — hand off to the OS handler without leaving the page.
+    window.location.href = href;
+  }
+  return false;
+}
+
 // Persist the review-panel due-histogram's collapsed state. Reuses the already-
 // persisted runtime.analyticsCollapsed map (so no extra save field is needed);
 // the analytics-overlay copy is handled by that overlay's own collapse-sync.
@@ -3942,7 +3980,7 @@ const GLOBAL_CLICK_HANDLERS = {
   toggleHardVocabReview, toggleStemNotes, toggleIrregularCards, toggleIrregularTense, toggleShuffle, toggleSpacedRepetition, toggleSpacingCadence, toggleSplitSelection, toggleAspectStep, toggleDimStep, toggleOptionalForms, toggleOptionalFormFilter, toggleDimValueFilter, toggleExcludeKnownMorphs, toggleParsingShuffleAll, toggleParsingCustomReview, toggleParsingCustomParadigm, setAllParsingCustomParadigms, toggleParsingReverse, toggleParsingLookup, pickLookupDimension, editLookupDimension, resetLookup, toggleAccentLookalikes, resetKnownMorphs, closeResetKnownModal, confirmResetKnownFocused, confirmResetKnownAll, clearParsingStats, toggleUnspacedDailyReset, triggerImportProgress,
   openReaderTab, selectReaderDrillChoice, advanceReaderDrill,
   closeWhatsNewV1_1Modal, closeToggleInfoModal, onDueHistogramToggle,
-  openContactAuthorModal, closeContactAuthorModal,
+  openContactAuthorModal, closeContactAuthorModal, openExternalLink,
   applyAppUpdate, dismissAppUpdate,
   triggerInstall, closeInstallInstructions, dontShowInstallAgain
 };
