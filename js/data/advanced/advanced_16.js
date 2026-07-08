@@ -93,7 +93,7 @@
       { g: "ἐννεύω", e: "make signs", count: 1, sub: "76–100" },
       { g: "πινακίδιον", e: "writing table", count: 1, sub: "76–100" },
       { g: "περιοικέω", e: "dwell round about", count: 1, sub: "76–100" },
-      { g: "ἀνάδειξις", e: "shewing", count: 1, sub: "76–100" },
+      { g: "ἀνάδειξις", e: "showing", count: 1, sub: "76–100" },
       { g: "Αὐγοῦστος", e: "Augustus", count: 1, sub: "76–100" },
       { g: "Κυρήνιος", e: "Cyrenius", count: 1, sub: "76–100" },
       { g: "ἔγκυος", e: "great with child", count: 1, sub: "76–100" },

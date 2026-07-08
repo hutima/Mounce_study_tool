@@ -60,11 +60,33 @@ presets, off-the-record parsing). Consult it before applying a duff diff.
 
 ### Porting status — last version ported
 
-**Last reviewed duff commit: `d15f82d` (tip of duff `main`, 2026-06-28; the eight
-commits after `22aee43` evaluated below — only #325's οἶδα "perfect-as-present"
-paradigm and #326's "Form vs meaning" result-card note were applied; the rest is
-duff back-porting Mounce work, or not requested).**
+**Last reviewed duff commit: `b1e636d` (tip of duff `main`, 2026-07-08; #332 KJV
+gloss modernization and #333 GNT Reader author-link ported below. The earlier
+boundary was `d15f82d`, 2026-06-28: the eight commits after `22aee43` evaluated
+below — only #325's οἶδα "perfect-as-present" paradigm and #326's "Form vs meaning"
+result-card note were applied; the rest is duff back-porting Mounce work, or not
+requested).**
 When checking for new duff work, diff `origin/main` against that commit forward.
+
+- **Ported duff PR #332 (`cdb0b12`) — modernized archaic KJV language in the
+  advanced vocab glosses.** All 97 gloss `e:` strings duff modernized were applied
+  verbatim to Mounce's `js/data/advanced/advanced_*.js` (keyed by Greek headword +
+  old gloss so each card's `count`/`sub` are preserved), reaching exact 97/97
+  parity. Covers the archaic verb `-eth` forms (fadeth→fades, teacheth→teaches,
+  becometh→…, lieth→lies, faileth→…), shew→show (incl. "shew forth self"→"show
+  oneself active", shewbread→"showbread (bread of the Presence)"), husbandman→farmer,
+  publican(s)→tax collector(s), raiment→clothing (deduped), corn→grain,
+  conversation→conduct/way of life, quicken→make alive, lucre→money/dishonest gain,
+  verily→truly/surely, wax→grow, hither/thither/thence/whence→here/there,
+  meat→food/nourishment/"to eat", durst→dared, "would fain"→"would gladly", and
+  Canadian spellings (favoritism→favouritism, labor→labour, plow→plough,
+  license→licence). `corn(-field)` (σπόριμος) is intentionally left unchanged —
+  duff left it too. **duff's `index.html`/`sw.js` cache bump 340→341 is duff's own
+  version scheme; Mounce bumped its own `v175`→`v176` instead** (`CACHE_NAME` in
+  `sw.js` + all `?v=` in `index.html`).
+- **Ported duff PR #333 (`b1e636d`) — "GNT Reader" added to the Contact-author
+  "Other projects by Timothy" list** in `index.html`, after Scripture Diagrammer
+  (`https://hutima.github.io/GNTReader/`), mirroring duff's entry.
 
 - **Evaluated the eight duff commits after `22aee43` (through `d15f82d`):**
   - **#326 (`45d90879`) "perfect as present" note on the parsing result card —
