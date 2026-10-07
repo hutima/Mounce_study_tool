@@ -6,7 +6,7 @@ import { readFileSync } from 'node:fs';
 function loadApplyHardLapse() {
   const source = readFileSync(new URL('../js/app/main.js', import.meta.url), 'utf8');
   const start = source.indexOf('function preLapseIntervalDays(progress)');
-  const end = source.indexOf('// Uncertain lapse:', start);
+  const end = source.indexOf('function applyUncertainLapse', start);
   assert.ok(start >= 0 && end > start, 'expected hard-lapse source block');
   const snippet = source.slice(start, end);
   const context = {
