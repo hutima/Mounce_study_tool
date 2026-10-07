@@ -1,0 +1,99 @@
+name: Apply temporary SRS fix
+on:
+  push:
+    branches: [fix/leech-middle-deck-lapses]
+permissions:
+  contents: write
+jobs:
+  patch-and-verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: fix/leech-middle-deck-lapses
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Apply canonical Duff lapse fix
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import re
+
+          path = Path('js/app/main.js')
+          text = path.read_text()
+          pattern = re.compile(r"function applyHardLapse\(progress, cadence, now\) \{.*?\n\}\n(?=\n// Uncertain lapse:)", re.S)
+          replacement = '''function applyHardLapse(progress, cadence, now) {
+            const wasInRelearn = progress.inRelearn === true;
+            const wasLeech = progress.leechDrill === true;
+            const establishedDays = preLapseIntervalDays(progress);
+            // A lapse is a NEW failure episode of previously established spacing.
+            // Fresh-card retries and repeated Hard marks during the same relearn
+            // episode stay in the middle deck without repeatedly penalising ease,
+            // stage, or the lifetime lapse counter.
+            const startsLapseEpisode = !wasInRelearn && !wasLeech && establishedDays > 0;
+
+            progress.streak = 0;
+            progress.easyStreak = 0;
+            if (startsLapseEpisode) {
+              progress.srsStage = Math.max(0, getSrsStage(progress) - 1);
+              progress.ease = clamp(getSrsEase(progress) - 0.2, 1.3, 3.0);
+              progress.lapseCount = (progress.lapseCount || 0) + 1;
+              progress.preLapseIntervalDays = establishedDays;
+            }
+
+            // Leech is a property of repeated genuine lapses of an established
+            // card. Even a leech still relearns IN SESSION: a failed daily drill
+            // goes through middle/due-now until cleared; the 1-day leech cadence
+            // is scheduled only after a clean answer in applyCorrectOutcome().
+            const shouldLeech = cadence.leechEnabled && (
+              wasLeech || (startsLapseEpisode && progress.lapseCount >= LEECH_LAPSE_THRESHOLD)
+            );
+            if (shouldLeech) {
+              progress.leechDrill = true;
+              progress.leechStreak = 0;
+              progress.inRelearn = false;
+              progress.relearnLeft = 0;
+              setProgressDelay(progress, 0, now);
+              return true;
+            }
+
+            // Capture the pre-lapse spacing only when entering the episode. A
+            // repeated in-session Hard keeps the original spacing and merely
+            // restarts the short relearn ladder.
+            if (!wasInRelearn) progress.preLapseIntervalDays = establishedDays;
+            progress.inRelearn = true;
+            progress.relearnLeft = SRS_HARD_RELEARN_STEPS;
+            setProgressDelay(progress, 0, now); // due now — route through middle
+            return true;
+          }
+'''
+          text, count = pattern.subn(replacement, text, count=1)
+          if count != 1:
+              raise SystemExit(f'expected exactly one applyHardLapse block, found {count}')
+          path.write_text(text)
+
+          targets = [Path('index.html'), Path('sw.js'), Path('styles.css'), *Path('pages').glob('*.html')]
+          for target in targets:
+              if not target.exists():
+                  continue
+              data = target.read_text()
+              data = data.replace('?v=177', '?v=178')
+              if target.name == 'sw.js':
+                  data = data.replace('mounce-bbg-greek-pwa-v177', 'mounce-bbg-greek-pwa-v178')
+              target.write_text(data)
+          PY
+      - name: Verify
+        run: |
+          node --test tests/srs-lapse.test.mjs
+          find js -name '*.js' -print0 | xargs -0 -n1 node --check
+          git diff --check
+          grep -q "mounce-bbg-greek-pwa-v178" sw.js
+      - name: Commit verified application changes and remove temporary workflows
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git rm .github/workflows/verify-srs-temp.yml .github/workflows/apply-srs-fix-temp.yml
+          git add js/app/main.js tests/srs-lapse.test.mjs index.html sw.js styles.css pages || true
+          git commit -m "Fix leech lapses without breaking middle-deck relearning"
+          git push origin HEAD:fix/leech-middle-deck-lapses
