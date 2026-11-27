@@ -882,6 +882,10 @@ export function loadDeckFromKeys(keys, sessionId = null, options = {}) {
     host.resetStudyState();
     runtime.deck = host.buildStudyDeck(runtime.originalDeck);
   }
+  if (runtime.retentionMode && runtime.studyMode === 'vocab') {
+    runtime.deck = host.buildStudyDeck(runtime.originalDeck);
+    runtime.currentIdx = 0;
+  }
   host.markActiveDeckRef();
 
   setActiveSessionButton();

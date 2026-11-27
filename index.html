@@ -19,11 +19,11 @@ update that doc in the same commit. Line numbers in the doc are approximate.
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="Mounce Greek">
-<link rel="manifest" href="manifest.json?v=178">
-<link rel="apple-touch-icon" href="icons/apple-touch-icon.png?v=178">
-<link rel="icon" type="image/svg+xml" href="favicon.svg?v=178">
+<link rel="manifest" href="manifest.json?v=179">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png?v=179">
+<link rel="icon" type="image/svg+xml" href="favicon.svg?v=179">
 <title>Mounce BBG Greek — Flashcards</title>
-<link rel="stylesheet" href="styles.css?v=178">
+<link rel="stylesheet" href="styles.css?v=179">
 <script>
 (function(){
   try {
@@ -76,8 +76,8 @@ update that doc in the same commit. Line numbers in the doc are approximate.
     <button class="quick-btn quick-primary" type="button" onclick="startStudying()">Start studying</button>
     <div class="mode-group app-profile-group" role="group" aria-label="Study mode shortcut">
       <button class="mode-btn active" id="modeShortcutVocabBtn" type="button" onclick="setStudyMode('vocab')">Vocab</button>
-      <button class="mode-btn" id="modeShortcutMorphBtn" type="button" onclick="setStudyMode('morph')">Grammar</button>
       <button class="mode-btn" id="modeShortcutParsingBtn" type="button" onclick="setStudyMode('parsing')">Parsing</button>
+      <button class="mode-btn" id="modeShortcutMorphBtn" type="button" onclick="setStudyMode('morph')">Quiz</button>
       <button class="mode-btn" id="modeShortcutReaderBtn" type="button" onclick="openReaderTab()">Translate</button>
     </div>
     <button class="quick-btn" type="button" onclick="openAnalyticsOverlay()">Progress</button>
@@ -119,6 +119,14 @@ update that doc in the same commit. Line numbers in the doc are approximate.
       </div>
     </div>
 <div class="controls-bar" id="controlsBar">
+    <button class="toggle-label" id="parsingFlipToggle" type="button" role="switch" aria-checked="false" onclick="toggleParsingFlipMode()" style="display:none" title="Recognition practice for one focused root. Greek forms flip to reveal parsing and meaning. Chapter and variant filters still apply. Hard and Uncertain repeat; Easy clears the form for this session; Pass skips. No accuracy, XP, confidence, or schedule changes. Off by default.">
+      <span class="toggle-text">Parsing flip cards</span>
+      <span class="toggle-switch" id="parsingFlipBtn" aria-hidden="true"></span>
+    </button>
+    <button class="toggle-label" id="retentionToggle" type="button" role="switch" aria-checked="false" onclick="toggleRetentionMode()" title="Review up to 20 random eligible base cards from your selection, plus all their enabled virtual cards. Virtual cards do not count toward the limit. Split forms stay together until their shared review round is complete. Pick new 20 at any time. Progress is saved within the day; batches refresh at 5 AM local time.">
+      <span class="toggle-text">Retention · 20 cards</span>
+      <span class="toggle-switch" id="retentionBtn" aria-hidden="true"></span>
+    </button>
 <button class="toggle-label" id="shuffleToggle" type="button" role="switch" aria-checked="false" onclick="toggleShuffle()" title="Shuffle the deck order. Off keeps a fixed order (by chapter, then frequency); on randomises the order each time the deck is built or reshuffled.">
       <span class="toggle-text">Shuffle</span>
       <span class="toggle-switch" id="shuffleBtn" aria-hidden="true"></span>
@@ -464,6 +472,8 @@ update that doc in the same commit. Line numbers in the doc are approximate.
     </div>
   </div>
 
+  <button class="ctrl-btn" id="pickNewRetentionBtn" type="button" onclick="pickNewRetentionBatch()" style="display:none" title="Pick up to 20 eligible base words, favoring words outside the current batch. Keeps recorded reviews and includes all enabled virtual forms.">↻ Pick new 20</button>
+
   <div class="nav-row" id="navRow" style="display:none">
     <button class="nav-btn nav-prev" onclick="navigate(-1)">← Prev</button>
     <button class="nav-btn nav-undo" id="spacedUndoBtn" onclick="restoreSpacedUndo()" style="display:none">↶ Undo</button>
@@ -475,6 +485,7 @@ update that doc in the same commit. Line numbers in the doc are approximate.
     <button class="mark-btn mark-again" onclick="markCard('again')">✗ Hard</button>
     <button class="mark-btn mark-pass"  onclick="markCard('pass')">~ Uncertain</button>
     <button class="mark-btn mark-easy"  onclick="markCard('easy')">✓ Easy</button>
+    <button class="mark-btn mark-unsure" id="parsingFlipPassBtn" type="button" onclick="parsingFlipMark('skip')" style="display:none">Pass →</button>
   </div>
 
   <div class="fastforward-row" id="fastForwardRow" style="display:none">
@@ -1051,48 +1062,48 @@ update that doc in the same commit. Line numbers in the doc are approximate.
   </div>
 </div>
 
-<script defer src="js/data/words.js?v=178"></script>
-<script defer src="js/data/morphology.js?v=178"></script>
-<script defer src="js/data/lemma_inventory.js?v=178"></script>
-<script defer src="js/data/supplemental.js?v=178"></script>
-<script defer src="js/data/grammar.js?v=178"></script>
-<script defer src="js/data/supplementals/mounce_paradigms.js?v=178"></script>
-<script defer src="js/data/supplementals/stem_change_drills.js?v=178"></script>
-<script defer src="js/data/supplementals/second_aorist_flip.js?v=178"></script>
-<script defer src="js/data/supplementals/liquid_future_flip.js?v=178"></script>
-<script defer src="js/data/supplementals/w3_aorist_passive_flip.js?v=178"></script>
-<script defer src="js/data/supplementals/w3_perfect_active_flip.js?v=178"></script>
-<script defer src="js/data/supplementals/w4_mi_verb_principal_parts_flip.js?v=178"></script>
-<script defer src="js/data/advanced/advanced_01.js?v=178"></script>
-<script defer src="js/data/advanced/advanced_02.js?v=178"></script>
-<script defer src="js/data/advanced/advanced_03.js?v=178"></script>
-<script defer src="js/data/advanced/advanced_04.js?v=178"></script>
-<script defer src="js/data/advanced/advanced_05.js?v=178"></script>
-<script defer src="js/data/advanced/advanced_06.js?v=178"></script>
-<script defer src="js/data/advanced/advanced_07.js?v=178"></script>
-<script defer src="js/data/advanced/advanced_08.js?v=178"></script>
-<script defer src="js/data/advanced/advanced_09.js?v=178"></script>
-<script defer src="js/data/advanced/advanced_10.js?v=178"></script>
-<script defer src="js/data/advanced/advanced_11.js?v=178"></script>
-<script defer src="js/data/advanced/advanced_12.js?v=178"></script>
-<script defer src="js/data/advanced/advanced_13.js?v=178"></script>
-<script defer src="js/data/advanced/advanced_14.js?v=178"></script>
-<script defer src="js/data/advanced/advanced_15.js?v=178"></script>
-<script defer src="js/data/advanced/advanced_16.js?v=178"></script>
-<script defer src="js/data/advanced/advanced_17.js?v=178"></script>
-<script defer src="js/data/advanced/advanced_18.js?v=178"></script>
-<script defer src="js/data/advanced/advanced_19.js?v=178"></script>
-<script defer src="js/data/advanced/advanced_20.js?v=178"></script>
-<script defer src="js/data/advanced/advanced_21.js?v=178"></script>
-<script defer src="js/data/advanced/advanced_22.js?v=178"></script>
-<script defer src="js/data/advanced/advanced_23.js?v=178"></script>
-<script defer src="js/data/advanced/advanced_24.js?v=178"></script>
-<script defer src="js/data/advanced/advanced_25.js?v=178"></script>
-<script defer src="js/data/nt_book_vocab.js?v=178"></script>
-<script defer src="js/data/reader.js?v=178"></script>
-<script defer src="js/data/reader_verse_literals.js?v=178"></script>
-<script defer src="js/data/reader_translations.js?v=178"></script>
-<script defer src="js/logic/pos_logic.js?v=178"></script>
-<script type="module" src="js/app/main.js?v=178"></script>
+<script defer src="js/data/words.js?v=179"></script>
+<script defer src="js/data/morphology.js?v=179"></script>
+<script defer src="js/data/lemma_inventory.js?v=179"></script>
+<script defer src="js/data/supplemental.js?v=179"></script>
+<script defer src="js/data/grammar.js?v=179"></script>
+<script defer src="js/data/supplementals/mounce_paradigms.js?v=179"></script>
+<script defer src="js/data/supplementals/stem_change_drills.js?v=179"></script>
+<script defer src="js/data/supplementals/second_aorist_flip.js?v=179"></script>
+<script defer src="js/data/supplementals/liquid_future_flip.js?v=179"></script>
+<script defer src="js/data/supplementals/w3_aorist_passive_flip.js?v=179"></script>
+<script defer src="js/data/supplementals/w3_perfect_active_flip.js?v=179"></script>
+<script defer src="js/data/supplementals/w4_mi_verb_principal_parts_flip.js?v=179"></script>
+<script defer src="js/data/advanced/advanced_01.js?v=179"></script>
+<script defer src="js/data/advanced/advanced_02.js?v=179"></script>
+<script defer src="js/data/advanced/advanced_03.js?v=179"></script>
+<script defer src="js/data/advanced/advanced_04.js?v=179"></script>
+<script defer src="js/data/advanced/advanced_05.js?v=179"></script>
+<script defer src="js/data/advanced/advanced_06.js?v=179"></script>
+<script defer src="js/data/advanced/advanced_07.js?v=179"></script>
+<script defer src="js/data/advanced/advanced_08.js?v=179"></script>
+<script defer src="js/data/advanced/advanced_09.js?v=179"></script>
+<script defer src="js/data/advanced/advanced_10.js?v=179"></script>
+<script defer src="js/data/advanced/advanced_11.js?v=179"></script>
+<script defer src="js/data/advanced/advanced_12.js?v=179"></script>
+<script defer src="js/data/advanced/advanced_13.js?v=179"></script>
+<script defer src="js/data/advanced/advanced_14.js?v=179"></script>
+<script defer src="js/data/advanced/advanced_15.js?v=179"></script>
+<script defer src="js/data/advanced/advanced_16.js?v=179"></script>
+<script defer src="js/data/advanced/advanced_17.js?v=179"></script>
+<script defer src="js/data/advanced/advanced_18.js?v=179"></script>
+<script defer src="js/data/advanced/advanced_19.js?v=179"></script>
+<script defer src="js/data/advanced/advanced_20.js?v=179"></script>
+<script defer src="js/data/advanced/advanced_21.js?v=179"></script>
+<script defer src="js/data/advanced/advanced_22.js?v=179"></script>
+<script defer src="js/data/advanced/advanced_23.js?v=179"></script>
+<script defer src="js/data/advanced/advanced_24.js?v=179"></script>
+<script defer src="js/data/advanced/advanced_25.js?v=179"></script>
+<script defer src="js/data/nt_book_vocab.js?v=179"></script>
+<script defer src="js/data/reader.js?v=179"></script>
+<script defer src="js/data/reader_verse_literals.js?v=179"></script>
+<script defer src="js/data/reader_translations.js?v=179"></script>
+<script defer src="js/logic/pos_logic.js?v=179"></script>
+<script type="module" src="js/app/main.js?v=179"></script>
 </body>
 </html>

@@ -57,6 +57,8 @@ export function renderProgress() {
   const remaining = Math.max(total - confirmed, 0);
   const progressPercentEl = document.getElementById('progressPercent');
   host.updateUsageMeta();
+  if (host.renderParsingFlipProgress?.()) return;
+  if (host.renderRetentionProgress?.()) return;
 
   if (runtime.spacedRepetition) {
     const dueCount = host.getDueCount(runtime.originalDeck);
@@ -183,6 +185,8 @@ export function renderReview() {
   const panel = document.getElementById('reviewPanel');
   if (!panel) return;
   panel.classList.add('show');
+  if (host.renderParsingFlipReview?.()) return;
+  if (host.renderRetentionReview?.()) return;
 
   // Parsing mode has no card-level confidence stats (no SRS / no main-stats
   // writes), so the standard "due now / high / low / unseen" buckets would

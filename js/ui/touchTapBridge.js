@@ -33,6 +33,7 @@
 export function installTouchSafeTapBridge() {
   const TOUCH_TAP_SELECTOR = [
     'button',
+    'summary', // activate the disclosure itself, not an ancestor modal backdrop
     '[role="button"]',
     '[role="switch"]',
     '.card-wrapper',
