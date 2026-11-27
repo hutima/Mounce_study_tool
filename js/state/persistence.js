@@ -7,6 +7,7 @@
 // in via configurePersistence — same pattern as the other UI modules.
 
 import { runtime } from './runtime.js';
+import * as Retention from '../domain/deck/retention.js';
 import { isPlainObject, shuffleArray } from '../utils/helpers.js';
 import { getStorage, isLikelyIOS } from '../utils/storage.js';
 import { shieldClicksBriefly } from '../utils/clickShield.js';
@@ -285,6 +286,8 @@ export function buildPersistedStatePayload(options = {}) {
     spacedByMode: runtime.spacedByMode,
     spacingCadence: runtime.spacingCadence,
     hardVocabReviewMode: runtime.hardVocabReviewMode,
+    retentionMode: runtime.retentionMode,
+    retentionSessions: Retention.sanitizeSessions(runtime.retentionSessions),
     studyMode: runtime.studyMode,
     appProfile: runtime.appProfile,
     morphSelfCheck: runtime.morphSelfCheck,
@@ -304,6 +307,7 @@ export function buildPersistedStatePayload(options = {}) {
     parsingCustomReview: runtime.parsingCustomReview,
     parsingCustomParadigms: runtime.parsingCustomParadigms,
     parsingReverse: runtime.parsingReverse,
+    parsingFlipMode: runtime.parsingFlipMode === true,
     parsingLookup: runtime.parsingLookup,
     accentLookalikes: runtime.accentLookalikes,
     optionalFormFilters: runtime.optionalFormFilters,
@@ -365,6 +369,8 @@ function sanitizeImportedState(candidate) {
   state.spacedByMode = sanitizeSpacedByMode(candidate.spacedByMode, candidate.spacedRepetition);
   state.spacingCadence = sanitizeSpacingCadence(candidate.spacingCadence);
   state.hardVocabReviewMode = !!candidate.hardVocabReviewMode;
+  state.retentionMode = candidate.retentionMode === true;
+  state.retentionSessions = Retention.sanitizeSessions(candidate.retentionSessions);
   state.splitSelection = candidate.splitSelection !== false; // on by default
   state.modeSelections = isPlainObject(candidate.modeSelections) ? candidate.modeSelections : {};
   state.morphSelfCheck = !!candidate.morphSelfCheck;
@@ -415,6 +421,17 @@ function sanitizeImportedState(candidate) {
   // independent in storage even though the UI keeps only one on.
   state.parsingCustomReview = !!candidate.parsingCustomReview;
   state.parsingCustomParadigms = sanitizeParadigmKeyMap(candidate.parsingCustomParadigms);
+  state.parsingReverse = !!candidate.parsingReverse;
+  state.parsingFlipMode = candidate.parsingFlipMode === true;
+  // Lookup mode (interactive paradigm reference) defaults to false (off).
+  state.parsingLookup = !!candidate.parsingLookup;
+  if (state.parsingLookup) state.parsingFlipMode = false;
+  if (state.parsingFlipMode) {
+    state.parsingReverse = false;
+    state.parsingShuffleAll = false;
+    state.parsingCustomReview = false;
+  }
+  state.accentLookalikes = !!candidate.accentLookalikes;
   // Sub-filters default to true (every category included) so toggling
   // the parent on without touching filters reproduces the original
   // "all optional forms" behavior. Missing keys from older exports
@@ -911,9 +928,11 @@ export function getDeckStateKey(keys = runtime.selectedKeys, requiredFlag = runt
     requiredOnly: !!requiredFlag,
     spacedRepetition: !!spacedFlag,
     hardVocabReviewMode: !!runtime.hardVocabReviewMode,
+    ...(runtime.retentionMode && runtime.studyMode === 'vocab' ? { retentionMode: true } : {}),
     direction: host.getStudyStoreKey(),
     mode: runtime.studyMode,
-    ...(morphStep ? { morphStep } : {})
+    ...(morphStep ? { morphStep } : {}),
+    ...(runtime.studyMode === 'parsing' && runtime.parsingFlipMode ? { parsingFlipMode: true } : {})
   });
 }
 
@@ -930,6 +949,8 @@ export function markActiveDeckRef() {
     return;
   }
   runtime.activeDeckRef = {
+    retentionMode: runtime.retentionMode && runtime.studyMode === 'vocab',
+    parsingFlipMode: runtime.parsingFlipMode && runtime.studyMode === 'parsing',
     key: getDeckStateKey(runtime.selectedKeys, runtime.requiredOnly),
     selectedKeys: [...runtime.selectedKeys],
     currentSessionId: runtime.currentSession ? runtime.currentSession.id : null
@@ -938,6 +959,7 @@ export function markActiveDeckRef() {
 
 export function saveCurrentDeckStateToBank() {
   const ref = runtime.activeDeckRef;
+  if (ref?.retentionMode || ref?.parsingFlipMode) return; // dedicated queues own their lifecycle
   if (!ref || !runtime.deck.length) return;
 
   runtime.deckStates[ref.key] = {
@@ -1050,6 +1072,8 @@ export function restoreState() {
     runtime.directionToGreek = !!saved.directionToGreek;
     runtime.spacedRepetition = saved.spacedRepetition !== false;
     runtime.hardVocabReviewMode = !!saved.hardVocabReviewMode;
+    runtime.retentionMode = saved.retentionMode === true;
+    runtime.retentionSessions = Retention.sanitizeSessions(saved.retentionSessions);
     runtime.splitSelection = saved.splitSelection !== false; // on by default
     runtime.modeSelections = saved.modeSelections && typeof saved.modeSelections === 'object' ? saved.modeSelections : {};
     runtime.appProfile = 'vocab_grammar';
@@ -1099,8 +1123,18 @@ export function restoreState() {
     runtime.parsingCustomParadigms = sanitizeParadigmKeyMap(saved.parsingCustomParadigms);
     // English → Greek parsing direction (default false).
     runtime.parsingReverse = !!saved.parsingReverse;
-    // Lookup / "Build mode" (default false). morphLookupState stays ephemeral.
+    runtime.parsingFlipMode = saved.parsingFlipMode === true;
+    runtime.parsingFlipSession = null;
+    // Lookup mode (interactive paradigm reference; default false). The walk
+    // state itself (morphLookupState) is ephemeral and intentionally not
+    // restored — it resamples from the live paradigm data on first render.
     runtime.parsingLookup = !!saved.parsingLookup;
+    if (runtime.parsingLookup) runtime.parsingFlipMode = false;
+    if (runtime.parsingFlipMode) {
+      runtime.parsingReverse = false;
+      runtime.parsingShuffleAll = false;
+      runtime.parsingCustomReview = false;
+    }
     // Accent/breathing look-alike distractors in the reverse drill (default false).
     runtime.accentLookalikes = !!saved.accentLookalikes;
     // Per-category sub-filters: default each to true if missing.
@@ -1261,6 +1295,11 @@ export function restoreState() {
     runtime.unspacedPendingRecycle = !runtime.spacedRepetition && !!(usableDeckState && usableDeckState.unspacedPendingRecycle);
     runtime.isFlipped = false;
     host.clearSpacedUndoSnapshot();
+    if ((runtime.retentionMode && runtime.studyMode === 'vocab')
+      || (runtime.studyMode === 'parsing' && runtime.parsingFlipMode && !runtime.parsingLookup)) {
+      runtime.deck = host.buildStudyDeck(runtime.originalDeck);
+      runtime.currentIdx = 0;
+    }
     markActiveDeckRef();
 
     setActiveSessionButton();

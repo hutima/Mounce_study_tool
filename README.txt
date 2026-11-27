@@ -272,3 +272,6 @@ KNOWN BEHAVIOR
 - This is an unofficial student-built study aid. Verify against
   Mounce's textbook, your instructor, and official course materials
   before relying on anything it says.
+
+Retention: up to 20 eligible base words plus their enabled virtual faces. Pick new 20 at any time; batches refresh at 5 AM local and resume within the day.
+Parsing flip cards: optional, off by default. A focused root produces recognition cards with parsing and meaning on the back. Chapter/variant filters apply; Hard/Uncertain/Easy/Pass only manage the transient queue, without proficiency or SRS changes.

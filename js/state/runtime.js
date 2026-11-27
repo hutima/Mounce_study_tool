@@ -115,6 +115,8 @@ export const runtime = {
   // paradigm — the student picks the form that matches. Off by default;
   // the forward dimensional walk stays the parsing baseline.
   parsingReverse: false,
+  parsingFlipMode: false, // recognition-only flip cards; opt-in
+  parsingFlipSession: null, // transient queue, never part of proficiency stats
   // Ephemeral per-card cache for the reverse drill so the MC options stay
   // stable across re-renders of the same card (answer feedback re-renders
   // the card). Rebuilt whenever the focused card changes. Not persisted.
@@ -275,6 +277,8 @@ export const runtime = {
   // via getActiveCadence(); changing it only affects how future flips schedule.
   spacingCadence: 'intensive',
   hardVocabReviewMode: false, // restrict vocab deck to cards missed >10× and still under 40% confidence
+  retentionMode: false,
+  retentionSessions: {}, // fixed synthetic batches, keyed by selection/direction
   activeDeckCount: 0,
   // Cards in the "middle deck" — currently due but not yet seen this session.
   // Builds up as deferred cards' timers expire mid-session; gets dumped into

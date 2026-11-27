@@ -136,10 +136,11 @@ import { clamp, isPlainObject, shuffleArray, escapeHtml, cloneForUndo } from '..
 import { formatUsageDuration, formatAnalyticsDate, formatAnalyticsDateTime, getUsageDayKey, getUnspacedArchiveDayKey } from '../utils/time.js';
 import { getStorage, isLikelyIOS } from '../utils/storage.js';
 import { compareGreekAlphabetical } from '../utils/greekSort.js';
+import * as Retention from '../domain/deck/retention.js';
 
 // Domain — SRS
 import { SRS_NEAR_WINDOW_MS, SRS_CYCLE_ADVANCE_MS, SESSION_IDLE_RESET_MS, getCadencePreset,
-         SRS_VARIANT_HOLD_MS, SRS_RELEARN_STEP_DAYS, SRS_HARD_RELEARN_STEPS,
+         SRS_UNCERTAIN_MIN_MS, SRS_VARIANT_HOLD_MS, SRS_RELEARN_STEP_DAYS, SRS_HARD_RELEARN_STEPS,
          LEECH_LAPSE_THRESHOLD, LEECH_UNPIN_STREAK, LEECH_DRILL_DAYS } from '../domain/srs/constants.js';
 import { msFromDays, daysFromMs, setProgressDelay,
          getSrsEase, getSrsStage, getLastEasyIntervalDays, getNextEasyIntervalDays,
@@ -390,6 +391,10 @@ configureModals({
   onDisclaimerAccepted: () => maybeScheduleInstallPrompt()
 });
 configureProgress({
+  renderParsingFlipProgress: () => renderParsingFlipProgress(),
+  renderParsingFlipReview: () => renderParsingFlipReview(),
+  renderRetentionProgress: () => renderRetentionProgress(),
+  renderRetentionReview: () => renderRetentionReview(),
   accumulateUsageTime: () => accumulateUsageTime(),
   accumulateActiveStudyTime: () => accumulateActiveStudyTime(),
   updateUsageMeta: () => updateUsageMeta(),
@@ -437,6 +442,7 @@ configureProgress({
     .map((p) => p.lemma)
 });
 configureRender({
+  renderRetentionComplete: (area) => renderRetentionComplete(area),
   saveState: () => saveState(),
   syncLayoutVisibility: () => syncLayoutVisibility(),
   noteStudyInteraction: () => noteStudyInteraction(),
@@ -513,6 +519,15 @@ configureSelectors({
   }
 });
 configureNavigation({
+  parsingFlipNavigate: (dir) => parsingFlipNavigate(dir),
+  parsingFlipMark: (outcome) => parsingFlipMark(outcome),
+  isParsingFlipActive: () => isParsingFlipActive(),
+  restartParsingFlip: () => restartParsingFlip(),
+  shuffleParsingFlip: (randomize) => shuffleParsingFlip(randomize),
+  retentionNavigate: (dir) => retentionNavigate(dir),
+  retentionMark: (outcome) => retentionMark(outcome),
+  isRetentionActive: () => isRetentionActive(),
+  pickNewRetentionBatch: () => pickNewRetentionBatch(),
   noteStudyInteraction: () => noteStudyInteraction(),
   isMorphologyMode: () => isMorphologyMode(),
   isParsingMode: () => isParsingMode(),
@@ -1692,7 +1707,8 @@ function syncParadigmFocusUi() {
   const visibleInLookup = (p) => !buildModeLookup || p.isAggregate || !aggregateMemberLemmas.has(p.lemma);
   const available = listAvailableParadigms(aggregateKeys)
     .filter((p) => !isHiddenFromParsing(p.lemma))
-    .filter(visibleInLookup);
+    .filter(visibleInLookup)
+    .filter(p => !runtime.parsingFlipMode || !isParsingIncompatibleLemma(p.lemma));
   if (!available.length) {
     select.innerHTML = '<option value="">No paradigms in current selection</option>';
     select.value = '';
@@ -1702,7 +1718,7 @@ function syncParadigmFocusUi() {
   // the current-pick fallback both depend on which categories have two or more
   // concrete (non-aggregate) lemmas in scope.
   const grouped = listAvailableParadigmsByCategory(aggregateKeys)
-    .map((g) => ({ category: g.category, lemmas: g.lemmas.filter((p) => !isHiddenFromParsing(p.lemma) && visibleInLookup(p)) }))
+    .map((g) => ({ category: g.category, lemmas: g.lemmas.filter((p) => !isHiddenFromParsing(p.lemma) && visibleInLookup(p) && (!runtime.parsingFlipMode || !isParsingIncompatibleLemma(p.lemma))) }))
     .filter((g) => g.lemmas.length);
   const shuffleableCategories = new Set(
     buildModeLookup ? [] : grouped.filter((g) => g.lemmas.filter((p) => !p.isAggregate).length >= 2).map((g) => g.category)
@@ -1713,11 +1729,11 @@ function syncParadigmFocusUi() {
   // PARSING_SHUFFLE_ALL_VALUE sentinel) — mirrors the chapter dropdown's "Build
   // mode" entry driving Lookup mode. Not offered in Build mode (Lookup), where
   // the dropdown is a single-paradigm reference and shuffle-all doesn't apply.
-  const sentinelOpt = buildModeLookup
+  const sentinelOpt = buildModeLookup || runtime.parsingFlipMode
     ? ''
     : `<option value="${PARSING_SHUFFLE_ALL_VALUE}">All paradigms through selected chapter</option>`;
   const groupsHtml = grouped.map((g) => {
-    const shuffleOpt = shuffleableCategories.has(g.category)
+    const shuffleOpt = !runtime.parsingFlipMode && !buildModeLookup && shuffleableCategories.has(g.category)
       ? `<option value="${escapeHtml(makeCategoryShuffleValue(g.category))}">${escapeHtml(categoryShuffleLabel(g.category))}</option>`
       : '';
     const opts = g.lemmas
@@ -1739,11 +1755,11 @@ function syncParadigmFocusUi() {
   const currentValue = runtime.morphFocusedParadigm;
   const currentCategory = parseCategoryShuffleValue(currentValue);
   let chosen;
-  if (currentCategory) {
-    // A "shuffle all of type" selection stays put while its category still has
-    // two or more shuffleable lemmas in scope; otherwise it falls back to the
-    // first concrete lemma (e.g. the chapter dropped below where the type first
-    // appears).
+  if (currentCategory && !runtime.parsingFlipMode) {
+    // A "shuffle all of type" selection stays put while its category still
+    // has two or more shuffleable lemmas in scope; otherwise it falls back to
+    // the first concrete lemma (e.g. the chapter dropped below where the type
+    // first appears).
     chosen = shuffleableCategories.has(currentCategory) ? currentValue : available[0].lemma;
   } else {
     const substitutedCurrent = isHiddenFromParsing(currentValue)
@@ -1916,6 +1932,14 @@ function onDueHistogramToggle(key, el) {
 }
 
 function syncToggleButtons() {
+  const flipToggle = document.getElementById('parsingFlipToggle');
+  if (flipToggle) flipToggle.setAttribute('aria-checked', runtime.parsingFlipMode ? 'true' : 'false');
+  const flipSwitch = document.getElementById('parsingFlipBtn');
+  if (flipSwitch) flipSwitch.classList.toggle('on', !!runtime.parsingFlipMode);
+  const retentionToggle = document.getElementById('retentionToggle');
+  if (retentionToggle) retentionToggle.setAttribute('aria-checked', runtime.retentionMode ? 'true' : 'false');
+  const retentionSwitch = document.getElementById('retentionBtn');
+  if (retentionSwitch) retentionSwitch.classList.toggle('on', !!runtime.retentionMode);
   const requiredSwitch  = document.getElementById('requiredBtn');
   const shuffleSwitch   = document.getElementById('shuffleBtn');
   const directionSwitch = document.getElementById('directionBtn');
@@ -2130,6 +2154,15 @@ function syncToggleButtons() {
 }
 
 function syncLayoutVisibility() {
+  const flipActive = isParsingFlipActive();
+  const retentionPicker = document.getElementById('pickNewRetentionBtn');
+  if (retentionPicker) retentionPicker.style.display = isRetentionActive() && runtime.selectedKeys.length ? '' : 'none';
+  const flipToggle = document.getElementById('parsingFlipToggle');
+  if (flipToggle) flipToggle.style.display = isParsingMode() ? 'flex' : 'none';
+  const flipPass = document.getElementById('parsingFlipPassBtn');
+  if (flipPass) flipPass.style.display = flipActive ? '' : 'none';
+  const retentionToggle = document.getElementById('retentionToggle');
+  if (retentionToggle) retentionToggle.style.display = runtime.studyMode === 'vocab' ? 'flex' : 'none';
   const controlsBar = document.getElementById('controlsBar');
   const navRow = document.getElementById('navRow');
   const markRow = document.getElementById('markRow');
@@ -2164,6 +2197,7 @@ function syncLayoutVisibility() {
   // Reader keeps no deck and Build mode acts on no deck, so the Reshuffle /
   // Reset actions have nothing to act on — hide the whole grid in either.
   const resetActionsGrid = document.querySelector('.reset-actions-grid');
+  const resetActionsSection = resetActionsGrid;
   if (resetActionsGrid) resetActionsGrid.style.display = (isReaderMode() || lookupActive) ? 'none' : '';
   if (markRow) markRow.style.display = reviewDeckMode && runtime.selectedKeys.length && !isMorphologyMode() && !isParsingMode() ? 'flex' : 'none';
   if (fastForwardRow) fastForwardRow.style.display = reviewDeckMode && runtime.selectedKeys.length && runtime.spacedRepetition && !isParsingMode() ? 'flex' : 'none';
@@ -2295,6 +2329,32 @@ function syncLayoutVisibility() {
     }
   }
 
+  if (flipActive) {
+    for (const el of [prevBtn, undoBtn, fastForwardRow,
+      document.getElementById('parsingShuffleAllToggle'), document.getElementById('parsingCustomReviewToggle'),
+      document.getElementById('parsingReverseToggle'), document.getElementById('accentLookalikeToggle'),
+      document.getElementById('parsingCustomParadigmsRow')]) {
+      if (el) el.style.display = 'none';
+    }
+    if (resetActionsSection) resetActionsSection.style.display = 'none';
+    if (paradigmFocusRowPrimary) paradigmFocusRowPrimary.style.display = 'flex';
+    if (navResetBtn) navResetBtn.style.display = '';
+    if (markRow) { markRow.style.display = runtime.deck.length ? 'flex' : 'none'; markRow.classList.add('recognition-marks'); }
+    if (nextBtn) { nextBtn.textContent = 'Pass →'; nextBtn.classList.remove('spaced-again', 'nav-next-as-reset'); }
+  } else if (markRow) markRow.classList.remove('recognition-marks');
+
+  if (isRetentionActive()) {
+    // Keep navigation inside the fixed batch and leave the review clock alone.
+    for (const el of [prevBtn, undoBtn, navResetBtn, fastForwardRow, resetActionsSection, spacedToggle, dailyResetToggle, shuffleToggle]) {
+      if (el) el.style.display = 'none';
+    }
+    if (markRow) markRow.style.display = runtime.deck.length ? 'flex' : 'none';
+    if (navRow) navRow.style.display = runtime.deck.length ? 'flex' : 'none';
+    if (nextBtn) {
+      nextBtn.textContent = 'Skip →';
+      nextBtn.classList.remove('spaced-again', 'nav-next-as-reset');
+    }
+  }
 }
 
 function ensureUsageStats(stats = runtime.appUsageStats) {
@@ -2377,6 +2437,7 @@ function startUsageTracking() {
         runtime.appUsageStats.lastActiveAt = Date.now();
         updateUsageMeta();
         maybeAutoResetUnspacedArchivesAndRefresh();
+        maybeRefreshRetentionDay();
       }
     });
 
@@ -2394,6 +2455,8 @@ function startUsageTracking() {
   if (!runtime.usageTickHandle) {
     runtime.usageTickHandle = window.setInterval(() => {
       if (document.hidden) return;
+      maybeAutoResetUnspacedArchivesAndRefresh();
+      maybeRefreshRetentionDay();
       const now = Date.now();
       const delta = accumulateUsageTime(now);
       const activeDelta = accumulateActiveStudyTime(now);
@@ -2429,10 +2492,11 @@ function noteUnspacedArchiveActivity() {
 
 // Clears all unspaced 'known' marks across g2e and e2g when the local
 // archive-day key has rolled past the 5 AM cutoff since the last archive
-// activity. Morph marks are untouched. Returns true if anything was
+// activity. Retention always uses this daily reset, even when the normal
+// deck's optional reset is off. Morph marks are untouched. Returns true if anything was
 // cleared so callers can rebuild the active deck.
 function maybeAutoResetUnspacedArchives() {
-  if (!runtime.unspacedAutoResetEnabled) return false;
+  if (!runtime.unspacedAutoResetEnabled && !runtime.retentionMode) return false;
   const todayKey = getUnspacedArchiveDayKey();
   const lastKey = runtime.lastUnspacedArchiveDayKey || '';
   if (!lastKey) {
@@ -2575,7 +2639,8 @@ function buildFilteredFocusedParadigmCards() {
   const opts = {
     includeOptional: !!runtime.includeOptionalForms,
     optionalFilters: runtime.optionalFormFilters,
-    dimValueFilters: runtime.dimValueFilters
+    dimValueFilters: runtime.dimValueFilters,
+    includeSyncretic: isParsingFlipActive()
   };
   // "Custom paradigm set" wins over everything else: pool only the paradigms the
   // user has ticked, shuffled together. (Mutually exclusive with shuffle-all,
@@ -2698,6 +2763,7 @@ function noteParsingCardShown(cardId) {
 // starts fresh. A plain reshuffle deliberately does NOT reset it: the budget
 // should keep bounding repeats across reshuffles within the same run.
 function resetParsingShowCounts() {
+  runtime.parsingFlipSession = null;
   runtime.parsingShowCounts = {};
   runtime.parsingLastShownCardId = null;
 }
@@ -2712,7 +2778,7 @@ function resetParsingShowCounts() {
 function rebuildParsingCycle(options = {}) {
   const pool = buildFilteredFocusedParadigmCards();
   runtime.originalDeck = pool;
-  const ordered = orderParsingPool(pool);
+  const ordered = isParsingFlipActive() ? buildParsingFlipDeck(pool) : orderParsingPool(pool);
   avoidHeadCollision(ordered, options.avoidHeadId);
   runtime.deck = ordered;
   runtime.activeDeckCount = ordered.length;
@@ -3147,7 +3213,319 @@ function avoidHeadCollision(deck, avoidHeadId) {
   return deck;
 }
 
+// Recognition queues are transient. Only the mode preference is persisted;
+// rating these cards never calls the scheduler or records parsing attempts.
+const PARSING_INCOMPATIBLE_LEMMAS = {
+  'Second-aorist stems': 'W3_SECOND_AORIST_FLIP'
+}
+function isParsingIncompatibleLemma(lemma) { return Object.hasOwn(PARSING_INCOMPATIBLE_LEMMAS, lemma); }
+
+function isParsingFlipActive() {
+  return isParsingMode() && runtime.parsingFlipMode && !runtime.parsingLookup;
+}
+
+function toggleParsingFlipMode() {
+  if (!isParsingMode()) return;
+  saveCurrentDeckStateToBank();
+  runtime.parsingFlipMode = !runtime.parsingFlipMode;
+  if (runtime.parsingFlipMode) {
+    runtime.parsingLookup = false;
+    runtime.parsingReverse = false;
+    runtime.parsingShuffleAll = false;
+    runtime.parsingCustomReview = false;
+    const available = listAvailableParadigms(getAggregateSelectionKeys())
+      .filter(p => !isParsingIncompatibleLemma(p.lemma));
+    if (!available.some(p => p.lemma === runtime.morphFocusedParadigm)) {
+      runtime.morphFocusedParadigm = available[0]?.lemma || null;
+    }
+  }
+  runtime.parsingFlipSession = null;
+  resetMorphStepState();
+  resetMorphAnswerState();
+  rebuildMorphDeckForStepMode();
+  syncToggleButtons();
+  saveState();
+}
+
+function buildParsingFlipDeck(cards) {
+  const forms = new Map();
+  for (const card of cards || []) {
+    const key = `${card.lemma}‖${String(card.form || '').normalize('NFC')}`;
+    if (!forms.has(key)) forms.set(key, { ...card, recognitionAnswers: [] });
+    const entry = forms.get(key);
+    if (!entry.recognitionAnswers.some(c => c.parsedAnswer === card.parsedAnswer && c.answer === card.answer)) {
+      entry.recognitionAnswers.push(card);
+    }
+  }
+  const pool = [...forms.values()];
+  const ordered = runtime.shuffled ? shuffleArray(pool) : pool;
+  runtime.parsingFlipSession = { ids: ordered.map(c => c.id), pending: ordered.map(c => c.id), cards: ordered };
+  runtime.activeDeckCount = ordered.length;
+  runtime.currentIdx = 0;
+  return ordered;
+}
+
+function refreshParsingFlip() {
+  const session = runtime.parsingFlipSession;
+  const byId = new Map((session?.cards || []).map(c => [c.id, c]));
+  runtime.deck = (session?.pending || []).map(id => byId.get(id)).filter(Boolean);
+  runtime.activeDeckCount = runtime.deck.length;
+  runtime.currentIdx = 0;
+  runtime.isFlipped = false;
+  renderCard();
+  renderProgress();
+  renderReview();
+  saveState();
+}
+
+function parsingFlipMark(outcome) {
+  if (!isParsingFlipActive()) return false;
+  const session = runtime.parsingFlipSession;
+  if (!session || !runtime.deck.length) return true;
+  // Easy clears this run; Hard, Uncertain, and neutral Pass rotate the queue.
+  Retention.rateBatch(session, outcome);
+  refreshParsingFlip();
+  return true;
+}
+
+function parsingFlipNavigate(dir) {
+  if (!isParsingFlipActive()) return false;
+  if (dir > 0) parsingFlipMark('skip');
+  return true;
+}
+
+function shuffleParsingFlip(randomize = true) {
+  if (!isParsingFlipActive() || !runtime.parsingFlipSession) return;
+  const session = runtime.parsingFlipSession;
+  const remaining = new Set(session.pending);
+  session.pending = randomize ? shuffleArray([...session.pending]) : session.ids.filter(id => remaining.has(id));
+  refreshParsingFlip();
+}
+
+function restartParsingFlip() {
+  if (!isParsingFlipActive()) return;
+  runtime.deck = buildParsingFlipDeck(buildFilteredFocusedParadigmCards());
+  refreshParsingFlip();
+}
+
+function renderParsingFlipProgress() {
+  if (!isParsingFlipActive()) return false;
+  const total = runtime.parsingFlipSession?.ids.length || 0;
+  const done = total - runtime.deck.length;
+  const pct = total ? Math.round(100 * done / total) : 0;
+  const text = document.getElementById('progressText');
+  if (text) text.textContent = `Recognition · ${done} / ${total} forms cleared this session`;
+  const fill = document.getElementById('progressFill');
+  if (fill) fill.style.width = `${pct}%`;
+  const percent = document.getElementById('progressPercent');
+  if (percent) percent.textContent = `${pct}%`;
+  return true;
+}
+
+function renderParsingFlipReview() {
+  if (!isParsingFlipActive()) return false;
+  const tag = document.getElementById('reviewDeckTag');
+  if (tag) tag.textContent = 'Parsing recognition';
+  const stats = document.getElementById('reviewStats');
+  if (stats) stats.textContent = `${runtime.deck.length} forms left in this session`;
+  const sort = document.getElementById('reviewSortRow');
+  if (sort) sort.innerHTML = '';
+  const list = document.getElementById('reviewList');
+  if (list) list.innerHTML = '<p>Flip to check the parsing and meaning. Hard and Uncertain repeat; Easy clears a form for this session; Pass skips without grading. Chapter and variant filters set the form pool. Recognition does not update accuracy, XP, confidence, or review schedules.</p>';
+  return true;
+}
+
+function isRetentionActive() {
+  return runtime.retentionMode && runtime.studyMode === 'vocab';
+}
+
+function retentionBatch(options) {
+  maybeAutoResetUnspacedArchives();
+  const key = getDeckStateKey();
+  return Retention.getBatch(runtime.retentionSessions, key, runtime.originalDeck,
+    card => runtime.spacedRepetition ? isCardDue(card) : runtime.marks[card.id] !== 'known',
+    Math.random, card => progressCardId(card.id), options);
+}
+
+function syncRetentionVariantBatch(batch) {
+  if (!runtime.spacedRepetition) return;
+  const members = new Set(batch.ids);
+  const groups = new Map();
+  for (const card of runtime.originalDeck) {
+    if (!members.has(card.id)) continue;
+    const id = progressCardId(card.id);
+    if (!groups.has(id)) groups.set(id, []);
+    groups.get(id).push(card);
+  }
+  for (const cards of groups.values()) {
+    const info = getVariantCycleInfo(cards[0]);
+    if (!info) continue;
+    const progress = getWordProgress(cards[0].id);
+    const groupIds = new Set(cards.map(card => card.id));
+    const hasPending = batch.pending.some(id => groupIds.has(id));
+    if (!hasPending && !progress.cycleStartedAt) continue;
+    // Let the existing scheduler close expired rounds and record confidence.
+    // A round reset (timeout or Uncertain) requeues the whole word in this
+    // same batch; batch completion must never conceal an unfinished set.
+    if (progress.cycleStartedAt > 0 && Date.now() >= progress.cycleStartedAt + SRS_VARIANT_HOLD_MS) {
+      isCardDue(cards[0]);
+    }
+    const passed = new Set(progress.cycleFacesPassed || []);
+    const needsReview = progress.cycleStartedAt > 0
+      ? cards.filter(card => !passed.has(derivedCardFaceKey(card)))
+      : cards.filter(isCardDue);
+    const required = new Set(needsReview.map(card => card.id));
+    batch.pending = batch.pending.filter(id => !groupIds.has(id) || required.has(id));
+    const queued = new Set(batch.pending);
+    for (const card of needsReview) {
+      if (!queued.has(card.id)) batch.pending.push(card.id);
+    }
+  }
+}
+
+function retentionCounts(batch) {
+  const baseIds = new Set(batch.ids.map(progressCardId));
+  const pendingBaseIds = new Set(batch.pending.map(progressCardId));
+  return { total: baseIds.size, done: baseIds.size - pendingBaseIds.size, virtual: batch.ids.length - baseIds.size };
+}
+
+function buildRetentionDeck() {
+  const batch = retentionBatch();
+  syncRetentionVariantBatch(batch);
+  const byId = new Map(runtime.originalDeck.map(card => [card.id, card]));
+  const cards = batch.pending.map(id => byId.get(id)).filter(Boolean);
+  runtime.activeDeckCount = cards.length;
+  runtime.middleDeckCount = 0;
+  runtime.unspacedMiddleCount = 0;
+  runtime.currentIdx = 0;
+  return cards;
+}
+
+function refreshRetention() {
+  runtime.deck = buildRetentionDeck();
+  runtime.isFlipped = false;
+  clearSpacedUndoSnapshot();
+  renderCard();
+  renderProgress();
+  renderReview();
+  saveState();
+}
+
+function toggleRetentionMode() {
+  saveCurrentDeckStateToBank();
+  runtime.retentionMode = !runtime.retentionMode;
+  clearSpacedUndoSnapshot();
+  runtime.unspacedHistory = [];
+  syncToggleButtons();
+  if (runtime.selectedKeys.length) {
+    loadDeckFromKeys(runtime.selectedKeys, runtime.currentSession?.id || null);
+  } else {
+    saveState();
+    syncLayoutVisibility();
+  }
+}
+
+function nextRetentionBatch() {
+  if (maybeRefreshRetentionDay()) return;
+  if (!isRetentionActive() || retentionBatch().pending.length) return;
+  pickNewRetentionBatch();
+}
+
+function pickNewRetentionBatch() {
+  if (!isRetentionActive() || !runtime.selectedKeys.length) return;
+  retentionBatch({ replace: true });
+  refreshRetention();
+}
+
+function maybeRefreshRetentionDay() {
+  if (!isRetentionActive() || !runtime.selectedKeys.length) return false;
+  const batch = runtime.retentionSessions[getDeckStateKey()];
+  if (!batch || Retention.isBatchCurrent(batch)) return false;
+  refreshRetention();
+  return true;
+}
+
+function retentionMark(outcome) {
+  if (!isRetentionActive()) return false;
+  if (maybeRefreshRetentionDay()) return true;
+  const batch = retentionBatch();
+  const card = runtime.deck[0];
+  if (!card || !batch.pending.length) return true;
+  noteStudyInteraction();
+  const rated = outcome === 'easy' ? 'easy' : outcome === 'pass' ? 'pass' : 'again';
+  if (runtime.spacedRepetition) {
+    applySpacedReview(card, rated);
+  } else {
+    recordStudyOutcome(card.id, rated === 'easy' ? 'known' : rated === 'pass' ? 'pass' : 'review');
+    applyUnspacedSharedSchedule(card, rated);
+    if (rated === 'easy') {
+      runtime.marks[card.id] = 'known';
+      noteUnspacedArchiveActivity();
+    } else delete runtime.marks[card.id];
+  }
+  Retention.rateBatch(batch, rated);
+  refreshRetention();
+  return true;
+}
+
+function retentionNavigate(dir) {
+  if (!isRetentionActive()) return false;
+  if (maybeRefreshRetentionDay()) return true;
+  // Skip rotates within this batch without grading or replacing the card.
+  if (dir > 0 && runtime.deck.length) {
+    const batch = retentionBatch();
+    Retention.rateBatch(batch, 'skip');
+    noteStudyInteraction();
+    refreshRetention();
+  }
+  return true;
+}
+
+function renderRetentionComplete(area) {
+  if (!isRetentionActive() || runtime.deck.length || !runtime.originalDeck.length) return false;
+  const batch = retentionBatch();
+  const counts = retentionCounts(batch);
+  area.innerHTML = batch.ids.length
+    ? `<div class="empty-state"><div class="big">✓</div><strong>Batch complete · ${counts.total} base cards</strong><p>${counts.virtual} virtual cards included. Good stopping point. Your progress is saved.</p><button class="ctrl-btn" type="button" onclick="nextRetentionBatch()">Review next 20 →</button></div>`
+    : '<div class="empty-state"><div class="big">✓</div><strong>No eligible cards right now</strong><p>All cards in this selection are scheduled for later or already confirmed.</p><button class="ctrl-btn" type="button" onclick="nextRetentionBatch()">Check again</button></div>';
+  return true;
+}
+
+function renderRetentionProgress() {
+  const pickButton = document.getElementById('pickNewRetentionBtn');
+  if (pickButton) pickButton.style.display = isRetentionActive() && runtime.selectedKeys.length ? '' : 'none';
+  if (!isRetentionActive()) return false;
+  const batch = retentionBatch();
+  const counts = retentionCounts(batch);
+  const pct = counts.total ? Math.round(counts.done / counts.total * 100) : 0;
+  const text = document.getElementById('progressText');
+  if (text) text.textContent = `Retention · ${counts.done} / ${counts.total} base cards completed · ${batch.pending.length} cards left${counts.virtual ? ` · ${counts.virtual} virtual cards included` : ''}`;
+  const fill = document.getElementById('progressFill');
+  if (fill) fill.style.width = `${pct}%`;
+  const percent = document.getElementById('progressPercent');
+  if (percent) percent.textContent = `${pct}%`;
+  if (isAnalyticsModalOpen()) renderAnalyticsOverlay();
+  return true;
+}
+
+function renderRetentionReview() {
+  if (!isRetentionActive()) return false;
+  const batch = retentionBatch();
+  const counts = retentionCounts(batch);
+  const tag = document.getElementById('reviewDeckTag');
+  if (tag) tag.textContent = 'Retention batch';
+  const stats = document.getElementById('reviewStats');
+  if (stats) stats.textContent = `${counts.done} / ${counts.total} base cards completed · ${batch.pending.length} cards left · ${counts.virtual} virtual cards included`;
+  const sort = document.getElementById('reviewSortRow');
+  if (sort) sort.innerHTML = '';
+  const list = document.getElementById('reviewList');
+  if (list) list.innerHTML = '<p>20 random eligible base cards at a time, plus all their enabled virtual cards. Virtual cards do not use the 20-card allowance. Each word stays in this batch until its forms clear their shared review round. Hard and Uncertain repeat; Skip keeps the card in the batch. Pick new 20 at any time to reshuffle eligible words; recorded reviews are kept. Batches reset daily at 5 AM local time. You can stop and resume within the day.</p>';
+  return true;
+}
+
 function buildStudyDeck(cards, options = {}) {
+  if (isParsingFlipActive()) return buildParsingFlipDeck(cards);
+  if (isRetentionActive()) return buildRetentionDeck();
   // Parsing owns its deck ordering: a status-weighted shuffle (orderParsingPool)
   // that floats unseen/wrong forms ahead of mastered ones, rather than the
   // spaced/unspaced pile machinery below. It carries no SRS schedule and no
@@ -3838,6 +4216,8 @@ function reshuffleUpcomingCards() {
 }
 
 function maybeReturnKnownCardToActivePile() {
+  if (isParsingMode()) return false;
+  if (isRetentionActive()) return false;
   if (runtime.spacedRepetition || isMorphologyMode() || KNOWN_CARD_RANDOM_RETURN_FLIP_ODDS <= 0) return false;
   if (!runtime.originalDeck.length || runtime.currentIdx >= runtime.deck.length) return false;
 
@@ -3975,6 +4355,8 @@ installKeyboardShortcuts({
 //  leave the page rendered-but-unclickable.
 // ═══════════════════════════════════════════════════════
 const GLOBAL_CLICK_HANDLERS = {
+  toggleRetentionMode, nextRetentionBatch, pickNewRetentionBatch,
+  toggleParsingFlipMode, parsingFlipMark, restartParsingFlip,
   flipCard, navigate, markCard, handleNavNext, answerMorphologyChoice,
   revealMorphologyAnswer, rateMorphologySelfCheck, passMorphologyChoice,
   answerMorphologyStep, skipMorphologyStep, giveUpMorphologyStep, undoMorphologyStep, answerParsingReverseChoice,
@@ -4050,11 +4432,10 @@ if (cardArea) {
   cardArea.addEventListener('click', (event) => {
     const target = event.target;
     if (!target || !(target instanceof Element)) return;
-    // Parsing-mode stem-recall redirect button uses .empty-state for layout
-    // but has its own onclick that switches mode + loads the supplemental
-    // deck. Opening the study selector on top of that would be a confusing
-    // double-effect, so skip the delegate for it.
-    if (target.closest('.parsing-redirect-btn')) return;
+    // Completion and redirect actions own their click. Only bare empty-state
+    // content opens the selector; a nested button may already have rebuilt
+    // the deck by the time this delegated listener receives the event.
+    if (target.closest('button, a, input, select, [role="button"]')) return;
     if (target.closest('.empty-state')) openStudySelector();
   });
 }

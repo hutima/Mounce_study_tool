@@ -226,3 +226,7 @@ the same commit:**
 Line numbers drift — don't chase them obsessively, just keep them in the right
 neighborhood. The tables above are the source of truth for *what exists*; line
 numbers are a convenience.
+
+## Retention and recognition (v179)
+
+Advanced controls add `retentionToggle`/`retentionBtn` and `parsingFlipToggle`/`parsingFlipBtn`. `pickNewRetentionBtn` below the card chooses a fresh 20-base-word batch. Virtual faces stay with their base words. Daily cutoff is 5 AM local. `parsingFlipPassBtn` appears only in opt-in recognition mode. Menu order is Vocab, Parsing, Quiz, Translate; Mounce Parts and chapter limits remain unchanged. Completed-deck actions do not open the lesson selector.

@@ -60,7 +60,9 @@ presets, off-the-record parsing). Consult it before applying a duff diff.
 
 ### Porting status — last version ported
 
-**Last reviewed duff commit: `b1e636d` (tip of duff `main`, 2026-07-08; #332 KJV
+**Last reviewed duff commit: `c904222` (2026-11-27). Ported retention batches, daily reset/new-batch controls, split-face grouping, touch disclosure fix, recognition parsing, and Quiz menu ordering. PR #335 SRS fix was already present via Mounce #117; temporary CI workflow commits are intentionally not ported. Mounce chapter mapping, storage keys, Parts, lookup aggregates, and off-the-record parsing are preserved.
+
+Previous boundary: **`b1e636d` (tip of duff `main`, 2026-07-08; #332 KJV
 gloss modernization and #333 GNT Reader author-link ported below. The earlier
 boundary was `d15f82d`, 2026-06-28: the eight commits after `22aee43` evaluated
 below — only #325's οἶδα "perfect-as-present" paradigm and #326's "Form vs meaning"

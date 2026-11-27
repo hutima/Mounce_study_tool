@@ -173,7 +173,13 @@ export function renderCard() {
     return;
   }
 
+  if (host.isParsingMode() && runtime.parsingFlipMode && !runtime.parsingLookup) {
+    renderParsingFlipCard(area);
+    return;
+  }
+
   if (!runtime.deck.length) {
+    if (host.renderRetentionComplete?.(area)) return;
     let emptyMessage;
     if (host.isParsingMode()) {
       // A paradigm IS focused but the deck came back empty. With "Exclude
@@ -630,6 +636,55 @@ export function renderCard() {
       </div>
     </div>`;
 
+  runtime.isFlipped = false;
+  renderProgress();
+}
+
+// The same two-face shell as vocabulary; recognition never initializes a
+// dimensional walk, records an attempt, or marks a form as mastered.
+function renderParsingFlipCard(area) {
+  const card = runtime.deck[runtime.currentIdx];
+  if (!card) {
+    const hadForms = !!runtime.parsingFlipSession?.ids.length;
+    area.innerHTML = hadForms
+      ? '<div class="empty-state"><div class="big">✓</div><strong>Recognition deck complete</strong><p>All forms cleared for this session.</p><button class="ctrl-btn" type="button" onclick="restartParsingFlip()">Review these forms again</button></div>'
+      : '<div class="empty-state"><strong>No forms match these settings</strong><p>Choose a root or adjust the chapter and parsing variant filters.</p></div>';
+    const marks = document.getElementById('markRow');
+    if (marks) marks.style.display = 'none';
+    renderProgress();
+    return;
+  }
+  const enabled = host.getEnabledParsingDims() || {};
+  const answers = card.recognitionAnswers || [card];
+  const parseText = c => {
+    const dims = parseAnswerDimensions(c.parsedAnswer || c.answer || '');
+    return ['tense', 'aspect', 'voice', 'mood', 'person', 'case', 'number', 'gender']
+      .filter(dim => enabled[dim] !== false && dims[dim])
+      .map(dim => dim === 'person' ? `${dims[dim]} person` : dims[dim]).join(' · ');
+  };
+  const answerHtml = [...new Set(answers.map(c => {
+    const parse = parseText(c);
+    const gloss = formGloss(c);
+    return `<div class="recognition-parse">${escapeHtml(parse)}</div>${gloss ? `<div class="recognition-gloss">${escapeHtml(gloss)}</div>` : ''}`;
+  }))].join('<hr>');
+  area.innerHTML = `
+    <div class="card-wrapper" id="cardWrapper" onclick="flipCard()">
+      <div class="card-inner" id="cardInner">
+        <div class="card-face card-front">
+          <span class="card-label">Parsing · Recognition</span>
+          <div class="card-greek">${escapeHtml(card.form)}</div>
+          <div class="card-hint">${escapeHtml(card.lemma || '')}</div>
+          <div class="flip-hint">click to reveal parsing and meaning →</div>
+        </div>
+        <div class="card-face card-back">
+          <div class="recognition-answer">
+            <span class="card-label">Parsing and meaning</span>
+            <div class="card-greek-small">${escapeHtml(card.form)}</div>
+            ${answerHtml}
+          </div>
+        </div>
+      </div>
+    </div>`;
   runtime.isFlipped = false;
   renderProgress();
 }
