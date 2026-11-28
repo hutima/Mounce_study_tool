@@ -2155,6 +2155,8 @@ function syncToggleButtons() {
 
 function syncLayoutVisibility() {
   const flipActive = isParsingFlipActive();
+  const retentionShuffle = document.getElementById('shuffleRetentionBtn');
+  if (retentionShuffle) retentionShuffle.style.display = isRetentionActive() && runtime.selectedKeys.length ? '' : 'none';
   const retentionPicker = document.getElementById('pickNewRetentionBtn');
   if (retentionPicker) retentionPicker.style.display = isRetentionActive() && runtime.selectedKeys.length ? '' : 'none';
   const flipToggle = document.getElementById('parsingFlipToggle');
@@ -3258,8 +3260,8 @@ function buildParsingFlipDeck(cards) {
     }
   }
   const pool = [...forms.values()];
-  const ordered = runtime.shuffled ? shuffleArray(pool) : pool;
-  runtime.parsingFlipSession = { ids: ordered.map(c => c.id), pending: ordered.map(c => c.id), cards: ordered };
+  const ordered = shuffleArray(pool);
+  runtime.parsingFlipSession = { ids: ordered.map(c => c.id), pending: ordered.map(c => c.id), roundRemaining: ordered.map(c => c.id), cards: ordered };
   runtime.activeDeckCount = ordered.length;
   runtime.currentIdx = 0;
   return ordered;
@@ -3299,6 +3301,7 @@ function shuffleParsingFlip(randomize = true) {
   const session = runtime.parsingFlipSession;
   const remaining = new Set(session.pending);
   session.pending = randomize ? shuffleArray([...session.pending]) : session.ids.filter(id => remaining.has(id));
+  session.roundRemaining = [...session.pending];
   refreshParsingFlip();
 }
 
@@ -3429,6 +3432,14 @@ function nextRetentionBatch() {
   if (maybeRefreshRetentionDay()) return;
   if (!isRetentionActive() || retentionBatch().pending.length) return;
   pickNewRetentionBatch();
+}
+
+function shuffleRetentionCards() {
+  if (!isRetentionActive()) return;
+  const batch = retentionBatch();
+  batch.pending = shuffleArray([...batch.pending]);
+  batch.roundRemaining = [...batch.pending];
+  refreshRetention();
 }
 
 function pickNewRetentionBatch() {
@@ -4355,7 +4366,7 @@ installKeyboardShortcuts({
 //  leave the page rendered-but-unclickable.
 // ═══════════════════════════════════════════════════════
 const GLOBAL_CLICK_HANDLERS = {
-  toggleRetentionMode, nextRetentionBatch, pickNewRetentionBatch,
+  toggleRetentionMode, nextRetentionBatch, pickNewRetentionBatch, shuffleRetentionCards,
   toggleParsingFlipMode, parsingFlipMark, restartParsingFlip,
   flipCard, navigate, markCard, handleNavNext, answerMorphologyChoice,
   revealMorphologyAnswer, rateMorphologySelfCheck, passMorphologyChoice,

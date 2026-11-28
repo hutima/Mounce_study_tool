@@ -31,7 +31,7 @@ test('legacy and partially reviewed batches acquire missing enabled siblings', (
   const sessions = { deck: { ids: ['say'], pending: [], savedAt: Date.now() } };
   const batch = getBatch(sessions, 'deck', family, c => c.id !== 'say', Math.random, c => progressCardId(c.id));
   assert.deepEqual(batch.ids, family.map(c => c.id));
-  assert.deepEqual(batch.pending, ['say::2aor', 'say::perfact']);
+  assert.deepEqual([...batch.pending].sort(), ['say::2aor', 'say::perfact'].sort());
   assert.equal(batch.groupsVersion, 2);
   const saved = JSON.parse(JSON.stringify(sessions));
   assert.deepEqual(getBatch(saved, 'deck', family, () => false, Math.random, c => progressCardId(c.id)).pending, batch.pending);
@@ -47,12 +47,12 @@ test('a word with only one eligible face brings its siblings without importing u
 test('enabling more virtual forms expands the same batch without sampling new base cards', () => {
   const sessions = {};
   const scope = [{ id: 'say' }, { id: 'say::2aor' }];
-  const batch = getBatch(sessions, 'deck', scope, () => true, Math.random, c => progressCardId(c.id));
+  const batch = getBatch(sessions, 'deck', scope, () => true, () => 0.9999, c => progressCardId(c.id));
   rateBatch(batch, 'easy');
   const expanded = [...scope, { id: 'say::perfact' }, { id: 'unrelated' }];
   getBatch(sessions, 'deck', expanded, () => true, Math.random, c => progressCardId(c.id));
   assert.deepEqual(batch.ids, ['say', 'say::2aor', 'say::perfact']);
-  assert.deepEqual(batch.pending, ['say::2aor', 'say::perfact']);
+  assert.deepEqual([...batch.pending].sort(), ['say::2aor', 'say::perfact'].sort());
 });
 
 function loadRetentionFlow(spacedRepetition, deckCards = cards) {
@@ -69,6 +69,7 @@ function loadRetentionFlow(spacedRepetition, deckCards = cards) {
   };
   const context = vm.createContext({
     runtime, Retention,
+    shuffleArray: cards => [...cards].reverse(),
     maybeAutoResetUnspacedArchives() {}, noteUnspacedArchiveActivity() {},
     progressCardId, getVariantCycleInfo: () => null,
     getDeckStateKey: () => `${runtime.directionToGreek}:${runtime.selectedKeys.join(',')}:${runtime.spacedRepetition}`,
@@ -185,7 +186,7 @@ test('samples 20 distinct cards exclusively from the eligible selection', () => 
   assert.equal(batch.ids.length, 20);
   assert.equal(new Set(batch.ids).size, 20);
   assert.ok(batch.ids.every(id => cards.find(card => card.id === id).due));
-  assert.deepEqual(batch.pending, batch.ids);
+  assert.deepEqual([...batch.pending].sort(), [...batch.ids].sort());
 });
 
 test('small, empty, and duplicate pools never invent cards', () => {
@@ -270,7 +271,7 @@ test('replacement favors new words and fills a small pool without splitting fami
   assert.equal(newWords.size, 20);
   assert.equal([...newWords].filter(id => !oldWords.has(id)).length, 5);
   assert.equal(second.ids.length, 40);
-  assert.deepEqual(second.pending, second.ids);
+  assert.deepEqual([...second.pending].sort(), [...second.ids].sort());
   const small = getBatch(sessions, 'small', families.slice(0, 6), () => true);
   rateBatch(small, 'easy');
   assert.equal(getBatch(sessions, 'small', families.slice(0, 6), () => true, Math.random, group, { replace: true }).pending.length, 6);
@@ -368,4 +369,33 @@ test('Reshuffle delegates to picking a new retention batch', () => {
   vm.runInContext(source.slice(start, end).replace('export function', 'function'), context);
   context.reshuffleEligible();
   assert.equal(picked, 1);
+});
+
+
+test('retention shuffles virtual faces initially and at each complete retry loop', () => {
+  const family = ['a', 'a::2aor', 'a::mi::0', 'b', 'b::2aor', 'b::mi::0'].map(id => ({ id }));
+  const batch = getBatch({}, 'shuffle', family, () => true, () => 0.5, c => progressCardId(c.id));
+  assert.notDeepEqual(batch.pending, batch.ids, 'faces must not be dealt in family order');
+  const before = [...batch.pending];
+  const seen = [];
+  for (let i = 0; i < before.length; i++) { seen.push(batch.pending[0]); rateBatch(batch, 'skip', () => 0.5); }
+  assert.deepEqual(seen, before, 'every face gets its turn before the loop reshuffles');
+  assert.notDeepEqual(batch.pending, before);
+  assert.notEqual(batch.pending[0], seen.at(-1), 'avoid immediate repeat across the boundary');
+  const saved = sanitizeSessions({ shuffle: batch });
+  const resumed = getBatch(saved, 'shuffle', family, () => true, () => 0.5, c => progressCardId(c.id));
+  assert.deepEqual(resumed.pending, batch.pending);
+  assert.deepEqual(resumed.roundRemaining, batch.roundRemaining);
+});
+
+
+test('Shuffle cards retains the same batch, completion progress, and grades', () => {
+  const { context: flow, runtime, calls } = loadRetentionFlow(true);
+  flow.retentionMark('easy');
+  const before = Array.from(runtime.deck, c => c.id);
+  const graded = [...calls];
+  flow.shuffleRetentionCards();
+  assert.deepEqual(Array.from(runtime.deck, c => c.id), [...before].reverse());
+  assert.deepEqual(calls, graded);
+  assert.equal(flow.retentionCounts(flow.retentionBatch()).done, 1);
 });
