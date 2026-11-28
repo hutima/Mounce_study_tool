@@ -230,3 +230,7 @@ numbers are a convenience.
 ## Retention and recognition (v179)
 
 Advanced controls add `retentionToggle`/`retentionBtn` and `parsingFlipToggle`/`parsingFlipBtn`. `pickNewRetentionBtn` below the card chooses a fresh 20-base-word batch. Virtual faces stay with their base words. Daily cutoff is 5 AM local. `parsingFlipPassBtn` appears only in opt-in recognition mode. Menu order is Vocab, Parsing, Quiz, Translate; Mounce Parts and chapter limits remain unchanged. Completed-deck actions do not open the lesson selector.
+
+## Virtual-card shuffling (v180)
+
+Retention and parsing recognition shuffle individual forms at creation and at each retry-round boundary. `shuffleRetentionBtn` reshuffles the remaining batch without selecting new words. A persisted round marker preserves mid-round order on resume. Shared-word grades are unchanged.

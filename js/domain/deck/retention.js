@@ -16,7 +16,9 @@ export function sanitizeSessions(value) {
     const savedAt = Number(batch.savedAt) || 0;
     const dayKey = typeof batch.dayKey === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(batch.dayKey)
       ? batch.dayKey : getUnspacedArchiveDayKey(savedAt || Date.now());
-    return [key, { ids, pending, groupsVersion: batch.groupsVersion === 2 ? 2 : 1, savedAt, dayKey }];
+    const roundRemaining = Array.isArray(batch.roundRemaining)
+      ? [...new Set(batch.roundRemaining.filter(id => pending.includes(id)))] : undefined;
+    return [key, { ids, pending, roundRemaining, groupsVersion: batch.groupsVersion === 2 ? 2 : 1, savedAt, dayKey }];
   }));
 }
 
@@ -43,6 +45,7 @@ export function getBatch(sessions, key, cards, eligible, random = Math.random, g
   }
   // Repair old batches and include any newly enabled sibling faces in place,
   // even if the batch was previously complete. Keep existing grades and words.
+  let addedFaces = false;
   if (batch?.ids.length) {
     const selectedGroups = new Set(batch.ids.map(id => groupKey(byId.get(id))));
     const present = new Set(batch.ids);
@@ -50,6 +53,7 @@ export function getBatch(sessions, key, cards, eligible, random = Math.random, g
       for (const id of groups.get(group)) {
         if (present.has(id)) continue;
         batch.ids.push(id);
+        addedFaces = true;
         if (eligible(byId.get(id))) batch.pending.push(id);
         present.add(id);
       }
@@ -75,12 +79,36 @@ export function getBatch(sessions, key, cards, eligible, random = Math.random, g
     const ids = selected.flatMap(([, group]) => [...group]);
     batch = sessions[key] = { ids, pending: ids.filter(id => eligibleIds.has(id)), groupsVersion: 2, savedAt: now, dayKey: getUnspacedArchiveDayKey(now) };
   }
+  if (addedFaces || !Array.isArray(batch.roundRemaining)) {
+    shufflePending(batch, random);
+  }
+  batch.roundRemaining = batch.roundRemaining.filter(id => batch.pending.includes(id));
   batch.dayKey ||= getUnspacedArchiveDayKey(now);
   batch.savedAt = now;
   return batch;
 }
 
-export function rateBatch(batch, outcome) {
+// Shuffle faces, not word families. The batch membership and shared grading
+// stay intact; this only changes presentation order at a round boundary.
+function shufflePending(batch, random = Math.random, avoidId) {
+  const queue = [...batch.pending];
+  for (let i = queue.length - 1; i > 0; i--) {
+    const j = Math.floor(random() * (i + 1));
+    [queue[i], queue[j]] = [queue[j], queue[i]];
+  }
+  if (queue.length > 1 && queue[0] === avoidId) {
+    const j = 1 + Math.floor(random() * (queue.length - 1));
+    [queue[0], queue[j]] = [queue[j], queue[0]];
+  }
+  batch.pending = queue;
+  batch.roundRemaining = [...queue];
+}
+
+export function rateBatch(batch, outcome, random = Math.random) {
+  if (!Array.isArray(batch.roundRemaining)) batch.roundRemaining = [...batch.pending];
   const id = batch.pending.shift();
-  if (id !== undefined && outcome !== 'easy') batch.pending.push(id);
+  if (id === undefined) return;
+  batch.roundRemaining = batch.roundRemaining.filter(other => other !== id && batch.pending.includes(other));
+  if (outcome !== 'easy') batch.pending.push(id);
+  if (!batch.roundRemaining.length && batch.pending.length) shufflePending(batch, random, id);
 }

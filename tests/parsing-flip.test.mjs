@@ -177,3 +177,18 @@ test('recognition reshuffle keeps Easy-cleared forms out until explicit restart'
   ctx.restartParsingFlip();
   assert.equal(runtime.deck.length, total);
 });
+
+
+test('recognition shuffles at creation with normal Shuffle off and on every retry loop', () => {
+  const { ctx, runtime } = flow();
+  runtime.shuffled = false;
+  const source = runtime.originalDeck;
+  runtime.deck = ctx.buildParsingFlipDeck(source);
+  const original = [...new Set(source.map(c => c.id))];
+  assert.notDeepEqual(Array.from(runtime.deck, c => c.id), original);
+  ctx.Retention = { ...Retention, rateBatch: (batch, outcome) => Retention.rateBatch(batch, outcome, () => 0.5) };
+  const before = Array.from(runtime.deck, c => c.id);
+  for (let i = 0; i < before.length; i++) ctx.parsingFlipMark('pass');
+  assert.notDeepEqual(Array.from(runtime.deck, c => c.id), before);
+  assert.deepEqual([...runtime.parsingFlipSession.pending].sort(), [...before].sort());
+});

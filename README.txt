@@ -275,3 +275,5 @@ KNOWN BEHAVIOR
 
 Retention: up to 20 eligible base words plus their enabled virtual faces. Pick new 20 at any time; batches refresh at 5 AM local and resume within the day.
 Parsing flip cards: optional, off by default. A focused root produces recognition cards with parsing and meaning on the back. Chapter/variant filters apply; Hard/Uncertain/Easy/Pass only manage the transient queue, without proficiency or SRS changes.
+
+Retention and parsing recognition shuffle individual forms at the start and after each retry round, independently of the normal deck Shuffle setting. Retention also provides Shuffle cards, keeping the same batch and recorded grades.
